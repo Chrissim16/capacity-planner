@@ -1,74 +1,450 @@
+import { useState } from 'react';
+import { 
+  Settings2, Shield, Code, Globe, Calendar, 
+  Plus, Trash2, ChevronRight, Save
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Badge } from '../components/ui/Badge';
+import { Modal } from '../components/ui/Modal';
 import { useAppStore } from '../stores/appStore';
+import { 
+  addRole, deleteRole, 
+  addSkill, deleteSkill, 
+  addSystem, deleteSystem, 
+  updateSettings 
+} from '../stores/actions';
+
+type SettingsSection = 'general' | 'roles' | 'skills' | 'systems' | 'countries' | 'holidays';
+
+const sections: { id: SettingsSection; label: string; icon: typeof Settings2 }[] = [
+  { id: 'general', label: 'General', icon: Settings2 },
+  { id: 'roles', label: 'Roles', icon: Shield },
+  { id: 'skills', label: 'Skills', icon: Code },
+  { id: 'systems', label: 'Systems', icon: Globe },
+  { id: 'countries', label: 'Countries', icon: Globe },
+  { id: 'holidays', label: 'Holidays', icon: Calendar },
+];
 
 export function Settings() {
-  const settings = useAppStore((s) => s.data.settings);
+  const state = useAppStore((s) => s.getCurrentState());
+  const { settings, roles, skills, systems, countries, publicHolidays } = state;
+  
+  const [activeSection, setActiveSection] = useState<SettingsSection>('general');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; id: string; name: string } | null>(null);
+  
+  // General settings form state
+  const [bauDays, setBauDays] = useState(settings.bauReserveDays || 5);
+  const [hoursPerDay, setHoursPerDay] = useState(settings.hoursPerDay || 8);
+  const [quartersToShow, setQuartersToShow] = useState(settings.quartersToShow || 4);
+  const [defaultCountryId, setDefaultCountryId] = useState(settings.defaultCountryId || '');
+  
+  // Add forms state
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newSkillName, setNewSkillName] = useState('');
+  const [newSkillCategory, setNewSkillCategory] = useState<'System' | 'Process' | 'Technical'>('Technical');
+  const [newSystemName, setNewSystemName] = useState('');
+  const [newSystemDesc, setNewSystemDesc] = useState('');
+
+  const handleSaveGeneral = () => {
+    updateSettings({
+      bauReserveDays: bauDays,
+      hoursPerDay,
+      quartersToShow,
+      defaultCountryId,
+    });
+  };
+
+  const handleAddRole = () => {
+    if (newRoleName.trim()) {
+      addRole(newRoleName.trim());
+      setNewRoleName('');
+    }
+  };
+
+  const handleAddSkill = () => {
+    if (newSkillName.trim()) {
+      addSkill(newSkillName.trim(), newSkillCategory);
+      setNewSkillName('');
+    }
+  };
+
+  const handleAddSystem = () => {
+    if (newSystemName.trim()) {
+      addSystem(newSystemName.trim(), newSystemDesc.trim() || undefined);
+      setNewSystemName('');
+      setNewSystemDesc('');
+    }
+  };
+
+  const confirmDelete = () => {
+    if (!deleteConfirm) return;
+    switch (deleteConfirm.type) {
+      case 'role': deleteRole(deleteConfirm.id); break;
+      case 'skill': deleteSkill(deleteConfirm.id); break;
+      case 'system': deleteSystem(deleteConfirm.id); break;
+    }
+    setDeleteConfirm(null);
+  };
+
+  const countryOptions = [
+    { value: '', label: 'Select default country' },
+    ...countries.map(c => ({ value: c.id, label: c.name })),
+  ];
+
+  const skillCategoryOptions = [
+    { value: 'System', label: 'System' },
+    { value: 'Process', label: 'Process' },
+    { value: 'Technical', label: 'Technical' },
+  ];
+
+  // Group skills by category
+  const skillsByCategory = skills.reduce((acc, skill) => {
+    if (!acc[skill.category]) acc[skill.category] = [];
+    acc[skill.category].push(skill);
+    return acc;
+  }, {} as Record<string, typeof skills>);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
-        <p className="text-slate-500 dark:text-slate-400">
-          Configure application settings
+    <div className="flex gap-6 h-[calc(100vh-8rem)]">
+      {/* Sidebar */}
+      <Card className="w-64 shrink-0">
+        <CardContent className="p-2">
+          <nav className="space-y-1">
+            {sections.map(section => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeSection === section.id
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Icon size={18} />
+                  {section.label}
+                  {activeSection === section.id && (
+                    <ChevronRight size={16} className="ml-auto" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </CardContent>
+      </Card>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {activeSection === 'general' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>General Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  id="bau-days"
+                  label="BAU Reserve (days per quarter)"
+                  type="number"
+                  min={0}
+                  max={30}
+                  value={bauDays}
+                  onChange={(e) => setBauDays(parseInt(e.target.value) || 0)}
+                />
+                <Input
+                  id="hours-per-day"
+                  label="Hours per Day"
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={hoursPerDay}
+                  onChange={(e) => setHoursPerDay(parseInt(e.target.value) || 8)}
+                />
+                <Input
+                  id="quarters-to-show"
+                  label="Quarters to Show"
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={quartersToShow}
+                  onChange={(e) => setQuartersToShow(parseInt(e.target.value) || 4)}
+                />
+                <Select
+                  id="default-country"
+                  label="Default Country"
+                  value={defaultCountryId}
+                  onChange={(e) => setDefaultCountryId(e.target.value)}
+                  options={countryOptions}
+                />
+              </div>
+              <Button onClick={handleSaveGeneral}>
+                <Save size={16} />
+                Save Settings
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeSection === 'roles' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Team Roles</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Add Role Form */}
+              <div className="flex gap-3">
+                <Input
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder="Enter role name"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddRole()}
+                />
+                <Button onClick={handleAddRole}>
+                  <Plus size={16} />
+                  Add
+                </Button>
+              </div>
+              
+              {/* Roles List */}
+              <div className="space-y-2">
+                {roles.map(role => (
+                  <div
+                    key={role.id}
+                    className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg"
+                  >
+                    <span className="font-medium text-slate-700 dark:text-slate-200">{role.name}</span>
+                    <button
+                      onClick={() => setDeleteConfirm({ type: 'role', id: role.id, name: role.name })}
+                      className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+                {roles.length === 0 && (
+                  <p className="text-center py-8 text-slate-400">No roles defined</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeSection === 'skills' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Skills</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Add Skill Form */}
+              <div className="flex gap-3">
+                <Input
+                  value={newSkillName}
+                  onChange={(e) => setNewSkillName(e.target.value)}
+                  placeholder="Enter skill name"
+                  className="flex-1"
+                />
+                <Select
+                  value={newSkillCategory}
+                  onChange={(e) => setNewSkillCategory(e.target.value as typeof newSkillCategory)}
+                  options={skillCategoryOptions}
+                />
+                <Button onClick={handleAddSkill}>
+                  <Plus size={16} />
+                  Add
+                </Button>
+              </div>
+              
+              {/* Skills by Category */}
+              {Object.entries(skillsByCategory).map(([category, categorySkills]) => (
+                <div key={category}>
+                  <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                    {category}
+                  </h3>
+                  <div className="space-y-2">
+                    {categorySkills.map(skill => (
+                      <div
+                        key={skill.id}
+                        className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg"
+                      >
+                        <span className="font-medium text-slate-700 dark:text-slate-200">{skill.name}</span>
+                        <button
+                          onClick={() => setDeleteConfirm({ type: 'skill', id: skill.id, name: skill.name })}
+                          className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {skills.length === 0 && (
+                <p className="text-center py-8 text-slate-400">No skills defined</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeSection === 'systems' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Systems</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Add System Form */}
+              <div className="flex gap-3">
+                <Input
+                  value={newSystemName}
+                  onChange={(e) => setNewSystemName(e.target.value)}
+                  placeholder="System name"
+                  className="flex-1"
+                />
+                <Input
+                  value={newSystemDesc}
+                  onChange={(e) => setNewSystemDesc(e.target.value)}
+                  placeholder="Description (optional)"
+                  className="flex-1"
+                />
+                <Button onClick={handleAddSystem}>
+                  <Plus size={16} />
+                  Add
+                </Button>
+              </div>
+              
+              {/* Systems List */}
+              <div className="space-y-2">
+                {systems.map(system => (
+                  <div
+                    key={system.id}
+                    className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg"
+                  >
+                    <div>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{system.name}</span>
+                      {system.description && (
+                        <p className="text-sm text-slate-500">{system.description}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setDeleteConfirm({ type: 'system', id: system.id, name: system.name })}
+                      className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+                {systems.length === 0 && (
+                  <p className="text-center py-8 text-slate-400">No systems defined</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeSection === 'countries' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Countries</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {countries.map(country => (
+                  <div
+                    key={country.id}
+                    className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{country.flag || '🏳️'}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{country.name}</span>
+                      <Badge variant="default">{country.code}</Badge>
+                    </div>
+                    <span className="text-sm text-slate-400">
+                      {publicHolidays.filter(h => h.countryId === country.id).length} holidays
+                    </span>
+                  </div>
+                ))}
+                {countries.length === 0 && (
+                  <p className="text-center py-8 text-slate-400">No countries defined</p>
+                )}
+              </div>
+              <p className="mt-4 text-sm text-slate-400">
+                Country configuration is managed via data import. Contact your admin for changes.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeSection === 'holidays' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Public Holidays</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {countries.map(country => {
+                const countryHolidays = publicHolidays.filter(h => h.countryId === country.id);
+                if (countryHolidays.length === 0) return null;
+                
+                return (
+                  <div key={country.id} className="mb-6">
+                    <h3 className="flex items-center gap-2 text-lg font-medium text-slate-700 dark:text-slate-200 mb-3">
+                      <span>{country.flag || '🏳️'}</span>
+                      {country.name}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {countryHolidays.map(holiday => (
+                        <div
+                          key={holiday.date}
+                          className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-sm"
+                        >
+                          <span className="text-slate-600 dark:text-slate-300">{holiday.name}</span>
+                          <span className="text-slate-400">
+                            {new Date(holiday.date).toLocaleDateString('en-GB', { 
+                              day: 'numeric', 
+                              month: 'short' 
+                            })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {publicHolidays.length === 0 && (
+                <p className="text-center py-8 text-slate-400">No holidays defined</p>
+              )}
+              <p className="mt-4 text-sm text-slate-400">
+                Holiday configuration is managed via data import. Contact your admin for changes.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title={`Delete ${deleteConfirm?.type}`}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-slate-600 dark:text-slate-300">
+          Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>? 
+          This may affect existing assignments and team members.
         </p>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>General Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-slate-900 dark:text-white">BAU Reserve</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Default days reserved for BAU work per quarter
-                </p>
-              </div>
-              <span className="text-lg font-semibold text-slate-900 dark:text-white">
-                {settings.bauReserveDays} days
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-slate-900 dark:text-white">Hours per Day</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Working hours in a standard day
-                </p>
-              </div>
-              <span className="text-lg font-semibold text-slate-900 dark:text-white">
-                {settings.hoursPerDay}h
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-slate-900 dark:text-white">Dark Mode</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Use dark theme
-                </p>
-              </div>
-              <span className="text-lg font-semibold text-slate-900 dark:text-white">
-                {settings.darkMode ? 'On' : 'Off'}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Management</CardTitle>
-          </CardHeader>
-          <CardContent className="py-8 text-center">
-            <p className="text-slate-500 dark:text-slate-400">
-              Full settings management coming soon...
-            </p>
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">
-              Manage team members, skills, systems, and more
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      </Modal>
     </div>
   );
 }

@@ -10,6 +10,7 @@ export interface Country {
   id: string;
   code: string;
   name: string;
+  flag?: string; // Emoji flag
 }
 
 export interface PublicHoliday {

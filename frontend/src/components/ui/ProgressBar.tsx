@@ -3,16 +3,18 @@ import type { HTMLAttributes } from 'react';
 import { clsx } from 'clsx';
 
 interface ProgressBarProps extends HTMLAttributes<HTMLDivElement> {
-  value: number;
+  value?: number;
+  progress?: number; // Alias for value
   max?: number;
-  status?: 'normal' | 'warning' | 'danger' | 'overallocated';
+  status?: 'normal' | 'warning' | 'danger' | 'overallocated' | string;
   showLabel?: boolean;
   size?: 'sm' | 'md' | 'lg';
 }
 
 export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
-  ({ className, value, max = 100, status, showLabel = false, size = 'md', ...props }, ref) => {
-    const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
+  ({ className, value, progress, max = 100, status, showLabel = false, size = 'md', ...props }, ref) => {
+    const actualValue = value ?? progress ?? 0;
+    const percentage = Math.min(Math.max((actualValue / max) * 100, 0), 100);
     
     // Auto-determine status if not provided
     const computedStatus = status || (percentage > 100 ? 'danger' : percentage > 90 ? 'warning' : 'normal');
@@ -34,7 +36,7 @@ export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
       <div ref={ref} className={clsx('w-full', className)} {...props}>
         {showLabel && (
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-slate-600 dark:text-slate-400">{value}d / {max}d</span>
+            <span className="text-slate-600 dark:text-slate-400">{actualValue}d / {max}d</span>
             <span className={clsx(
               'font-medium',
               computedStatus === 'normal' && 'text-green-600 dark:text-green-400',
