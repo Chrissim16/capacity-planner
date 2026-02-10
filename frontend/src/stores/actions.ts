@@ -127,7 +127,8 @@ export function setAssignment(
   phaseId: string,
   memberId: string,
   quarter: string,
-  days: number
+  days: number,
+  sprint?: string // Optional sprint for sprint-level assignments
 ): void {
   const state = useAppStore.getState();
   const projects = state.getCurrentState().projects.map(project => {
@@ -137,24 +138,28 @@ export function setAssignment(
       phases: project.phases.map(phase => {
         if (phase.id !== phaseId) return phase;
         
-        // Find or create assignment
-        const existingIndex = phase.assignments.findIndex(
-          a => a.memberId === memberId && a.quarter === quarter
-        );
+        // For sprint-level assignments, match on sprint too
+        const matchAssignment = (a: Assignment) => {
+          if (sprint) {
+            return a.memberId === memberId && a.quarter === quarter && a.sprint === sprint;
+          }
+          // For quarter-level, only match quarter assignments (no sprint)
+          return a.memberId === memberId && a.quarter === quarter && !a.sprint;
+        };
+        
+        const existingIndex = phase.assignments.findIndex(matchAssignment);
         
         let newAssignments: Assignment[];
         if (days === 0) {
           // Remove assignment if days is 0
-          newAssignments = phase.assignments.filter(
-            a => !(a.memberId === memberId && a.quarter === quarter)
-          );
+          newAssignments = phase.assignments.filter(a => !matchAssignment(a));
         } else if (existingIndex >= 0) {
           // Update existing
           newAssignments = [...phase.assignments];
-          newAssignments[existingIndex] = { memberId, quarter, days };
+          newAssignments[existingIndex] = { memberId, quarter, days, sprint };
         } else {
           // Add new
-          newAssignments = [...phase.assignments, { memberId, quarter, days }];
+          newAssignments = [...phase.assignments, { memberId, quarter, days, sprint }];
         }
         
         return { ...phase, assignments: newAssignments };

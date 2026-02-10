@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calculator, AlertTriangle, Users, Calendar } from 'lucide-react';
+import { Calculator, AlertTriangle, Users, Calendar, Zap } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -9,6 +9,7 @@ import { useAppStore } from '../../stores/appStore';
 import { setAssignment } from '../../stores/actions';
 import { calculateCapacity } from '../../utils/capacity';
 import { getWorkWeeksInQuarter, getHolidaysByCountry } from '../../utils/calendar';
+import { generateSprints, getSprintsForQuarter, getWorkdaysInSprint, formatDateRange } from '../../utils/sprints';
 
 interface AssignmentModalProps {
   isOpen: boolean;
@@ -29,17 +30,34 @@ export function AssignmentModal({
   quarter: initialQuarter
 }: AssignmentModalProps) {
   const state = useAppStore((s) => s.getCurrentState());
-  const { projects, teamMembers, quarters, publicHolidays } = state;
+  const { projects, teamMembers, quarters, publicHolidays, settings } = state;
   
   // Form state
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedPhaseId, setSelectedPhaseId] = useState('');
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [selectedQuarter, setSelectedQuarter] = useState('');
+  const [selectedSprint, setSelectedSprint] = useState('');
+  const [assignmentLevel, setAssignmentLevel] = useState<'quarter' | 'sprint'>('quarter');
   const [days, setDays] = useState(0);
   const [daysPerWeek, setDaysPerWeek] = useState(0);
   const [inputMode, setInputMode] = useState<'days' | 'weekly'>('days');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Generate sprints based on settings
+  const allSprints = useMemo(() => generateSprints(settings, 2), [settings]);
+  
+  // Get sprints for selected quarter
+  const sprintsInQuarter = useMemo(() => {
+    if (!selectedQuarter) return [];
+    return getSprintsForQuarter(selectedQuarter, allSprints);
+  }, [selectedQuarter, allSprints]);
+  
+  // Get selected sprint object
+  const selectedSprintObj = useMemo(() => {
+    if (!selectedSprint) return null;
+    return allSprints.find(s => s.id === selectedSprint) || null;
+  }, [selectedSprint, allSprints]);
 
   // Reset form when modal opens or pre-selections change
   useEffect(() => {
@@ -48,6 +66,8 @@ export function AssignmentModal({
       setSelectedPhaseId(initialPhaseId || '');
       setSelectedMemberIds(initialMemberId ? [initialMemberId] : []);
       setSelectedQuarter(initialQuarter || quarters[0] || '');
+      setSelectedSprint('');
+      setAssignmentLevel('quarter');
       setDays(0);
       setDaysPerWeek(0);
       setInputMode('days');
@@ -59,14 +79,30 @@ export function AssignmentModal({
   const selectedProject = projects.find(p => p.id === selectedProjectId);
   const selectedPhase = selectedProject?.phases.find(ph => ph.id === selectedPhaseId);
 
-  // Calculate work weeks for selected quarter (using first selected member's country)
-  const workWeeks = useMemo(() => {
-    if (!selectedQuarter || selectedMemberIds.length === 0) return 13; // Default
+  // Calculate work weeks/days for selected quarter or sprint
+  const { workWeeks, workDays } = useMemo(() => {
+    if (selectedMemberIds.length === 0) return { workWeeks: 13, workDays: 65 };
+    
     const firstMember = teamMembers.find(m => m.id === selectedMemberIds[0]);
-    if (!firstMember) return 13;
+    if (!firstMember) return { workWeeks: 13, workDays: 65 };
+    
     const holidays = getHolidaysByCountry(firstMember.countryId, publicHolidays);
-    return getWorkWeeksInQuarter(selectedQuarter, holidays);
-  }, [selectedQuarter, selectedMemberIds, teamMembers, publicHolidays]);
+    
+    if (assignmentLevel === 'sprint' && selectedSprintObj) {
+      // Sprint-level: calculate workdays in sprint
+      const sprintWorkdays = getWorkdaysInSprint(selectedSprintObj, holidays);
+      return { 
+        workWeeks: sprintWorkdays / 5, 
+        workDays: sprintWorkdays 
+      };
+    } else if (selectedQuarter) {
+      // Quarter-level
+      const weeks = getWorkWeeksInQuarter(selectedQuarter, holidays);
+      return { workWeeks: weeks, workDays: weeks * 5 };
+    }
+    
+    return { workWeeks: 13, workDays: 65 };
+  }, [selectedQuarter, selectedMemberIds, teamMembers, publicHolidays, assignmentLevel, selectedSprintObj]);
 
   // Convert between days and weekly
   useEffect(() => {
@@ -121,6 +157,7 @@ export function AssignmentModal({
     if (!selectedProjectId) newErrors.project = 'This field is mandatory';
     if (!selectedPhaseId) newErrors.phase = 'This field is mandatory';
     if (!selectedQuarter) newErrors.quarter = 'This field is mandatory';
+    if (assignmentLevel === 'sprint' && !selectedSprint) newErrors.sprint = 'This field is mandatory';
     if (selectedMemberIds.length === 0) newErrors.members = 'Select at least one team member';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -131,8 +168,12 @@ export function AssignmentModal({
     if (!validate()) return;
 
     // Create assignments for each selected member
+    const sprintName = assignmentLevel === 'sprint' && selectedSprintObj 
+      ? `${selectedSprintObj.name} ${selectedSprintObj.year}` 
+      : undefined;
+    
     selectedMemberIds.forEach(memberId => {
-      setAssignment(selectedProjectId, selectedPhaseId, memberId, selectedQuarter, days);
+      setAssignment(selectedProjectId, selectedPhaseId, memberId, selectedQuarter, days, sprintName);
     });
 
     onClose();
@@ -211,19 +252,85 @@ export function AssignmentModal({
           />
         </div>
 
-        {/* Quarter Selection */}
-        <Select
-          id="assign-quarter"
-          label="Quarter"
-          required
-          value={selectedQuarter}
-          onChange={(e) => {
-            setSelectedQuarter(e.target.value);
-            if (errors.quarter) setErrors(prev => ({ ...prev, quarter: '' }));
-          }}
-          options={quarterOptions}
-          error={errors.quarter}
-        />
+        {/* Assignment Level Toggle & Time Period Selection */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Assignment Level
+            </label>
+            <div className="flex rounded-lg bg-slate-200 dark:bg-slate-700 p-0.5">
+              <button
+                onClick={() => {
+                  setAssignmentLevel('quarter');
+                  setSelectedSprint('');
+                }}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                  assignmentLevel === 'quarter'
+                    ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                <Calendar size={14} />
+                Quarter
+              </button>
+              <button
+                onClick={() => setAssignmentLevel('sprint')}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                  assignmentLevel === 'sprint'
+                    ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                <Zap size={14} />
+                Sprint
+              </button>
+            </div>
+          </div>
+
+          <div className={assignmentLevel === 'sprint' ? 'grid grid-cols-2 gap-4' : ''}>
+            <Select
+              id="assign-quarter"
+              label="Quarter"
+              required
+              value={selectedQuarter}
+              onChange={(e) => {
+                setSelectedQuarter(e.target.value);
+                setSelectedSprint(''); // Reset sprint when quarter changes
+                if (errors.quarter) setErrors(prev => ({ ...prev, quarter: '' }));
+              }}
+              options={quarterOptions}
+              error={errors.quarter}
+            />
+            
+            {assignmentLevel === 'sprint' && (
+              <Select
+                id="assign-sprint"
+                label="Sprint"
+                required
+                value={selectedSprint}
+                onChange={(e) => {
+                  setSelectedSprint(e.target.value);
+                  if (errors.sprint) setErrors(prev => ({ ...prev, sprint: '' }));
+                }}
+                options={[
+                  { value: '', label: 'Select sprint...' },
+                  ...sprintsInQuarter.map(s => ({ 
+                    value: s.id, 
+                    label: `${s.name} (${formatDateRange(s.startDate, s.endDate)})` 
+                  })),
+                ]}
+                error={errors.sprint}
+                disabled={!selectedQuarter || sprintsInQuarter.length === 0}
+              />
+            )}
+          </div>
+          
+          {assignmentLevel === 'sprint' && selectedSprintObj && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Sprint duration: {settings.sprintDurationWeeks} weeks ({workDays} workdays)
+            </p>
+          )}
+        </div>
 
         {/* Days Input with Weekly Calculator */}
         <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-4">
@@ -273,7 +380,9 @@ export function AssignmentModal({
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     ≈ <strong>{daysPerWeek}</strong> days/week
                     <br />
-                    <span className="text-xs">({workWeeks.toFixed(1)} work weeks in {selectedQuarter})</span>
+                    <span className="text-xs">
+                      ({workWeeks.toFixed(1)} work weeks in {assignmentLevel === 'sprint' && selectedSprintObj ? selectedSprintObj.name : selectedQuarter})
+                    </span>
                   </p>
                 </div>
               </>
@@ -293,7 +402,9 @@ export function AssignmentModal({
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     = <strong>{days}</strong> total days
                     <br />
-                    <span className="text-xs">({workWeeks.toFixed(1)} work weeks × {daysPerWeek} d/wk)</span>
+                    <span className="text-xs">
+                      ({workWeeks.toFixed(1)} work weeks × {daysPerWeek} d/wk)
+                    </span>
                   </p>
                 </div>
               </>

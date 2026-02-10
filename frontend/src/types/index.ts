@@ -67,8 +67,24 @@ export type ProjectStatus = 'Planning' | 'Active' | 'On Hold' | 'Completed' | 'C
 
 export interface Assignment {
   memberId: string;
-  quarter: string;
+  quarter: string;       // "Q1 2026" format - always set (for aggregation)
   days: number;
+  sprint?: string;       // "Sprint 1 2026" format - optional for sprint-level detail
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SPRINTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export interface Sprint {
+  id: string;           // "sprint-1-2026"
+  name: string;         // "Sprint 1"
+  number: number;       // 1-16
+  year: number;
+  startDate: string;    // YYYY-MM-DD
+  endDate: string;      // YYYY-MM-DD
+  quarter: string;      // "Q1 2026" - parent quarter
+  isByeWeek?: boolean;  // True if this is a bye week (no sprint)
 }
 
 export interface Phase {

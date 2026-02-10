@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Eye, EyeOff, User, FolderKanban } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, User, FolderKanban, Calendar, Zap } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
@@ -7,20 +7,26 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { useAppStore } from '../stores/appStore';
 import { calculateCapacity } from '../utils/capacity';
 import { isQuarterInRange, getCurrentQuarter } from '../utils/calendar';
-import type { Project, TeamMember } from '../types';
+import { generateSprints, getSprintsForQuarter, formatDateRange } from '../utils/sprints';
+import type { Project, TeamMember, Sprint } from '../types';
 
 type TimelineView = 'projects' | 'team';
+type TimelineGranularity = 'quarter' | 'sprint';
 
 export function Timeline() {
   const state = useAppStore((s) => s.getCurrentState());
-  const { projects, teamMembers, quarters } = state;
+  const { projects, teamMembers, quarters, settings } = state;
   
   const [viewMode, setViewMode] = useState<TimelineView>('projects');
+  const [granularity, setGranularity] = useState<TimelineGranularity>('quarter');
   const [startQuarterIndex, setStartQuarterIndex] = useState(0);
   const [quartersToShow, setQuartersToShow] = useState(4);
   const [showCompleted, setShowCompleted] = useState(false);
   
   const currentQuarter = getCurrentQuarter();
+  
+  // Generate all sprints
+  const allSprints = useMemo(() => generateSprints(settings, 2), [settings]);
   
   // Get visible quarters
   const visibleQuarters = quarters.slice(startQuarterIndex, startQuarterIndex + quartersToShow);
@@ -110,6 +116,32 @@ export function Timeline() {
               Team
             </button>
           </div>
+
+          {/* Granularity Toggle */}
+          <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
+            <button
+              onClick={() => setGranularity('quarter')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                granularity === 'quarter'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <Calendar size={14} />
+              Quarters
+            </button>
+            <button
+              onClick={() => setGranularity('sprint')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                granularity === 'sprint'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <Zap size={14} />
+              Sprints
+            </button>
+          </div>
           
           {viewMode === 'projects' && (
             <Button
@@ -157,19 +189,40 @@ export function Timeline() {
               </div>
             </div>
             
-            {/* Quarter Headers */}
-            {visibleQuarters.map(quarter => (
-              <div
-                key={quarter}
-                className={`flex-1 min-w-[150px] px-3 py-3 text-center font-medium ${
-                  quarter === currentQuarter
-                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                    : 'text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                {quarter}
-              </div>
-            ))}
+            {/* Quarter/Sprint Headers */}
+            {granularity === 'quarter' ? (
+              // Quarter headers
+              visibleQuarters.map(quarter => (
+                <div
+                  key={quarter}
+                  className={`flex-1 min-w-[150px] px-3 py-3 text-center font-medium ${
+                    quarter === currentQuarter
+                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                      : 'text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  {quarter}
+                </div>
+              ))
+            ) : (
+              // Sprint headers - show sprints for visible quarters
+              visibleQuarters.flatMap(quarter => {
+                const sprintsInQ = getSprintsForQuarter(quarter, allSprints);
+                return sprintsInQ.map(sprint => (
+                  <div
+                    key={sprint.id}
+                    className="flex-1 min-w-[120px] px-2 py-2 text-center border-l border-slate-200 dark:border-slate-700"
+                  >
+                    <div className="font-medium text-xs text-slate-600 dark:text-slate-300">
+                      {sprint.name}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      {formatDateRange(sprint.startDate, sprint.endDate)}
+                    </div>
+                  </div>
+                ));
+              })
+            )}
           </div>
 
           {/* Rows */}
@@ -186,6 +239,8 @@ export function Timeline() {
                     key={project.id}
                     project={project}
                     quarters={visibleQuarters}
+                    sprints={allSprints}
+                    granularity={granularity}
                     currentQuarter={currentQuarter}
                     getPriorityColor={getPriorityColor}
                     getStatusColor={getStatusColor}
@@ -206,6 +261,8 @@ export function Timeline() {
                     key={member.id}
                     member={member}
                     quarters={visibleQuarters}
+                    sprints={allSprints}
+                    granularity={granularity}
                     currentQuarter={currentQuarter}
                     state={state}
                   />
@@ -246,25 +303,104 @@ export function Timeline() {
 interface ProjectRowProps {
   project: Project;
   quarters: string[];
+  sprints: Sprint[];
+  granularity: TimelineGranularity;
   currentQuarter: string;
   getPriorityColor: (priority: string) => string;
   getStatusColor: (status: string) => string;
 }
 
-function ProjectRow({ project, quarters, currentQuarter, getPriorityColor, getStatusColor }: ProjectRowProps) {
-  // Determine which quarters have phases
-  const quarterData = quarters.map(quarter => {
-    const activePhases = project.phases.filter(phase => 
-      isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter)
-    );
-    
-    const totalDays = activePhases.reduce((sum, phase) => {
-      return sum + phase.assignments.reduce((asum, a) => 
-        a.quarter === quarter ? asum + a.days : asum, 0
+function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor }: ProjectRowProps) {
+  if (granularity === 'quarter') {
+    // Quarter view
+    const quarterData = quarters.map(quarter => {
+      const activePhases = project.phases.filter(phase => 
+        isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter)
       );
-    }, 0);
-    
-    return { quarter, activePhases, totalDays };
+      
+      const totalDays = activePhases.reduce((sum, phase) => {
+        return sum + phase.assignments.reduce((asum, a) => 
+          a.quarter === quarter ? asum + a.days : asum, 0
+        );
+      }, 0);
+      
+      return { quarter, activePhases, totalDays };
+    });
+
+    return (
+      <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+        {/* Project Info */}
+        <div className={`w-64 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
+          <div className="font-medium text-slate-900 dark:text-white truncate" title={project.name}>
+            {project.name}
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              {project.phases.length} phase{project.phases.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+        
+        {/* Quarter Cells */}
+        {quarterData.map(({ quarter, activePhases, totalDays }) => (
+          <div
+            key={quarter}
+            className={`flex-1 min-w-[150px] px-3 py-3 ${
+              quarter === currentQuarter 
+                ? 'bg-blue-50/50 dark:bg-blue-900/10' 
+                : ''
+            }`}
+          >
+            {activePhases.length > 0 && (
+              <div className="space-y-1">
+                {activePhases.map(phase => (
+                  <div
+                    key={phase.id}
+                    className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded text-xs font-medium text-blue-700 dark:text-blue-300 truncate"
+                    title={`${phase.name}`}
+                  >
+                    {phase.name}
+                  </div>
+                ))}
+                {totalDays > 0 && (
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {totalDays}d allocated
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Sprint view
+  const sprintCells = quarters.flatMap(quarter => {
+    const sprintsInQ = getSprintsForQuarter(quarter, sprints);
+    return sprintsInQ.map(sprint => {
+      const activePhases = project.phases.filter(phase => 
+        isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter)
+      );
+      
+      // Get sprint-specific assignments
+      const sprintDays = activePhases.reduce((sum, phase) => {
+        return sum + phase.assignments.reduce((asum, a) => {
+          if (a.sprint === `${sprint.name} ${sprint.year}`) {
+            return asum + a.days;
+          }
+          // Fall back to quarter assignment distributed across sprints
+          if (a.quarter === quarter && !a.sprint) {
+            const sprintCount = sprintsInQ.length || 1;
+            return asum + (a.days / sprintCount);
+          }
+          return asum;
+        }, 0);
+      }, 0);
+      
+      return { sprint, activePhases, sprintDays };
+    });
   });
 
   return (
@@ -282,32 +418,27 @@ function ProjectRow({ project, quarters, currentQuarter, getPriorityColor, getSt
         </div>
       </div>
       
-      {/* Quarter Cells */}
-      {quarterData.map(({ quarter, activePhases, totalDays }) => (
+      {/* Sprint Cells */}
+      {sprintCells.map(({ sprint, activePhases, sprintDays }) => (
         <div
-          key={quarter}
-          className={`flex-1 min-w-[150px] px-3 py-3 ${
-            quarter === currentQuarter 
+          key={sprint.id}
+          className={`flex-1 min-w-[120px] px-2 py-3 border-l border-slate-100 dark:border-slate-800 ${
+            sprint.quarter === currentQuarter 
               ? 'bg-blue-50/50 dark:bg-blue-900/10' 
               : ''
           }`}
         >
-          {activePhases.length > 0 && (
+          {activePhases.length > 0 && sprintDays > 0 && (
             <div className="space-y-1">
-              {activePhases.map(phase => (
-                <div
-                  key={phase.id}
-                  className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded text-xs font-medium text-blue-700 dark:text-blue-300 truncate"
-                  title={`${phase.name}`}
-                >
-                  {phase.name}
-                </div>
-              ))}
-              {totalDays > 0 && (
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {totalDays}d allocated
-                </div>
-              )}
+              <div className="h-2 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-500 dark:bg-blue-500 rounded-full"
+                  style={{ width: `${Math.min(100, (sprintDays / 15) * 100)}%` }}
+                />
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 text-center">
+                {sprintDays.toFixed(1)}d
+              </div>
             </div>
           )}
         </div>
@@ -323,11 +454,98 @@ function ProjectRow({ project, quarters, currentQuarter, getPriorityColor, getSt
 interface TeamMemberRowProps {
   member: TeamMember;
   quarters: string[];
+  sprints: Sprint[];
+  granularity: TimelineGranularity;
   currentQuarter: string;
   state: ReturnType<typeof useAppStore.getState>['data'];
 }
 
-function TeamMemberRow({ member, quarters, currentQuarter, state }: TeamMemberRowProps) {
+function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter, state }: TeamMemberRowProps) {
+  if (granularity === 'quarter') {
+    return (
+      <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+        {/* Member Info */}
+        <div className="w-64 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800">
+          <div className="font-medium text-slate-900 dark:text-white truncate" title={member.name}>
+            {member.name}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            {member.role}
+          </div>
+        </div>
+        
+        {/* Quarter Cells with Capacity */}
+        {quarters.map(quarter => {
+          const capacity = calculateCapacity(member.id, quarter, state);
+          
+          return (
+            <div
+              key={quarter}
+              className={`flex-1 min-w-[150px] px-3 py-3 ${
+                quarter === currentQuarter 
+                  ? 'bg-blue-50/50 dark:bg-blue-900/10' 
+                  : ''
+              }`}
+            >
+              <ProgressBar 
+                value={capacity.usedDays} 
+                max={capacity.totalWorkdays} 
+                status={capacity.status}
+                size="sm"
+              />
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {capacity.usedDays.toFixed(0)}d / {capacity.totalWorkdays}d
+                </span>
+                <span className={`text-xs font-medium ${
+                  capacity.status === 'overallocated' ? 'text-red-500' :
+                  capacity.status === 'warning' ? 'text-amber-500' :
+                  'text-green-500'
+                }`}>
+                  {capacity.usedPercent}%
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Sprint view - show allocation per sprint
+  const sprintCells = quarters.flatMap(quarter => {
+    const sprintsInQ = getSprintsForQuarter(quarter, sprints);
+    const quarterCapacity = calculateCapacity(member.id, quarter, state);
+    const sprintWorkdays = Math.round(quarterCapacity.totalWorkdays / (sprintsInQ.length || 1));
+    
+    return sprintsInQ.map(sprint => {
+      // Calculate sprint-specific allocation from assignments
+      let sprintDays = 0;
+      state.projects.forEach(project => {
+        project.phases.forEach(phase => {
+          phase.assignments.forEach(a => {
+            if (a.memberId !== member.id) return;
+            if (a.sprint === `${sprint.name} ${sprint.year}`) {
+              sprintDays += a.days;
+            } else if (a.quarter === quarter && !a.sprint) {
+              // Distribute quarter assignment across sprints
+              sprintDays += a.days / (sprintsInQ.length || 1);
+            }
+          });
+        });
+      });
+      
+      // Add BAU (distributed across sprints)
+      const bauPerSprint = (quarterCapacity.breakdown.find(b => b.type === 'bau')?.days || 0) / (sprintsInQ.length || 1);
+      sprintDays += bauPerSprint;
+      
+      const usedPercent = sprintWorkdays > 0 ? Math.round((sprintDays / sprintWorkdays) * 100) : 0;
+      const status = usedPercent > 100 ? 'overallocated' : usedPercent > 90 ? 'warning' : 'normal';
+      
+      return { sprint, sprintDays, sprintWorkdays, usedPercent, status };
+    });
+  });
+
   return (
     <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
       {/* Member Info */}
@@ -340,40 +558,36 @@ function TeamMemberRow({ member, quarters, currentQuarter, state }: TeamMemberRo
         </div>
       </div>
       
-      {/* Quarter Cells with Capacity */}
-      {quarters.map(quarter => {
-        const capacity = calculateCapacity(member.id, quarter, state);
-        
-        return (
-          <div
-            key={quarter}
-            className={`flex-1 min-w-[150px] px-3 py-3 ${
-              quarter === currentQuarter 
-                ? 'bg-blue-50/50 dark:bg-blue-900/10' 
-                : ''
-            }`}
-          >
-            <ProgressBar 
-              value={capacity.usedDays} 
-              max={capacity.totalWorkdays} 
-              status={capacity.status}
-              size="sm"
-            />
-            <div className="flex justify-between items-center mt-1">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                {capacity.usedDays.toFixed(0)}d / {capacity.totalWorkdays}d
-              </span>
-              <span className={`text-xs font-medium ${
-                capacity.status === 'overallocated' ? 'text-red-500' :
-                capacity.status === 'warning' ? 'text-amber-500' :
-                'text-green-500'
-              }`}>
-                {capacity.usedPercent}%
-              </span>
-            </div>
+      {/* Sprint Cells with Capacity */}
+      {sprintCells.map(({ sprint, sprintDays, sprintWorkdays, usedPercent, status }) => (
+        <div
+          key={sprint.id}
+          className={`flex-1 min-w-[120px] px-2 py-3 border-l border-slate-100 dark:border-slate-800 ${
+            sprint.quarter === currentQuarter 
+              ? 'bg-blue-50/50 dark:bg-blue-900/10' 
+              : ''
+          }`}
+        >
+          <ProgressBar 
+            value={sprintDays} 
+            max={sprintWorkdays} 
+            status={status}
+            size="sm"
+          />
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">
+              {sprintDays.toFixed(0)}d
+            </span>
+            <span className={`text-[10px] font-medium ${
+              status === 'overallocated' ? 'text-red-500' :
+              status === 'warning' ? 'text-amber-500' :
+              'text-green-500'
+            }`}>
+              {usedPercent}%
+            </span>
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }
