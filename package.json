@@ -1,0 +1,20 @@
+{
+  "name": "capacity-planner-app",
+  "version": "1.0.0",
+  "description": "Mileway IT Capacity Planner - Web Application",
+  "scripts": {
+    "start": "npx serve -p 3000 --no-clipboard",
+    "dev": "npx serve -p 3000 --no-clipboard"
+  },
+  "keywords": [
+    "capacity",
+    "planning",
+    "resource-management"
+  ],
+  "author": "Mileway IT Value Stream Finance",
+  "license": "PROPRIETARY",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
