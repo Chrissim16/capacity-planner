@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, UserPlus } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -8,9 +8,11 @@ import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
 import { TeamMemberForm } from '../components/forms/TeamMemberForm';
 import { TimeOffForm } from '../components/forms/TimeOffForm';
+import { AssignmentModal } from '../components/forms/AssignmentModal';
 import { useAppStore } from '../stores/appStore';
 import { deleteTeamMember } from '../stores/actions';
 import { calculateCapacity } from '../utils/capacity';
+import { useToast } from '../components/ui/Toast';
 import type { TeamMember } from '../types';
 
 export function Team() {
@@ -21,11 +23,15 @@ export function Team() {
   const quarters = state.quarters;
   const skills = state.skills;
   
+  const { showToast } = useToast();
+  
   const [isMemberFormOpen, setIsMemberFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<TeamMember | null>(null);
   const [isTimeOffOpen, setIsTimeOffOpen] = useState(false);
   const [timeOffMemberId, setTimeOffMemberId] = useState<string>();
+  const [isAssignmentOpen, setIsAssignmentOpen] = useState(false);
+  const [assignmentMemberId, setAssignmentMemberId] = useState<string>();
   
   // Filters
   const [search, setSearch] = useState('');
@@ -62,7 +68,13 @@ export function Team() {
     if (deleteConfirm) {
       deleteTeamMember(deleteConfirm.id);
       setDeleteConfirm(null);
+      showToast('Team member deleted', 'success');
     }
+  };
+
+  const handleAssign = (memberId: string) => {
+    setAssignmentMemberId(memberId);
+    setIsAssignmentOpen(true);
   };
 
   const handleAddTimeOff = (memberId: string) => {
@@ -206,6 +218,13 @@ export function Team() {
                     
                     <div className="flex items-center gap-1">
                       <button
+                        onClick={() => handleAssign(member.id)}
+                        className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                        title="Assign to Project"
+                      >
+                        <UserPlus size={16} />
+                      </button>
+                      <button
                         onClick={() => handleAddTimeOff(member.id)}
                         className="p-2 text-slate-400 hover:text-orange-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
                         title="Add Time Off"
@@ -266,6 +285,17 @@ export function Team() {
         isOpen={isTimeOffOpen}
         onClose={() => setIsTimeOffOpen(false)}
         memberId={timeOffMemberId}
+        quarter={selectedQuarter}
+      />
+
+      {/* Assignment Modal */}
+      <AssignmentModal
+        isOpen={isAssignmentOpen}
+        onClose={() => {
+          setIsAssignmentOpen(false);
+          setAssignmentMemberId(undefined);
+        }}
+        memberId={assignmentMemberId}
         quarter={selectedQuarter}
       />
 

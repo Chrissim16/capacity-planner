@@ -5,6 +5,7 @@ import { Timeline } from './pages/Timeline';
 import { Projects } from './pages/Projects';
 import { Team } from './pages/Team';
 import { Settings } from './pages/Settings';
+import { ToastProvider } from './components/ui/Toast';
 import { useAppStore, useCurrentView, useSettings } from './stores/appStore';
 import type { ViewType } from './types';
 
@@ -54,9 +55,11 @@ function App() {
   const CurrentPage = pages[currentView] || Dashboard;
 
   return (
-    <Layout>
-      <CurrentPage />
-    </Layout>
+    <ToastProvider>
+      <Layout>
+        <CurrentPage />
+      </Layout>
+    </ToastProvider>
   );
 }
 

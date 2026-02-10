@@ -1,23 +1,35 @@
 import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Copy, ExternalLink } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Copy, ExternalLink, UserPlus, ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
 import { ProjectForm } from '../components/forms/ProjectForm';
+import { AssignmentModal } from '../components/forms/AssignmentModal';
 import { useAppStore } from '../stores/appStore';
 import { deleteProject, duplicateProject } from '../stores/actions';
+import { useToast } from '../components/ui/Toast';
 import type { Project } from '../types';
 
 export function Projects() {
   const state = useAppStore((s) => s.getCurrentState());
   const projects = state.projects;
   const systems = state.systems;
+  const teamMembers = state.teamMembers;
+  const { showToast } = useToast();
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Project | null>(null);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  
+  // Assignment modal state
+  const [isAssignmentOpen, setIsAssignmentOpen] = useState(false);
+  const [assignmentContext, setAssignmentContext] = useState<{
+    projectId?: string;
+    phaseId?: string;
+  }>({});
   
   // Filters
   const [search, setSearch] = useState('');
@@ -67,16 +79,39 @@ export function Projects() {
     if (deleteConfirm) {
       deleteProject(deleteConfirm.id);
       setDeleteConfirm(null);
+      showToast('Project deleted', 'success');
     }
   };
 
   const handleDuplicate = (project: Project) => {
     duplicateProject(project.id);
+    showToast(`Duplicated "${project.name}"`, 'success');
   };
 
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditingProject(null);
+  };
+
+  const toggleExpanded = (projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
+  };
+
+  const openAssignment = (projectId: string, phaseId?: string) => {
+    setAssignmentContext({ projectId, phaseId });
+    setIsAssignmentOpen(true);
+  };
+
+  const getMemberName = (memberId: string) => {
+    return teamMembers.find(m => m.id === memberId)?.name || 'Unknown';
   };
 
   const statusOptions = [
@@ -110,10 +145,16 @@ export function Projects() {
             {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)}>
-          <Plus size={16} />
-          New Project
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="secondary" onClick={() => setIsAssignmentOpen(true)}>
+            <UserPlus size={16} />
+            Assign Team
+          </Button>
+          <Button onClick={() => setIsFormOpen(true)}>
+            <Plus size={16} />
+            New Project
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -159,44 +200,61 @@ export function Projects() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-3">
           {filteredProjects.map(project => {
             const projectSystems = systems.filter(s => project.systemIds?.includes(s.id));
+            const isExpanded = expandedProjects.has(project.id);
+            const totalAssignments = project.phases.reduce((sum, ph) => sum + ph.assignments.length, 0);
             
             return (
               <Card 
                 key={project.id} 
-                className="hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                className="overflow-hidden"
               >
-                <CardContent className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="font-semibold text-slate-900 dark:text-white truncate">
-                        {project.name}
-                      </h3>
-                      {project.devopsLink && (
-                        <a
-                          href={project.devopsLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-slate-400 hover:text-blue-500"
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                      <span>{project.phases.length} phase{project.phases.length !== 1 ? 's' : ''}</span>
-                      {projectSystems.length > 0 && (
-                        <>
-                          <span>•</span>
-                          <span>{projectSystems.map(s => s.name).join(', ')}</span>
-                        </>
-                      )}
+                {/* Project Header */}
+                <div 
+                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  onClick={() => toggleExpanded(project.id)}
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <button className="p-1 text-slate-400">
+                      {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <h3 className="font-semibold text-slate-900 dark:text-white truncate">
+                          {project.name}
+                        </h3>
+                        {project.devopsLink && (
+                          <a
+                            href={project.devopsLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-slate-400 hover:text-blue-500"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                        <span>{project.phases.length} phase{project.phases.length !== 1 ? 's' : ''}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Users size={12} />
+                          {totalAssignments} assignment{totalAssignments !== 1 ? 's' : ''}
+                        </span>
+                        {projectSystems.length > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>{projectSystems.map(s => s.name).join(', ')}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <Badge variant={getPriorityVariant(project.priority)}>
                         {project.priority}
@@ -207,6 +265,13 @@ export function Projects() {
                     </div>
                     
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openAssignment(project.id)}
+                        className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                        title="Assign Team"
+                      >
+                        <UserPlus size={16} />
+                      </button>
                       <button
                         onClick={() => handleEdit(project)}
                         className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -230,7 +295,63 @@ export function Projects() {
                       </button>
                     </div>
                   </div>
-                </CardContent>
+                </div>
+
+                {/* Expanded Phases */}
+                {isExpanded && (
+                  <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30">
+                    {project.phases.length === 0 ? (
+                      <div className="px-12 py-4 text-sm text-slate-400">
+                        No phases defined
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                        {project.phases.map(phase => (
+                          <div key={phase.id} className="px-12 py-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-slate-700 dark:text-slate-200">
+                                  {phase.name}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                  {phase.startQuarter} – {phase.endQuarter}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                {phase.assignments.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1.5 max-w-md">
+                                    {phase.assignments.slice(0, 5).map((a, i) => (
+                                      <span 
+                                        key={i}
+                                        className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded"
+                                      >
+                                        {getMemberName(a.memberId)} ({a.days}d)
+                                      </span>
+                                    ))}
+                                    {phase.assignments.length > 5 && (
+                                      <span className="px-2 py-0.5 text-slate-400 text-xs">
+                                        +{phase.assignments.length - 5} more
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-slate-400">No assignments</span>
+                                )}
+                                <button
+                                  onClick={() => openAssignment(project.id, phase.id)}
+                                  className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-700 rounded transition-colors"
+                                  title="Assign to this phase"
+                                >
+                                  <UserPlus size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </Card>
             );
           })}
@@ -242,6 +363,17 @@ export function Projects() {
         isOpen={isFormOpen}
         onClose={handleCloseForm}
         project={editingProject}
+      />
+
+      {/* Assignment Modal */}
+      <AssignmentModal
+        isOpen={isAssignmentOpen}
+        onClose={() => {
+          setIsAssignmentOpen(false);
+          setAssignmentContext({});
+        }}
+        projectId={assignmentContext.projectId}
+        phaseId={assignmentContext.phaseId}
       />
 
       {/* Delete Confirmation Modal */}
