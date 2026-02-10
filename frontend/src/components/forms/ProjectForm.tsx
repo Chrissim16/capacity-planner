@@ -106,10 +106,10 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!name.trim()) newErrors.name = 'Project name is required';
+    if (!name.trim()) newErrors.name = 'This field is mandatory';
     if (phases.length === 0) newErrors.phases = 'At least one phase is required';
     phases.forEach((phase, i) => {
-      if (!phase.name.trim()) newErrors[`phase-${i}`] = 'Phase name is required';
+      if (!phase.name.trim()) newErrors[`phase-${i}`] = 'This field is mandatory';
     });
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -159,9 +159,13 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
         {/* Basic Info */}
         <Input
           id="project-name"
-          label="Project Name *"
+          label="Project Name"
+          required
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
+          }}
           placeholder="Enter project name"
           error={errors.name}
         />
@@ -239,8 +243,12 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
                   <div className="flex-1 grid grid-cols-3 gap-3">
                     <Input
                       value={phase.name}
-                      onChange={(e) => handlePhaseChange(index, 'name', e.target.value)}
+                      onChange={(e) => {
+                        handlePhaseChange(index, 'name', e.target.value);
+                        if (errors[`phase-${index}`]) setErrors(prev => ({ ...prev, [`phase-${index}`]: '' }));
+                      }}
                       placeholder="Phase name"
+                      required
                       error={errors[`phase-${index}`]}
                     />
                     <Select

@@ -46,8 +46,8 @@ export function TimeOffForm({
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!memberId) newErrors.memberId = 'Please select a team member';
-    if (!quarter) newErrors.quarter = 'Please select a quarter';
+    if (!memberId) newErrors.memberId = 'This field is mandatory';
+    if (!quarter) newErrors.quarter = 'This field is mandatory';
     if (days < 0) newErrors.days = 'Days cannot be negative';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -82,18 +82,26 @@ export function TimeOffForm({
       <div className="space-y-4">
         <Select
           id="timeoff-member"
-          label="Team Member *"
+          label="Team Member"
+          required
           value={memberId}
-          onChange={(e) => setMemberId(e.target.value)}
+          onChange={(e) => {
+            setMemberId(e.target.value);
+            if (errors.memberId) setErrors(prev => ({ ...prev, memberId: '' }));
+          }}
           options={memberOptions}
           error={errors.memberId}
         />
 
         <Select
           id="timeoff-quarter"
-          label="Quarter *"
+          label="Quarter"
+          required
           value={quarter}
-          onChange={(e) => setQuarter(e.target.value)}
+          onChange={(e) => {
+            setQuarter(e.target.value);
+            if (errors.quarter) setErrors(prev => ({ ...prev, quarter: '' }));
+          }}
           options={quarterOptions}
           error={errors.quarter}
         />
@@ -105,7 +113,10 @@ export function TimeOffForm({
           min={0}
           max={100}
           value={days}
-          onChange={(e) => setDays(parseFloat(e.target.value) || 0)}
+          onChange={(e) => {
+            setDays(parseFloat(e.target.value) || 0);
+            if (errors.days) setErrors(prev => ({ ...prev, days: '' }));
+          }}
           error={errors.days}
         />
 

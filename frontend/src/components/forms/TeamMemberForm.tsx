@@ -54,9 +54,9 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!name.trim()) newErrors.name = 'Name is required';
-    if (!role) newErrors.role = 'Role is required';
-    if (!countryId) newErrors.countryId = 'Country is required';
+    if (!name.trim()) newErrors.name = 'This field is mandatory';
+    if (!role) newErrors.role = 'This field is mandatory';
+    if (!countryId) newErrors.countryId = 'This field is mandatory';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -111,9 +111,13 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
       <div className="space-y-5">
         <Input
           id="member-name"
-          label="Name *"
+          label="Name"
+          required
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
+          }}
           placeholder="Enter name"
           error={errors.name}
         />
@@ -121,17 +125,25 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
         <div className="grid grid-cols-2 gap-4">
           <Select
             id="role"
-            label="Role *"
+            label="Role"
+            required
             value={role}
-            onChange={(e) => setRole(e.target.value)}
+            onChange={(e) => {
+              setRole(e.target.value);
+              if (errors.role) setErrors(prev => ({ ...prev, role: '' }));
+            }}
             options={roleOptions}
             error={errors.role}
           />
           <Select
             id="country"
-            label="Country *"
+            label="Country"
+            required
             value={countryId}
-            onChange={(e) => setCountryId(e.target.value)}
+            onChange={(e) => {
+              setCountryId(e.target.value);
+              if (errors.countryId) setErrors(prev => ({ ...prev, countryId: '' }));
+            }}
             options={countryOptions}
             error={errors.countryId}
           />

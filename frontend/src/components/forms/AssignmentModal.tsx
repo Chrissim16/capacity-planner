@@ -39,6 +39,7 @@ export function AssignmentModal({
   const [days, setDays] = useState(0);
   const [daysPerWeek, setDaysPerWeek] = useState(0);
   const [inputMode, setInputMode] = useState<'days' | 'weekly'>('days');
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Reset form when modal opens or pre-selections change
   useEffect(() => {
@@ -50,6 +51,7 @@ export function AssignmentModal({
       setDays(0);
       setDaysPerWeek(0);
       setInputMode('days');
+      setErrors({});
     }
   }, [isOpen, initialProjectId, initialPhaseId, initialMemberId, initialQuarter, quarters]);
 
@@ -110,13 +112,23 @@ export function AssignmentModal({
         ? prev.filter(id => id !== memberId)
         : [...prev, memberId]
     );
+    if (errors.members) setErrors(prev => ({ ...prev, members: '' }));
+  };
+
+  // Validation
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!selectedProjectId) newErrors.project = 'This field is mandatory';
+    if (!selectedPhaseId) newErrors.phase = 'This field is mandatory';
+    if (!selectedQuarter) newErrors.quarter = 'This field is mandatory';
+    if (selectedMemberIds.length === 0) newErrors.members = 'Select at least one team member';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   // Handle save
   const handleSave = () => {
-    if (!selectedProjectId || !selectedPhaseId || selectedMemberIds.length === 0 || !selectedQuarter) {
-      return;
-    }
+    if (!validate()) return;
 
     // Create assignments for each selected member
     selectedMemberIds.forEach(memberId => {
@@ -173,31 +185,44 @@ export function AssignmentModal({
         <div className="grid grid-cols-2 gap-4">
           <Select
             id="assign-project"
-            label="Project *"
+            label="Project"
+            required
             value={selectedProjectId}
             onChange={(e) => {
               setSelectedProjectId(e.target.value);
               setSelectedPhaseId('');
+              if (errors.project) setErrors(prev => ({ ...prev, project: '' }));
             }}
             options={projectOptions}
+            error={errors.project}
           />
           <Select
             id="assign-phase"
-            label="Phase *"
+            label="Phase"
+            required
             value={selectedPhaseId}
-            onChange={(e) => setSelectedPhaseId(e.target.value)}
+            onChange={(e) => {
+              setSelectedPhaseId(e.target.value);
+              if (errors.phase) setErrors(prev => ({ ...prev, phase: '' }));
+            }}
             options={phaseOptions}
             disabled={!selectedProjectId}
+            error={errors.phase}
           />
         </div>
 
         {/* Quarter Selection */}
         <Select
           id="assign-quarter"
-          label="Quarter *"
+          label="Quarter"
+          required
           value={selectedQuarter}
-          onChange={(e) => setSelectedQuarter(e.target.value)}
+          onChange={(e) => {
+            setSelectedQuarter(e.target.value);
+            if (errors.quarter) setErrors(prev => ({ ...prev, quarter: '' }));
+          }}
           options={quarterOptions}
+          error={errors.quarter}
         />
 
         {/* Days Input with Weekly Calculator */}
@@ -300,9 +325,14 @@ export function AssignmentModal({
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
             <Users size={16} />
-            Select Team Members *
+            Select Team Members
+            <span className="text-red-500">*</span>
           </label>
-          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-slate-200 dark:border-slate-700 rounded-lg">
+          <div className={`grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border-2 rounded-lg ${
+            errors.members 
+              ? 'border-red-500 ring-red-500/20 ring-2' 
+              : 'border-slate-200 dark:border-slate-700'
+          }`}>
             {teamMembers.map(member => {
               const isSelected = selectedMemberIds.includes(member.id);
               return (
@@ -328,6 +358,14 @@ export function AssignmentModal({
               );
             })}
           </div>
+          {errors.members && (
+            <p className="mt-2 text-sm text-red-500 font-medium flex items-center gap-1">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              {errors.members}
+            </p>
+          )}
           {selectedMemberIds.length > 0 && (
             <p className="mt-2 text-sm text-slate-500">
               {selectedMemberIds.length} member{selectedMemberIds.length > 1 ? 's' : ''} selected
