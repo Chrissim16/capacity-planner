@@ -1,10 +1,11 @@
-import { HTMLAttributes, forwardRef } from 'react';
+import { forwardRef } from 'react';
+import type { HTMLAttributes } from 'react';
 import { clsx } from 'clsx';
 
 interface ProgressBarProps extends HTMLAttributes<HTMLDivElement> {
   value: number;
   max?: number;
-  status?: 'normal' | 'warning' | 'danger';
+  status?: 'normal' | 'warning' | 'danger' | 'overallocated';
   showLabel?: boolean;
   size?: 'sm' | 'md' | 'lg';
 }
@@ -16,10 +17,11 @@ export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
     // Auto-determine status if not provided
     const computedStatus = status || (percentage > 100 ? 'danger' : percentage > 90 ? 'warning' : 'normal');
     
-    const statusColors = {
+    const statusColors: Record<string, string> = {
       normal: 'bg-green-500',
       warning: 'bg-amber-500',
       danger: 'bg-red-500',
+      overallocated: 'bg-red-500',
     };
     
     const sizes = {

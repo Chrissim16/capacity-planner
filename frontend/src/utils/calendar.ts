@@ -3,7 +3,7 @@
  * Pure functions - no side effects, fully testable
  */
 
-import { QuarterRange, PublicHoliday } from '../types';
+import type { QuarterRange, PublicHoliday } from '../types';
 
 /**
  * Parse a quarter string (e.g., "Q1 2026") to a date range
@@ -74,7 +74,7 @@ export function getWorkdaysInQuarter(
  * Get workdays for a specific member in a quarter
  */
 export function getWorkdaysForMember(
-  memberId: string,
+  _memberId: string,
   quarterStr: string,
   memberCountryId: string,
   publicHolidays: PublicHoliday[]

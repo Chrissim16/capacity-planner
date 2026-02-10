@@ -3,7 +3,6 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import type { AppState } from '../types';
 
 // Environment variables (set in .env file)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';

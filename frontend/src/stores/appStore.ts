@@ -159,7 +159,7 @@ interface AppStore {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const customStorage = {
-  getItem: (name: string): string | null => {
+  getItem: (_name: string): string | null => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) return null;
@@ -186,7 +186,7 @@ const customStorage = {
     }
   },
   
-  setItem: (name: string, value: string): void => {
+  setItem: (_name: string, value: string): void => {
     try {
       const parsed = JSON.parse(value);
       // Save the data in original app format (just the data object)
@@ -199,7 +199,7 @@ const customStorage = {
     }
   },
   
-  removeItem: (name: string): void => {
+  removeItem: (_name: string): void => {
     localStorage.removeItem(STORAGE_KEY);
   },
 };

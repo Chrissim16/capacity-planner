@@ -3,19 +3,12 @@
  * Pure functions - no side effects, fully testable
  */
 
-import {
+import type {
   AppState,
-  TeamMember,
-  Project,
-  TimeOff,
   CapacityResult,
   CapacityBreakdownItem,
   CapacityStatus,
   Warnings,
-  OverallocationWarning,
-  HighUtilizationWarning,
-  TooManyProjectsWarning,
-  SkillMismatchWarning,
 } from '../types';
 import { 
   getWorkdaysInQuarter, 
