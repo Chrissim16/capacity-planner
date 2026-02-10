@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   AppState,
   ViewType,
@@ -16,6 +16,12 @@ import type {
   Settings,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STORAGE KEY - Must match the original app!
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'capacity-planner-data';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DEFAULT STATE
@@ -80,6 +86,33 @@ const defaultUIState: UIState = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// LOAD EXISTING DATA FROM ORIGINAL APP
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function loadExistingData(): AppState {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // The original app stores data directly, not wrapped in { state: { data: ... } }
+      // So we need to check the structure
+      if (parsed && parsed.teamMembers) {
+        console.log('[Store] Loaded existing data from localStorage');
+        return {
+          ...defaultAppState,
+          ...parsed,
+          // Ensure quarters are regenerated if missing
+          quarters: parsed.quarters?.length ? parsed.quarters : generateQuarters(8),
+        };
+      }
+    }
+  } catch (e) {
+    console.error('[Store] Failed to load existing data:', e);
+  }
+  return defaultAppState;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // STORE INTERFACE
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -116,7 +149,60 @@ interface AppStore {
   
   // Helper to get current state (respects what-if mode)
   getCurrentState: () => AppState;
+  
+  // Sync with localStorage (for compatibility with original app)
+  syncToStorage: () => void;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CUSTOM STORAGE - Compatible with original app format
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const customStorage = {
+  getItem: (name: string): string | null => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return null;
+      
+      const parsed = JSON.parse(stored);
+      
+      // If it's already in the new format (has state.data), return as-is
+      if (parsed.state?.data) {
+        return stored;
+      }
+      
+      // Convert old format to new format
+      const converted = {
+        state: {
+          data: parsed,
+          ui: defaultUIState,
+        },
+        version: 0,
+      };
+      return JSON.stringify(converted);
+    } catch (e) {
+      console.error('[Storage] getItem error:', e);
+      return null;
+    }
+  },
+  
+  setItem: (name: string, value: string): void => {
+    try {
+      const parsed = JSON.parse(value);
+      // Save the data in original app format (just the data object)
+      // This keeps compatibility with the original app
+      if (parsed.state?.data) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed.state.data));
+      }
+    } catch (e) {
+      console.error('[Storage] setItem error:', e);
+    }
+  },
+  
+  removeItem: (name: string): void => {
+    localStorage.removeItem(STORAGE_KEY);
+  },
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STORE IMPLEMENTATION
@@ -125,8 +211,8 @@ interface AppStore {
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      // Initial state
-      data: defaultAppState,
+      // Initial state - load from existing localStorage
+      data: loadExistingData(),
       whatIfData: null,
       isLoading: false,
       error: null,
@@ -146,13 +232,14 @@ export const useAppStore = create<AppStore>()(
             },
           });
         } else {
-          set({
-            data: {
-              ...state.data,
-              ...updates,
-              lastModified: new Date().toISOString(),
-            },
-          });
+          const newData = {
+            ...state.data,
+            ...updates,
+            lastModified: new Date().toISOString(),
+          };
+          set({ data: newData });
+          // Also save to localStorage for original app compatibility
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
         }
       },
       
@@ -171,11 +258,14 @@ export const useAppStore = create<AppStore>()(
       exitWhatIfMode: (save) => {
         const state = get();
         if (save && state.whatIfData) {
+          const newData = state.whatIfData;
           set({
-            data: state.whatIfData,
+            data: newData,
             whatIfData: null,
             ui: { ...state.ui, isWhatIfMode: false },
           });
+          // Save to localStorage
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
         } else {
           set({
             whatIfData: null,
@@ -231,16 +321,18 @@ export const useAppStore = create<AppStore>()(
           ui: { ...state.ui, projectSort: sort },
         })),
       
-      toggleDarkMode: () =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            settings: {
-              ...state.data.settings,
-              darkMode: !state.data.settings.darkMode,
-            },
+      toggleDarkMode: () => {
+        const state = get();
+        const newData = {
+          ...state.data,
+          settings: {
+            ...state.data.settings,
+            darkMode: !state.data.settings.darkMode,
           },
-        })),
+        };
+        set({ data: newData });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      },
       
       // Helper
       getCurrentState: () => {
@@ -249,9 +341,16 @@ export const useAppStore = create<AppStore>()(
           ? state.whatIfData
           : state.data;
       },
+      
+      // Sync to localStorage (for manual sync)
+      syncToStorage: () => {
+        const state = get();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+      },
     }),
     {
-      name: 'capacity-planner-storage',
+      name: STORAGE_KEY,
+      storage: createJSONStorage(() => customStorage),
       partialize: (state) => ({
         data: state.data,
         ui: {
