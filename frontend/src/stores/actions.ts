@@ -287,3 +287,63 @@ export function deleteSystem(systemId: string): void {
   const systems = state.getCurrentState().systems.filter(s => s.id !== systemId);
   state.updateData({ systems });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COUNTRY ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function addCountry(code: string, name: string, flag?: string): void {
+  const state = useAppStore.getState();
+  const countries = [...state.getCurrentState().countries, { 
+    id: generateId('country'), 
+    code: code.toUpperCase(), 
+    name,
+    flag 
+  }];
+  state.updateData({ countries });
+}
+
+export function updateCountry(countryId: string, updates: { code?: string; name?: string; flag?: string }): void {
+  const state = useAppStore.getState();
+  const countries = state.getCurrentState().countries.map(c =>
+    c.id === countryId ? { ...c, ...updates } : c
+  );
+  state.updateData({ countries });
+}
+
+export function deleteCountry(countryId: string): void {
+  const state = useAppStore.getState();
+  const countries = state.getCurrentState().countries.filter(c => c.id !== countryId);
+  // Also remove holidays for this country
+  const publicHolidays = state.getCurrentState().publicHolidays.filter(h => h.countryId !== countryId);
+  state.updateData({ countries, publicHolidays });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HOLIDAY ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function addHoliday(countryId: string, date: string, name: string): void {
+  const state = useAppStore.getState();
+  const publicHolidays = [...state.getCurrentState().publicHolidays, {
+    id: generateId('holiday'),
+    countryId,
+    date,
+    name,
+  }];
+  state.updateData({ publicHolidays });
+}
+
+export function updateHoliday(holidayId: string, updates: { date?: string; name?: string }): void {
+  const state = useAppStore.getState();
+  const publicHolidays = state.getCurrentState().publicHolidays.map(h =>
+    h.id === holidayId ? { ...h, ...updates } : h
+  );
+  state.updateData({ publicHolidays });
+}
+
+export function deleteHoliday(holidayId: string): void {
+  const state = useAppStore.getState();
+  const publicHolidays = state.getCurrentState().publicHolidays.filter(h => h.id !== holidayId);
+  state.updateData({ publicHolidays });
+}

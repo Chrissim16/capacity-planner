@@ -14,6 +14,8 @@ import {
   addRole, deleteRole, 
   addSkill, deleteSkill, 
   addSystem, deleteSystem, 
+  addCountry, deleteCountry,
+  addHoliday, deleteHoliday,
   updateSettings 
 } from '../stores/actions';
 
@@ -27,6 +29,14 @@ const sections: { id: SettingsSection; label: string; icon: typeof Settings2 }[]
   { id: 'countries', label: 'Countries', icon: Globe },
   { id: 'holidays', label: 'Holidays', icon: Calendar },
 ];
+
+// Common country flags
+const countryFlags: Record<string, string> = {
+  'NL': '🇳🇱', 'DE': '🇩🇪', 'BE': '🇧🇪', 'FR': '🇫🇷', 'GB': '🇬🇧', 'UK': '🇬🇧',
+  'US': '🇺🇸', 'ES': '🇪🇸', 'IT': '🇮🇹', 'PL': '🇵🇱', 'PT': '🇵🇹', 'AT': '🇦🇹',
+  'CH': '🇨🇭', 'DK': '🇩🇰', 'SE': '🇸🇪', 'NO': '🇳🇴', 'FI': '🇫🇮', 'IE': '🇮🇪',
+  'CZ': '🇨🇿', 'HU': '🇭🇺', 'RO': '🇷🇴', 'BG': '🇧🇬', 'GR': '🇬🇷', 'SK': '🇸🇰',
+};
 
 export function Settings() {
   const state = useAppStore((s) => s.getCurrentState());
@@ -47,6 +57,15 @@ export function Settings() {
   const [newSkillCategory, setNewSkillCategory] = useState<'System' | 'Process' | 'Technical'>('Technical');
   const [newSystemName, setNewSystemName] = useState('');
   const [newSystemDesc, setNewSystemDesc] = useState('');
+  
+  // Country form state
+  const [newCountryCode, setNewCountryCode] = useState('');
+  const [newCountryName, setNewCountryName] = useState('');
+  
+  // Holiday form state
+  const [newHolidayCountryId, setNewHolidayCountryId] = useState('');
+  const [newHolidayDate, setNewHolidayDate] = useState('');
+  const [newHolidayName, setNewHolidayName] = useState('');
 
   const handleSaveGeneral = () => {
     updateSettings({
@@ -79,12 +98,32 @@ export function Settings() {
     }
   };
 
+  const handleAddCountry = () => {
+    if (newCountryCode.trim() && newCountryName.trim()) {
+      const code = newCountryCode.trim().toUpperCase();
+      const flag = countryFlags[code] || '🏳️';
+      addCountry(code, newCountryName.trim(), flag);
+      setNewCountryCode('');
+      setNewCountryName('');
+    }
+  };
+
+  const handleAddHoliday = () => {
+    if (newHolidayCountryId && newHolidayDate && newHolidayName.trim()) {
+      addHoliday(newHolidayCountryId, newHolidayDate, newHolidayName.trim());
+      setNewHolidayDate('');
+      setNewHolidayName('');
+    }
+  };
+
   const confirmDelete = () => {
     if (!deleteConfirm) return;
     switch (deleteConfirm.type) {
       case 'role': deleteRole(deleteConfirm.id); break;
       case 'skill': deleteSkill(deleteConfirm.id); break;
       case 'system': deleteSystem(deleteConfirm.id); break;
+      case 'country': deleteCountry(deleteConfirm.id); break;
+      case 'holiday': deleteHoliday(deleteConfirm.id); break;
     }
     setDeleteConfirm(null);
   };
@@ -92,6 +131,11 @@ export function Settings() {
   const countryOptions = [
     { value: '', label: 'Select default country' },
     ...countries.map(c => ({ value: c.id, label: c.name })),
+  ];
+
+  const countrySelectOptions = [
+    { value: '', label: 'Select country' },
+    ...countries.map(c => ({ value: c.id, label: `${c.flag || '🏳️'} ${c.name}` })),
   ];
 
   const skillCategoryOptions = [
@@ -106,6 +150,11 @@ export function Settings() {
     acc[skill.category].push(skill);
     return acc;
   }, {} as Record<string, typeof skills>);
+
+  // Sort holidays by date
+  const sortedHolidays = [...publicHolidays].sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
 
   return (
     <div className="flex gap-6 h-[calc(100vh-8rem)]">
@@ -349,7 +398,38 @@ export function Settings() {
             <CardHeader>
               <CardTitle>Countries</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Add Country Form */}
+              <div className="flex gap-3">
+                <Input
+                  value={newCountryCode}
+                  onChange={(e) => setNewCountryCode(e.target.value.toUpperCase())}
+                  placeholder="Code (e.g., NL)"
+                  className="w-24"
+                  maxLength={2}
+                />
+                <Input
+                  value={newCountryName}
+                  onChange={(e) => setNewCountryName(e.target.value)}
+                  placeholder="Country name"
+                  className="flex-1"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddCountry()}
+                />
+                <Button onClick={handleAddCountry}>
+                  <Plus size={16} />
+                  Add
+                </Button>
+              </div>
+              
+              {/* Preview flag */}
+              {newCountryCode && (
+                <p className="text-sm text-slate-500">
+                  Flag preview: {countryFlags[newCountryCode.toUpperCase()] || '🏳️'} 
+                  {!countryFlags[newCountryCode.toUpperCase()] && ' (generic flag - code not recognized)'}
+                </p>
+              )}
+              
+              {/* Countries List */}
               <div className="space-y-2">
                 {countries.map(country => (
                   <div
@@ -361,18 +441,24 @@ export function Settings() {
                       <span className="font-medium text-slate-700 dark:text-slate-200">{country.name}</span>
                       <Badge variant="default">{country.code}</Badge>
                     </div>
-                    <span className="text-sm text-slate-400">
-                      {publicHolidays.filter(h => h.countryId === country.id).length} holidays
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-slate-400">
+                        {publicHolidays.filter(h => h.countryId === country.id).length} holidays
+                      </span>
+                      <button
+                        onClick={() => setDeleteConfirm({ type: 'country', id: country.id, name: country.name })}
+                        className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                        title="Delete (will also remove all holidays)"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {countries.length === 0 && (
-                  <p className="text-center py-8 text-slate-400">No countries defined</p>
+                  <p className="text-center py-8 text-slate-400">No countries defined. Add a country to manage holidays.</p>
                 )}
               </div>
-              <p className="mt-4 text-sm text-slate-400">
-                Country configuration is managed via data import. Contact your admin for changes.
-              </p>
             </CardContent>
           </Card>
         )}
@@ -382,42 +468,89 @@ export function Settings() {
             <CardHeader>
               <CardTitle>Public Holidays</CardTitle>
             </CardHeader>
-            <CardContent>
-              {countries.map(country => {
-                const countryHolidays = publicHolidays.filter(h => h.countryId === country.id);
-                if (countryHolidays.length === 0) return null;
-                
-                return (
-                  <div key={country.id} className="mb-6">
-                    <h3 className="flex items-center gap-2 text-lg font-medium text-slate-700 dark:text-slate-200 mb-3">
-                      <span>{country.flag || '🏳️'}</span>
-                      {country.name}
-                    </h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      {countryHolidays.map(holiday => (
-                        <div
-                          key={holiday.date}
-                          className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-sm"
-                        >
-                          <span className="text-slate-600 dark:text-slate-300">{holiday.name}</span>
-                          <span className="text-slate-400">
-                            {new Date(holiday.date).toLocaleDateString('en-GB', { 
-                              day: 'numeric', 
-                              month: 'short' 
-                            })}
-                          </span>
+            <CardContent className="space-y-4">
+              {/* Add Holiday Form */}
+              <div className="flex gap-3 items-end">
+                <div className="w-48">
+                  <Select
+                    label="Country"
+                    value={newHolidayCountryId}
+                    onChange={(e) => setNewHolidayCountryId(e.target.value)}
+                    options={countrySelectOptions}
+                  />
+                </div>
+                <div className="w-40">
+                  <Input
+                    label="Date"
+                    type="date"
+                    value={newHolidayDate}
+                    onChange={(e) => setNewHolidayDate(e.target.value)}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    label="Holiday Name"
+                    value={newHolidayName}
+                    onChange={(e) => setNewHolidayName(e.target.value)}
+                    placeholder="e.g., Christmas Day"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddHoliday()}
+                  />
+                </div>
+                <Button onClick={handleAddHoliday}>
+                  <Plus size={16} />
+                  Add
+                </Button>
+              </div>
+              
+              {/* Holidays List by Country */}
+              {countries.length === 0 ? (
+                <p className="text-center py-8 text-slate-400">
+                  Add countries first in the Countries section to manage holidays.
+                </p>
+              ) : (
+                countries.map(country => {
+                  const countryHolidays = sortedHolidays.filter(h => h.countryId === country.id);
+                  
+                  return (
+                    <div key={country.id} className="border-t border-slate-200 dark:border-slate-700 pt-4 first:border-t-0 first:pt-0">
+                      <h3 className="flex items-center gap-2 text-lg font-medium text-slate-700 dark:text-slate-200 mb-3">
+                        <span>{country.flag || '🏳️'}</span>
+                        {country.name}
+                        <Badge variant="default">{countryHolidays.length}</Badge>
+                      </h3>
+                      {countryHolidays.length === 0 ? (
+                        <p className="text-sm text-slate-400 ml-8">No holidays defined for this country</p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {countryHolidays.map(holiday => (
+                            <div
+                              key={holiday.id}
+                              className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-sm"
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-slate-400 w-20">
+                                  {new Date(holiday.date + 'T00:00:00').toLocaleDateString('en-GB', { 
+                                    day: 'numeric', 
+                                    month: 'short',
+                                    year: 'numeric'
+                                  })}
+                                </span>
+                                <span className="text-slate-600 dark:text-slate-300">{holiday.name}</span>
+                              </div>
+                              <button
+                                onClick={() => setDeleteConfirm({ type: 'holiday', id: holiday.id, name: holiday.name })}
+                                className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                );
-              })}
-              {publicHolidays.length === 0 && (
-                <p className="text-center py-8 text-slate-400">No holidays defined</p>
+                  );
+                })
               )}
-              <p className="mt-4 text-sm text-slate-400">
-                Holiday configuration is managed via data import. Contact your admin for changes.
-              </p>
             </CardContent>
           </Card>
         )}
@@ -442,7 +575,8 @@ export function Settings() {
       >
         <p className="text-slate-600 dark:text-slate-300">
           Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>? 
-          This may affect existing assignments and team members.
+          {deleteConfirm?.type === 'country' && ' This will also remove all holidays for this country.'}
+          {deleteConfirm?.type !== 'country' && ' This may affect existing assignments and team members.'}
         </p>
       </Modal>
     </div>
