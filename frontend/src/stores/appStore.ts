@@ -43,7 +43,7 @@ const defaultSettings: Settings = {
 };
 
 const defaultAppState: AppState = {
-  version: 7,
+  version: 8,
   lastModified: new Date().toISOString(),
   settings: defaultSettings,
   countries: [],
@@ -55,6 +55,7 @@ const defaultAppState: AppState = {
   projects: [],
   timeOff: [],
   quarters: generateQuarters(8),
+  sprints: [],
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -98,11 +99,20 @@ function loadExistingData(): AppState {
       // So we need to check the structure
       if (parsed && parsed.teamMembers) {
         console.log('[Store] Loaded existing data from localStorage');
+        // Merge settings with defaults to handle new fields added in updates
+        const mergedSettings: Settings = {
+          ...defaultSettings,
+          ...(parsed.settings || {}),
+        };
         return {
           ...defaultAppState,
           ...parsed,
+          // Merge settings properly so new fields have defaults
+          settings: mergedSettings,
           // Ensure quarters are regenerated if missing
           quarters: parsed.quarters?.length ? parsed.quarters : generateQuarters(8),
+          // Ensure sprints array exists (new field)
+          sprints: parsed.sprints || [],
         };
       }
     }
@@ -171,10 +181,20 @@ const customStorage = {
         return stored;
       }
       
-      // Convert old format to new format
+      // Merge settings with defaults to handle new fields
+      const mergedSettings = {
+        ...defaultSettings,
+        ...(parsed.settings || {}),
+      };
+      
+      // Convert old format to new format with merged settings
       const converted = {
         state: {
-          data: parsed,
+          data: {
+            ...defaultAppState,
+            ...parsed,
+            settings: mergedSettings,
+          },
           ui: defaultUIState,
         },
         version: 0,

@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { 
-  Settings2, Shield, Code, Globe, Calendar, Database,
+  Settings2, Shield, Code, Globe, Calendar, Database, Zap,
   Plus, Trash2, ChevronRight, Save, Edit2, Check, X,
-  Download, Upload, FileJson, FileSpreadsheet, AlertTriangle
+  Download, Upload, FileJson, FileSpreadsheet, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -17,6 +17,7 @@ import {
   addSystem, updateSystem, deleteSystem, 
   addCountry, deleteCountry,
   addHoliday, deleteHoliday,
+  addSprint, updateSprint, deleteSprint, generateSprintsForYear,
   updateSettings 
 } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
@@ -27,9 +28,10 @@ import {
   importFromExcel,
   downloadExcelTemplate 
 } from '../utils/importExport';
-import type { AppState } from '../types';
+import type { AppState, Sprint } from '../types';
+import { SprintForm } from '../components/forms/SprintForm';
 
-type SettingsSection = 'general' | 'roles' | 'skills' | 'systems' | 'countries' | 'holidays' | 'data';
+type SettingsSection = 'general' | 'roles' | 'skills' | 'systems' | 'countries' | 'holidays' | 'sprints' | 'data';
 
 const sections: { id: SettingsSection; label: string; icon: typeof Settings2 }[] = [
   { id: 'general', label: 'General', icon: Settings2 },
@@ -38,6 +40,7 @@ const sections: { id: SettingsSection; label: string; icon: typeof Settings2 }[]
   { id: 'systems', label: 'Systems', icon: Globe },
   { id: 'countries', label: 'Countries', icon: Globe },
   { id: 'holidays', label: 'Holidays', icon: Calendar },
+  { id: 'sprints', label: 'Sprints', icon: Zap },
   { id: 'data', label: 'Import / Export', icon: Database },
 ];
 
@@ -51,7 +54,7 @@ const countryFlags: Record<string, string> = {
 
 export function Settings() {
   const state = useAppStore((s) => s.getCurrentState());
-  const { settings, roles, skills, systems, countries, publicHolidays } = state;
+  const { settings, roles, skills, systems, countries, publicHolidays, sprints } = state;
   
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; id: string; name: string } | null>(null);
@@ -84,6 +87,12 @@ export function Settings() {
   const [newHolidayCountryId, setNewHolidayCountryId] = useState('');
   const [newHolidayDate, setNewHolidayDate] = useState('');
   const [newHolidayName, setNewHolidayName] = useState('');
+  
+  // Sprint form state
+  const [sprintModalOpen, setSprintModalOpen] = useState(false);
+  const [editingSprint, setEditingSprint] = useState<Sprint | undefined>();
+  const [generateYearInput, setGenerateYearInput] = useState(new Date().getFullYear());
+  const [isGenerating, setIsGenerating] = useState(false);
   
   // Import/Export state
   const [isExporting, setIsExporting] = useState(false);
@@ -168,6 +177,51 @@ export function Settings() {
       setNewHolidayName('');
     }
   };
+
+  // Sprint handlers
+  const handleAddSprint = () => {
+    setEditingSprint(undefined);
+    setSprintModalOpen(true);
+  };
+
+  const handleEditSprint = (sprint: Sprint) => {
+    setEditingSprint(sprint);
+    setSprintModalOpen(true);
+  };
+
+  const handleSaveSprint = (data: Omit<Sprint, 'id'>) => {
+    if (editingSprint) {
+      updateSprint(editingSprint.id, data);
+      showToast('Sprint updated', 'success');
+    } else {
+      addSprint(data);
+      showToast('Sprint added', 'success');
+    }
+    setSprintModalOpen(false);
+    setEditingSprint(undefined);
+  };
+
+  const handleGenerateSprints = () => {
+    setIsGenerating(true);
+    try {
+      const generated = generateSprintsForYear(generateYearInput);
+      showToast(`Generated ${generated.length} sprints for ${generateYearInput}`, 'success');
+    } catch {
+      showToast('Failed to generate sprints', 'error');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Group sprints by year
+  const sprintsByYear = sprints.reduce((acc, sprint) => {
+    if (!acc[sprint.year]) acc[sprint.year] = [];
+    acc[sprint.year].push(sprint);
+    return acc;
+  }, {} as Record<number, Sprint[]>);
+
+  // Get available years for generating sprints
+  const yearsWithSprints = Object.keys(sprintsByYear).map(Number).sort();
 
   // Import/Export handlers
   const handleExportJSON = () => {
@@ -287,6 +341,7 @@ export function Settings() {
       case 'system': deleteSystem(deleteConfirm.id); break;
       case 'country': deleteCountry(deleteConfirm.id); break;
       case 'holiday': deleteHoliday(deleteConfirm.id); break;
+      case 'sprint': deleteSprint(deleteConfirm.id); break;
     }
     setDeleteConfirm(null);
   };
@@ -763,6 +818,124 @@ export function Settings() {
           </Card>
         )}
 
+        {activeSection === 'sprints' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Sprints</span>
+                <Button size="sm" onClick={handleAddSprint}>
+                  <Plus size={16} />
+                  Add Sprint
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Generate Sprints */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h4 className="font-medium text-blue-700 dark:text-blue-300 mb-2 flex items-center gap-2">
+                  <RefreshCw size={16} />
+                  Auto-Generate Sprints
+                </h4>
+                <p className="text-sm text-blue-600 dark:text-blue-400 mb-3">
+                  Automatically generate all sprints for a year based on your settings 
+                  ({settings.sprintsPerYear} sprints/year, {settings.sprintDurationWeeks} weeks each).
+                </p>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    min={2020}
+                    max={2100}
+                    value={generateYearInput}
+                    onChange={(e) => setGenerateYearInput(parseInt(e.target.value) || new Date().getFullYear())}
+                    className="w-28"
+                  />
+                  <Button onClick={handleGenerateSprints} isLoading={isGenerating}>
+                    <Zap size={16} />
+                    Generate {generateYearInput} Sprints
+                  </Button>
+                </div>
+                {yearsWithSprints.includes(generateYearInput) && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                    ⚠️ This will replace all existing sprints for {generateYearInput}
+                  </p>
+                )}
+              </div>
+
+              {/* Sprints List by Year */}
+              {Object.keys(sprintsByYear).length === 0 ? (
+                <div className="text-center py-12">
+                  <Zap size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-4" />
+                  <p className="text-slate-500 dark:text-slate-400 mb-2">No sprints defined</p>
+                  <p className="text-sm text-slate-400 dark:text-slate-500">
+                    Use the auto-generate feature above or add sprints manually
+                  </p>
+                </div>
+              ) : (
+                Object.entries(sprintsByYear)
+                  .sort(([a], [b]) => Number(b) - Number(a)) // Sort years descending
+                  .map(([year, yearSprints]) => (
+                    <div key={year} className="border-t border-slate-200 dark:border-slate-700 pt-4 first:border-t-0 first:pt-0">
+                      <h3 className="flex items-center gap-2 text-lg font-medium text-slate-700 dark:text-slate-200 mb-3">
+                        {year}
+                        <Badge variant="default">{yearSprints.length} sprints</Badge>
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {yearSprints
+                          .sort((a, b) => a.number - b.number)
+                          .map(sprint => (
+                            <div
+                              key={sprint.id}
+                              className={`flex items-center justify-between p-3 rounded-lg ${
+                                sprint.isByeWeek 
+                                  ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
+                                  : 'bg-slate-50 dark:bg-slate-800/50'
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-slate-700 dark:text-slate-200 truncate">
+                                    {sprint.name}
+                                  </span>
+                                  {sprint.isByeWeek && (
+                                    <Badge variant="warning" className="text-xs">Bye</Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                  {new Date(sprint.startDate + 'T00:00:00').toLocaleDateString('en-GB', { 
+                                    day: 'numeric', 
+                                    month: 'short'
+                                  })} - {new Date(sprint.endDate + 'T00:00:00').toLocaleDateString('en-GB', { 
+                                    day: 'numeric', 
+                                    month: 'short'
+                                  })} • {sprint.quarter}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1 ml-2">
+                                <button
+                                  onClick={() => handleEditSprint(sprint)}
+                                  className="p-1.5 text-slate-400 hover:text-blue-500 transition-colors"
+                                  title="Edit"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirm({ type: 'sprint', id: sprint.id, name: sprint.name })}
+                                  className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  ))
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {activeSection === 'data' && (
           <div className="space-y-6">
             {/* Export Section */}
@@ -1047,6 +1220,26 @@ export function Settings() {
             )}
           </div>
         )}
+      </Modal>
+
+      {/* Sprint Add/Edit Modal */}
+      <Modal
+        isOpen={sprintModalOpen}
+        onClose={() => {
+          setSprintModalOpen(false);
+          setEditingSprint(undefined);
+        }}
+        title={editingSprint ? 'Edit Sprint' : 'Add Sprint'}
+        size="md"
+      >
+        <SprintForm
+          sprint={editingSprint}
+          onSave={handleSaveSprint}
+          onCancel={() => {
+            setSprintModalOpen(false);
+            setEditingSprint(undefined);
+          }}
+        />
       </Modal>
     </div>
   );

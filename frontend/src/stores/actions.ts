@@ -4,7 +4,7 @@
  */
 
 import { useAppStore } from './appStore';
-import type { Project, Phase, TeamMember, TimeOff, Assignment } from '../types';
+import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint } from '../types';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ID GENERATION
@@ -359,4 +359,124 @@ export function deleteHoliday(holidayId: string): void {
   const state = useAppStore.getState();
   const publicHolidays = state.getCurrentState().publicHolidays.filter(h => h.id !== holidayId);
   state.updateData({ publicHolidays });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SPRINT ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function addSprint(sprintData: Omit<Sprint, 'id'>): Sprint {
+  const state = useAppStore.getState();
+  const newSprint: Sprint = {
+    ...sprintData,
+    id: generateId('sprint'),
+  };
+  
+  const sprints = [...state.getCurrentState().sprints, newSprint];
+  // Sort by startDate
+  sprints.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  state.updateData({ sprints });
+  
+  return newSprint;
+}
+
+export function updateSprint(sprintId: string, updates: Partial<Sprint>): void {
+  const state = useAppStore.getState();
+  const sprints = state.getCurrentState().sprints.map(s =>
+    s.id === sprintId ? { ...s, ...updates } : s
+  );
+  // Re-sort by startDate in case dates changed
+  sprints.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  state.updateData({ sprints });
+}
+
+export function deleteSprint(sprintId: string): void {
+  const state = useAppStore.getState();
+  const sprints = state.getCurrentState().sprints.filter(s => s.id !== sprintId);
+  // Also remove any sprint-level assignments for this sprint
+  const projects = state.getCurrentState().projects.map(project => ({
+    ...project,
+    phases: project.phases.map(phase => ({
+      ...phase,
+      assignments: phase.assignments.filter(a => a.sprint !== sprintId),
+    })),
+  }));
+  state.updateData({ sprints, projects });
+}
+
+/**
+ * Generate sprints for a given year based on settings
+ * @param year - The year to generate sprints for
+ * @param startDate - Optional start date (defaults to first Monday of the year)
+ */
+export function generateSprintsForYear(year: number, startDate?: string): Sprint[] {
+  const state = useAppStore.getState();
+  const settings = state.getCurrentState().settings;
+  const existingSprints = state.getCurrentState().sprints;
+  
+  const sprintsPerYear = settings.sprintsPerYear || 16;
+  const durationWeeks = settings.sprintDurationWeeks || 3;
+  const byeWeeksAfter = settings.byeWeeksAfter || [];
+  
+  // Default to first Monday of the year
+  let currentDate: Date;
+  if (startDate) {
+    currentDate = new Date(startDate);
+  } else {
+    currentDate = new Date(year, 0, 1); // Jan 1
+    // Find first Monday
+    while (currentDate.getDay() !== 1) {
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+  }
+  
+  const newSprints: Sprint[] = [];
+  
+  for (let i = 1; i <= sprintsPerYear; i++) {
+    const sprintStart = new Date(currentDate);
+    const sprintEnd = new Date(currentDate);
+    sprintEnd.setDate(sprintEnd.getDate() + (durationWeeks * 7) - 1);
+    
+    // Determine quarter
+    const month = sprintStart.getMonth();
+    let quarterNum: number;
+    if (month <= 2) quarterNum = 1;
+    else if (month <= 5) quarterNum = 2;
+    else if (month <= 8) quarterNum = 3;
+    else quarterNum = 4;
+    
+    const sprint: Sprint = {
+      id: generateId('sprint'),
+      name: `Sprint ${i}`,
+      number: i,
+      year: year,
+      startDate: sprintStart.toISOString().split('T')[0],
+      endDate: sprintEnd.toISOString().split('T')[0],
+      quarter: `Q${quarterNum} ${year}`,
+      isByeWeek: byeWeeksAfter.includes(i),
+    };
+    
+    newSprints.push(sprint);
+    
+    // Move to next sprint start
+    currentDate.setDate(currentDate.getDate() + (durationWeeks * 7));
+  }
+  
+  // Combine with existing sprints (remove duplicates for the same year)
+  const filteredExisting = existingSprints.filter(s => s.year !== year);
+  const allSprints = [...filteredExisting, ...newSprints];
+  allSprints.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  
+  state.updateData({ sprints: allSprints });
+  
+  return newSprints;
+}
+
+/**
+ * Clear all sprints for a specific year
+ */
+export function clearSprintsForYear(year: number): void {
+  const state = useAppStore.getState();
+  const sprints = state.getCurrentState().sprints.filter(s => s.year !== year);
+  state.updateData({ sprints });
 }

@@ -145,6 +145,7 @@ export interface AppState {
   projects: Project[];
   timeOff: TimeOff[];
   quarters: string[];
+  sprints: Sprint[];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
