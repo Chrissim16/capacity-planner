@@ -282,6 +282,14 @@ export function addSystem(name: string, description?: string): void {
   state.updateData({ systems });
 }
 
+export function updateSystem(systemId: string, updates: { name?: string; description?: string }): void {
+  const state = useAppStore.getState();
+  const systems = state.getCurrentState().systems.map(s =>
+    s.id === systemId ? { ...s, ...updates } : s
+  );
+  state.updateData({ systems });
+}
+
 export function deleteSystem(systemId: string): void {
   const state = useAppStore.getState();
   const systems = state.getCurrentState().systems.filter(s => s.id !== systemId);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   Settings2, Shield, Code, Globe, Calendar, 
-  Plus, Trash2, ChevronRight, Save
+  Plus, Trash2, ChevronRight, Save, Edit2, Check, X
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -13,11 +13,12 @@ import { useAppStore } from '../stores/appStore';
 import { 
   addRole, deleteRole, 
   addSkill, deleteSkill, 
-  addSystem, deleteSystem, 
+  addSystem, updateSystem, deleteSystem, 
   addCountry, deleteCountry,
   addHoliday, deleteHoliday,
   updateSettings 
 } from '../stores/actions';
+import { useToast } from '../components/ui/Toast';
 
 type SettingsSection = 'general' | 'roles' | 'skills' | 'systems' | 'countries' | 'holidays';
 
@@ -51,12 +52,19 @@ export function Settings() {
   const [quartersToShow, setQuartersToShow] = useState(settings.quartersToShow || 4);
   const [defaultCountryId, setDefaultCountryId] = useState(settings.defaultCountryId || '');
   
+  const { showToast } = useToast();
+  
   // Add forms state
   const [newRoleName, setNewRoleName] = useState('');
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillCategory, setNewSkillCategory] = useState<'System' | 'Process' | 'Technical'>('Technical');
   const [newSystemName, setNewSystemName] = useState('');
   const [newSystemDesc, setNewSystemDesc] = useState('');
+  
+  // Edit state for systems
+  const [editingSystemId, setEditingSystemId] = useState<string | null>(null);
+  const [editSystemName, setEditSystemName] = useState('');
+  const [editSystemDesc, setEditSystemDesc] = useState('');
   
   // Country form state
   const [newCountryCode, setNewCountryCode] = useState('');
@@ -95,7 +103,34 @@ export function Settings() {
       addSystem(newSystemName.trim(), newSystemDesc.trim() || undefined);
       setNewSystemName('');
       setNewSystemDesc('');
+      showToast('System added', 'success');
     }
+  };
+
+  const handleEditSystem = (systemId: string) => {
+    const system = systems.find(s => s.id === systemId);
+    if (system) {
+      setEditingSystemId(systemId);
+      setEditSystemName(system.name);
+      setEditSystemDesc(system.description || '');
+    }
+  };
+
+  const handleSaveSystem = () => {
+    if (editingSystemId && editSystemName.trim()) {
+      updateSystem(editingSystemId, { 
+        name: editSystemName.trim(), 
+        description: editSystemDesc.trim() || undefined 
+      });
+      setEditingSystemId(null);
+      showToast('System updated', 'success');
+    }
+  };
+
+  const handleCancelEditSystem = () => {
+    setEditingSystemId(null);
+    setEditSystemName('');
+    setEditSystemDesc('');
   };
 
   const handleAddCountry = () => {
@@ -371,18 +406,63 @@ export function Settings() {
                     key={system.id}
                     className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg"
                   >
-                    <div>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">{system.name}</span>
-                      {system.description && (
-                        <p className="text-sm text-slate-500">{system.description}</p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => setDeleteConfirm({ type: 'system', id: system.id, name: system.name })}
-                      className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {editingSystemId === system.id ? (
+                      // Edit mode
+                      <div className="flex-1 flex items-center gap-3">
+                        <Input
+                          value={editSystemName}
+                          onChange={(e) => setEditSystemName(e.target.value)}
+                          placeholder="System name"
+                          className="flex-1"
+                        />
+                        <Input
+                          value={editSystemDesc}
+                          onChange={(e) => setEditSystemDesc(e.target.value)}
+                          placeholder="Description"
+                          className="flex-1"
+                        />
+                        <button
+                          onClick={handleSaveSystem}
+                          className="p-1.5 text-green-500 hover:text-green-600 transition-colors"
+                          title="Save"
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button
+                          onClick={handleCancelEditSystem}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                          title="Cancel"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      // View mode
+                      <>
+                        <div>
+                          <span className="font-medium text-slate-700 dark:text-slate-200">{system.name}</span>
+                          {system.description && (
+                            <p className="text-sm text-slate-500">{system.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEditSystem(system.id)}
+                            className="p-1.5 text-slate-400 hover:text-blue-500 transition-colors"
+                            title="Edit"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirm({ type: 'system', id: system.id, name: system.name })}
+                            className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
                 {systems.length === 0 && (
