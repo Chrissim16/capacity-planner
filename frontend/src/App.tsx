@@ -4,6 +4,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Timeline } from './pages/Timeline';
 import { Projects } from './pages/Projects';
 import { Team } from './pages/Team';
+import { Jira } from './pages/Jira';
 import { Settings } from './pages/Settings';
 import { ToastProvider } from './components/ui/Toast';
 import { useAppStore, useCurrentView, useSettings } from './stores/appStore';
@@ -15,6 +16,7 @@ const pages: Record<ViewType, React.ComponentType> = {
   timeline: Timeline,
   projects: Projects,
   team: Team,
+  jira: Jira,
   settings: Settings,
 };
 
@@ -36,11 +38,11 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Number keys for navigation
-      if (e.key >= '1' && e.key <= '5' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key >= '1' && e.key <= '6' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const target = e.target as HTMLElement;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
         
-        const views: ViewType[] = ['dashboard', 'timeline', 'projects', 'team', 'settings'];
+        const views: ViewType[] = ['dashboard', 'timeline', 'projects', 'team', 'jira', 'settings'];
         const index = parseInt(e.key) - 1;
         if (views[index]) {
           setCurrentView(views[index]);

@@ -9,7 +9,8 @@ import {
   Undo2,
   Redo2,
   GitBranch,
-  RefreshCw
+  RefreshCw,
+  Link2
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAppStore, useCurrentView, useSettings } from '../../stores/appStore';
@@ -22,7 +23,8 @@ const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string; s
   { view: 'timeline', icon: Calendar, label: 'Timeline', shortcut: '2' },
   { view: 'projects', icon: FolderKanban, label: 'Projects', shortcut: '3' },
   { view: 'team', icon: Users, label: 'Team', shortcut: '4' },
-  { view: 'settings', icon: Settings, label: 'Settings', shortcut: '5' },
+  { view: 'jira', icon: Link2, label: 'Jira', shortcut: '5' },
+  { view: 'settings', icon: Settings, label: 'Settings', shortcut: '6' },
 ];
 
 export function Header() {
