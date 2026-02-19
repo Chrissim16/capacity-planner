@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
 import { 
-  Settings2, Shield, Code, Globe, Calendar, Database, Zap,
+  Settings2, Shield, Code, Globe, Calendar, Database, Zap, Link2,
   Plus, Trash2, ChevronRight, Save, Edit2, Check, X,
-  Download, Upload, FileJson, FileSpreadsheet, AlertTriangle, RefreshCw
+  Download, Upload, FileJson, FileSpreadsheet, AlertTriangle, RefreshCw, Loader2, Power, ExternalLink
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -18,7 +18,8 @@ import {
   addCountry, deleteCountry,
   addHoliday, deleteHoliday,
   addSprint, updateSprint, deleteSprint, generateSprintsForYear,
-  updateSettings 
+  updateSettings,
+  addJiraConnection, updateJiraConnection, deleteJiraConnection, toggleJiraConnectionActive, updateJiraSettings
 } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
 import { 
@@ -28,10 +29,12 @@ import {
   importFromExcel,
   downloadExcelTemplate 
 } from '../utils/importExport';
-import type { AppState, Sprint } from '../types';
+import type { AppState, Sprint, JiraConnection } from '../types';
 import { SprintForm } from '../components/forms/SprintForm';
+import { JiraConnectionForm } from '../components/forms/JiraConnectionForm';
+import { testJiraConnection } from '../services/jira';
 
-type SettingsSection = 'general' | 'roles' | 'skills' | 'systems' | 'countries' | 'holidays' | 'sprints' | 'data';
+type SettingsSection = 'general' | 'roles' | 'skills' | 'systems' | 'countries' | 'holidays' | 'sprints' | 'jira' | 'data';
 
 const sections: { id: SettingsSection; label: string; icon: typeof Settings2 }[] = [
   { id: 'general', label: 'General', icon: Settings2 },
@@ -41,20 +44,21 @@ const sections: { id: SettingsSection; label: string; icon: typeof Settings2 }[]
   { id: 'countries', label: 'Countries', icon: Globe },
   { id: 'holidays', label: 'Holidays', icon: Calendar },
   { id: 'sprints', label: 'Sprints', icon: Zap },
+  { id: 'jira', label: 'Jira Integration', icon: Link2 },
   { id: 'data', label: 'Import / Export', icon: Database },
 ];
 
 // Common country flags
 const countryFlags: Record<string, string> = {
-  'NL': '🇳🇱', 'DE': '🇩🇪', 'BE': '🇧🇪', 'FR': '🇫🇷', 'GB': '🇬🇧', 'UK': '🇬🇧',
-  'US': '🇺🇸', 'ES': '🇪🇸', 'IT': '🇮🇹', 'PL': '🇵🇱', 'PT': '🇵🇹', 'AT': '🇦🇹',
-  'CH': '🇨🇭', 'DK': '🇩🇰', 'SE': '🇸🇪', 'NO': '🇳🇴', 'FI': '🇫🇮', 'IE': '🇮🇪',
-  'CZ': '🇨🇿', 'HU': '🇭🇺', 'RO': '🇷🇴', 'BG': '🇧🇬', 'GR': '🇬🇷', 'SK': '🇸🇰',
+  'NL': 'ðŸ‡³ðŸ‡±', 'DE': 'ðŸ‡©ðŸ‡ª', 'BE': 'ðŸ‡§ðŸ‡ª', 'FR': 'ðŸ‡«ðŸ‡·', 'GB': 'ðŸ‡¬ðŸ‡§', 'UK': 'ðŸ‡¬ðŸ‡§',
+  'US': 'ðŸ‡ºðŸ‡¸', 'ES': 'ðŸ‡ªðŸ‡¸', 'IT': 'ðŸ‡®ðŸ‡¹', 'PL': 'ðŸ‡µðŸ‡±', 'PT': 'ðŸ‡µðŸ‡¹', 'AT': 'ðŸ‡¦ðŸ‡¹',
+  'CH': 'ðŸ‡¨ðŸ‡­', 'DK': 'ðŸ‡©ðŸ‡°', 'SE': 'ðŸ‡¸ðŸ‡ª', 'NO': 'ðŸ‡³ðŸ‡´', 'FI': 'ðŸ‡«ðŸ‡®', 'IE': 'ðŸ‡®ðŸ‡ª',
+  'CZ': 'ðŸ‡¨ðŸ‡¿', 'HU': 'ðŸ‡­ðŸ‡º', 'RO': 'ðŸ‡·ðŸ‡´', 'BG': 'ðŸ‡§ðŸ‡¬', 'GR': 'ðŸ‡¬ðŸ‡·', 'SK': 'ðŸ‡¸ðŸ‡°',
 };
 
 export function Settings() {
   const state = useAppStore((s) => s.getCurrentState());
-  const { settings, roles, skills, systems, countries, publicHolidays, sprints } = state;
+  const { settings, roles, skills, systems, countries, publicHolidays, sprints, jiraConnections, jiraSettings } = state;
   
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; id: string; name: string } | null>(null);
@@ -101,6 +105,11 @@ export function Settings() {
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
+
+  // Jira state
+  const [jiraModalOpen, setJiraModalOpen] = useState(false);
+  const [editingJiraConnection, setEditingJiraConnection] = useState<JiraConnection | undefined>();
+  const [testingConnectionId, setTestingConnectionId] = useState<string | null>(null);
 
   const handleSaveGeneral = () => {
     updateSettings({
@@ -163,7 +172,7 @@ export function Settings() {
   const handleAddCountry = () => {
     if (newCountryCode.trim() && newCountryName.trim()) {
       const code = newCountryCode.trim().toUpperCase();
-      const flag = countryFlags[code] || '🏳️';
+      const flag = countryFlags[code] || 'ðŸ³ï¸';
       addCountry(code, newCountryName.trim(), flag);
       setNewCountryCode('');
       setNewCountryName('');
@@ -222,6 +231,23 @@ export function Settings() {
 
   // Get available years for generating sprints
   const yearsWithSprints = Object.keys(sprintsByYear).map(Number).sort();
+  // Jira handlers
+  const handleAddJiraConnection = () => { setEditingJiraConnection(undefined); setJiraModalOpen(true); };
+  const handleEditJiraConnection = (conn: JiraConnection) => { setEditingJiraConnection(conn); setJiraModalOpen(true); };
+  const handleSaveJiraConnection = (data: Omit<JiraConnection, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (editingJiraConnection) { updateJiraConnection(editingJiraConnection.id, data); showToast('Connection updated', 'success'); }
+    else { addJiraConnection(data); showToast('Connection added', 'success'); }
+    setJiraModalOpen(false); setEditingJiraConnection(undefined);
+  };
+  const handleTestJiraConnection = async (conn: JiraConnection) => {
+    setTestingConnectionId(conn.id);
+    const result = await testJiraConnection(conn.jiraBaseUrl, conn.userEmail, conn.apiToken);
+    if (result.success) { updateJiraConnection(conn.id, { lastSyncStatus: 'success', lastSyncError: undefined }); showToast('Connection successful', 'success'); }
+    else { updateJiraConnection(conn.id, { lastSyncStatus: 'error', lastSyncError: result.error }); showToast(result.error || 'Connection failed', 'error'); }
+    setTestingConnectionId(null);
+  };
+  const handleToggleJiraConnection = (id: string) => { toggleJiraConnectionActive(id); showToast('Connection toggled', 'info'); };
+
 
   // Import/Export handlers
   const handleExportJSON = () => {
@@ -342,6 +368,7 @@ export function Settings() {
       case 'country': deleteCountry(deleteConfirm.id); break;
       case 'holiday': deleteHoliday(deleteConfirm.id); break;
       case 'sprint': deleteSprint(deleteConfirm.id); break;
+      case 'jira': deleteJiraConnection(deleteConfirm.id); break;
     }
     setDeleteConfirm(null);
   };
@@ -353,7 +380,7 @@ export function Settings() {
 
   const countrySelectOptions = [
     { value: '', label: 'Select country' },
-    ...countries.map(c => ({ value: c.id, label: `${c.flag || '🏳️'} ${c.name}` })),
+    ...countries.map(c => ({ value: c.id, label: `${c.flag || 'ðŸ³ï¸'} ${c.name}` })),
   ];
 
   const skillCategoryOptions = [
@@ -687,7 +714,7 @@ export function Settings() {
               {/* Preview flag */}
               {newCountryCode && (
                 <p className="text-sm text-slate-500">
-                  Flag preview: {countryFlags[newCountryCode.toUpperCase()] || '🏳️'} 
+                  Flag preview: {countryFlags[newCountryCode.toUpperCase()] || 'ðŸ³ï¸'} 
                   {!countryFlags[newCountryCode.toUpperCase()] && ' (generic flag - code not recognized)'}
                 </p>
               )}
@@ -700,7 +727,7 @@ export function Settings() {
                     className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl">{country.flag || '🏳️'}</span>
+                      <span className="text-2xl">{country.flag || 'ðŸ³ï¸'}</span>
                       <span className="font-medium text-slate-700 dark:text-slate-200">{country.name}</span>
                       <Badge variant="default">{country.code}</Badge>
                     </div>
@@ -777,7 +804,7 @@ export function Settings() {
                   return (
                     <div key={country.id} className="border-t border-slate-200 dark:border-slate-700 pt-4 first:border-t-0 first:pt-0">
                       <h3 className="flex items-center gap-2 text-lg font-medium text-slate-700 dark:text-slate-200 mb-3">
-                        <span>{country.flag || '🏳️'}</span>
+                        <span>{country.flag || 'ðŸ³ï¸'}</span>
                         {country.name}
                         <Badge variant="default">{countryHolidays.length}</Badge>
                       </h3>
@@ -856,7 +883,7 @@ export function Settings() {
                 </div>
                 {yearsWithSprints.includes(generateYearInput) && (
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                    ⚠️ This will replace all existing sprints for {generateYearInput}
+                    âš ï¸ This will replace all existing sprints for {generateYearInput}
                   </p>
                 )}
               </div>
@@ -907,7 +934,7 @@ export function Settings() {
                                   })} - {new Date(sprint.endDate + 'T00:00:00').toLocaleDateString('en-GB', { 
                                     day: 'numeric', 
                                     month: 'short'
-                                  })} • {sprint.quarter}
+                                  })} â€¢ {sprint.quarter}
                                 </p>
                               </div>
                               <div className="flex items-center gap-1 ml-2">
@@ -935,6 +962,140 @@ export function Settings() {
             </CardContent>
           </Card>
         )}
+        {activeSection === 'jira' && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Jira Connections</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">Connect to Jira Cloud to sync your work items</p>
+                  </div>
+                  <Button onClick={handleAddJiraConnection}><Plus className="w-4 h-4 mr-2" />Add Connection</Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {jiraConnections.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Link2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No Jira connections configured</p>
+                    <p className="text-sm">Click "Add Connection" to connect to your Jira instance</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {jiraConnections.map((conn) => (
+                      <div key={conn.id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-3 h-3 rounded-full ${conn.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                          <div>
+                            <div className="font-medium">{conn.name}</div>
+                            <div className="text-sm text-muted-foreground">{conn.jiraBaseUrl} &bull; {conn.jiraProjectKey}</div>
+                            {conn.lastSyncAt && <div className="text-xs text-muted-foreground">Last sync: {new Date(conn.lastSyncAt).toLocaleString()}</div>}
+                          </div>
+                          {conn.lastSyncStatus === 'success' && <Badge variant="success">Connected</Badge>}
+                          {conn.lastSyncStatus === 'error' && <Badge variant="danger">Error</Badge>}
+                          {conn.lastSyncStatus === 'syncing' && <Badge variant="warning">Syncing</Badge>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleTestJiraConnection(conn)} disabled={testingConnectionId === conn.id}>
+                            {testingConnectionId === conn.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleEditJiraConnection(conn)}><Edit2 className="w-4 h-4" /></Button>
+                          <Button variant={conn.isActive ? "ghost" : "secondary"} size="sm" onClick={() => handleToggleJiraConnection(conn.id)}>
+                            <Power className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteConfirm({ type: 'jira', id: conn.id, name: conn.name })}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Sync Settings</CardTitle>
+                <p className="text-sm text-muted-foreground">Configure how items are synced from Jira</p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <label className="text-sm font-medium">Issue Types to Sync</label>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-2">
+                    {[
+                      { key: 'syncEpics', label: 'Epics' },
+                      { key: 'syncFeatures', label: 'Features' },
+                      { key: 'syncStories', label: 'Stories' },
+                      { key: 'syncTasks', label: 'Tasks' },
+                      { key: 'syncBugs', label: 'Bugs' },
+                    ].map(({ key, label }) => (
+                      <label key={key} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={jiraSettings[key as keyof typeof jiraSettings] as boolean}
+                          onChange={(e) => updateJiraSettings({ [key]: e.target.checked })}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-sm font-medium">Story Points to Days</label>
+                    <p className="text-xs text-muted-foreground mb-2">1 story point = X days of work</p>
+                    <Input type="number" step="0.1" min="0.1" max="5" value={jiraSettings.storyPointsToDays} onChange={(e) => updateJiraSettings({ storyPointsToDays: parseFloat(e.target.value) || 0.5 })} />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Default Velocity</label>
+                    <p className="text-xs text-muted-foreground mb-2">Story points per sprint (used for estimates)</p>
+                    <Input type="number" min="1" max="200" value={jiraSettings.defaultVelocity} onChange={(e) => updateJiraSettings({ defaultVelocity: parseInt(e.target.value) || 30 })} />
+                  </div>
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={jiraSettings.autoMapByName} onChange={(e) => updateJiraSettings({ autoMapByName: e.target.checked })} className="rounded border-gray-300" />
+                    <span className="text-sm font-medium">Auto-map by name</span>
+                    <span className="text-xs text-muted-foreground">Automatically match Jira items to projects/phases by similar names</span>
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Mapping Reference</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-4 text-sm">
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <div className="font-medium text-blue-600">Jira Epic</div>
+                    <div className="text-muted-foreground">maps to</div>
+                    <div className="font-medium">Capacity Planner Project</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <div className="font-medium text-purple-600">Jira Feature</div>
+                    <div className="text-muted-foreground">maps to</div>
+                    <div className="font-medium">Capacity Planner Phase</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <div className="font-medium text-green-600">Jira Story/Task/Bug</div>
+                    <div className="text-muted-foreground">maps to</div>
+                    <div className="font-medium">Work Item (time tracking)</div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-4">
+                  <ExternalLink className="w-3 h-3 inline mr-1" />
+                  Items synced from Jira can be mapped to your existing projects and phases. Story points and time tracking data will be used for capacity calculations.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
 
         {activeSection === 'data' && (
           <div className="space-y-6">
@@ -1240,6 +1401,25 @@ export function Settings() {
             setEditingSprint(undefined);
           }}
         />
+      {/* Jira Connection Add/Edit Modal */}
+      <Modal
+        isOpen={jiraModalOpen}
+        onClose={() => {
+          setJiraModalOpen(false);
+          setEditingJiraConnection(undefined);
+        }}
+        title={editingJiraConnection ? 'Edit Jira Connection' : 'Add Jira Connection'}
+        size="lg"
+      >
+        <JiraConnectionForm
+          connection={editingJiraConnection}
+          onSave={handleSaveJiraConnection}
+          onCancel={() => {
+            setJiraModalOpen(false);
+            setEditingJiraConnection(undefined);
+          }}
+        />
+      </Modal>
       </Modal>
     </div>
   );
