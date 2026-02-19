@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Data action functions for the Capacity Planner
  * These functions modify the state and sync to localStorage
  */
@@ -6,17 +6,17 @@
 import { useAppStore } from './appStore';
 import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint } from '../types';
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // ID GENERATION
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // PROJECT ACTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function addProject(projectData: Omit<Project, 'id'>): Project {
   const state = useAppStore.getState();
@@ -67,9 +67,9 @@ export function duplicateProject(projectId: string): Project | null {
   return newProject;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // PHASE ACTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function addPhase(projectId: string, phaseData: Omit<Phase, 'id'>): Phase | null {
   const state = useAppStore.getState();
@@ -118,9 +118,9 @@ export function deletePhase(projectId: string, phaseId: string): void {
   state.updateData({ projects });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // ASSIGNMENT ACTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function setAssignment(
   projectId: string,
@@ -169,9 +169,9 @@ export function setAssignment(
   state.updateData({ projects });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TEAM MEMBER ACTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function addTeamMember(memberData: Omit<TeamMember, 'id'>): TeamMember {
   const state = useAppStore.getState();
@@ -208,9 +208,9 @@ export function deleteTeamMember(memberId: string): void {
   state.updateData({ teamMembers, projects });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TIME OFF ACTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function setTimeOff(memberId: string, quarter: string, days: number, reason?: string): void {
   const state = useAppStore.getState();
@@ -246,9 +246,9 @@ export function deleteTimeOff(memberId: string, quarter: string): void {
   state.updateData({ timeOff });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // SETTINGS ACTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function updateSettings(updates: Record<string, unknown>): void {
   const state = useAppStore.getState();
@@ -301,9 +301,9 @@ export function deleteSystem(systemId: string): void {
   state.updateData({ systems });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // COUNTRY ACTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function addCountry(code: string, name: string, flag?: string): void {
   const state = useAppStore.getState();
@@ -332,9 +332,9 @@ export function deleteCountry(countryId: string): void {
   state.updateData({ countries, publicHolidays });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // HOLIDAY ACTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function addHoliday(countryId: string, date: string, name: string): void {
   const state = useAppStore.getState();
@@ -361,9 +361,9 @@ export function deleteHoliday(holidayId: string): void {
   state.updateData({ publicHolidays });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // SPRINT ACTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export function addSprint(sprintData: Omit<Sprint, 'id'>): Sprint {
   const state = useAppStore.getState();
@@ -479,4 +479,50 @@ export function clearSprintsForYear(year: number): void {
   const state = useAppStore.getState();
   const sprints = state.getCurrentState().sprints.filter(s => s.year !== year);
   state.updateData({ sprints });
+}
+
+// JIRA ACTIONS
+
+import type { JiraConnection, JiraSettings } from '../types';
+
+export function generateJiraId(prefix: string): string {
+  return prefix + '-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+}
+
+export function addJiraConnection(connectionData: Omit<JiraConnection, 'id' | 'createdAt' | 'updatedAt'>): JiraConnection {
+  const state = useAppStore.getState();
+  const now = new Date().toISOString();
+  const newConnection: JiraConnection = { ...connectionData, id: generateJiraId('jira-conn'), createdAt: now, updatedAt: now };
+  const jiraConnections = [...state.getCurrentState().jiraConnections, newConnection];
+  state.updateData({ jiraConnections });
+  return newConnection;
+}
+
+export function updateJiraConnection(connectionId: string, updates: Partial<JiraConnection>): void {
+  const state = useAppStore.getState();
+  const jiraConnections = state.getCurrentState().jiraConnections.map(c =>
+    c.id === connectionId ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c
+  );
+  state.updateData({ jiraConnections });
+}
+
+export function deleteJiraConnection(connectionId: string): void {
+  const state = useAppStore.getState();
+  const jiraConnections = state.getCurrentState().jiraConnections.filter(c => c.id !== connectionId);
+  const jiraWorkItems = state.getCurrentState().jiraWorkItems.filter(w => w.connectionId !== connectionId);
+  state.updateData({ jiraConnections, jiraWorkItems });
+}
+
+export function toggleJiraConnectionActive(connectionId: string): void {
+  const state = useAppStore.getState();
+  const jiraConnections = state.getCurrentState().jiraConnections.map(c =>
+    c.id === connectionId ? { ...c, isActive: !c.isActive, updatedAt: new Date().toISOString() } : c
+  );
+  state.updateData({ jiraConnections });
+}
+
+export function updateJiraSettings(updates: Partial<JiraSettings>): void {
+  const state = useAppStore.getState();
+  const jiraSettings = { ...state.getCurrentState().jiraSettings, ...updates };
+  state.updateData({ jiraSettings });
 }
