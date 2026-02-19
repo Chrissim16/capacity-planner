@@ -48,6 +48,11 @@ export interface TeamMember {
   countryId: string;
   skillIds: string[];
   maxConcurrentProjects: number;
+  // Jira integration fields
+  email?: string;                    // For matching with Jira assignees
+  jiraAccountId?: string;            // Jira user account ID
+  syncedFromJira?: boolean;          // True if auto-created from Jira
+  needsEnrichment?: boolean;         // True if missing local fields (country, role, etc.)
 }
 
 export interface TimeOff {

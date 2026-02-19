@@ -19,7 +19,7 @@ import {
   addHoliday, deleteHoliday,
   addSprint, updateSprint, deleteSprint, generateSprintsForYear,
   updateSettings,
-  addJiraConnection, updateJiraConnection, deleteJiraConnection, toggleJiraConnectionActive, updateJiraSettings, syncJiraWorkItems, setJiraConnectionSyncStatus
+  addJiraConnection, updateJiraConnection, deleteJiraConnection, toggleJiraConnectionActive, updateJiraSettings, syncJiraWorkItems, setJiraConnectionSyncStatus, syncTeamMembersFromJira
 } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
 import { 
@@ -261,11 +261,18 @@ export function Settings() {
       if (result.success && result.itemsSynced > 0) {
         const items = result.items || [];
         const syncResult = syncJiraWorkItems(conn.id, items);
+        
+        // Also sync team members from Jira assignees
+        setSyncProgress('Syncing team members...');
+        const teamSyncResult = syncTeamMembersFromJira();
+        
         setJiraConnectionSyncStatus(conn.id, 'success');
-        showToast(
-          `Synced ${syncResult.itemsSynced} items (${syncResult.itemsCreated} new, ${syncResult.itemsUpdated} updated)`,
-          'success'
-        );
+        
+        let message = `Synced ${syncResult.itemsSynced} items (${syncResult.itemsCreated} new, ${syncResult.itemsUpdated} updated)`;
+        if (teamSyncResult.created > 0) {
+          message += `. Created ${teamSyncResult.created} team member(s) from Jira assignees.`;
+        }
+        showToast(message, 'success');
       } else if (result.success) {
         setJiraConnectionSyncStatus(conn.id, 'success');
         showToast('No items found matching your sync settings', 'info');

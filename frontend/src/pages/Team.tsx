@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
@@ -172,9 +172,22 @@ export function Team() {
                         {/* Header */}
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-slate-900 dark:text-white truncate">
-                              {member.name}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-slate-900 dark:text-white truncate">
+                                {member.name}
+                              </h3>
+                              {member.needsEnrichment && (
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded" title="Needs country and role">
+                                  <AlertTriangle size={12} />
+                                  Setup
+                                </span>
+                              )}
+                              {member.syncedFromJira && !member.needsEnrichment && (
+                                <span className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded" title="Synced from Jira">
+                                  Jira
+                                </span>
+                              )}
+                            </div>
                             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
                               <span>{countryInfo.flag}</span>
                               <span>{countryInfo.name}</span>

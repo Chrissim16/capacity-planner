@@ -208,6 +208,92 @@ export function deleteTeamMember(memberId: string): void {
   state.updateData({ teamMembers, projects });
 }
 
+export interface TeamMemberSyncResult {
+  created: number;
+  updated: number;
+  unchanged: number;
+  newMembers: TeamMember[];
+}
+
+export function syncTeamMembersFromJira(): TeamMemberSyncResult {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const jiraWorkItems = currentState.jiraWorkItems;
+  const existingMembers = [...currentState.teamMembers];
+  
+  const result: TeamMemberSyncResult = { created: 0, updated: 0, unchanged: 0, newMembers: [] };
+  
+  // Extract unique assignees from Jira work items
+  const assigneeMap = new Map<string, { email: string; name: string }>();
+  for (const item of jiraWorkItems) {
+    if (item.assigneeEmail) {
+      const key = item.assigneeEmail.toLowerCase();
+      if (!assigneeMap.has(key)) {
+        assigneeMap.set(key, {
+          email: item.assigneeEmail,
+          name: item.assigneeName || item.assigneeEmail.split('@')[0],
+        });
+      }
+    }
+  }
+  
+  // Process each unique assignee
+  const updatedMembers: TeamMember[] = [];
+  const processedEmails = new Set<string>();
+  
+  for (const [emailKey, assignee] of assigneeMap) {
+    // Check if member already exists (by email)
+    const existingMember = existingMembers.find(
+      m => m.email?.toLowerCase() === emailKey
+    );
+    
+    if (existingMember) {
+      // Update name if it changed in Jira (only for Jira-sourced members)
+      if (existingMember.name !== assignee.name && existingMember.syncedFromJira) {
+        updatedMembers.push({
+          ...existingMember,
+          name: assignee.name,
+        });
+        result.updated++;
+      } else {
+        updatedMembers.push(existingMember);
+        result.unchanged++;
+      }
+      processedEmails.add(emailKey);
+    } else {
+      // Create new team member from Jira
+      const newMember: TeamMember = {
+        id: generateId('member'),
+        name: assignee.name,
+        email: assignee.email,
+        role: '', // Needs enrichment
+        countryId: '', // Needs enrichment
+        skillIds: [],
+        maxConcurrentProjects: 3,
+        syncedFromJira: true,
+        needsEnrichment: true,
+      };
+      updatedMembers.push(newMember);
+      result.newMembers.push(newMember);
+      result.created++;
+      processedEmails.add(emailKey);
+    }
+  }
+  
+  // Keep existing members that weren't in Jira
+  for (const member of existingMembers) {
+    const emailKey = member.email?.toLowerCase();
+    if (!emailKey || !processedEmails.has(emailKey)) {
+      updatedMembers.push(member);
+    }
+  }
+  
+  // Update state
+  state.updateData({ teamMembers: updatedMembers });
+  
+  return result;
+}
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TIME OFF ACTIONS
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

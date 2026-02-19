@@ -64,7 +64,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
   const handleSubmit = () => {
     if (!validate()) return;
 
-    const memberData = {
+    const memberData: Partial<TeamMember> & Pick<TeamMember, 'name' | 'role' | 'countryId' | 'skillIds' | 'maxConcurrentProjects'> = {
       name: name.trim(),
       role,
       countryId,
@@ -72,10 +72,15 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
       skillIds: selectedSkills,
     };
 
+    // Clear needsEnrichment if country and role are now set
+    if (member?.needsEnrichment && role && countryId) {
+      memberData.needsEnrichment = false;
+    }
+
     if (member) {
       updateTeamMember(member.id, memberData);
     } else {
-      addTeamMember(memberData);
+      addTeamMember(memberData as Omit<TeamMember, 'id'>);
     }
 
     onClose();
