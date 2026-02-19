@@ -8,11 +8,14 @@ import {
   Sun,
   Undo2,
   Redo2,
-  HelpCircle
+  GitBranch,
+  RefreshCw
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useAppStore, useCurrentView, useIsWhatIfMode, useSettings } from '../../stores/appStore';
+import { useAppStore, useCurrentView, useSettings } from '../../stores/appStore';
 import type { ViewType } from '../../types';
+import { ScenarioSelector } from '../ScenarioSelector';
+import { switchScenario, refreshScenarioFromJira } from '../../stores/actions';
 
 const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string; shortcut: string }[] = [
   { view: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: '1' },
@@ -24,9 +27,13 @@ const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string; s
 
 export function Header() {
   const currentView = useCurrentView();
-  const isWhatIfMode = useIsWhatIfMode();
   const settings = useSettings();
-  const { setCurrentView, toggleDarkMode, enterWhatIfMode, exitWhatIfMode } = useAppStore();
+  const activeScenarioId = useAppStore((s) => s.data.activeScenarioId);
+  const scenarios = useAppStore((s) => s.data.scenarios);
+  const { setCurrentView, toggleDarkMode } = useAppStore();
+  
+  const activeScenario = scenarios.find((s) => s.id === activeScenarioId);
+  const isViewingScenario = !!activeScenarioId;
 
   return (
     <>
@@ -98,19 +105,8 @@ export function Header() {
               Saved
             </div>
 
-            {/* What-If Mode */}
-            <button
-              onClick={() => isWhatIfMode ? exitWhatIfMode(false) : enterWhatIfMode()}
-              className={clsx(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isWhatIfMode
-                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              )}
-            >
-              <HelpCircle size={16} />
-              What-If
-            </button>
+            {/* Scenario Selector */}
+            <ScenarioSelector />
 
             {/* Theme Toggle */}
             <button
@@ -124,27 +120,30 @@ export function Header() {
         </div>
       </header>
 
-      {/* What-If Banner */}
-      {isWhatIfMode && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-3">
+      {/* Scenario Banner */}
+      {isViewingScenario && activeScenario && (
+        <div className="bg-purple-50 dark:bg-purple-900/20 border-b border-purple-200 dark:border-purple-800 px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-amber-800 dark:text-amber-200">
-              <HelpCircle size={20} />
-              <span className="font-medium">What-If Mode Active</span>
-              <span className="text-amber-600 dark:text-amber-400">— Changes are not saved</span>
+            <div className="flex items-center gap-3 text-purple-800 dark:text-purple-200">
+              <GitBranch size={20} />
+              <span className="font-medium">Viewing Scenario: {activeScenario.name}</span>
+              <span className="text-purple-600 dark:text-purple-400">
+                — Changes here don't affect your Jira baseline
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => exitWhatIfMode(true)}
-                className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700"
+                onClick={() => refreshScenarioFromJira(activeScenarioId!)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-200 dark:bg-purple-800 dark:text-purple-200 dark:hover:bg-purple-700"
               >
-                Save Changes
+                <RefreshCw size={14} />
+                Refresh from Jira
               </button>
               <button
-                onClick={() => exitWhatIfMode(false)}
+                onClick={() => switchScenario(null)}
                 className="px-3 py-1.5 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200"
               >
-                Discard
+                Back to Baseline
               </button>
             </div>
           </div>
