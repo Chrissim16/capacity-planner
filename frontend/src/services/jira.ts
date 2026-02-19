@@ -56,6 +56,42 @@ function createAuthHeader(email: string, apiToken: string): string {
   return 'Basic ' + btoa(email + ':' + apiToken);
 }
 
+// Use proxy in production (Vercel), direct calls in development
+const USE_PROXY = import.meta.env.PROD;
+
+async function jiraFetch(
+  baseUrl: string,
+  path: string,
+  authHeader: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const cleanUrl = baseUrl.replace(/\/+$/, '');
+  
+  if (USE_PROXY) {
+    // Use the Vercel serverless proxy to avoid CORS
+    const proxyUrl = `/api/jira?path=${encodeURIComponent(path)}`;
+    return fetch(proxyUrl, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': authHeader,
+        'X-Jira-Base-Url': cleanUrl,
+        'Accept': 'application/json',
+      },
+    });
+  } else {
+    // Direct call in development (may have CORS issues)
+    return fetch(cleanUrl + path, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': authHeader,
+        'Accept': 'application/json',
+      },
+    });
+  }
+}
+
 function mapJiraTypeToItemType(typeName: string): JiraItemType {
   const lowerName = typeName.toLowerCase();
   if (lowerName.includes('epic')) return 'epic';
@@ -86,11 +122,8 @@ export async function testJiraConnection(
   apiToken: string
 ): Promise<{ success: boolean; error?: string; user?: { displayName: string; email: string } }> {
   try {
-    const cleanUrl = baseUrl.replace(/\/+$/, '');
-    const response = await fetch(cleanUrl + '/rest/api/3/myself', {
-      method: 'GET',
-      headers: { 'Authorization': createAuthHeader(email, apiToken), 'Accept': 'application/json' },
-    });
+    const authHeader = createAuthHeader(email, apiToken);
+    const response = await jiraFetch(baseUrl, '/rest/api/3/myself', authHeader, { method: 'GET' });
     if (!response.ok) {
       if (response.status === 401) return { success: false, error: 'Invalid credentials' };
       if (response.status === 403) return { success: false, error: 'Access forbidden' };
@@ -110,11 +143,8 @@ export async function getJiraProjects(
   apiToken: string
 ): Promise<{ success: boolean; projects?: JiraProject[]; error?: string }> {
   try {
-    const cleanUrl = baseUrl.replace(/\/+$/, '');
-    const response = await fetch(cleanUrl + '/rest/api/3/project/search?maxResults=100&orderBy=name', {
-      method: 'GET',
-      headers: { 'Authorization': createAuthHeader(email, apiToken), 'Accept': 'application/json' },
-    });
+    const authHeader = createAuthHeader(email, apiToken);
+    const response = await jiraFetch(baseUrl, '/rest/api/3/project/search?maxResults=100&orderBy=name', authHeader, { method: 'GET' });
     if (!response.ok) return { success: false, error: 'Failed: ' + response.statusText };
     const data = await response.json() as { values: JiraProject[]; total: number };
     return { success: true, projects: data.values };
@@ -130,7 +160,6 @@ export async function fetchJiraIssues(
 ): Promise<JiraSyncResult> {
   const result: JiraSyncResult = { success: false, itemsSynced: 0, itemsCreated: 0, itemsUpdated: 0, itemsRemoved: 0, errors: [], timestamp: new Date().toISOString() };
   try {
-    const cleanUrl = connection.jiraBaseUrl.replace(/\/+$/, '');
     const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
     const issueTypes: string[] = [];
     if (settings.syncEpics) issueTypes.push('Epic');
@@ -146,10 +175,8 @@ export async function fetchJiraIssues(
     const maxResults = 100;
     let hasMore = true;
     while (hasMore) {
-      const response = await fetch(cleanUrl + '/rest/api/3/search?jql=' + encodeURIComponent(jql) + '&startAt=' + startAt + '&maxResults=' + maxResults + '&fields=*all', {
-        method: 'GET',
-        headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
-      });
+      const path = '/rest/api/3/search?jql=' + encodeURIComponent(jql) + '&startAt=' + startAt + '&maxResults=' + maxResults + '&fields=*all';
+      const response = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
       if (!response.ok) { result.errors.push('Failed: ' + response.statusText); return result; }
       const data = await response.json() as { startAt: number; maxResults: number; total: number; issues: JiraIssue[] };
       for (const issue of data.issues) {
