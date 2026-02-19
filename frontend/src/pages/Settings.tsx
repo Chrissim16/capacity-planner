@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { 
   Settings2, Shield, Code, Globe, Calendar, Database, Zap, Link2,
   Plus, Trash2, ChevronRight, Save, Edit2, Check, X,
@@ -1439,6 +1439,8 @@ export function Settings() {
             setEditingSprint(undefined);
           }}
         />
+      </Modal>
+
       {/* Jira Connection Add/Edit Modal */}
       <Modal
         isOpen={jiraModalOpen}
@@ -1457,7 +1459,6 @@ export function Settings() {
             setEditingJiraConnection(undefined);
           }}
         />
-      </Modal>
       </Modal>
     </div>
   );
