@@ -280,13 +280,57 @@ export const useAppStore = create<AppStore>()(
             },
           });
         } else {
+          const data = state.data;
+          const scenarioFields = ['projects', 'teamMembers', 'timeOff', 'jiraWorkItems'] as const;
+          const hasScenarioFieldUpdates = scenarioFields.some(field => field in updates);
+          
+          // If a scenario is active and we're updating scenario-specific fields,
+          // update the scenario instead of the baseline
+          if (data.activeScenarioId && hasScenarioFieldUpdates) {
+            const scenarioIndex = data.scenarios.findIndex(s => s.id === data.activeScenarioId);
+            if (scenarioIndex !== -1) {
+              const updatedScenario = {
+                ...data.scenarios[scenarioIndex],
+                updatedAt: new Date().toISOString(),
+              };
+              
+              // Apply scenario-specific updates to the scenario
+              for (const field of scenarioFields) {
+                if (field in updates) {
+                  (updatedScenario as Record<string, unknown>)[field] = updates[field as keyof typeof updates];
+                }
+              }
+              
+              // Build baseline updates (non-scenario fields only)
+              const baselineUpdates: Partial<AppState> = {};
+              for (const key in updates) {
+                if (!scenarioFields.includes(key as typeof scenarioFields[number])) {
+                  (baselineUpdates as Record<string, unknown>)[key] = updates[key as keyof typeof updates];
+                }
+              }
+              
+              const updatedScenarios = [...data.scenarios];
+              updatedScenarios[scenarioIndex] = updatedScenario;
+              
+              const newData = {
+                ...data,
+                ...baselineUpdates,
+                scenarios: updatedScenarios,
+                lastModified: new Date().toISOString(),
+              };
+              set({ data: newData });
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+              return;
+            }
+          }
+          
+          // No active scenario or no scenario-specific updates - update baseline normally
           const newData = {
-            ...state.data,
+            ...data,
             ...updates,
             lastModified: new Date().toISOString(),
           };
           set({ data: newData });
-          // Also save to localStorage for original app compatibility
           localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
         }
       },
@@ -382,12 +426,29 @@ export const useAppStore = create<AppStore>()(
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
       },
       
-      // Helper
+      // Helper - returns current state respecting active scenario
       getCurrentState: () => {
         const state = get();
-        return state.ui.isWhatIfMode && state.whatIfData
+        const data = state.ui.isWhatIfMode && state.whatIfData
           ? state.whatIfData
           : state.data;
+        
+        // If a scenario is active, merge scenario data with baseline
+        if (data.activeScenarioId) {
+          const activeScenario = data.scenarios.find(s => s.id === data.activeScenarioId);
+          if (activeScenario) {
+            return {
+              ...data,
+              // Override with scenario-specific data
+              projects: activeScenario.projects,
+              teamMembers: activeScenario.teamMembers,
+              timeOff: activeScenario.timeOff,
+              jiraWorkItems: activeScenario.jiraWorkItems,
+            };
+          }
+        }
+        
+        return data;
       },
       
       // Sync to localStorage (for manual sync)
@@ -424,3 +485,10 @@ export const useTeamMembers = () => useAppStore((state) => state.getCurrentState
 export const useProjects = () => useAppStore((state) => state.getCurrentState().projects);
 export const useIsLoading = () => useAppStore((state) => state.isLoading);
 export const useError = () => useAppStore((state) => state.error);
+export const useActiveScenarioId = () => useAppStore((state) => state.data.activeScenarioId);
+export const useActiveScenario = () => useAppStore((state) => {
+  const { activeScenarioId, scenarios } = state.data;
+  if (!activeScenarioId) return null;
+  return scenarios.find(s => s.id === activeScenarioId) || null;
+});
+export const useScenarios = () => useAppStore((state) => state.data.scenarios);
