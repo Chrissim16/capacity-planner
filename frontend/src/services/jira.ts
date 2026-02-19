@@ -128,7 +128,7 @@ export async function fetchJiraIssues(
   settings: JiraSettings,
   onProgress?: (message: string) => void
 ): Promise<JiraSyncResult> {
-  const result: JiraSyncResult = { success: false, itemsSynced: 0, itemsCreated: 0, itemsUpdated: 0, errors: [], timestamp: new Date().toISOString() };
+  const result: JiraSyncResult = { success: false, itemsSynced: 0, itemsCreated: 0, itemsUpdated: 0, itemsRemoved: 0, errors: [], timestamp: new Date().toISOString() };
   try {
     const cleanUrl = connection.jiraBaseUrl.replace(/\/+$/, '');
     const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);

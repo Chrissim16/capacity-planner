@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Global application state store using Zustand
  */
 
@@ -42,8 +42,21 @@ const defaultSettings: Settings = {
   holidayWeeksAtEnd: 2,
 };
 
+const defaultJiraSettings = {
+  storyPointsToDays: 0.5,
+  defaultVelocity: 30,
+  syncFrequency: 'manual' as const,
+  autoMapByName: true,
+  syncEpics: true,
+  syncFeatures: true,
+  syncStories: true,
+  syncTasks: false,
+  syncBugs: false,
+  includeSubtasks: false,
+};
+
 const defaultAppState: AppState = {
-  version: 8,
+  version: 10,
   lastModified: new Date().toISOString(),
   settings: defaultSettings,
   countries: [],
@@ -58,7 +71,9 @@ const defaultAppState: AppState = {
   sprints: [],
   jiraConnections: [],
   jiraWorkItems: [],
-  jiraSettings: { storyPointsToDays: 0.5, defaultVelocity: 30, syncFrequency: 'manual' as const, autoMapByName: true, syncEpics: true, syncFeatures: true, syncStories: true, syncTasks: false, syncBugs: false, includeSubtasks: false },
+  jiraSettings: defaultJiraSettings,
+  scenarios: [],
+  activeScenarioId: null,
 };
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -107,6 +122,11 @@ function loadExistingData(): AppState {
           ...defaultSettings,
           ...(parsed.settings || {}),
         };
+        // Merge jiraSettings with defaults
+        const mergedJiraSettings = {
+          ...defaultJiraSettings,
+          ...(parsed.jiraSettings || {}),
+        };
         return {
           ...defaultAppState,
           ...parsed,
@@ -114,8 +134,13 @@ function loadExistingData(): AppState {
           settings: mergedSettings,
           // Ensure quarters are regenerated if missing
           quarters: parsed.quarters?.length ? parsed.quarters : generateQuarters(8),
-          // Ensure sprints array exists (new field)
+          // Ensure new arrays exist
           sprints: parsed.sprints || [],
+          jiraConnections: parsed.jiraConnections || [],
+          jiraWorkItems: parsed.jiraWorkItems || [],
+          jiraSettings: mergedJiraSettings,
+          scenarios: parsed.scenarios || [],
+          activeScenarioId: parsed.activeScenarioId ?? null,
         };
       }
     }

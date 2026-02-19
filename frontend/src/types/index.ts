@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Type definitions for the Capacity Planner application
  */
 
@@ -149,6 +149,9 @@ export interface AppState {
   jiraConnections: JiraConnection[];
   jiraWorkItems: JiraWorkItem[];
   jiraSettings: JiraSettings;
+  // Scenario support
+  scenarios: Scenario[];
+  activeScenarioId: string | null; // null = viewing Jira Baseline
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -335,6 +338,27 @@ export interface JiraSyncResult {
   itemsSynced: number;
   itemsCreated: number;
   itemsUpdated: number;
+  itemsRemoved: number;
   errors: string[];
   timestamp: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCENARIOS (What-If Planning)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface Scenario {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  basedOnSyncAt?: string; // When the Jira data was synced that this scenario is based on
+  isBaseline: boolean; // True for the "Jira Baseline" scenario (read-only when viewing)
+  // Scenario-specific data (copies from baseline, then editable)
+  projects: Project[];
+  teamMembers: TeamMember[];
+  assignments: Assignment[]; // Flattened assignments for easier scenario editing
+  timeOff: TimeOff[];
+  jiraWorkItems: JiraWorkItem[];
 }

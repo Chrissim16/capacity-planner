@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Data action functions for the Capacity Planner
  * These functions modify the state and sync to localStorage
  */
@@ -483,7 +483,7 @@ export function clearSprintsForYear(year: number): void {
 
 // JIRA ACTIONS
 
-import type { JiraConnection, JiraSettings } from '../types';
+import type { JiraConnection, JiraSettings, JiraWorkItem, Scenario, JiraSyncResult } from '../types';
 
 export function generateJiraId(prefix: string): string {
   return prefix + '-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
@@ -525,4 +525,191 @@ export function updateJiraSettings(updates: Partial<JiraSettings>): void {
   const state = useAppStore.getState();
   const jiraSettings = { ...state.getCurrentState().jiraSettings, ...updates };
   state.updateData({ jiraSettings });
+}
+
+// Smart merge: updates Jira fields but preserves local mappings
+export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]): JiraSyncResult {
+  const state = useAppStore.getState();
+  const existingItems = state.getCurrentState().jiraWorkItems;
+  
+  // Get items from other connections (unchanged)
+  const otherConnectionItems = existingItems.filter(item => item.connectionId !== connectionId);
+  
+  // Get existing items from this connection (for mapping preservation)
+  const existingConnectionItems = existingItems.filter(item => item.connectionId === connectionId);
+  const existingByJiraId = new Map(existingConnectionItems.map(item => [item.jiraId, item]));
+  
+  let itemsCreated = 0;
+  let itemsUpdated = 0;
+  
+  // Merge new items, preserving local mappings
+  const mergedItems = newItems.map(newItem => {
+    const existing = existingByJiraId.get(newItem.jiraId);
+    if (existing) {
+      itemsUpdated++;
+      // Preserve local-only fields (mappings)
+      return {
+        ...newItem,
+        id: existing.id, // Keep same internal ID
+        mappedProjectId: existing.mappedProjectId,
+        mappedPhaseId: existing.mappedPhaseId,
+        mappedMemberId: existing.mappedMemberId,
+      };
+    } else {
+      itemsCreated++;
+      return {
+        ...newItem,
+        id: generateJiraId('jira-item'),
+      };
+    }
+  });
+  
+  // Find items that were in Jira but no longer exist (removed)
+  const newJiraIds = new Set(newItems.map(item => item.jiraId));
+  const removedItems = existingConnectionItems.filter(item => !newJiraIds.has(item.jiraId));
+  
+  // Update state
+  state.updateData({ jiraWorkItems: [...otherConnectionItems, ...mergedItems] });
+  
+  return {
+    success: true,
+    itemsSynced: mergedItems.length,
+    itemsCreated,
+    itemsUpdated,
+    itemsRemoved: removedItems.length,
+    errors: [],
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export function updateJiraWorkItemMapping(
+  workItemId: string,
+  mapping: { mappedProjectId?: string; mappedPhaseId?: string; mappedMemberId?: string }
+): void {
+  const state = useAppStore.getState();
+  const jiraWorkItems = state.getCurrentState().jiraWorkItems.map(item =>
+    item.id === workItemId ? { ...item, ...mapping } : item
+  );
+  state.updateData({ jiraWorkItems });
+}
+
+export function clearJiraWorkItemMappings(workItemIds: string[]): void {
+  const state = useAppStore.getState();
+  const idSet = new Set(workItemIds);
+  const jiraWorkItems = state.getCurrentState().jiraWorkItems.map(item =>
+    idSet.has(item.id) 
+      ? { ...item, mappedProjectId: undefined, mappedPhaseId: undefined, mappedMemberId: undefined }
+      : item
+  );
+  state.updateData({ jiraWorkItems });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCENARIO ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function createScenario(name: string, description?: string): Scenario {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const now = new Date().toISOString();
+  
+  // Create a new scenario as a copy of current baseline data
+  const newScenario: Scenario = {
+    id: generateId('scenario'),
+    name,
+    description,
+    createdAt: now,
+    updatedAt: now,
+    basedOnSyncAt: currentState.jiraConnections.find(c => c.lastSyncAt)?.lastSyncAt,
+    isBaseline: false,
+    projects: JSON.parse(JSON.stringify(currentState.projects)),
+    teamMembers: JSON.parse(JSON.stringify(currentState.teamMembers)),
+    assignments: [], // Will be populated from project phases
+    timeOff: JSON.parse(JSON.stringify(currentState.timeOff)),
+    jiraWorkItems: JSON.parse(JSON.stringify(currentState.jiraWorkItems)),
+  };
+  
+  // Extract assignments from project phases
+  currentState.projects.forEach(project => {
+    project.phases.forEach(phase => {
+      phase.assignments.forEach(assignment => {
+        newScenario.assignments.push({
+          ...assignment,
+        });
+      });
+    });
+  });
+  
+  const scenarios = [...currentState.scenarios, newScenario];
+  state.updateData({ scenarios, activeScenarioId: newScenario.id });
+  
+  return newScenario;
+}
+
+export function duplicateScenario(scenarioId: string, newName: string): Scenario | null {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const sourceScenario = currentState.scenarios.find(s => s.id === scenarioId);
+  
+  if (!sourceScenario) return null;
+  
+  const now = new Date().toISOString();
+  const newScenario: Scenario = {
+    ...JSON.parse(JSON.stringify(sourceScenario)),
+    id: generateId('scenario'),
+    name: newName,
+    createdAt: now,
+    updatedAt: now,
+    isBaseline: false,
+  };
+  
+  const scenarios = [...currentState.scenarios, newScenario];
+  state.updateData({ scenarios });
+  
+  return newScenario;
+}
+
+export function updateScenario(scenarioId: string, updates: Partial<Pick<Scenario, 'name' | 'description'>>): void {
+  const state = useAppStore.getState();
+  const scenarios = state.getCurrentState().scenarios.map(s =>
+    s.id === scenarioId ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+  );
+  state.updateData({ scenarios });
+}
+
+export function deleteScenario(scenarioId: string): void {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const scenarios = currentState.scenarios.filter(s => s.id !== scenarioId);
+  
+  // If we deleted the active scenario, switch back to baseline
+  const activeScenarioId = currentState.activeScenarioId === scenarioId ? null : currentState.activeScenarioId;
+  
+  state.updateData({ scenarios, activeScenarioId });
+}
+
+export function switchScenario(scenarioId: string | null): void {
+  const state = useAppStore.getState();
+  state.updateData({ activeScenarioId: scenarioId });
+}
+
+export function refreshScenarioFromJira(scenarioId: string): void {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const scenario = currentState.scenarios.find(s => s.id === scenarioId);
+  
+  if (!scenario) return;
+  
+  // Update scenario with latest Jira data while preserving manual changes
+  const updatedScenario: Scenario = {
+    ...scenario,
+    updatedAt: new Date().toISOString(),
+    basedOnSyncAt: currentState.jiraConnections.find(c => c.lastSyncAt)?.lastSyncAt,
+    jiraWorkItems: JSON.parse(JSON.stringify(currentState.jiraWorkItems)),
+  };
+  
+  const scenarios = currentState.scenarios.map(s =>
+    s.id === scenarioId ? updatedScenario : s
+  );
+  state.updateData({ scenarios });
 }
