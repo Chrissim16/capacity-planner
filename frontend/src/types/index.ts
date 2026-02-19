@@ -341,6 +341,7 @@ export interface JiraSyncResult {
   itemsRemoved: number;
   errors: string[];
   timestamp: string;
+  items?: JiraWorkItem[]; // Fetched items (before merging)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

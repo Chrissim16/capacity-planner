@@ -1,4 +1,4 @@
-﻿import type { 
+import type { 
   JiraConnection, 
   JiraWorkItem, 
   JiraItemType, 
@@ -161,6 +161,7 @@ export async function fetchJiraIssues(
     }
     result.success = true;
     result.itemsSynced = workItems.length;
+    result.items = workItems;
     return result;
   } catch (error) {
     result.errors.push(error instanceof Error ? error.message : 'Unknown error');

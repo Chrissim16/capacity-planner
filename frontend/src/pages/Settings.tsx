@@ -19,7 +19,7 @@ import {
   addHoliday, deleteHoliday,
   addSprint, updateSprint, deleteSprint, generateSprintsForYear,
   updateSettings,
-  addJiraConnection, updateJiraConnection, deleteJiraConnection, toggleJiraConnectionActive, updateJiraSettings
+  addJiraConnection, updateJiraConnection, deleteJiraConnection, toggleJiraConnectionActive, updateJiraSettings, syncJiraWorkItems, setJiraConnectionSyncStatus
 } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
 import { 
@@ -32,7 +32,7 @@ import {
 import type { AppState, Sprint, JiraConnection } from '../types';
 import { SprintForm } from '../components/forms/SprintForm';
 import { JiraConnectionForm } from '../components/forms/JiraConnectionForm';
-import { testJiraConnection } from '../services/jira';
+import { testJiraConnection, fetchJiraIssues } from '../services/jira';
 
 type SettingsSection = 'general' | 'roles' | 'skills' | 'systems' | 'countries' | 'holidays' | 'sprints' | 'jira' | 'data';
 
@@ -110,6 +110,8 @@ export function Settings() {
   const [jiraModalOpen, setJiraModalOpen] = useState(false);
   const [editingJiraConnection, setEditingJiraConnection] = useState<JiraConnection | undefined>();
   const [testingConnectionId, setTestingConnectionId] = useState<string | null>(null);
+  const [syncingConnectionId, setSyncingConnectionId] = useState<string | null>(null);
+  const [syncProgress, setSyncProgress] = useState<string>('');
 
   const handleSaveGeneral = () => {
     updateSettings({
@@ -247,6 +249,39 @@ export function Settings() {
     setTestingConnectionId(null);
   };
   const handleToggleJiraConnection = (id: string) => { toggleJiraConnectionActive(id); showToast('Connection toggled', 'info'); };
+
+  const handleSyncJira = async (conn: JiraConnection) => {
+    setSyncingConnectionId(conn.id);
+    setSyncProgress('Starting sync...');
+    setJiraConnectionSyncStatus(conn.id, 'syncing');
+    
+    try {
+      const result = await fetchJiraIssues(conn, jiraSettings, (msg) => setSyncProgress(msg));
+      
+      if (result.success && result.itemsSynced > 0) {
+        const items = result.items || [];
+        const syncResult = syncJiraWorkItems(conn.id, items);
+        setJiraConnectionSyncStatus(conn.id, 'success');
+        showToast(
+          `Synced ${syncResult.itemsSynced} items (${syncResult.itemsCreated} new, ${syncResult.itemsUpdated} updated)`,
+          'success'
+        );
+      } else if (result.success) {
+        setJiraConnectionSyncStatus(conn.id, 'success');
+        showToast('No items found matching your sync settings', 'info');
+      } else {
+        setJiraConnectionSyncStatus(conn.id, 'error', result.errors.join(', '));
+        showToast(result.errors[0] || 'Sync failed', 'error');
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setJiraConnectionSyncStatus(conn.id, 'error', errorMsg);
+      showToast(errorMsg, 'error');
+    }
+    
+    setSyncingConnectionId(null);
+    setSyncProgress('');
+  };
 
 
   // Import/Export handlers
@@ -999,6 +1034,9 @@ export function Settings() {
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" onClick={() => handleTestJiraConnection(conn)} disabled={testingConnectionId === conn.id}>
                             {testingConnectionId === conn.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                          </Button>
+                          <Button variant="primary" size="sm" onClick={() => handleSyncJira(conn)} disabled={syncingConnectionId === conn.id || !conn.isActive}>
+                            {syncingConnectionId === conn.id ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Download className="w-4 h-4 mr-1" />}{syncingConnectionId === conn.id && syncProgress ? syncProgress : "Sync"}
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleEditJiraConnection(conn)}><Edit2 className="w-4 h-4" /></Button>
                           <Button variant={conn.isActive ? "ghost" : "secondary"} size="sm" onClick={() => handleToggleJiraConnection(conn.id)}>

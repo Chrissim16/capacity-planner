@@ -521,6 +521,27 @@ export function toggleJiraConnectionActive(connectionId: string): void {
   state.updateData({ jiraConnections });
 }
 
+export function setJiraConnectionSyncStatus(
+  connectionId: string,
+  status: 'idle' | 'syncing' | 'success' | 'error',
+  error?: string
+): void {
+  const state = useAppStore.getState();
+  const now = new Date().toISOString();
+  const jiraConnections = state.getCurrentState().jiraConnections.map(c =>
+    c.id === connectionId
+      ? {
+          ...c,
+          lastSyncStatus: status,
+          lastSyncError: error,
+          lastSyncAt: status === 'success' ? now : c.lastSyncAt,
+          updatedAt: now,
+        }
+      : c
+  );
+  state.updateData({ jiraConnections });
+}
+
 export function updateJiraSettings(updates: Partial<JiraSettings>): void {
   const state = useAppStore.getState();
   const jiraSettings = { ...state.getCurrentState().jiraSettings, ...updates };
