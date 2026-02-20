@@ -605,14 +605,26 @@ async function syncSettings(
   jiraSettings: JiraSettings,
   activeScenarioId: string | null
 ): Promise<void> {
+  // Upsert settings and jiraSettings (always non-null objects)
   const { error } = await supabase.from('settings').upsert([
-    { key: 'settings', value: settings },
-    { key: 'jiraSettings', value: jiraSettings },
-    { key: 'activeScenarioId', value: activeScenarioId },
+    { key: 'settings',     value: settings     as unknown },
+    { key: 'jiraSettings', value: jiraSettings as unknown },
   ], { onConflict: 'key' });
 
   if (error) {
     throw new Error(`settings upsert failed: ${error.message}`);
+  }
+
+  // activeScenarioId is nullable — handle separately
+  if (activeScenarioId !== null) {
+    const { error: err2 } = await supabase.from('settings').upsert(
+      { key: 'activeScenarioId', value: activeScenarioId as unknown },
+      { onConflict: 'key' }
+    );
+    if (err2) throw new Error(`settings activeScenarioId upsert failed: ${err2.message}`);
+  } else {
+    // Delete the row so it reads back as null on next load
+    await supabase.from('settings').delete().eq('key', 'activeScenarioId');
   }
 }
 
