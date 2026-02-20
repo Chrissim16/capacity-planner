@@ -275,6 +275,18 @@ export interface QuarterRange {
 export type JiraItemType = 'epic' | 'feature' | 'story' | 'task' | 'bug';
 export type JiraSyncStatus = 'idle' | 'syncing' | 'success' | 'error';
 
+// US-011: one entry per sync attempt, kept on the connection record
+export interface JiraSyncHistoryEntry {
+  timestamp: string;
+  status: 'success' | 'error';
+  itemsSynced: number;
+  itemsCreated: number;
+  itemsUpdated: number;
+  itemsRemoved: number;
+  mappingsPreserved: number;
+  error?: string;
+}
+
 export interface JiraConnection {
   id: string;
   name: string;
@@ -282,12 +294,14 @@ export interface JiraConnection {
   jiraProjectKey: string;
   jiraProjectId?: string;
   jiraProjectName?: string;
-  apiToken: string;
+  apiToken: string;          // stored value (plain text for now — US-010 masks in UI)
+  apiTokenMasked?: string;   // display-only masked version: "••••••••abcd"
   userEmail: string;
   isActive: boolean;
   lastSyncAt?: string;
   lastSyncStatus: JiraSyncStatus;
   lastSyncError?: string;
+  syncHistory?: JiraSyncHistoryEntry[];  // US-011
   createdAt: string;
   updatedAt: string;
 }
@@ -344,9 +358,20 @@ export interface JiraSyncResult {
   itemsCreated: number;
   itemsUpdated: number;
   itemsRemoved: number;
+  mappingsPreserved: number;
   errors: string[];
   timestamp: string;
   items?: JiraWorkItem[]; // Fetched items (before merging)
+}
+
+// US-007: diff preview before a sync is applied
+export interface JiraSyncDiff {
+  connectionId: string;
+  toAdd: JiraWorkItem[];
+  toUpdate: JiraWorkItem[];
+  toRemove: JiraWorkItem[];
+  mappingsToPreserve: number;
+  fetchedItems: JiraWorkItem[]; // full list, ready to apply after user confirms
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

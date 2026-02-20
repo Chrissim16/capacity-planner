@@ -19,8 +19,10 @@ import {
   addHoliday, deleteHoliday,
   addSprint, updateSprint, deleteSprint, generateSprintsForYear,
   updateSettings,
-  addJiraConnection, updateJiraConnection, deleteJiraConnection, toggleJiraConnectionActive, updateJiraSettings, syncJiraWorkItems, setJiraConnectionSyncStatus, syncTeamMembersFromJira
+  addJiraConnection, updateJiraConnection, deleteJiraConnection, toggleJiraConnectionActive, updateJiraSettings, syncJiraWorkItems, setJiraConnectionSyncStatus, syncTeamMembersFromJira,
+  computeSyncDiff,
 } from '../stores/actions';
+import type { JiraSyncDiff } from '../types';
 import { useToast } from '../components/ui/Toast';
 import { 
   exportToJSON, 
@@ -103,6 +105,7 @@ export function Settings() {
   const [isImporting, setIsImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<{ data: Partial<AppState> | null; warnings?: string[]; fileName: string } | null>(null);
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
+  const [replaceConfirmText, setReplaceConfirmText] = useState('');
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
 
@@ -112,6 +115,10 @@ export function Settings() {
   const [testingConnectionId, setTestingConnectionId] = useState<string | null>(null);
   const [syncingConnectionId, setSyncingConnectionId] = useState<string | null>(null);
   const [syncProgress, setSyncProgress] = useState<string>('');
+  // US-007: pending diff waiting for user confirmation before being applied
+  const [pendingSyncDiff, setPendingSyncDiff] = useState<JiraSyncDiff | null>(null);
+  // US-011: which connection's history is expanded
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   const handleSaveGeneral = () => {
     updateSettings({
@@ -250,44 +257,66 @@ export function Settings() {
   };
   const handleToggleJiraConnection = (id: string) => { toggleJiraConnectionActive(id); showToast('Connection toggled', 'info'); };
 
+  // US-007: Step 1 — fetch from Jira and compute diff, then show preview modal
   const handleSyncJira = async (conn: JiraConnection) => {
     setSyncingConnectionId(conn.id);
-    setSyncProgress('Starting sync...');
+    setSyncProgress('Fetching from Jira…');
     setJiraConnectionSyncStatus(conn.id, 'syncing');
-    
+
     try {
       const result = await fetchJiraIssues(conn, jiraSettings, (msg) => setSyncProgress(msg));
-      
-      if (result.success && result.itemsSynced > 0) {
-        const items = result.items || [];
-        const syncResult = syncJiraWorkItems(conn.id, items);
-        
-        // Also sync team members from Jira assignees
-        setSyncProgress('Syncing team members...');
-        const teamSyncResult = syncTeamMembersFromJira();
-        
-        setJiraConnectionSyncStatus(conn.id, 'success');
-        
-        let message = `Synced ${syncResult.itemsSynced} items (${syncResult.itemsCreated} new, ${syncResult.itemsUpdated} updated)`;
-        if (teamSyncResult.created > 0) {
-          message += `. Created ${teamSyncResult.created} team member(s) from Jira assignees.`;
-        }
-        showToast(message, 'success');
+
+      if (result.success && result.items) {
+        const diff = computeSyncDiff(conn.id, result.items);
+        setSyncingConnectionId(null);
+        setSyncProgress('');
+        setPendingSyncDiff(diff);
       } else if (result.success) {
         setJiraConnectionSyncStatus(conn.id, 'success');
+        setSyncingConnectionId(null);
+        setSyncProgress('');
         showToast('No items found matching your sync settings', 'info');
       } else {
-        setJiraConnectionSyncStatus(conn.id, 'error', result.errors.join(', '));
+        const errorMsg = result.errors.join(', ');
+        setJiraConnectionSyncStatus(conn.id, 'error', errorMsg);
+        setSyncingConnectionId(null);
+        setSyncProgress('');
         showToast(result.errors[0] || 'Sync failed', 'error');
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setJiraConnectionSyncStatus(conn.id, 'error', errorMsg);
+      setSyncingConnectionId(null);
+      setSyncProgress('');
       showToast(errorMsg, 'error');
     }
-    
-    setSyncingConnectionId(null);
-    setSyncProgress('');
+  };
+
+  // US-007: Step 2 — user confirmed the diff, now apply it
+  const handleConfirmSync = () => {
+    if (!pendingSyncDiff) return;
+    const { connectionId, fetchedItems } = pendingSyncDiff;
+
+    const syncResult = syncJiraWorkItems(connectionId, fetchedItems);
+    const teamSyncResult = syncTeamMembersFromJira();
+
+    setJiraConnectionSyncStatus(connectionId, 'success', undefined, {
+      timestamp: new Date().toISOString(),
+      status: 'success',
+      itemsSynced: syncResult.itemsSynced,
+      itemsCreated: syncResult.itemsCreated,
+      itemsUpdated: syncResult.itemsUpdated,
+      itemsRemoved: syncResult.itemsRemoved,
+      mappingsPreserved: syncResult.mappingsPreserved,
+    });
+
+    let message = `Synced ${syncResult.itemsSynced} items (${syncResult.itemsCreated} new, ${syncResult.itemsUpdated} updated`;
+    if (syncResult.itemsRemoved > 0) message += `, ${syncResult.itemsRemoved} removed`;
+    message += `)`;
+    if (syncResult.mappingsPreserved > 0) message += `. ${syncResult.mappingsPreserved} mapping(s) preserved.`;
+    if (teamSyncResult.created > 0) message += ` Created ${teamSyncResult.created} team member(s).`;
+    showToast(message, 'success');
+    setPendingSyncDiff(null);
   };
 
 
@@ -399,6 +428,7 @@ export function Settings() {
     
     showToast(`Data ${importMode === 'replace' ? 'imported' : 'merged'} successfully`, 'success');
     setImportPreview(null);
+    setReplaceConfirmText('');
   };
 
   const confirmDelete = () => {
@@ -1026,33 +1056,75 @@ export function Settings() {
                 ) : (
                   <div className="space-y-3">
                     {jiraConnections.map((conn) => (
-                      <div key={conn.id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-3 h-3 rounded-full ${conn.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
-                          <div>
-                            <div className="font-medium">{conn.name}</div>
-                            <div className="text-sm text-muted-foreground">{conn.jiraBaseUrl} &bull; {conn.jiraProjectKey}</div>
-                            {conn.lastSyncAt && <div className="text-xs text-muted-foreground">Last sync: {new Date(conn.lastSyncAt).toLocaleString()}</div>}
+                      <div key={conn.id} className="rounded-lg border bg-card overflow-hidden">
+                        {/* Connection row */}
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-3 h-3 rounded-full shrink-0 ${conn.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <div>
+                              <div className="font-medium">{conn.name}</div>
+                              <div className="text-sm text-muted-foreground">{conn.jiraBaseUrl} &bull; {conn.jiraProjectKey}</div>
+                              {conn.lastSyncAt && (
+                                <div className="text-xs text-muted-foreground">
+                                  Last sync: {new Date(conn.lastSyncAt).toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                            {conn.lastSyncStatus === 'success' && <Badge variant="success">Connected</Badge>}
+                            {conn.lastSyncStatus === 'error' && <Badge variant="danger">Error</Badge>}
+                            {conn.lastSyncStatus === 'syncing' && <Badge variant="warning">Syncing…</Badge>}
+                            {conn.lastSyncError && (
+                              <span className="text-xs text-red-500 max-w-xs truncate" title={conn.lastSyncError}>
+                                {conn.lastSyncError}
+                              </span>
+                            )}
                           </div>
-                          {conn.lastSyncStatus === 'success' && <Badge variant="success">Connected</Badge>}
-                          {conn.lastSyncStatus === 'error' && <Badge variant="danger">Error</Badge>}
-                          {conn.lastSyncStatus === 'syncing' && <Badge variant="warning">Syncing</Badge>}
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => handleTestJiraConnection(conn)} disabled={testingConnectionId === conn.id} title="Test connection">
+                              {testingConnectionId === conn.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                            </Button>
+                            <Button variant="primary" size="sm" onClick={() => handleSyncJira(conn)} disabled={syncingConnectionId === conn.id || !conn.isActive}>
+                              {syncingConnectionId === conn.id ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />{syncProgress || 'Fetching…'}</> : <><Download className="w-4 h-4 mr-1" />Sync</>}
+                            </Button>
+                            {/* US-011: toggle sync history */}
+                            {(conn.syncHistory?.length ?? 0) > 0 && (
+                              <Button variant="ghost" size="sm" onClick={() => setExpandedHistoryId(expandedHistoryId === conn.id ? null : conn.id)} title="Sync history">
+                                <span className="text-xs">History ({conn.syncHistory!.length})</span>
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm" onClick={() => handleEditJiraConnection(conn)} title="Edit"><Edit2 className="w-4 h-4" /></Button>
+                            <Button variant={conn.isActive ? "ghost" : "secondary"} size="sm" onClick={() => handleToggleJiraConnection(conn.id)} title={conn.isActive ? 'Disable' : 'Enable'}>
+                              <Power className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteConfirm({ type: 'jira', id: conn.id, name: conn.name })} title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleTestJiraConnection(conn)} disabled={testingConnectionId === conn.id}>
-                            {testingConnectionId === conn.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                          </Button>
-                          <Button variant="primary" size="sm" onClick={() => handleSyncJira(conn)} disabled={syncingConnectionId === conn.id || !conn.isActive}>
-                            {syncingConnectionId === conn.id ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Download className="w-4 h-4 mr-1" />}{syncingConnectionId === conn.id && syncProgress ? syncProgress : "Sync"}
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleEditJiraConnection(conn)}><Edit2 className="w-4 h-4" /></Button>
-                          <Button variant={conn.isActive ? "ghost" : "secondary"} size="sm" onClick={() => handleToggleJiraConnection(conn.id)}>
-                            <Power className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteConfirm({ type: 'jira', id: conn.id, name: conn.name })}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                        {/* US-011: Sync history panel */}
+                        {expandedHistoryId === conn.id && conn.syncHistory && conn.syncHistory.length > 0 && (
+                          <div className="border-t bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Sync History (last {conn.syncHistory.length})</p>
+                            <div className="space-y-1.5">
+                              {conn.syncHistory.map((entry, i) => (
+                                <div key={i} className="flex items-center gap-3 text-xs">
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${entry.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
+                                  <span className="text-slate-500 dark:text-slate-400 w-36 shrink-0">
+                                    {new Date(entry.timestamp).toLocaleString()}
+                                  </span>
+                                  {entry.status === 'success' ? (
+                                    <span className="text-slate-700 dark:text-slate-300">
+                                      {entry.itemsSynced} synced — {entry.itemsCreated} new, {entry.itemsUpdated} updated, {entry.itemsRemoved} removed
+                                      {entry.mappingsPreserved > 0 && `, ${entry.mappingsPreserved} mappings kept`}
+                                    </span>
+                                  ) : (
+                                    <span className="text-red-600 dark:text-red-400">{entry.error || 'Failed'}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1306,15 +1378,19 @@ export function Settings() {
       {/* Import Preview Modal */}
       <Modal
         isOpen={!!importPreview}
-        onClose={() => setImportPreview(null)}
+        onClose={() => { setImportPreview(null); setReplaceConfirmText(''); }}
         title="Import Preview"
         size="lg"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setImportPreview(null)}>
+            <Button variant="secondary" onClick={() => { setImportPreview(null); setReplaceConfirmText(''); }}>
               Cancel
             </Button>
-            <Button onClick={handleConfirmImport}>
+            <Button
+              variant={importMode === 'replace' ? 'danger' : 'primary'}
+              onClick={handleConfirmImport}
+              disabled={importMode === 'replace' && replaceConfirmText !== 'REPLACE'}
+            >
               <Upload size={16} />
               {importMode === 'replace' ? 'Replace All Data' : 'Merge Data'}
             </Button>
@@ -1417,11 +1493,32 @@ export function Settings() {
             </div>
 
             {importMode === 'replace' && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <p className="text-red-600 dark:text-red-400 text-sm">
-                  <strong>Warning:</strong> Replacing all data will permanently remove your existing data. 
-                  Consider exporting a backup first.
-                </p>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={16} className="text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+                  <div className="text-sm text-red-700 dark:text-red-300">
+                    <p className="font-semibold mb-1">This will permanently delete all your existing data.</p>
+                    <ul className="list-disc ml-4 space-y-0.5 text-red-600 dark:text-red-400">
+                      <li>{state.projects.length} project{state.projects.length !== 1 ? 's' : ''} and all their phases &amp; assignments</li>
+                      <li>{state.teamMembers.length} team member{state.teamMembers.length !== 1 ? 's' : ''}</li>
+                      <li>{state.timeOff.length} time off record{state.timeOff.length !== 1 ? 's' : ''}</li>
+                      <li>All scenarios</li>
+                    </ul>
+                    <p className="mt-2 text-red-500 dark:text-red-400">Consider exporting a backup first (Data → Export JSON).</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-red-700 dark:text-red-300 mb-1">
+                    Type <strong>REPLACE</strong> to confirm:
+                  </label>
+                  <input
+                    type="text"
+                    value={replaceConfirmText}
+                    onChange={(e) => setReplaceConfirmText(e.target.value)}
+                    placeholder="Type REPLACE here"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-red-300 dark:border-red-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -1446,6 +1543,90 @@ export function Settings() {
             setEditingSprint(undefined);
           }}
         />
+      </Modal>
+
+      {/* US-007: Jira Sync Diff Preview Modal */}
+      <Modal
+        isOpen={!!pendingSyncDiff}
+        onClose={() => setPendingSyncDiff(null)}
+        title="Jira Sync Preview"
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPendingSyncDiff(null)}>Cancel</Button>
+            <Button onClick={handleConfirmSync}>
+              <Download size={16} />
+              Apply Sync
+            </Button>
+          </>
+        }
+      >
+        {pendingSyncDiff && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Review the changes below before applying. Your local mappings will <strong>not</strong> be affected.
+            </p>
+
+            {/* Summary chips */}
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-sm">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                <strong>{pendingSyncDiff.toAdd.length}</strong> new items to add
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <strong>{pendingSyncDiff.toUpdate.length}</strong> existing items to update
+              </div>
+              <div className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm ${pendingSyncDiff.toRemove.length > 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
+                <span className={`w-2 h-2 rounded-full ${pendingSyncDiff.toRemove.length > 0 ? 'bg-red-500' : 'bg-slate-400'}`} />
+                <strong>{pendingSyncDiff.toRemove.length}</strong> items no longer in Jira
+              </div>
+              {pendingSyncDiff.mappingsToPreserve > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg text-sm">
+                  <span className="w-2 h-2 rounded-full bg-purple-500" />
+                  <strong>{pendingSyncDiff.mappingsToPreserve}</strong> local mappings will be kept
+                </div>
+              )}
+            </div>
+
+            {/* Items to remove (most important to show explicitly) */}
+            {pendingSyncDiff.toRemove.length > 0 && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                <p className="text-sm font-semibold text-red-700 dark:text-red-300 mb-2">Items that will be removed:</p>
+                <ul className="space-y-1">
+                  {pendingSyncDiff.toRemove.slice(0, 10).map(item => (
+                    <li key={item.id} className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                      <span className="font-mono text-xs bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded">{item.jiraKey}</span>
+                      <span className="truncate">{item.summary}</span>
+                      {item.mappedProjectId && <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0">⚠ mapped</span>}
+                    </li>
+                  ))}
+                  {pendingSyncDiff.toRemove.length > 10 && (
+                    <li className="text-xs text-red-500">… and {pendingSyncDiff.toRemove.length - 10} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {/* New items preview */}
+            {pendingSyncDiff.toAdd.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">New items to add (first 5):</p>
+                <ul className="space-y-1">
+                  {pendingSyncDiff.toAdd.slice(0, 5).map(item => (
+                    <li key={item.id} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                      <span className="font-mono text-xs bg-green-100 dark:bg-green-900/40 px-1.5 py-0.5 rounded text-green-700 dark:text-green-300">{item.jiraKey}</span>
+                      <span className="truncate">{item.summary}</span>
+                    </li>
+                  ))}
+                  {pendingSyncDiff.toAdd.length > 5 && (
+                    <li className="text-xs text-slate-400">… and {pendingSyncDiff.toAdd.length - 5} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
 
       {/* Jira Connection Add/Edit Modal */}

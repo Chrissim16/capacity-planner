@@ -1,8 +1,8 @@
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  FolderKanban, 
-  Users, 
+import {
+  LayoutDashboard,
+  Calendar,
+  FolderKanban,
+  Users,
   Settings,
   Moon,
   Sun,
@@ -10,13 +10,19 @@ import {
   Redo2,
   GitBranch,
   RefreshCw,
-  Link2
+  Link2,
+  Loader2,
+  CheckCircle2,
+  WifiOff,
+  AlertCircle,
+  ShieldAlert,
 } from 'lucide-react';
+import { useState } from 'react';
 import { clsx } from 'clsx';
-import { useAppStore, useCurrentView, useSettings } from '../../stores/appStore';
+import { useAppStore, useCurrentView, useSettings, useSyncStatus, useIsBaselineWithJira } from '../../stores/appStore';
 import type { ViewType } from '../../types';
 import { ScenarioSelector } from '../ScenarioSelector';
-import { switchScenario, refreshScenarioFromJira } from '../../stores/actions';
+import { switchScenario, refreshScenarioFromJira, createScenario } from '../../stores/actions';
 
 const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string; shortcut: string }[] = [
   { view: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: '1' },
@@ -27,11 +33,115 @@ const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string; s
   { view: 'settings', icon: Settings, label: 'Settings', shortcut: '6' },
 ];
 
+function SyncIndicator() {
+  const { status, error } = useSyncStatus();
+  const retrySyncToSupabase = useAppStore((s) => s.retrySyncToSupabase);
+
+  if (status === 'offline') {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500" title="Supabase not configured — data saved to browser only">
+        <WifiOff size={13} />
+        <span>Local only</span>
+      </div>
+    );
+  }
+
+  if (status === 'saving') {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400">
+        <Loader2 size={13} className="animate-spin" />
+        <span>Saving…</span>
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <button
+        onClick={retrySyncToSupabase}
+        className="flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+        title={error ?? 'Save failed — click to retry'}
+      >
+        <AlertCircle size={13} />
+        <span>Not saved — Retry</span>
+      </button>
+    );
+  }
+
+  if (status === 'saved') {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+        <CheckCircle2 size={13} />
+        <span>Saved</span>
+      </div>
+    );
+  }
+
+  // idle
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+      <CheckCircle2 size={13} />
+      <span>Saved</span>
+    </div>
+  );
+}
+
+/**
+ * US-012: Shows a quick change summary before refreshing a scenario from Jira.
+ * Counts new/updated/removed items and asks for confirmation.
+ */
+function RefreshFromJiraButton({ scenarioId, scenarioName }: { scenarioId: string; scenarioName: string }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const jiraWorkItems = useAppStore(s => s.data.jiraWorkItems);
+  const scenarios = useAppStore(s => s.data.scenarios);
+
+  const scenario = scenarios.find(s => s.id === scenarioId);
+  const baselineItemIds = new Set(jiraWorkItems.map(i => i.jiraId));
+  const scenarioItemIds = new Set((scenario?.jiraWorkItems || []).map(i => i.jiraId));
+
+  const toAdd = jiraWorkItems.filter(i => !scenarioItemIds.has(i.jiraId)).length;
+  const toRemove = (scenario?.jiraWorkItems || []).filter(i => !baselineItemIds.has(i.jiraId)).length;
+  const toUpdate = jiraWorkItems.filter(i => scenarioItemIds.has(i.jiraId)).length;
+  const hasChanges = toAdd > 0 || toRemove > 0;
+
+  if (showConfirm) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-lg text-sm">
+        <span className="text-purple-700 dark:text-purple-300 text-xs">
+          {hasChanges
+            ? `${toAdd} new · ${toUpdate} updated · ${toRemove} removed — apply?`
+            : `${toUpdate} items will be updated — apply?`}
+        </span>
+        <button
+          onClick={() => { refreshScenarioFromJira(scenarioId); setShowConfirm(false); }}
+          className="px-2 py-0.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded"
+        >
+          Yes
+        </button>
+        <button onClick={() => setShowConfirm(false)} className="text-slate-500 hover:text-slate-700 text-xs">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setShowConfirm(true)}
+      className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-200 dark:bg-purple-800 dark:text-purple-200 dark:hover:bg-purple-700"
+    >
+      <RefreshCw size={14} />
+      Refresh from Jira
+    </button>
+  );
+}
+
 export function Header() {
   const currentView = useCurrentView();
   const settings = useSettings();
   const activeScenarioId = useAppStore((s) => s.data.activeScenarioId);
   const scenarios = useAppStore((s) => s.data.scenarios);
+  const isBaselineWithJira = useIsBaselineWithJira();
   const { setCurrentView, toggleDarkMode } = useAppStore();
   
   const activeScenario = scenarios.find((s) => s.id === activeScenarioId);
@@ -101,11 +211,8 @@ export function Header() {
               </button>
             </div>
 
-            {/* Sync Status */}
-            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
-              Saved
-            </div>
+            {/* Sync Status (US-004) */}
+            <SyncIndicator />
 
             {/* Scenario Selector */}
             <ScenarioSelector />
@@ -122,6 +229,26 @@ export function Header() {
         </div>
       </header>
 
+      {/* US-006: Baseline warning banner — shown when viewing baseline with Jira connected */}
+      {!isViewingScenario && isBaselineWithJira && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 text-sm">
+              <ShieldAlert size={16} className="shrink-0" />
+              <span>
+                <strong>Jira Baseline</strong> — Changes you make here will be overwritten on the next Jira sync.
+              </span>
+            </div>
+            <button
+              onClick={() => createScenario('New Scenario')}
+              className="ml-4 shrink-0 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg"
+            >
+              Create Scenario to Edit Safely
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Scenario Banner */}
       {isViewingScenario && activeScenario && (
         <div className="bg-purple-50 dark:bg-purple-900/20 border-b border-purple-200 dark:border-purple-800 px-4 py-3">
@@ -134,13 +261,7 @@ export function Header() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => refreshScenarioFromJira(activeScenarioId!)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-200 dark:bg-purple-800 dark:text-purple-200 dark:hover:bg-purple-700"
-              >
-                <RefreshCw size={14} />
-                Refresh from Jira
-              </button>
+              <RefreshFromJiraButton scenarioId={activeScenarioId!} scenarioName={activeScenario.name} />
               <button
                 onClick={() => switchScenario(null)}
                 className="px-3 py-1.5 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200"

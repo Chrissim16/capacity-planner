@@ -16,6 +16,13 @@ import type {
   Settings,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
+import { loadFromSupabase, scheduleSyncToSupabase } from '../services/supabaseSync';
+import { isSupabaseConfigured } from '../services/supabase';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYNC STATUS TYPES (US-001, US-004)
+// ─────────────────────────────────────────────────────────────────────────────
+export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error' | 'offline';
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // STORAGE KEY - Must match the original app!
@@ -159,21 +166,31 @@ interface AppStore {
   data: AppState;
   whatIfData: AppState | null;
   isLoading: boolean;
+  isInitializing: boolean;  // True during first Supabase load (US-002)
   error: string | null;
-  
+
+  // Sync status (US-001, US-004)
+  syncStatus: SyncStatus;
+  syncError: string | null;
+
   // UI state
   ui: UIState;
-  
+
   // Data actions
   setData: (data: AppState) => void;
   updateData: (updates: Partial<AppState>) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  
+
+  // Sync actions
+  setSyncStatus: (status: SyncStatus, error?: string | null) => void;
+  initializeFromSupabase: () => Promise<void>;
+  retrySyncToSupabase: () => Promise<void>;
+
   // What-If mode
   enterWhatIfMode: () => void;
   exitWhatIfMode: (save: boolean) => void;
-  
+
   // UI actions
   setCurrentView: (view: ViewType) => void;
   setSettingsSection: (section: string) => void;
@@ -184,10 +201,10 @@ interface AppStore {
   setProjectFilters: (filters: Partial<ProjectFilters>) => void;
   setProjectSort: (sort: SortConfig) => void;
   toggleDarkMode: () => void;
-  
-  // Helper to get current state (respects what-if mode)
+
+  // Helper to get current state (respects what-if mode and scenarios)
   getCurrentState: () => AppState;
-  
+
   // Sync with localStorage (for compatibility with original app)
   syncToStorage: () => void;
 }
@@ -263,12 +280,68 @@ export const useAppStore = create<AppStore>()(
       data: loadExistingData(),
       whatIfData: null,
       isLoading: false,
+      isInitializing: isSupabaseConfigured(), // true until Supabase load completes
       error: null,
+      syncStatus: isSupabaseConfigured() ? 'idle' : 'offline',
+      syncError: null,
       ui: defaultUIState,
-      
+
+      // Sync actions (US-001, US-004)
+      setSyncStatus: (status, error = null) =>
+        set({ syncStatus: status, syncError: error ?? null }),
+
+      initializeFromSupabase: async () => {
+        if (!isSupabaseConfigured()) {
+          set({ isInitializing: false, syncStatus: 'offline' });
+          return;
+        }
+
+        set({ isInitializing: true });
+        try {
+          const cloudData = await loadFromSupabase();
+          if (cloudData) {
+            // Merge with defaults to handle any new fields added since last save
+            const mergedSettings: Settings = { ...defaultSettings, ...(cloudData.settings || {}) };
+            const mergedJiraSettings = { ...defaultJiraSettings, ...(cloudData.jiraSettings || {}) };
+            const hydratedData: AppState = {
+              ...defaultAppState,
+              ...cloudData,
+              settings: mergedSettings,
+              jiraSettings: mergedJiraSettings,
+              quarters: cloudData.quarters?.length ? cloudData.quarters : generateQuarters(8),
+              sprints: cloudData.sprints || [],
+              jiraConnections: cloudData.jiraConnections || [],
+              jiraWorkItems: cloudData.jiraWorkItems || [],
+              scenarios: cloudData.scenarios || [],
+              activeScenarioId: cloudData.activeScenarioId ?? null,
+            };
+            set({ data: hydratedData });
+            // Mirror to localStorage as offline cache
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(hydratedData));
+          }
+          set({ isInitializing: false, syncStatus: 'saved' });
+        } catch (err) {
+          console.error('[Store] Supabase init failed:', err);
+          set({ isInitializing: false, syncStatus: 'error', syncError: 'Could not connect to database' });
+        }
+      },
+
+      retrySyncToSupabase: async () => {
+        const { data, setSyncStatus } = get();
+        setSyncStatus('saving');
+        try {
+          const { saveToSupabase } = await import('../services/supabaseSync');
+          await saveToSupabase(data);
+          setSyncStatus('saved');
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          setSyncStatus('error', msg);
+        }
+      },
+
       // Data actions
       setData: (data) => set({ data, error: null }),
-      
+
       updateData: (updates) => {
         const state = get();
         if (state.ui.isWhatIfMode && state.whatIfData) {
@@ -320,10 +393,13 @@ export const useAppStore = create<AppStore>()(
               };
               set({ data: newData });
               localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+              scheduleSyncToSupabase(newData, (status, error) =>
+                get().setSyncStatus(status as SyncStatus, error)
+              );
               return;
             }
           }
-          
+
           // No active scenario or no scenario-specific updates - update baseline normally
           const newData = {
             ...data,
@@ -332,6 +408,9 @@ export const useAppStore = create<AppStore>()(
           };
           set({ data: newData });
           localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+          scheduleSyncToSupabase(newData, (status, error) =>
+            get().setSyncStatus(status as SyncStatus, error)
+          );
         }
       },
       
@@ -356,8 +435,10 @@ export const useAppStore = create<AppStore>()(
             whatIfData: null,
             ui: { ...state.ui, isWhatIfMode: false },
           });
-          // Save to localStorage
           localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+          scheduleSyncToSupabase(newData, (status, error) =>
+            get().setSyncStatus(status as SyncStatus, error)
+          );
         } else {
           set({
             whatIfData: null,
@@ -424,8 +505,11 @@ export const useAppStore = create<AppStore>()(
         };
         set({ data: newData });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        scheduleSyncToSupabase(newData, (status, error) =>
+          get().setSyncStatus(status as SyncStatus, error)
+        );
       },
-      
+
       // Helper - returns current state respecting active scenario
       getCurrentState: () => {
         const state = get();
@@ -484,7 +568,9 @@ export const useSettings = () => useAppStore((state) => state.data.settings);
 export const useTeamMembers = () => useAppStore((state) => state.getCurrentState().teamMembers);
 export const useProjects = () => useAppStore((state) => state.getCurrentState().projects);
 export const useIsLoading = () => useAppStore((state) => state.isLoading);
+export const useIsInitializing = () => useAppStore((state) => state.isInitializing);
 export const useError = () => useAppStore((state) => state.error);
+export const useSyncStatus = () => useAppStore((state) => ({ status: state.syncStatus, error: state.syncError }));
 export const useActiveScenarioId = () => useAppStore((state) => state.data.activeScenarioId);
 export const useActiveScenario = () => useAppStore((state) => {
   const { activeScenarioId, scenarios } = state.data;
@@ -492,3 +578,7 @@ export const useActiveScenario = () => useAppStore((state) => {
   return scenarios.find(s => s.id === activeScenarioId) || null;
 });
 export const useScenarios = () => useAppStore((state) => state.data.scenarios);
+// US-006: true when user is viewing the Jira Baseline AND has at least one connection
+export const useIsBaselineWithJira = () => useAppStore((state) =>
+  !state.data.activeScenarioId && state.data.jiraConnections.length > 0
+);

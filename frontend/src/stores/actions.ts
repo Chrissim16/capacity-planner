@@ -610,21 +610,27 @@ export function toggleJiraConnectionActive(connectionId: string): void {
 export function setJiraConnectionSyncStatus(
   connectionId: string,
   status: 'idle' | 'syncing' | 'success' | 'error',
-  error?: string
+  error?: string,
+  historyEntry?: import('../types').JiraSyncHistoryEntry
 ): void {
   const state = useAppStore.getState();
   const now = new Date().toISOString();
-  const jiraConnections = state.getCurrentState().jiraConnections.map(c =>
-    c.id === connectionId
-      ? {
-          ...c,
-          lastSyncStatus: status,
-          lastSyncError: error,
-          lastSyncAt: status === 'success' ? now : c.lastSyncAt,
-          updatedAt: now,
-        }
-      : c
-  );
+  const jiraConnections = state.getCurrentState().jiraConnections.map(c => {
+    if (c.id !== connectionId) return c;
+    const updated = {
+      ...c,
+      lastSyncStatus: status,
+      lastSyncError: error,
+      lastSyncAt: status === 'success' ? now : c.lastSyncAt,
+      updatedAt: now,
+    };
+    // US-011: append to sync history (keep last 10)
+    if (historyEntry && (status === 'success' || status === 'error')) {
+      const existing = c.syncHistory || [];
+      updated.syncHistory = [historyEntry, ...existing].slice(0, 10);
+    }
+    return updated;
+  });
   state.updateData({ jiraConnections });
 }
 
@@ -634,48 +640,69 @@ export function updateJiraSettings(updates: Partial<JiraSettings>): void {
   state.updateData({ jiraSettings });
 }
 
-// Smart merge: updates Jira fields but preserves local mappings
+/**
+ * US-007: Compute the diff between Jira-fetched items and what's currently stored.
+ * Does NOT apply changes — call syncJiraWorkItems to apply after user confirms.
+ */
+export function computeSyncDiff(
+  connectionId: string,
+  newItems: JiraWorkItem[]
+): import('../types').JiraSyncDiff {
+  const state = useAppStore.getState();
+  const existingItems = state.getCurrentState().jiraWorkItems;
+  const existingConnectionItems = existingItems.filter(i => i.connectionId === connectionId);
+  const existingByJiraId = new Map(existingConnectionItems.map(i => [i.jiraId, i]));
+  const newJiraIds = new Set(newItems.map(i => i.jiraId));
+
+  const toAdd = newItems.filter(i => !existingByJiraId.has(i.jiraId));
+  const toUpdate = newItems.filter(i => existingByJiraId.has(i.jiraId));
+  const toRemove = existingConnectionItems.filter(i => !newJiraIds.has(i.jiraId));
+  const mappingsToPreserve = existingConnectionItems.filter(
+    i => newJiraIds.has(i.jiraId) && (i.mappedProjectId || i.mappedPhaseId || i.mappedMemberId)
+  ).length;
+
+  return { connectionId, toAdd, toUpdate, toRemove, mappingsToPreserve, fetchedItems: newItems };
+}
+
+/**
+ * US-008: Smart merge — updates Jira fields but always preserves local mappings.
+ * Returns a result including how many mappings were preserved.
+ */
 export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]): JiraSyncResult {
   const state = useAppStore.getState();
   const existingItems = state.getCurrentState().jiraWorkItems;
   
-  // Get items from other connections (unchanged)
   const otherConnectionItems = existingItems.filter(item => item.connectionId !== connectionId);
-  
-  // Get existing items from this connection (for mapping preservation)
   const existingConnectionItems = existingItems.filter(item => item.connectionId === connectionId);
   const existingByJiraId = new Map(existingConnectionItems.map(item => [item.jiraId, item]));
   
   let itemsCreated = 0;
   let itemsUpdated = 0;
+  let mappingsPreserved = 0;
   
-  // Merge new items, preserving local mappings
   const mergedItems = newItems.map(newItem => {
     const existing = existingByJiraId.get(newItem.jiraId);
     if (existing) {
       itemsUpdated++;
-      // Preserve local-only fields (mappings)
+      const hasMappings = !!(existing.mappedProjectId || existing.mappedPhaseId || existing.mappedMemberId);
+      if (hasMappings) mappingsPreserved++;
+      // US-008: Preserve all local-only fields (mappings survive the sync)
       return {
         ...newItem,
-        id: existing.id, // Keep same internal ID
+        id: existing.id,
         mappedProjectId: existing.mappedProjectId,
         mappedPhaseId: existing.mappedPhaseId,
         mappedMemberId: existing.mappedMemberId,
       };
     } else {
       itemsCreated++;
-      return {
-        ...newItem,
-        id: generateJiraId('jira-item'),
-      };
+      return { ...newItem, id: generateJiraId('jira-item') };
     }
   });
   
-  // Find items that were in Jira but no longer exist (removed)
   const newJiraIds = new Set(newItems.map(item => item.jiraId));
   const removedItems = existingConnectionItems.filter(item => !newJiraIds.has(item.jiraId));
   
-  // Update state
   state.updateData({ jiraWorkItems: [...otherConnectionItems, ...mergedItems] });
   
   return {
@@ -684,6 +711,7 @@ export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]
     itemsCreated,
     itemsUpdated,
     itemsRemoved: removedItems.length,
+    mappingsPreserved,
     errors: [],
     timestamp: new Date().toISOString(),
   };
