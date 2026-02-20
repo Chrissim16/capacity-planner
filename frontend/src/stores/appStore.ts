@@ -17,7 +17,7 @@ import type {
   Settings,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
-import { loadFromSupabase, scheduleSyncToSupabase } from '../services/supabaseSync';
+import { loadFromSupabase, saveToSupabase, scheduleSyncToSupabase } from '../services/supabaseSync';
 import { isSupabaseConfigured } from '../services/supabase';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -338,7 +338,6 @@ export const useAppStore = create<AppStore>()(
         const { data, setSyncStatus } = get();
         setSyncStatus('saving');
         try {
-          const { saveToSupabase } = await import('../services/supabaseSync');
           await saveToSupabase(data);
           setSyncStatus('saved');
         } catch (err) {
