@@ -111,21 +111,25 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       supabase.from('scenarios').select('*').order('created_at'),
     ]);
 
-    // Critical tables — if any fail, fall back to localStorage
-    const criticalErrors = [rolesRes, countriesRes, teamMembersRes, projectsRes]
-      .filter(r => r.error)
-      .map(r => r.error!.message);
+    // Log any table errors but continue with empty arrays — partial data is
+    // better than a full fallback to (possibly empty) localStorage.
+    // Only bail out completely if ALL tables fail (network / config problem).
+    const allResults = [
+      rolesRes, countriesRes, holidaysRes, skillsRes, systemsRes,
+      teamMembersRes, projectsRes, timeOffRes, settingsRes,
+      sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes,
+    ];
+    const errorCount = allResults.filter(r => r.error).length;
 
-    if (criticalErrors.length > 0) {
-      console.error('[Sync] Critical table load failed:', criticalErrors);
+    allResults
+      .filter(r => r.error)
+      .forEach(r => console.warn('[Sync] Table load error (continuing with empty):', r.error?.message));
+
+    // If every single table failed it's a connectivity / configuration problem
+    if (errorCount === allResults.length) {
+      console.error('[Sync] All tables failed to load — falling back to localStorage.');
       return null;
     }
-
-    // Non-critical errors — log but continue with empty arrays
-    [holidaysRes, skillsRes, systemsRes, timeOffRes, settingsRes,
-      sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes]
-      .filter(r => r.error)
-      .forEach(r => console.warn('[Sync] Non-critical load error:', r.error?.message));
 
     // ── Map DB rows → TypeScript types ───────────────────────────────────────
 

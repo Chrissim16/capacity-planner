@@ -326,8 +326,12 @@ export const useAppStore = create<AppStore>()(
             set({ data: hydratedData });
             // Mirror to localStorage as offline cache
             localStorage.setItem(STORAGE_KEY, JSON.stringify(hydratedData));
+            set({ isInitializing: false, syncStatus: 'saved' });
+          } else {
+            // No cloud data — using localStorage as-is; show idle (not "Saved") so
+            // any new changes will still get pushed to Supabase on next updateData.
+            set({ isInitializing: false, syncStatus: 'idle' });
           }
-          set({ isInitializing: false, syncStatus: 'saved' });
         } catch (err) {
           console.error('[Store] Supabase init failed:', err);
           set({ isInitializing: false, syncStatus: 'error', syncError: 'Could not connect to database' });
