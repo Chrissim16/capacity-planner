@@ -4,12 +4,18 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Environment variables (set in .env file)
+// Environment variables injected by Vite at build time
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// createClient validates the URL with `new URL(supabaseUrl)` and throws if it
+// is empty or malformed — which crashes the entire JS bundle before React mounts
+// (white screen, no error boundary). Use a syntactically valid placeholder so
+// the SDK initialises safely; actual network calls are guarded by isSupabaseConfigured().
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-anon-key'
+);
 
 /**
  * Check if Supabase is configured
