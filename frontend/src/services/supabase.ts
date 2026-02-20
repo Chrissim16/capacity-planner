@@ -21,7 +21,13 @@ export const supabase = createClient(
  * Check if Supabase is configured
  */
 export function isSupabaseConfigured(): boolean {
-  return !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'YOUR_SUPABASE_URL');
+  return !!(
+    supabaseUrl &&
+    supabaseAnonKey &&
+    supabaseUrl !== 'YOUR_SUPABASE_URL' &&
+    supabaseUrl !== 'https://placeholder.supabase.co' &&
+    supabaseAnonKey !== 'placeholder-anon-key'
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

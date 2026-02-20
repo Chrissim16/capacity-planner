@@ -40,6 +40,10 @@ ALTER TABLE app_sync ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all access (pre-auth)" ON app_sync
     FOR ALL USING (true) WITH CHECK (true);
 
+-- Explicitly grant read/write to the anon and authenticated roles.
+-- RLS policies alone are not enough — table-level grants must also allow it.
+GRANT SELECT, INSERT, UPDATE, DELETE ON app_sync TO anon, authenticated;
+
 -- Insert a placeholder row so the first upsert is always an UPDATE, not INSERT
 -- (avoids a race condition on first-ever save)
 INSERT INTO app_sync (id, data) VALUES ('main', '{}'::jsonb)
