@@ -346,21 +346,46 @@ export async function loadFromSupabase(): Promise<AppState | null> {
 export async function saveToSupabase(state: AppState): Promise<void> {
   if (!isSupabaseConfigured()) return;
 
-  await Promise.all([
-    syncRoles(state.roles),
-    syncCountries(state.countries),
-    syncHolidays(state.publicHolidays),
-    syncSkills(state.skills),
-    syncSystems(state.systems),
-    syncTeamMembers(state.teamMembers),
-    syncProjects(state.projects),
-    syncTimeOff(state.timeOff),
-    syncSprints(state.sprints),
-    syncJiraConnections(state.jiraConnections),
-    syncJiraWorkItems(state.jiraWorkItems),
-    syncScenarios(state.scenarios),
-    syncSettings(state.settings, state.jiraSettings, state.activeScenarioId),
-  ]);
+  console.info(
+    `[Sync] Saving: ${state.roles.length} roles, ${state.countries.length} countries, ` +
+    `${state.teamMembers.length} members, ${state.projects.length} projects`
+  );
+
+  // Run all table syncs in parallel. Collect per-table errors instead of
+  // short-circuiting on the first failure, so one bad table doesn't block others.
+  const tasks: [string, Promise<void>][] = [
+    ['roles',            syncRoles(state.roles)],
+    ['countries',        syncCountries(state.countries)],
+    ['public_holidays',  syncHolidays(state.publicHolidays)],
+    ['skills',           syncSkills(state.skills)],
+    ['systems',          syncSystems(state.systems)],
+    ['team_members',     syncTeamMembers(state.teamMembers)],
+    ['projects',         syncProjects(state.projects)],
+    ['time_off',         syncTimeOff(state.timeOff)],
+    ['sprints',          syncSprints(state.sprints)],
+    ['jira_connections', syncJiraConnections(state.jiraConnections)],
+    ['jira_work_items',  syncJiraWorkItems(state.jiraWorkItems)],
+    ['scenarios',        syncScenarios(state.scenarios)],
+    ['settings',         syncSettings(state.settings, state.jiraSettings, state.activeScenarioId)],
+  ];
+
+  const results = await Promise.allSettled(tasks.map(([, p]) => p));
+
+  const failures = results
+    .map((r, i) => ({ table: tasks[i][0], result: r }))
+    .filter(({ result }) => result.status === 'rejected');
+
+  if (failures.length > 0) {
+    const messages = failures
+      .map(({ table, result }) =>
+        `${table}: ${(result as PromiseRejectedResult).reason?.message ?? result}`
+      )
+      .join('; ');
+    console.error('[Sync] Some tables failed to save:', messages);
+    throw new Error(messages);
+  }
+
+  console.info('[Sync] All tables saved successfully.');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -612,37 +637,37 @@ async function upsertAndPrune<T extends { id: string }>(
   toRow: (item: T) => Record<string, unknown>,
   customDelete?: DeleteFn
 ): Promise<void> {
-  // 1. Load existing IDs from the table
+  // 1. Try to load existing IDs so we can prune removed items.
+  //    If SELECT fails (e.g. schema cache stale after migration), we skip the
+  //    prune step but still upsert current data — data safety > stale row cleanup.
   const { data: existingRows, error: selectError } = await supabase
     .from(table)
     .select('id');
 
   if (selectError) {
-    // Table might not exist yet (migration pending) — skip gracefully
-    console.warn(`[Sync] ${table} select failed (table may not exist yet):`, selectError.message);
-    return;
-  }
+    console.warn(`[Sync] ${table} SELECT failed (skipping prune, will still upsert):`, selectError.message);
+  } else {
+    // 2. Delete IDs that are in the DB but not in the current state
+    const existingIds = new Set((existingRows ?? []).map((r: { id: string }) => r.id));
+    const currentIds = new Set(items.map(i => i.id));
+    const toDelete = [...existingIds].filter(id => !currentIds.has(id));
 
-  const existingIds = new Set((existingRows ?? []).map((r: { id: string }) => r.id));
-  const currentIds = new Set(items.map(i => i.id));
-
-  // 2. Delete IDs that are in the DB but not in the current state
-  const toDelete = [...existingIds].filter(id => !currentIds.has(id));
-  if (toDelete.length > 0) {
-    if (customDelete) {
-      await customDelete(toDelete);
-    } else {
-      const { error: deleteError } = await supabase
-        .from(table)
-        .delete()
-        .in('id', toDelete);
-      if (deleteError) {
-        console.warn(`[Sync] ${table} delete failed:`, deleteError.message);
+    if (toDelete.length > 0) {
+      if (customDelete) {
+        await customDelete(toDelete);
+      } else {
+        const { error: deleteError } = await supabase
+          .from(table)
+          .delete()
+          .in('id', toDelete);
+        if (deleteError) {
+          console.warn(`[Sync] ${table} delete failed:`, deleteError.message);
+        }
       }
     }
   }
 
-  // 3. Upsert current items (insert new, update changed)
+  // 3. Upsert current items (always runs, even when SELECT failed above)
   if (items.length > 0) {
     const rows = items.map(toRow);
     const { error: upsertError } = await supabase
