@@ -119,6 +119,8 @@ export function Settings() {
   const [pendingSyncDiff, setPendingSyncDiff] = useState<JiraSyncDiff | null>(null);
   // US-011: which connection's history is expanded
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  // Multi-connection: queue of connections to sync sequentially
+  const [syncAllQueue, setSyncAllQueue] = useState<string[]>([]);
 
   const handleSaveGeneral = () => {
     updateSettings({
@@ -292,6 +294,17 @@ export function Settings() {
     }
   };
 
+  // Multi-connection: kick off syncs for all active connections one by one
+  const handleSyncAll = async () => {
+    const active = jiraConnections.filter(c => c.isActive);
+    if (active.length === 0) return;
+    // Sync the first one immediately; the rest go into the queue so each
+    // diff modal flows into the next after the user confirms.
+    const [first, ...rest] = active;
+    setSyncAllQueue(rest.map(c => c.id));
+    await handleSyncJira(first);
+  };
+
   // US-007: Step 2 — user confirmed the diff, now apply it
   const handleConfirmSync = () => {
     if (!pendingSyncDiff) return;
@@ -317,6 +330,16 @@ export function Settings() {
     if (teamSyncResult.created > 0) message += ` Created ${teamSyncResult.created} team member(s).`;
     showToast(message, 'success');
     setPendingSyncDiff(null);
+    advanceSyncQueue();
+  };
+
+  // Advance to the next connection in the queue (if any)
+  const advanceSyncQueue = () => {
+    if (syncAllQueue.length === 0) return;
+    const [nextId, ...remaining] = syncAllQueue;
+    setSyncAllQueue(remaining);
+    const nextConn = jiraConnections.find(c => c.id === nextId);
+    if (nextConn) handleSyncJira(nextConn);
   };
 
 
@@ -1043,7 +1066,15 @@ export function Settings() {
                     <CardTitle>Jira Connections</CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">Connect to Jira Cloud to sync your work items</p>
                   </div>
-                  <Button onClick={handleAddJiraConnection}><Plus className="w-4 h-4 mr-2" />Add Connection</Button>
+                  <div className="flex items-center gap-2">
+                    {jiraConnections.filter(c => c.isActive).length > 1 && (
+                      <Button variant="secondary" onClick={handleSyncAll} disabled={!!syncingConnectionId}>
+                        <Download className="w-4 h-4 mr-2" />
+                        Sync All ({jiraConnections.filter(c => c.isActive).length})
+                      </Button>
+                    )}
+                    <Button onClick={handleAddJiraConnection}><Plus className="w-4 h-4 mr-2" />Add Connection</Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1139,25 +1170,70 @@ export function Settings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <label className="text-sm font-medium">Issue Types to Sync</label>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-2">
-                    {[
-                      { key: 'syncEpics', label: 'Epics' },
-                      { key: 'syncFeatures', label: 'Features' },
-                      { key: 'syncStories', label: 'Stories' },
-                      { key: 'syncTasks', label: 'Tasks' },
-                      { key: 'syncBugs', label: 'Bugs' },
-                    ].map(({ key, label }) => (
-                      <label key={key} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={jiraSettings[key as keyof typeof jiraSettings] as boolean}
-                          onChange={(e) => updateJiraSettings({ [key]: e.target.checked })}
-                          className="rounded border-gray-300"
-                        />
-                        <span className="text-sm">{label}</span>
-                      </label>
-                    ))}
+                  <label className="text-sm font-medium">Issue Types &amp; Status Filters</label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Choose which types to sync and which statuses to include for each.
+                  </p>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/50 border-b">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground w-8"></th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Type</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status filter</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden md:table-cell text-xs">Resulting JQL clause</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {[
+                          { syncKey: 'syncEpics',    filterKey: 'statusFilterEpics',    label: 'Epics',    color: 'text-purple-600' },
+                          { syncKey: 'syncFeatures', filterKey: 'statusFilterFeatures', label: 'Features', color: 'text-blue-600' },
+                          { syncKey: 'syncStories',  filterKey: 'statusFilterStories',  label: 'Stories',  color: 'text-green-600' },
+                          { syncKey: 'syncTasks',    filterKey: 'statusFilterTasks',    label: 'Tasks',    color: 'text-cyan-600' },
+                          { syncKey: 'syncBugs',     filterKey: 'statusFilterBugs',     label: 'Bugs',     color: 'text-red-600' },
+                        ].map(({ syncKey, filterKey, label, color }) => {
+                          const enabled = jiraSettings[syncKey as keyof typeof jiraSettings] as boolean;
+                          const filter = (jiraSettings[filterKey as keyof typeof jiraSettings] ?? 'all') as string;
+                          const clauseHint: Record<string, string> = {
+                            all: 'all statuses',
+                            exclude_done: 'statusCategory != "Done"',
+                            active_only: 'statusCategory in ("To Do", "In Progress")',
+                            todo_only: 'statusCategory = "To Do"',
+                          };
+                          return (
+                            <tr key={syncKey} className={!enabled ? 'opacity-40' : ''}>
+                              <td className="px-4 py-2.5">
+                                <input
+                                  type="checkbox"
+                                  checked={enabled}
+                                  onChange={(e) => updateJiraSettings({ [syncKey]: e.target.checked })}
+                                  className="rounded border-gray-300"
+                                />
+                              </td>
+                              <td className={`px-4 py-2.5 font-medium ${color}`}>{label}</td>
+                              <td className="px-4 py-2.5">
+                                <select
+                                  value={filter}
+                                  disabled={!enabled}
+                                  onChange={(e) => updateJiraSettings({ [filterKey]: e.target.value })}
+                                  className="text-sm border border-input rounded px-2 py-1 bg-background disabled:cursor-not-allowed"
+                                >
+                                  <option value="all">All statuses</option>
+                                  <option value="exclude_done">Exclude Done</option>
+                                  <option value="active_only">Active only (To Do + In Progress)</option>
+                                  <option value="todo_only">To Do only</option>
+                                </select>
+                              </td>
+                              <td className="px-4 py-2.5 hidden md:table-cell">
+                                <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                  {clauseHint[filter]}
+                                </code>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
@@ -1548,7 +1624,7 @@ export function Settings() {
       {/* US-007: Jira Sync Diff Preview Modal */}
       <Modal
         isOpen={!!pendingSyncDiff}
-        onClose={() => setPendingSyncDiff(null)}
+        onClose={() => { setPendingSyncDiff(null); advanceSyncQueue(); }}
         title="Jira Sync Preview"
         size="lg"
         footer={

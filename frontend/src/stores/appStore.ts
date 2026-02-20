@@ -60,6 +60,13 @@ const defaultJiraSettings = {
   syncTasks: false,
   syncBugs: false,
   includeSubtasks: false,
+  // Sensible defaults: Epics/Features include anything not Done (they span long periods),
+  // Stories/Tasks/Bugs only include active work (To Do + In Progress).
+  statusFilterEpics: 'exclude_done' as const,
+  statusFilterFeatures: 'exclude_done' as const,
+  statusFilterStories: 'active_only' as const,
+  statusFilterTasks: 'active_only' as const,
+  statusFilterBugs: 'active_only' as const,
 };
 
 const defaultAppState: AppState = {

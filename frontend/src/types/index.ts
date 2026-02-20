@@ -339,6 +339,15 @@ export interface JiraWorkItem {
   mappedMemberId?: string;
 }
 
+/**
+ * Controls which Jira statuses are included when syncing a particular item type.
+ * - all:          No status filter (fetch everything regardless of status)
+ * - exclude_done: Exclude items whose statusCategory is "Done" (To Do + In Progress)
+ * - active_only:  Only "To Do" and "In Progress" (same as exclude_done in practice, clearer intent)
+ * - todo_only:    Only items that haven't been started yet
+ */
+export type JiraStatusFilter = 'all' | 'exclude_done' | 'active_only' | 'todo_only';
+
 export interface JiraSettings {
   storyPointsToDays: number;
   defaultVelocity: number;
@@ -350,6 +359,12 @@ export interface JiraSettings {
   syncTasks: boolean;
   syncBugs: boolean;
   includeSubtasks: boolean;
+  // Per-item-type status filters — control which Jira statuses are fetched for each type
+  statusFilterEpics: JiraStatusFilter;
+  statusFilterFeatures: JiraStatusFilter;
+  statusFilterStories: JiraStatusFilter;
+  statusFilterTasks: JiraStatusFilter;
+  statusFilterBugs: JiraStatusFilter;
 }
 
 export interface JiraSyncResult {

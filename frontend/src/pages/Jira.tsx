@@ -175,6 +175,12 @@ export function Jira() {
     ...teamMembers.map((m) => ({ value: m.id, label: m.name })),
   ];
 
+  // Build a lookup of connectionId → baseUrl for "open in Jira" links
+  const connectionBaseUrls = useMemo(() =>
+    Object.fromEntries(jiraConnections.map(c => [c.id, c.jiraBaseUrl.replace(/\/+$/, '')])),
+    [jiraConnections]
+  );
+
   if (jiraWorkItems.length === 0) {
     return (
       <div className="p-6">
@@ -376,6 +382,7 @@ export function Jira() {
                       onMapPhase={handleMapToPhase}
                       onMapMember={handleMapToMember}
                       projects={projects}
+                      jiraBaseUrl={connectionBaseUrls[item.connectionId] || ''}
                     />
                   ))}
                 </div>
@@ -399,6 +406,7 @@ interface JiraItemRowProps {
   onMapPhase: (itemId: string, phaseId: string | undefined) => void;
   onMapMember: (itemId: string, memberId: string | undefined) => void;
   projects: { id: string; name: string; phases: { id: string; name: string }[] }[];
+  jiraBaseUrl: string;
 }
 
 function JiraItemRow({
@@ -411,6 +419,7 @@ function JiraItemRow({
   onMapProject,
   onMapPhase,
   onMapMember,
+  jiraBaseUrl,
 }: JiraItemRowProps) {
   const isMapped = !!item.mappedProjectId || !!item.mappedMemberId;
   
@@ -445,7 +454,7 @@ function JiraItemRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <a
-            href={`https://mileway.atlassian.net/browse/${item.jiraKey}`}
+            href={`${jiraBaseUrl}/browse/${item.jiraKey}`}
             target="_blank"
             rel="noopener noreferrer"
             className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"

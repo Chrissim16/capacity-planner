@@ -3,7 +3,8 @@ import type {
   JiraWorkItem, 
   JiraItemType, 
   JiraSettings,
-  JiraSyncResult 
+  JiraSyncResult,
+  JiraStatusFilter,
 } from '../types';
 
 interface JiraProject {
@@ -153,23 +154,74 @@ export async function getJiraProjects(
   }
 }
 
+/**
+ * Translates a JiraStatusFilter value into a JQL status clause fragment.
+ * Returns an empty string when no filtering is needed.
+ */
+function statusClause(filter: JiraStatusFilter): string {
+  switch (filter) {
+    case 'exclude_done':  return ' AND statusCategory != "Done"';
+    case 'active_only':   return ' AND statusCategory in ("To Do", "In Progress")';
+    case 'todo_only':     return ' AND statusCategory = "To Do"';
+    default:              return ''; // 'all' — no filter
+  }
+}
+
+/**
+ * Builds an optimal JQL query for the connection + settings combination.
+ *
+ * When all enabled types share the same status filter, a simple flat query is used.
+ * When types differ, a compound OR query is built so each type gets its own filter.
+ * Returns null when no issue types are enabled.
+ */
+export function buildJQL(connection: JiraConnection, settings: JiraSettings): string | null {
+  const enabled: { name: string; filter: JiraStatusFilter }[] = [];
+  if (settings.syncEpics)    enabled.push({ name: 'Epic',    filter: settings.statusFilterEpics    ?? 'all' });
+  if (settings.syncFeatures) enabled.push({ name: 'Feature', filter: settings.statusFilterFeatures ?? 'all' });
+  if (settings.syncStories)  enabled.push({ name: 'Story',   filter: settings.statusFilterStories  ?? 'all' });
+  if (settings.syncTasks)    enabled.push({ name: 'Task',    filter: settings.statusFilterTasks    ?? 'all' });
+  if (settings.syncBugs)     enabled.push({ name: 'Bug',     filter: settings.statusFilterBugs     ?? 'all' });
+
+  if (enabled.length === 0) return null;
+
+  const project = `project = "${connection.jiraProjectKey}"`;
+
+  // Group types by their filter so we can emit compact clauses
+  const groups = new Map<JiraStatusFilter, string[]>();
+  for (const { name, filter } of enabled) {
+    if (!groups.has(filter)) groups.set(filter, []);
+    groups.get(filter)!.push(name);
+  }
+
+  if (groups.size === 1) {
+    // All enabled types share the same filter — simple flat query
+    const [filter, types] = [...groups.entries()][0];
+    const typeList = types.join(', ');
+    return `${project} AND issuetype IN (${typeList})${statusClause(filter)} ORDER BY created DESC`;
+  }
+
+  // Types have different filters — build a compound OR inside parentheses
+  const clauses = [...groups.entries()].map(([filter, types]) => {
+    const typeExpr = types.length === 1
+      ? `issuetype = "${types[0]}"`
+      : `issuetype IN (${types.join(', ')})`;
+    return `(${typeExpr}${statusClause(filter)})`;
+  });
+
+  return `${project} AND (${clauses.join(' OR ')}) ORDER BY created DESC`;
+}
+
 export async function fetchJiraIssues(
   connection: JiraConnection,
   settings: JiraSettings,
   onProgress?: (message: string) => void
 ): Promise<JiraSyncResult> {
-  const result: JiraSyncResult = { success: false, itemsSynced: 0, itemsCreated: 0, itemsUpdated: 0, itemsRemoved: 0, errors: [], timestamp: new Date().toISOString() };
+  const result: JiraSyncResult = { success: false, itemsSynced: 0, itemsCreated: 0, itemsUpdated: 0, itemsRemoved: 0, mappingsPreserved: 0, errors: [], timestamp: new Date().toISOString() };
   try {
     const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
-    const issueTypes: string[] = [];
-    if (settings.syncEpics) issueTypes.push('Epic');
-    if (settings.syncFeatures) issueTypes.push('Feature');
-    if (settings.syncStories) issueTypes.push('Story');
-    if (settings.syncTasks) issueTypes.push('Task');
-    if (settings.syncBugs) issueTypes.push('Bug');
-    if (issueTypes.length === 0) { result.errors.push('No issue types selected'); return result; }
-    const jql = 'project = "' + connection.jiraProjectKey + '" AND issuetype IN (' + issueTypes.join(', ') + ') ORDER BY created DESC';
-    onProgress?.('Fetching issues...');
+    const jql = buildJQL(connection, settings);
+    if (!jql) { result.errors.push('No issue types selected'); return result; }
+    onProgress?.('Fetching issues…');
     const workItems: JiraWorkItem[] = [];
     let startAt = 0;
     const maxResults = 100;
