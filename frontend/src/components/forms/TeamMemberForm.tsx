@@ -3,7 +3,7 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { addTeamMember, updateTeamMember } from '../../stores/actions';
 import type { TeamMember } from '../../types';
 
@@ -14,7 +14,7 @@ interface TeamMemberFormProps {
 }
 
 export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps) {
-  const state = useAppStore((s) => s.getCurrentState());
+  const state = useCurrentState();
   const roles = state.roles;
   const countries = state.countries;
   const skills = state.skills;

@@ -6,13 +6,13 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { SprintForm } from '../../components/forms/SprintForm';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { addSprint, updateSprint, deleteSprint, generateSprintsForYear } from '../../stores/actions';
 import { useToast } from '../../components/ui/Toast';
 import type { Sprint } from '../../types';
 
 export function SprintsSection() {
-  const { sprints, settings } = useAppStore((s) => s.getCurrentState());
+  const { sprints, settings } = useCurrentState();
   const { showToast } = useToast();
 
   const [sprintModalOpen, setSprintModalOpen] = useState(false);

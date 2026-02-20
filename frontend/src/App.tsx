@@ -26,7 +26,11 @@ function App() {
   const settings = useSettings();
   const isInitializing = useIsInitializing();
   const { status: syncStatus } = useSyncStatus();
-  const { setCurrentView, initializeFromSupabase } = useAppStore();
+  // Use targeted selectors (not the full store) so App only re-renders when
+  // these specific stable action references are first read — not on every
+  // state change. React 19's useSyncExternalStore is strict about this.
+  const setCurrentView = useAppStore((s) => s.setCurrentView);
+  const initializeFromSupabase = useAppStore((s) => s.initializeFromSupabase);
 
   // US-001 / US-002: Load data from Supabase on first mount
   useEffect(() => {

@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { addSystem, updateSystem, deleteSystem } from '../../stores/actions';
 import { useToast } from '../../components/ui/Toast';
 
 export function SystemsSection() {
-  const systems = useAppStore((s) => s.getCurrentState().systems);
+  const { systems } = useCurrentState();
   const { showToast } = useToast();
 
   const [newName, setNewName] = useState('');

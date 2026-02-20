@@ -6,13 +6,13 @@ import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
 import { TeamMemberForm } from '../components/forms/TeamMemberForm';
 import { TimeOffForm } from '../components/forms/TimeOffForm';
-import { useAppStore } from '../stores/appStore';
+import { useCurrentState } from '../stores/appStore';
 import { deleteTeamMember } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
 import type { TeamMember } from '../types';
 
 export function Team() {
-  const state = useAppStore((s) => s.getCurrentState());
+  const state = useCurrentState();
   const teamMembers = state.teamMembers;
   const roles = state.roles;
   const countries = state.countries;

@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { addCountry, deleteCountry } from '../../stores/actions';
 
 const countryFlags: Record<string, string> = {
@@ -17,7 +17,7 @@ const countryFlags: Record<string, string> = {
 };
 
 export function CountriesSection() {
-  const { countries, publicHolidays } = useAppStore((s) => s.getCurrentState());
+  const { countries, publicHolidays } = useCurrentState();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);

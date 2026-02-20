@@ -3,13 +3,13 @@ import { Download, Upload, FileJson, FileSpreadsheet, AlertTriangle } from 'luci
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { useAppStore } from '../../stores/appStore';
+import { useAppStore, useCurrentState } from '../../stores/appStore';
 import { useToast } from '../../components/ui/Toast';
 import { exportToJSON, importFromJSON, exportToExcel, importFromExcel, downloadExcelTemplate } from '../../utils/importExport';
 import type { AppState } from '../../types';
 
 export function DataSection() {
-  const state = useAppStore((s) => s.getCurrentState());
+  const state = useCurrentState();
   const { countries, publicHolidays, roles, skills, systems } = state;
   const { showToast } = useToast();
 

@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { updateSettings } from '../../stores/actions';
 import { useToast } from '../../components/ui/Toast';
 
 export function GeneralSection() {
-  const { settings, countries } = useAppStore((s) => s.getCurrentState());
+  const { settings, countries } = useCurrentState();
   const { showToast } = useToast();
 
   const [bauDays, setBauDays] = useState(settings.bauReserveDays || 5);

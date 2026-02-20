@@ -7,13 +7,13 @@ import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
 import { ProjectForm } from '../components/forms/ProjectForm';
 import { AssignmentModal } from '../components/forms/AssignmentModal';
-import { useAppStore } from '../stores/appStore';
+import { useCurrentState } from '../stores/appStore';
 import { deleteProject, duplicateProject } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
 import type { Project } from '../types';
 
 export function Projects() {
-  const state = useAppStore((s) => s.getCurrentState());
+  const state = useCurrentState();
   const projects = state.projects;
   const systems = state.systems;
   const teamMembers = state.teamMembers;

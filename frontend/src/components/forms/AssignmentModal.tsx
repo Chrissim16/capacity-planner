@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { setAssignment } from '../../stores/actions';
 import { calculateCapacity } from '../../utils/capacity';
 import { getWorkWeeksInQuarter, getHolidaysByCountry } from '../../utils/calendar';
@@ -29,7 +29,7 @@ export function AssignmentModal({
   memberId: initialMemberId,
   quarter: initialQuarter
 }: AssignmentModalProps) {
-  const state = useAppStore((s) => s.getCurrentState());
+  const state = useCurrentState();
   const { projects, teamMembers, quarters, publicHolidays, settings } = state;
   
   // Form state

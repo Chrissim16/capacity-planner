@@ -4,11 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { addRole, deleteRole } from '../../stores/actions';
 
 export function RolesSection() {
-  const roles = useAppStore((s) => s.getCurrentState().roles);
+  const { roles } = useCurrentState();
   const [newRoleName, setNewRoleName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 

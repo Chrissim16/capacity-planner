@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 import type {
   AppState,
   ViewType,
@@ -568,24 +569,33 @@ export const useAppStore = create<AppStore>()(
 // SELECTORS (for optimized re-renders)
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-export const useCurrentState = () => useAppStore((state) => state.getCurrentState());
+// Selectors that return primitives — safe as-is with React 19 useSyncExternalStore
 export const useCurrentView = () => useAppStore((state) => state.ui.currentView);
 export const useIsWhatIfMode = () => useAppStore((state) => state.ui.isWhatIfMode);
-export const useSettings = () => useAppStore((state) => state.data.settings);
-export const useTeamMembers = () => useAppStore((state) => state.getCurrentState().teamMembers);
-export const useProjects = () => useAppStore((state) => state.getCurrentState().projects);
 export const useIsLoading = () => useAppStore((state) => state.isLoading);
 export const useIsInitializing = () => useAppStore((state) => state.isInitializing);
 export const useError = () => useAppStore((state) => state.error);
-export const useSyncStatus = () => useAppStore((state) => ({ status: state.syncStatus, error: state.syncError }));
 export const useActiveScenarioId = () => useAppStore((state) => state.data.activeScenarioId);
-export const useActiveScenario = () => useAppStore((state) => {
-  const { activeScenarioId, scenarios } = state.data;
-  if (!activeScenarioId) return null;
-  return scenarios.find(s => s.id === activeScenarioId) || null;
-});
 export const useScenarios = () => useAppStore((state) => state.data.scenarios);
-// US-006: true when user is viewing the Jira Baseline AND has at least one connection
 export const useIsBaselineWithJira = () => useAppStore((state) =>
   !state.data.activeScenarioId && state.data.jiraConnections.length > 0
 );
+
+// Selectors that return objects — use useShallow so React 19's useSyncExternalStore
+// snapshot comparisons use shallow equality instead of Object.is, which would
+// otherwise detect "new object = new snapshot" on every render and force infinite
+// re-renders (React error #185).
+export const useSettings = () => useAppStore(useShallow((state) => state.data.settings));
+export const useTeamMembers = () => useAppStore(useShallow((state) => state.getCurrentState().teamMembers));
+export const useProjects = () => useAppStore(useShallow((state) => state.getCurrentState().projects));
+export const useSyncStatus = () => useAppStore(useShallow((state) => ({ status: state.syncStatus, error: state.syncError })));
+export const useActiveScenario = () => useAppStore(useShallow((state) => {
+  const { activeScenarioId, scenarios } = state.data;
+  if (!activeScenarioId) return null;
+  return scenarios.find(s => s.id === activeScenarioId) || null;
+}));
+
+// useCurrentState — when a scenario is active, getCurrentState() builds a merged
+// object from scratch on every call. useShallow ensures React 19 treats two
+// shallowly-equal snapshots as the same, preventing the re-render loop.
+export const useCurrentState = () => useAppStore(useShallow((state) => state.getCurrentState()));

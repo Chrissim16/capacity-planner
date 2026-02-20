@@ -6,11 +6,11 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { addHoliday, deleteHoliday } from '../../stores/actions';
 
 export function HolidaysSection() {
-  const { countries, publicHolidays } = useAppStore((s) => s.getCurrentState());
+  const { countries, publicHolidays } = useCurrentState();
   const [countryId, setCountryId] = useState('');
   const [date, setDate] = useState('');
   const [name, setName] = useState('');

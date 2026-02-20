@@ -3,12 +3,12 @@ import { Users, FolderKanban, AlertTriangle, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/ProgressBar';
-import { useAppStore } from '../stores/appStore';
+import { useCurrentState } from '../stores/appStore';
 import { calculateCapacity, getWarnings, getTeamUtilizationSummary } from '../utils/capacity';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 
 export function Dashboard() {
-  const state = useAppStore((s) => s.getCurrentState());
+  const state = useCurrentState();
   const currentQuarter = getCurrentQuarter();
   const quarters = useMemo(() => generateQuarters(4), []);
 

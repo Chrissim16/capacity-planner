@@ -5,11 +5,11 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Modal } from '../../components/ui/Modal';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { addSkill, deleteSkill } from '../../stores/actions';
 
 export function SkillsSection() {
-  const skills = useAppStore((s) => s.getCurrentState().skills);
+  const { skills } = useCurrentState();
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillCategory, setNewSkillCategory] = useState<'System' | 'Process' | 'Technical'>('Technical');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);

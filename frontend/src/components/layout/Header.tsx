@@ -142,7 +142,8 @@ export function Header() {
   const activeScenarioId = useAppStore((s) => s.data.activeScenarioId);
   const scenarios = useAppStore((s) => s.data.scenarios);
   const isBaselineWithJira = useIsBaselineWithJira();
-  const { setCurrentView, toggleDarkMode } = useAppStore();
+  const setCurrentView = useAppStore((s) => s.setCurrentView);
+  const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
   
   const activeScenario = scenarios.find((s) => s.id === activeScenarioId);
   const isViewingScenario = !!activeScenarioId;

@@ -4,7 +4,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { Trash2, Plus } from 'lucide-react';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { addProject, updateProject, generateId } from '../../stores/actions';
 import { getCurrentQuarter } from '../../utils/calendar';
 import type { Project, Phase, ProjectPriority, ProjectStatus } from '../../types';
@@ -30,7 +30,7 @@ const statusOptions = [
 ];
 
 export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
-  const state = useAppStore((s) => s.getCurrentState());
+  const state = useCurrentState();
   const systems = state.systems;
   const quarters = state.quarters;
   

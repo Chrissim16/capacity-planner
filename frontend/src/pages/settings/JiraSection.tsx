@@ -8,7 +8,7 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { JiraConnectionForm } from '../../components/forms/JiraConnectionForm';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import {
   addJiraConnection, updateJiraConnection, deleteJiraConnection,
   toggleJiraConnectionActive, updateJiraSettings,
@@ -19,7 +19,7 @@ import { useToast } from '../../components/ui/Toast';
 import type { JiraConnection, JiraSyncDiff } from '../../types';
 
 export function JiraSection() {
-  const { jiraConnections, jiraSettings } = useAppStore((s) => s.getCurrentState());
+  const { jiraConnections, jiraSettings } = useCurrentState();
   const { showToast } = useToast();
 
   // Connection modal

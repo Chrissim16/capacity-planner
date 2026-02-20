@@ -3,7 +3,7 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { useAppStore } from '../../stores/appStore';
+import { useCurrentState } from '../../stores/appStore';
 import { setTimeOff } from '../../stores/actions';
 import { getCurrentQuarter } from '../../utils/calendar';
 
@@ -24,7 +24,7 @@ export function TimeOffForm({
   existingDays,
   existingReason 
 }: TimeOffFormProps) {
-  const state = useAppStore((s) => s.getCurrentState());
+  const state = useCurrentState();
   const teamMembers = state.teamMembers;
   const quarters = state.quarters;
   

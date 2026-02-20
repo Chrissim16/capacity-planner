@@ -4,7 +4,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { ProgressBar } from '../components/ui/ProgressBar';
-import { useAppStore } from '../stores/appStore';
+import { useAppStore, useCurrentState } from '../stores/appStore';
 import { calculateCapacity } from '../utils/capacity';
 import { isQuarterInRange, getCurrentQuarter } from '../utils/calendar';
 import { generateSprints, getSprintsForQuarter, formatDateRange } from '../utils/sprints';
@@ -14,7 +14,7 @@ type TimelineView = 'projects' | 'team';
 type TimelineGranularity = 'quarter' | 'sprint';
 
 export function Timeline() {
-  const state = useAppStore((s) => s.getCurrentState());
+  const state = useCurrentState();
   const { projects, teamMembers, quarters, settings } = state;
   
   const [viewMode, setViewMode] = useState<TimelineView>('projects');
