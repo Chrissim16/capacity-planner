@@ -1,6 +1,6 @@
 const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'DELETE'];
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
