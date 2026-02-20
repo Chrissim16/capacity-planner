@@ -90,7 +90,7 @@ function SyncIndicator() {
  * US-012: Shows a quick change summary before refreshing a scenario from Jira.
  * Counts new/updated/removed items and asks for confirmation.
  */
-function RefreshFromJiraButton({ scenarioId, scenarioName }: { scenarioId: string; scenarioName: string }) {
+function RefreshFromJiraButton({ scenarioId, scenarioName: _scenarioName }: { scenarioId: string; scenarioName: string }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const jiraWorkItems = useAppStore(s => s.data.jiraWorkItems);
   const scenarios = useAppStore(s => s.data.scenarios);
