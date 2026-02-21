@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, AlertCircle, Loader2, ExternalLink, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { CheckCircle, AlertCircle, Loader2, ExternalLink, Eye, EyeOff, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { testJiraConnection, getJiraProjects, validateJiraUrl } from '../../services/jira';
-import type { JiraConnection } from '../../types';
+import type { JiraConnection, JiraHierarchyMode } from '../../types';
 
 interface JiraConnectionFormProps {
   connection?: JiraConnection;
@@ -40,6 +40,13 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+
+  // Import behaviour settings
+  const [hierarchyMode, setHierarchyMode] = useState<JiraHierarchyMode>(connection?.hierarchyMode ?? 'auto');
+  const [autoCreateProjects, setAutoCreateProjects] = useState(connection?.autoCreateProjects ?? true);
+  const [autoCreateAssignments, setAutoCreateAssignments] = useState(connection?.autoCreateAssignments ?? true);
+  const [defaultDaysPerItem, setDefaultDaysPerItem] = useState(connection?.defaultDaysPerItem ?? 1);
+  const [importBehaviourOpen, setImportBehaviourOpen] = useState(false);
 
   useEffect(() => {
     if (connectionStatus === 'success' && availableProjects.length === 0) loadProjects();
@@ -98,6 +105,10 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
       userEmail: userEmail.trim(), isActive: connection?.isActive ?? true,
       lastSyncStatus: connection?.lastSyncStatus || 'idle', lastSyncAt: connection?.lastSyncAt, lastSyncError: connection?.lastSyncError,
       syncHistory: connection?.syncHistory,
+      hierarchyMode,
+      autoCreateProjects,
+      autoCreateAssignments,
+      defaultDaysPerItem,
     });
     setIsSaving(false);
   };
@@ -154,6 +165,104 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
         </div>}
       </div>
       {connectionStatus === 'success' && <div className="pt-4 border-t"><Select id="project" label="Jira Project" value={jiraProjectKey} onChange={e => handleProjectSelect(e.target.value)} options={projectOptions} disabled={loadingProjects} required error={errors.jiraProjectKey} /></div>}
+      {/* Import Behaviour — collapsible */}
+      <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+        <button
+          type="button"
+          className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          onClick={() => setImportBehaviourOpen(o => !o)}
+        >
+          <span>Import Behaviour</span>
+          {importBehaviourOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+        </button>
+        {importBehaviourOpen && (
+          <div className="px-4 pb-4 pt-1 space-y-4 border-t border-slate-200 dark:border-slate-700">
+            {/* Hierarchy mode */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+                Project hierarchy
+              </label>
+              <div className="space-y-2">
+                {([
+                  ['auto', 'Auto-detect', 'Uses Epics as projects when available, otherwise Features'],
+                  ['epic_as_project', 'Epic = Project', 'Each Epic becomes a project; Features become phases within it'],
+                  ['feature_as_project', 'Feature = Project', 'Each Feature becomes a project; no phases created'],
+                ] as [JiraHierarchyMode, string, string][]).map(([value, label, hint]) => (
+                  <label key={value} className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="hierarchyMode"
+                      value={value}
+                      checked={hierarchyMode === value}
+                      onChange={() => setHierarchyMode(value)}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Auto-create toggles */}
+            <div className="space-y-3">
+              <label className="flex items-center justify-between gap-4 cursor-pointer">
+                <div>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Auto-create projects &amp; phases</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Sync automatically creates Projects and Phases from Jira structure</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoCreateProjects}
+                  onClick={() => setAutoCreateProjects(v => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${autoCreateProjects ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5 ${autoCreateProjects ? 'translate-x-4' : 'translate-x-0.5'}`}/>
+                </button>
+              </label>
+
+              <label className="flex items-center justify-between gap-4 cursor-pointer">
+                <div>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Auto-suggest assignments</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Creates assignment suggestions from sprint + story points (you can edit or remove them)</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoCreateAssignments}
+                  onClick={() => setAutoCreateAssignments(v => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${autoCreateAssignments ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5 ${autoCreateAssignments ? 'translate-x-4' : 'translate-x-0.5'}`}/>
+                </button>
+              </label>
+            </div>
+
+            {/* Default days fallback */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+                Default effort (days) when no story points
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  step={0.5}
+                  value={defaultDaysPerItem}
+                  onChange={e => setDefaultDaysPerItem(Number(e.target.value))}
+                  className="w-20 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                />
+                <span className="text-sm text-slate-500">days per item</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {errors.general && <div className="bg-red-50 border border-red-200 rounded p-3"><p className="text-red-600 text-sm flex items-center gap-2"><AlertCircle size={16}/>{errors.general}</p></div>}
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>

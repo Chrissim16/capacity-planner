@@ -188,9 +188,13 @@ export function addTeamMember(memberData: Omit<TeamMember, 'id'>): TeamMember {
 
 export function updateTeamMember(memberId: string, updates: Partial<TeamMember>): void {
   const state = useAppStore.getState();
-  const teamMembers = state.getCurrentState().teamMembers.map(m =>
-    m.id === memberId ? { ...m, ...updates } : m
-  );
+  const teamMembers = state.getCurrentState().teamMembers.map(m => {
+    if (m.id !== memberId) return m;
+    const updated = { ...m, ...updates };
+    // Clear needsEnrichment once the user has set both role and country
+    if (updated.role && updated.countryId) updated.needsEnrichment = false;
+    return updated;
+  });
   state.updateData({ teamMembers });
 }
 
@@ -578,7 +582,17 @@ export function generateJiraId(prefix: string): string {
 export function addJiraConnection(connectionData: Omit<JiraConnection, 'id' | 'createdAt' | 'updatedAt'>): JiraConnection {
   const state = useAppStore.getState();
   const now = new Date().toISOString();
-  const newConnection: JiraConnection = { ...connectionData, id: generateJiraId('jira-conn'), createdAt: now, updatedAt: now };
+  const newConnection: JiraConnection = {
+    // Defaults for import behaviour (can be overridden by connectionData)
+    hierarchyMode: 'auto',
+    autoCreateProjects: true,
+    autoCreateAssignments: true,
+    defaultDaysPerItem: 1,
+    ...connectionData,
+    id: generateJiraId('jira-conn'),
+    createdAt: now,
+    updatedAt: now,
+  };
   const jiraConnections = [...state.getCurrentState().jiraConnections, newConnection];
   state.updateData({ jiraConnections });
   return newConnection;
@@ -712,6 +726,9 @@ export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]
     itemsUpdated,
     itemsRemoved: removedItems.length,
     mappingsPreserved,
+    projectsCreated: 0,
+    projectsUpdated: 0,
+    assignmentsCreated: 0,
     errors: [],
     timestamp: new Date().toISOString(),
   };

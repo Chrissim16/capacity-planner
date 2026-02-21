@@ -106,7 +106,9 @@ export function JiraSection() {
   // Step 2: user confirmed the diff → apply via application layer
   const handleConfirmSync = () => {
     if (!pendingDiff) return;
-    const { message } = applySync(pendingDiff);
+    const conn = jiraConnections.find(c => c.id === pendingDiff.connectionId);
+    if (!conn) return;
+    const { message } = applySync(pendingDiff, conn, jiraSettings);
     showToast(message, 'success');
     setPendingDiff(null);
     advanceQueue();

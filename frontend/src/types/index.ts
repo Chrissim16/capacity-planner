@@ -75,6 +75,7 @@ export interface Assignment {
   quarter: string;       // "Q1 2026" format - always set (for aggregation)
   days: number;
   sprint?: string;       // "Sprint 1 2026" format - optional for sprint-level detail
+  jiraSynced?: boolean;  // true = auto-created from Jira; false/undefined = manually set
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -100,6 +101,7 @@ export interface Phase {
   requiredSkillIds: string[];
   predecessorPhaseId: string | null;
   assignments: Assignment[];
+  jiraSourceKey?: string;   // Jira key of the Feature/Epic this phase was created from
 }
 
 export interface Project {
@@ -111,6 +113,8 @@ export interface Project {
   devopsLink?: string;
   description?: string;
   phases: Phase[];
+  jiraSourceKey?: string;   // Jira key of the Epic/Feature this project was created from
+  syncedFromJira?: boolean; // true = created automatically during Jira sync
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -287,6 +291,8 @@ export interface JiraSyncHistoryEntry {
   error?: string;
 }
 
+export type JiraHierarchyMode = 'auto' | 'epic_as_project' | 'feature_as_project';
+
 export interface JiraConnection {
   id: string;
   name: string;
@@ -304,6 +310,11 @@ export interface JiraConnection {
   syncHistory?: JiraSyncHistoryEntry[];  // US-011
   createdAt: string;
   updatedAt: string;
+  // Import behaviour settings
+  hierarchyMode: JiraHierarchyMode;    // how to map Jira types to Projects/Phases
+  autoCreateProjects: boolean;         // auto-create Projects/Phases on sync
+  autoCreateAssignments: boolean;      // auto-create Assignments from sprint+SP on sync
+  defaultDaysPerItem: number;          // fallback effort when story points absent (days)
 }
 
 export interface JiraWorkItem {
@@ -374,6 +385,9 @@ export interface JiraSyncResult {
   itemsUpdated: number;
   itemsRemoved: number;
   mappingsPreserved: number;
+  projectsCreated: number;
+  projectsUpdated: number;
+  assignmentsCreated: number;
   errors: string[];
   timestamp: string;
   items?: JiraWorkItem[]; // Fetched items (before merging)

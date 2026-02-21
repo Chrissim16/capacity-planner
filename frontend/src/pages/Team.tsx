@@ -89,10 +89,20 @@ export function Team() {
     ...countries.map(c => ({ value: c.id, label: `${c.flag || '🏳️'} ${c.name}` })),
   ];
 
+  // Members needing enrichment (imported from Jira but missing role/country)
+  const needsEnrichmentMembers = teamMembers.filter(m => m.needsEnrichment);
+  const [enrichmentMode, setEnrichmentMode] = useState(false);
+
+  // In enrichment mode, override filters to show only needing-enrichment members
+  const displayMembers = enrichmentMode
+    ? needsEnrichmentMembers
+    : filteredMembers;
+
   // Group members by role
-  const membersByRole = filteredMembers.reduce((acc, member) => {
-    if (!acc[member.role]) acc[member.role] = [];
-    acc[member.role].push(member);
+  const membersByRole = displayMembers.reduce((acc, member) => {
+    const key = member.role || '— Needs Setup —';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(member);
     return acc;
   }, {} as Record<string, TeamMember[]>);
 
@@ -111,6 +121,34 @@ export function Team() {
           Add Member
         </Button>
       </div>
+
+      {/* Enrichment banner — shown when Jira-imported members are missing role/country */}
+      {needsEnrichmentMembers.length > 0 && (
+        <div className="flex items-center justify-between gap-4 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg">
+          <div className="flex items-center gap-3">
+            <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                {needsEnrichmentMembers.length} team member{needsEnrichmentMembers.length !== 1 ? 's' : ''} imported from Jira need{needsEnrichmentMembers.length === 1 ? 's' : ''} a role and country set
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                Without these, capacity calculations won't include them correctly.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {enrichmentMode ? (
+              <Button size="sm" variant="secondary" onClick={() => setEnrichmentMode(false)}>
+                Show all
+              </Button>
+            ) : (
+              <Button size="sm" variant="secondary" onClick={() => setEnrichmentMode(true)}>
+                Set up now ({needsEnrichmentMembers.length})
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4">
@@ -139,7 +177,7 @@ export function Team() {
       </div>
 
       {/* Team List */}
-      {filteredMembers.length === 0 ? (
+      {displayMembers.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <Users className="mx-auto w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
@@ -177,10 +215,15 @@ export function Team() {
                                 {member.name}
                               </h3>
                               {member.needsEnrichment && (
-                                <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded" title="Needs country and role">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEdit(member)}
+                                  className="flex items-center gap-1 px-1.5 py-0.5 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+                                  title="Click to complete setup"
+                                >
                                   <AlertTriangle size={12} />
                                   Setup
-                                </span>
+                                </button>
                               )}
                               {member.syncedFromJira && !member.needsEnrichment && (
                                 <span className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded" title="Synced from Jira">
