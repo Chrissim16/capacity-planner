@@ -1,31 +1,61 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Plus, Copy, Trash2, Database, GitBranch, Check } from 'lucide-react';
+import { ChevronDown, Plus, Copy, Trash2, Database, GitBranch, Check, Pencil, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAppStore } from '../stores/appStore';
-import { createScenario, duplicateScenario, deleteScenario, switchScenario } from '../stores/actions';
+import {
+  createScenario, duplicateScenario, deleteScenario, switchScenario, updateScenario,
+} from '../stores/actions';
+
+// Returns a context-aware default name: "Q1 2026 – Plan A"
+export function getSmartScenarioName(): string {
+  const now = new Date();
+  const quarter = Math.floor(now.getMonth() / 3) + 1;
+  return `Q${quarter} ${now.getFullYear()} – Plan A`;
+}
 
 export function ScenarioSelector() {
   const state = useAppStore((s) => s.data);
   const { scenarios, activeScenarioId } = state;
-  
-  const [isOpen, setIsOpen] = useState(false);
-  const [showNewModal, setShowNewModal] = useState(false);
-  const [newName, setNewName] = useState('');
+
+  const [isOpen, setIsOpen]               = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newName, setNewName]             = useState('');
   const [duplicateFrom, setDuplicateFrom] = useState<string | null>(null);
+
+  // Inline rename state
+  const [renamingId, setRenamingId]     = useState<string | null>(null);
+  const [renameValue, setRenameValue]   = useState('');
+  const renameInputRef                  = useRef<HTMLInputElement>(null);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const activeScenario = scenarios.find((s) => s.id === activeScenarioId);
-  const isBaseline = !activeScenarioId;
+  const isBaseline     = !activeScenarioId;
 
+  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setRenamingId(null);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Focus the rename input when it appears
+  useEffect(() => {
+    if (renamingId) renameInputRef.current?.focus();
+  }, [renamingId]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const openCreate = (fromScenarioId?: string, fromName?: string) => {
+    setDuplicateFrom(fromScenarioId ?? null);
+    setNewName(fromName ? `${fromName} (Copy)` : getSmartScenarioName());
+    setShowCreateModal(true);
+  };
 
   const handleCreateScenario = () => {
     if (!newName.trim()) return;
@@ -36,7 +66,7 @@ export function ScenarioSelector() {
     }
     setNewName('');
     setDuplicateFrom(null);
-    setShowNewModal(false);
+    setShowCreateModal(false);
     setIsOpen(false);
   };
 
@@ -47,18 +77,32 @@ export function ScenarioSelector() {
     }
   };
 
-  const handleDuplicate = (e: React.MouseEvent, scenarioId: string, name: string) => {
+  const startRename = (e: React.MouseEvent, scenarioId: string, name: string) => {
     e.stopPropagation();
-    setDuplicateFrom(scenarioId);
-    setNewName(`${name} (Copy)`);
-    setShowNewModal(true);
+    setRenamingId(scenarioId);
+    setRenameValue(name);
   };
+
+  const commitRename = () => {
+    if (renamingId && renameValue.trim()) {
+      updateScenario(renamingId, { name: renameValue.trim() });
+    }
+    setRenamingId(null);
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') commitRename();
+    if (e.key === 'Escape') setRenamingId(null);
+    e.stopPropagation();
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Trigger Button */}
+      {/* Trigger */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => { setIsOpen(!isOpen); setRenamingId(null); }}
         className={clsx(
           'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors border',
           isBaseline
@@ -67,23 +111,18 @@ export function ScenarioSelector() {
         )}
       >
         {isBaseline ? (
-          <>
-            <Database size={16} />
-            <span>Jira Baseline</span>
-          </>
+          <><Database size={16} /><span>Jira Baseline</span></>
         ) : (
-          <>
-            <GitBranch size={16} />
-            <span className="max-w-[150px] truncate">{activeScenario?.name}</span>
-          </>
+          <><GitBranch size={16} /><span className="max-w-[150px] truncate">{activeScenario?.name}</span></>
         )}
         <ChevronDown size={14} className={clsx('transition-transform', isOpen && 'rotate-180')} />
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-2 z-50">
-          {/* Baseline Option */}
+        <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-2 z-50">
+
+          {/* Baseline */}
           <button
             onClick={() => { switchScenario(null); setIsOpen(false); }}
             className={clsx(
@@ -91,100 +130,153 @@ export function ScenarioSelector() {
               isBaseline && 'bg-blue-50 dark:bg-blue-900/20'
             )}
           >
-            <Database size={16} className="text-blue-600 dark:text-blue-400" />
+            <Database size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="font-medium text-slate-900 dark:text-white">Jira Baseline</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">Live data from Jira</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Live data — editing here may be overwritten on next sync</div>
             </div>
-            {isBaseline && <Check size={16} className="text-blue-600 dark:text-blue-400" />}
+            {isBaseline && <Check size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />}
           </button>
 
-          {/* Divider */}
           {scenarios.length > 0 && (
             <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
           )}
 
-          {/* Scenarios */}
+          {/* Scenario list */}
           {scenarios.map((scenario) => (
             <div
               key={scenario.id}
-              onClick={() => { switchScenario(scenario.id); setIsOpen(false); }}
+              onClick={() => {
+                if (renamingId === scenario.id) return;
+                switchScenario(scenario.id);
+                setIsOpen(false);
+              }}
               className={clsx(
                 'group flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50',
                 activeScenarioId === scenario.id && 'bg-purple-50 dark:bg-purple-900/20'
               )}
             >
-              <GitBranch size={16} className="text-purple-600 dark:text-purple-400" />
+              <GitBranch size={16} className="text-purple-600 dark:text-purple-400 shrink-0" />
+
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-slate-900 dark:text-white truncate">{scenario.name}</div>
+                {/* Inline rename input */}
+                {renamingId === scenario.id ? (
+                  <input
+                    ref={renameInputRef}
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={commitRename}
+                    onKeyDown={handleRenameKeyDown}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full text-sm font-medium bg-white dark:bg-slate-700 border border-blue-400 rounded px-1.5 py-0.5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                ) : (
+                  <div className="font-medium text-slate-900 dark:text-white truncate">{scenario.name}</div>
+                )}
                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                  {scenario.basedOnSyncAt 
-                    ? `Based on sync: ${new Date(scenario.basedOnSyncAt).toLocaleDateString()}`
-                    : `Created: ${new Date(scenario.createdAt).toLocaleDateString()}`
-                  }
+                  {scenario.basedOnSyncAt
+                    ? `Snapshot: ${new Date(scenario.basedOnSyncAt).toLocaleDateString()}`
+                    : `Created: ${new Date(scenario.createdAt).toLocaleDateString()}`}
                 </div>
               </div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={(e) => handleDuplicate(e, scenario.id, scenario.name)}
-                  className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-600"
-                  title="Duplicate"
-                >
-                  <Copy size={14} className="text-slate-500" />
-                </button>
-                <button
-                  onClick={(e) => handleDelete(e, scenario.id)}
-                  className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30"
-                  title="Delete"
-                >
-                  <Trash2 size={14} className="text-red-500" />
-                </button>
+
+              {/* Action icons — visible on hover or while renaming this row */}
+              <div className={clsx(
+                'flex items-center gap-1 transition-opacity',
+                renamingId === scenario.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              )}>
+                {renamingId === scenario.id ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setRenamingId(null); }}
+                    className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-600"
+                    title="Cancel rename"
+                  >
+                    <X size={13} className="text-slate-500" />
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={(e) => startRename(e, scenario.id, scenario.name)}
+                      className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-600"
+                      title="Rename"
+                    >
+                      <Pencil size={13} className="text-slate-500" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openCreate(scenario.id, scenario.name); }}
+                      className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-600"
+                      title="Duplicate"
+                    >
+                      <Copy size={13} className="text-slate-500" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(e, scenario.id)}
+                      className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30"
+                      title="Delete"
+                    >
+                      <Trash2 size={13} className="text-red-500" />
+                    </button>
+                  </>
+                )}
               </div>
-              {activeScenarioId === scenario.id && (
-                <Check size={16} className="text-purple-600 dark:text-purple-400" />
+
+              {activeScenarioId === scenario.id && renamingId !== scenario.id && (
+                <Check size={16} className="text-purple-600 dark:text-purple-400 shrink-0" />
               )}
             </div>
           ))}
 
-          {/* Divider */}
           <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
 
-          {/* Create New */}
+          {/* Create new */}
           <button
-            onClick={() => { setDuplicateFrom(null); setNewName(''); setShowNewModal(true); }}
+            onClick={() => openCreate()}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-700/50"
           >
             <Plus size={16} />
-            <span className="font-medium">Create New Scenario</span>
+            <span className="font-medium">New Scenario</span>
           </button>
         </div>
       )}
 
-      {/* New Scenario Modal */}
-      {showNewModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowNewModal(false)}>
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-              {duplicateFrom ? 'Duplicate Scenario' : 'Create New Scenario'}
+      {/* Create / Duplicate modal */}
+      {showCreateModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowCreateModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
+              {duplicateFrom ? 'Duplicate Scenario' : 'New Scenario'}
             </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              {duplicateFrom 
-                ? 'Create a copy of the selected scenario with a new name.'
-                : 'Create a snapshot of the current Jira baseline for what-if planning.'
+
+            {/* Explanation */}
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              {duplicateFrom
+                ? 'Creates an independent copy. Changes to either scenario won\'t affect the other.'
+                : 'A scenario is a safe copy of your current data. Edit freely to explore different plans — your Jira baseline is never affected.'
               }
             </p>
+
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Scenario name
+            </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Scenario name (e.g., Q3 Plan A)"
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              placeholder="e.g. Q1 2026 – Plan A"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleCreateScenario()}
             />
+
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => { setShowNewModal(false); setDuplicateFrom(null); }}
+                onClick={() => { setShowCreateModal(false); setDuplicateFrom(null); }}
                 className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
               >
                 Cancel
@@ -194,7 +286,7 @@ export function ScenarioSelector() {
                 disabled={!newName.trim()}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {duplicateFrom ? 'Duplicate' : 'Create'}
+                {duplicateFrom ? 'Duplicate' : 'Create Scenario'}
               </button>
             </div>
           </div>

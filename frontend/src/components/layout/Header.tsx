@@ -21,7 +21,7 @@ import { useState } from 'react';
 import { clsx } from 'clsx';
 import { useAppStore, useCurrentView, useSettings, useSyncStatus, useIsBaselineWithJira } from '../../stores/appStore';
 import type { ViewType } from '../../types';
-import { ScenarioSelector } from '../ScenarioSelector';
+import { ScenarioSelector, getSmartScenarioName } from '../ScenarioSelector';
 import { switchScenario, refreshScenarioFromJira, createScenario } from '../../stores/actions';
 
 const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string; shortcut: string }[] = [
@@ -144,7 +144,22 @@ export function Header() {
   const isBaselineWithJira = useIsBaselineWithJira();
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
-  
+
+  // Inline create-scenario prompt triggered from the amber banner
+  const [showBannerCreate, setShowBannerCreate] = useState(false);
+  const [bannerScenarioName, setBannerScenarioName] = useState('');
+
+  const openBannerCreate = () => {
+    setBannerScenarioName(getSmartScenarioName());
+    setShowBannerCreate(true);
+  };
+
+  const confirmBannerCreate = () => {
+    if (!bannerScenarioName.trim()) return;
+    createScenario(bannerScenarioName.trim());
+    setShowBannerCreate(false);
+  };
+
   const activeScenario = scenarios.find((s) => s.id === activeScenarioId);
   const isViewingScenario = !!activeScenarioId;
 
@@ -230,23 +245,54 @@ export function Header() {
         </div>
       </header>
 
-      {/* US-006: Baseline warning banner — shown when viewing baseline with Jira connected */}
+      {/* Baseline warning banner */}
       {!isViewingScenario && isBaselineWithJira && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 text-sm">
-              <ShieldAlert size={16} className="shrink-0" />
-              <span>
-                <strong>Jira Baseline</strong> — Changes you make here will be overwritten on the next Jira sync.
-              </span>
+          {!showBannerCreate ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 text-sm">
+                <ShieldAlert size={16} className="shrink-0" />
+                <span>
+                  <strong>Jira Baseline</strong> — Changes you make here will be overwritten on the next Jira sync.
+                </span>
+              </div>
+              <button
+                onClick={openBannerCreate}
+                className="ml-4 shrink-0 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg"
+              >
+                Create Scenario to Edit Safely
+              </button>
             </div>
-            <button
-              onClick={() => createScenario('New Scenario')}
-              className="ml-4 shrink-0 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg"
-            >
-              Create Scenario to Edit Safely
-            </button>
-          </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <ShieldAlert size={16} className="text-amber-600 shrink-0" />
+              <span className="text-sm text-amber-800 dark:text-amber-200 font-medium shrink-0">Name your scenario:</span>
+              <input
+                autoFocus
+                type="text"
+                value={bannerScenarioName}
+                onChange={(e) => setBannerScenarioName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmBannerCreate();
+                  if (e.key === 'Escape') setShowBannerCreate(false);
+                }}
+                className="flex-1 max-w-xs px-2.5 py-1 text-sm border border-amber-300 dark:border-amber-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <button
+                onClick={confirmBannerCreate}
+                disabled={!bannerScenarioName.trim()}
+                className="shrink-0 px-3 py-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg"
+              >
+                Create
+              </button>
+              <button
+                onClick={() => setShowBannerCreate(false)}
+                className="shrink-0 text-amber-700 dark:text-amber-300 text-xs hover:underline"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
 
