@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
-  Link2, Search, ChevronDown, ChevronRight, ExternalLink,
-  CheckCircle2, AlertCircle, Minus, ArrowRight, Sparkles, X
+  Link2, Search, ExternalLink, ChevronDown, ChevronRight,
+  CheckCircle2, AlertCircle, FolderOpen, Layers, Zap, Edit2, X,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -11,175 +11,140 @@ import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
 import { useAppStore } from '../stores/appStore';
 import { updateJiraWorkItemMapping, clearJiraWorkItemMappings } from '../stores/actions';
-import type { JiraWorkItem, JiraItemType } from '../types';
-
-type FilterType = 'all' | 'mapped' | 'unmapped';
-type GroupBy = 'type' | 'status' | 'none';
+import type { JiraWorkItem, JiraItemType, Project } from '../types';
 
 const typeColors: Record<JiraItemType, string> = {
-  epic: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+  epic:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
   feature: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  story: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  task: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
-  bug: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  story:   'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  task:    'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
+  bug:     'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
 };
 
 const statusCategoryColors: Record<string, string> = {
-  todo: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+  todo:        'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
   in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  done: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  done:        'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function Jira() {
   const state = useAppStore((s) => s.data);
-  const { jiraWorkItems, jiraConnections, projects, teamMembers, jiraSettings } = state;
+  const { jiraWorkItems, jiraConnections, projects, teamMembers } = state;
 
-  const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [search, setSearch]               = useState('');
   const [filterIssueType, setFilterIssueType] = useState<JiraItemType | 'all'>('all');
-  const [groupBy, setGroupBy] = useState<GroupBy>('type');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['epic', 'feature', 'story']));
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(['__unmatched__']));
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
-  const activeConnection = jiraConnections.find((c) => c.isActive);
+  const autoEnabled = jiraConnections.some(c => c.isActive && c.autoCreateProjects);
+  const activeConnection = jiraConnections.find(c => c.isActive);
+
+  // ── Filtered items ────────────────────────────────────────────────────────
 
   const filteredItems = useMemo(() => {
-    return jiraWorkItems.filter((item) => {
-      if (search && !item.summary.toLowerCase().includes(search.toLowerCase()) && 
-          !item.jiraKey.toLowerCase().includes(search.toLowerCase())) {
-        return false;
+    return jiraWorkItems.filter(item => {
+      if (search) {
+        const q = search.toLowerCase();
+        if (!item.summary.toLowerCase().includes(q) && !item.jiraKey.toLowerCase().includes(q)) {
+          return false;
+        }
       }
-      if (filterType === 'mapped' && !item.mappedProjectId) return false;
-      if (filterType === 'unmapped' && item.mappedProjectId) return false;
       if (filterIssueType !== 'all' && item.type !== filterIssueType) return false;
       return true;
     });
-  }, [jiraWorkItems, search, filterType, filterIssueType]);
+  }, [jiraWorkItems, search, filterIssueType]);
 
-  const groupedItems = useMemo(() => {
-    const groups: Record<string, JiraWorkItem[]> = {};
-    
-    if (groupBy === 'none') {
-      groups['All Items'] = filteredItems;
-    } else if (groupBy === 'type') {
-      for (const item of filteredItems) {
-        const key = item.type;
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(item);
-      }
-    } else if (groupBy === 'status') {
-      for (const item of filteredItems) {
-        const key = item.statusCategory;
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(item);
+  // ── Group by mapped project ───────────────────────────────────────────────
+
+  const { projectGroups, unmatchedItems } = useMemo(() => {
+    const byProject = new Map<string, JiraWorkItem[]>();
+    const unmatched: JiraWorkItem[] = [];
+
+    for (const item of filteredItems) {
+      if (item.mappedProjectId) {
+        const list = byProject.get(item.mappedProjectId) ?? [];
+        list.push(item);
+        byProject.set(item.mappedProjectId, list);
+      } else {
+        unmatched.push(item);
       }
     }
-    
-    return groups;
-  }, [filteredItems, groupBy]);
+
+    // Sort each project group: epics/features first, then stories/tasks/bugs
+    const order: Record<JiraItemType, number> = { epic: 0, feature: 1, story: 2, task: 3, bug: 4 };
+    const sort = (items: JiraWorkItem[]) =>
+      [...items].sort((a, b) => (order[a.type] ?? 5) - (order[b.type] ?? 5));
+
+    const groups: { projectId: string; project: Project; items: JiraWorkItem[] }[] = [];
+    for (const [projectId, items] of byProject.entries()) {
+      const project = projects.find(p => p.id === projectId);
+      if (project) groups.push({ projectId, project, items: sort(items) });
+    }
+    groups.sort((a, b) => a.project.name.localeCompare(b.project.name));
+
+    return { projectGroups: groups, unmatchedItems: sort(unmatched) };
+  }, [filteredItems, projects]);
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
 
   const stats = useMemo(() => {
-    const total = jiraWorkItems.length;
-    const mapped = jiraWorkItems.filter((i) => i.mappedProjectId).length;
-    const epics = jiraWorkItems.filter((i) => i.type === 'epic').length;
-    const features = jiraWorkItems.filter((i) => i.type === 'feature').length;
-    const stories = jiraWorkItems.filter((i) => i.type === 'story' || i.type === 'task' || i.type === 'bug').length;
-    return { total, mapped, unmapped: total - mapped, epics, features, stories };
+    const total   = jiraWorkItems.length;
+    const matched = jiraWorkItems.filter(i => i.mappedProjectId).length;
+    return { total, matched, unmatched: total - matched };
   }, [jiraWorkItems]);
 
-  const toggleGroup = (group: string) => {
-    const newExpanded = new Set(expandedGroups);
-    if (newExpanded.has(group)) {
-      newExpanded.delete(group);
-    } else {
-      newExpanded.add(group);
-    }
-    setExpandedGroups(newExpanded);
-  };
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-  const toggleSelectItem = (id: string) => {
-    const newSelected = new Set(selectedItems);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedItems(newSelected);
-  };
-
-  const selectAll = () => {
-    setSelectedItems(new Set(filteredItems.map((i) => i.id)));
-  };
-
-  const clearSelection = () => {
-    setSelectedItems(new Set());
-  };
-
-  const handleMapToProject = (itemId: string, projectId: string | undefined) => {
-    updateJiraWorkItemMapping(itemId, { mappedProjectId: projectId, mappedPhaseId: undefined });
-  };
-
-  const handleMapToPhase = (itemId: string, phaseId: string | undefined) => {
-    updateJiraWorkItemMapping(itemId, { mappedPhaseId: phaseId });
-  };
-
-  const handleMapToMember = (itemId: string, memberId: string | undefined) => {
-    updateJiraWorkItemMapping(itemId, { mappedMemberId: memberId });
-  };
-
-  const handleBulkClearMapping = () => {
-    if (selectedItems.size === 0) return;
-    clearJiraWorkItemMappings(Array.from(selectedItems));
-    setSelectedItems(new Set());
-  };
-
-  const handleAutoMap = () => {
-    if (!jiraSettings.autoMapByName) return;
-    
-    let mapped = 0;
-    for (const item of jiraWorkItems) {
-      if (item.mappedProjectId) continue;
-      
-      if (item.type === 'epic') {
-        const matchingProject = projects.find(
-          (p) => p.name.toLowerCase().includes(item.summary.toLowerCase()) ||
-                 item.summary.toLowerCase().includes(p.name.toLowerCase())
-        );
-        if (matchingProject) {
-          updateJiraWorkItemMapping(item.id, { mappedProjectId: matchingProject.id });
-          mapped++;
-        }
-      }
-    }
-    
-    alert(`Auto-mapped ${mapped} items by name matching.`);
-  };
-
-  const projectOptions = [
-    { value: '', label: 'Not mapped' },
-    ...projects.map((p) => ({ value: p.id, label: p.name })),
-  ];
-
-  const getPhaseOptions = (projectId: string | undefined) => {
-    if (!projectId) return [{ value: '', label: 'Select project first' }];
-    const project = projects.find((p) => p.id === projectId);
-    if (!project) return [{ value: '', label: 'No phases' }];
-    return [
-      { value: '', label: 'Not mapped' },
-      ...project.phases.map((ph) => ({ value: ph.id, label: ph.name })),
-    ];
-  };
-
-  const memberOptions = [
-    { value: '', label: 'Not mapped' },
-    ...teamMembers.map((m) => ({ value: m.id, label: m.name })),
-  ];
-
-  // Build a lookup of connectionId → baseUrl for "open in Jira" links
   const connectionBaseUrls = useMemo(() =>
     Object.fromEntries(jiraConnections.map(c => [c.id, c.jiraBaseUrl.replace(/\/+$/, '')])),
     [jiraConnections]
   );
+
+  const projectOptions = [
+    { value: '', label: 'Not mapped' },
+    ...projects.map(p => ({ value: p.id, label: p.name })),
+  ];
+
+  const getPhaseOptions = (projectId: string | undefined) => {
+    if (!projectId) return [{ value: '', label: 'Select project first' }];
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return [{ value: '', label: 'No phases' }];
+    return [
+      { value: '', label: 'Not mapped' },
+      ...project.phases.map(ph => ({ value: ph.id, label: ph.name })),
+    ];
+  };
+
+  const memberOptions = [
+    { value: '', label: 'Not assigned' },
+    ...teamMembers.map(m => ({ value: m.id, label: m.name })),
+  ];
+
+  const toggleProject = (id: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectItem = (id: string) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkClearMapping = () => {
+    clearJiraWorkItemMappings(Array.from(selectedItems));
+    setSelectedItems(new Set());
+  };
+
+  // ── Empty state ───────────────────────────────────────────────────────────
 
   if (jiraWorkItems.length === 0) {
     return (
@@ -191,7 +156,8 @@ export function Jira() {
               No Jira Items Synced
             </h2>
             <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md mx-auto">
-              Connect to Jira and sync your issues to see them here. Go to Settings → Jira Integration to configure your connection.
+              Go to Settings → Jira Integration, configure your connection and click Sync.
+              Projects and phases will be created automatically.
             </p>
             <Button onClick={() => useAppStore.getState().setCurrentView('settings')}>
               Go to Settings
@@ -202,333 +168,392 @@ export function Jira() {
     );
   }
 
+  // ── Main render ───────────────────────────────────────────────────────────
+
   return (
     <div className="p-6 space-y-6">
+
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Jira Mapping</h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            Map Jira items to your projects and phases for capacity tracking
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Jira Overview</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5">
+            Items synced from Jira, organised by project
           </p>
         </div>
-        {activeConnection && (
-          <div className="text-sm text-slate-500 dark:text-slate-400">
-            Connected to: <span className="font-medium">{activeConnection.jiraProjectKey}</span>
-            {activeConnection.lastSyncAt && (
-              <> · Last sync: {new Date(activeConnection.lastSyncAt).toLocaleString()}</>
-            )}
-          </div>
+        {activeConnection?.lastSyncAt && (
+          <span className="text-sm text-slate-500 dark:text-slate-400">
+            Last sync: {new Date(activeConnection.lastSyncAt).toLocaleString()}
+          </span>
         )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      {/* Auto-import info banner */}
+      {autoEnabled && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-lg">
+          <Zap size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-medium text-blue-800 dark:text-blue-300">
+              Auto-import is active
+            </p>
+            <p className="text-blue-600 dark:text-blue-400 mt-0.5">
+              Projects and phases are created automatically from Jira epics and features each time you sync.
+              Items are shown below grouped by their auto-created project.
+              Use the edit icon (<Edit2 size={12} className="inline" />) to override a mapping for a specific item.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-4">
         <Card className="p-4">
           <div className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Total Items</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Total items synced</div>
         </Card>
         <Card className="p-4">
-          <div className="text-2xl font-bold text-green-600">{stats.mapped}</div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Mapped</div>
+          <div className="text-2xl font-bold text-green-600">{stats.matched}</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Placed in a project</div>
         </Card>
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-amber-600">{stats.unmapped}</div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Unmapped</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-purple-600">{stats.epics}</div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Epics</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-2xl font-bold text-blue-600">{stats.features + stats.stories}</div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Features/Stories</div>
+        <Card className={clsx('p-4', stats.unmatched > 0 && 'border-amber-200 dark:border-amber-700/50')}>
+          <div className={clsx('text-2xl font-bold', stats.unmatched > 0 ? 'text-amber-600' : 'text-slate-400')}>
+            {stats.unmatched}
+          </div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            {stats.unmatched > 0 ? 'Need attention' : 'All placed'}
+          </div>
         </Card>
       </div>
 
-      {/* Filters & Actions */}
+      {/* Search + filters */}
       <Card>
         <CardContent className="py-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by key or summary..."
-                  className="pl-9"
-                />
-              </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[200px] relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search by key or summary…"
+                className="pl-9"
+              />
             </div>
-            
-            <Select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value as FilterType)}
-              options={[
-                { value: 'all', label: 'All Items' },
-                { value: 'mapped', label: 'Mapped Only' },
-                { value: 'unmapped', label: 'Unmapped Only' },
-              ]}
-            />
-            
             <Select
               value={filterIssueType}
-              onChange={(e) => setFilterIssueType(e.target.value as JiraItemType | 'all')}
+              onChange={e => setFilterIssueType(e.target.value as JiraItemType | 'all')}
               options={[
-                { value: 'all', label: 'All Types' },
-                { value: 'epic', label: 'Epics' },
+                { value: 'all',     label: 'All Types' },
+                { value: 'epic',    label: 'Epics' },
                 { value: 'feature', label: 'Features' },
-                { value: 'story', label: 'Stories' },
-                { value: 'task', label: 'Tasks' },
-                { value: 'bug', label: 'Bugs' },
+                { value: 'story',   label: 'Stories' },
+                { value: 'task',    label: 'Tasks' },
+                { value: 'bug',     label: 'Bugs' },
               ]}
             />
-            
-            <Select
-              value={groupBy}
-              onChange={(e) => setGroupBy(e.target.value as GroupBy)}
-              options={[
-                { value: 'type', label: 'Group by Type' },
-                { value: 'status', label: 'Group by Status' },
-                { value: 'none', label: 'No Grouping' },
-              ]}
-            />
-
-            <Button variant="secondary" onClick={handleAutoMap}>
-              <Sparkles className="w-4 h-4 mr-2" />
-              Auto-Map
-            </Button>
           </div>
 
           {selectedItems.size > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 flex items-center gap-4">
+            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center gap-4">
               <span className="text-sm text-slate-600 dark:text-slate-400">
                 {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected
               </span>
               <Button variant="ghost" size="sm" onClick={handleBulkClearMapping}>
-                <X className="w-4 h-4 mr-1" />
-                Clear Mappings
+                <X className="w-4 h-4 mr-1" />Clear mapping
               </Button>
-              <Button variant="ghost" size="sm" onClick={clearSelection}>
-                Deselect All
+              <Button variant="ghost" size="sm" onClick={() => setSelectedItems(new Set())}>
+                Deselect all
               </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Mapping Legend */}
-      <Card>
-        <CardContent className="py-3">
-          <div className="flex items-center gap-6 text-sm">
-            <span className="text-slate-500 dark:text-slate-400">Mapping:</span>
-            <div className="flex items-center gap-2">
-              <Badge className={typeColors.epic}>Epic</Badge>
-              <ArrowRight className="w-4 h-4 text-slate-400" />
-              <span>Project</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={typeColors.feature}>Feature</Badge>
-              <ArrowRight className="w-4 h-4 text-slate-400" />
-              <span>Phase</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={typeColors.story}>Story/Task/Bug</Badge>
-              <ArrowRight className="w-4 h-4 text-slate-400" />
-              <span>Team Member</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ── Project groups ─────────────────────────────────────────────────── */}
+      {projectGroups.map(({ projectId, project, items }) => (
+        <ProjectGroup
+          key={projectId}
+          groupId={projectId}
+          title={project.name}
+          icon={<FolderOpen size={16} className="text-slate-500 dark:text-slate-400" />}
+          items={items}
+          projects={projects}
+          expanded={expandedProjects.has(projectId)}
+          onToggle={() => toggleProject(projectId)}
+          editingItemId={editingItemId}
+          onEditItem={setEditingItemId}
+          projectOptions={projectOptions}
+          getPhaseOptions={getPhaseOptions}
+          memberOptions={memberOptions}
+          connectionBaseUrls={connectionBaseUrls}
+          selectedItems={selectedItems}
+          onToggleSelect={toggleSelectItem}
+        />
+      ))}
 
-      {/* Items List */}
-      <div className="space-y-4">
-        {Object.entries(groupedItems).map(([group, items]) => (
-          <Card key={group}>
-            <CardHeader
-              className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
-              onClick={() => toggleGroup(group)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {expandedGroups.has(group) ? (
-                    <ChevronDown className="w-5 h-5 text-slate-400" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5 text-slate-400" />
-                  )}
-                  <CardTitle className="capitalize">{group.replace('_', ' ')}</CardTitle>
-                  <Badge variant="default">{items.length}</Badge>
-                </div>
-                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); selectAll(); }}>
-                  Select All
-                </Button>
-              </div>
-            </CardHeader>
-
-            {expandedGroups.has(group) && (
-              <CardContent className="pt-0">
-                <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                  {items.map((item) => (
-                    <JiraItemRow
-                      key={item.id}
-                      item={item}
-                      isSelected={selectedItems.has(item.id)}
-                      onToggleSelect={() => toggleSelectItem(item.id)}
-                      projectOptions={projectOptions}
-                      getPhaseOptions={getPhaseOptions}
-                      memberOptions={memberOptions}
-                      onMapProject={handleMapToProject}
-                      onMapPhase={handleMapToPhase}
-                      onMapMember={handleMapToMember}
-                      projects={projects}
-                      jiraBaseUrl={connectionBaseUrls[item.connectionId] || ''}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        ))}
-      </div>
+      {/* ── Unmatched items ────────────────────────────────────────────────── */}
+      {unmatchedItems.length > 0 && (
+        <ProjectGroup
+          groupId="__unmatched__"
+          title="Unmatched Items"
+          subtitle={
+            autoEnabled
+              ? 'These items have no epic/feature parent in Jira, so they could not be auto-placed. Assign them manually if needed.'
+              : 'These items are not yet linked to a project. Use the dropdowns to map them.'
+          }
+          icon={<AlertCircle size={16} className="text-amber-500" />}
+          items={unmatchedItems}
+          projects={projects}
+          expanded={expandedProjects.has('__unmatched__')}
+          onToggle={() => toggleProject('__unmatched__')}
+          editingItemId={editingItemId}
+          onEditItem={setEditingItemId}
+          projectOptions={projectOptions}
+          getPhaseOptions={getPhaseOptions}
+          memberOptions={memberOptions}
+          connectionBaseUrls={connectionBaseUrls}
+          selectedItems={selectedItems}
+          onToggleSelect={toggleSelectItem}
+          alwaysShowControls
+        />
+      )}
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ProjectGroup
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ProjectGroupProps {
+  groupId: string;
+  title: string;
+  subtitle?: string;
+  icon: React.ReactNode;
+  items: JiraWorkItem[];
+  projects: Project[];
+  expanded: boolean;
+  onToggle: () => void;
+  editingItemId: string | null;
+  onEditItem: (id: string | null) => void;
+  projectOptions: { value: string; label: string }[];
+  getPhaseOptions: (pid: string | undefined) => { value: string; label: string }[];
+  memberOptions: { value: string; label: string }[];
+  connectionBaseUrls: Record<string, string>;
+  selectedItems: Set<string>;
+  onToggleSelect: (id: string) => void;
+  alwaysShowControls?: boolean;
+}
+
+function ProjectGroup({
+  groupId, title, subtitle, icon, items, projects, expanded, onToggle,
+  editingItemId, onEditItem, projectOptions, getPhaseOptions, memberOptions,
+  connectionBaseUrls, selectedItems, onToggleSelect, alwaysShowControls = false,
+}: ProjectGroupProps) {
+  // Group items further by phase within this project
+  const phases = useMemo(() => {
+    const project = projects.find(p => p.id === groupId);
+    const byPhase = new Map<string, JiraWorkItem[]>();
+    const noPhase: JiraWorkItem[] = [];
+    for (const item of items) {
+      if (item.mappedPhaseId) {
+        const list = byPhase.get(item.mappedPhaseId) ?? [];
+        list.push(item);
+        byPhase.set(item.mappedPhaseId, list);
+      } else {
+        noPhase.push(item);
+      }
+    }
+    const result: { phaseId: string; phaseName: string; items: JiraWorkItem[] }[] = [];
+    for (const [phaseId, phaseItems] of byPhase.entries()) {
+      const phase = project?.phases.find(ph => ph.id === phaseId);
+      result.push({ phaseId, phaseName: phase?.name ?? phaseId, items: phaseItems });
+    }
+    result.sort((a, b) => a.phaseName.localeCompare(b.phaseName));
+    if (noPhase.length) result.push({ phaseId: '__none__', phaseName: 'No phase', items: noPhase });
+    return result;
+  }, [items, projects, groupId]);
+
+  return (
+    <Card>
+      <CardHeader
+        className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+        onClick={onToggle}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            {expanded
+              ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+              : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+            }
+            {icon}
+            <div className="min-w-0">
+              <CardTitle className="truncate">{title}</CardTitle>
+              {subtitle && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-normal">{subtitle}</p>
+              )}
+            </div>
+          </div>
+          <Badge variant="default" className="shrink-0 ml-2">{items.length}</Badge>
+        </div>
+      </CardHeader>
+
+      {expanded && (
+        <CardContent className="pt-0 pb-2">
+          {phases.map(({ phaseId, phaseName, items: phaseItems }) => (
+            <div key={phaseId} className="mb-4 last:mb-0">
+              {/* Phase sub-header (only when there's more than one phase, or it's a real phase) */}
+              {(phases.length > 1 || phaseId !== '__none__') && (
+                <div className="flex items-center gap-2 px-2 py-1 mb-1">
+                  <Layers size={13} className="text-slate-400 shrink-0" />
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    {phaseName}
+                  </span>
+                  <span className="text-xs text-slate-400">({phaseItems.length})</span>
+                </div>
+              )}
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-lg border border-slate-100 dark:border-slate-800">
+                {phaseItems.map(item => (
+                  <JiraItemRow
+                    key={item.id}
+                    item={item}
+                    isSelected={selectedItems.has(item.id)}
+                    onToggleSelect={() => onToggleSelect(item.id)}
+                    isEditing={editingItemId === item.id}
+                    onEdit={() => onEditItem(editingItemId === item.id ? null : item.id)}
+                    projectOptions={projectOptions}
+                    getPhaseOptions={getPhaseOptions}
+                    memberOptions={memberOptions}
+                    jiraBaseUrl={connectionBaseUrls[item.connectionId] ?? ''}
+                    alwaysShowControls={alwaysShowControls}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JiraItemRow
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface JiraItemRowProps {
   item: JiraWorkItem;
   isSelected: boolean;
   onToggleSelect: () => void;
+  isEditing: boolean;
+  onEdit: () => void;
   projectOptions: { value: string; label: string }[];
-  getPhaseOptions: (projectId: string | undefined) => { value: string; label: string }[];
+  getPhaseOptions: (pid: string | undefined) => { value: string; label: string }[];
   memberOptions: { value: string; label: string }[];
-  onMapProject: (itemId: string, projectId: string | undefined) => void;
-  onMapPhase: (itemId: string, phaseId: string | undefined) => void;
-  onMapMember: (itemId: string, memberId: string | undefined) => void;
-  projects: { id: string; name: string; phases: { id: string; name: string }[] }[];
   jiraBaseUrl: string;
+  alwaysShowControls: boolean;
 }
 
 function JiraItemRow({
-  item,
-  isSelected,
-  onToggleSelect,
-  projectOptions,
-  getPhaseOptions,
-  memberOptions,
-  onMapProject,
-  onMapPhase,
-  onMapMember,
-  jiraBaseUrl,
+  item, isSelected, onToggleSelect, isEditing, onEdit,
+  projectOptions, getPhaseOptions, memberOptions, jiraBaseUrl, alwaysShowControls,
 }: JiraItemRowProps) {
-  const isMapped = !!item.mappedProjectId || !!item.mappedMemberId;
-  
+  const isMapped = !!item.mappedProjectId;
+
+  const handleMapProject = (projectId: string | undefined) => {
+    updateJiraWorkItemMapping(item.id, { mappedProjectId: projectId, mappedPhaseId: undefined });
+  };
+  const handleMapPhase = (phaseId: string | undefined) => {
+    updateJiraWorkItemMapping(item.id, { mappedPhaseId: phaseId });
+  };
+  const handleMapMember = (memberId: string | undefined) => {
+    updateJiraWorkItemMapping(item.id, { mappedMemberId: memberId });
+  };
+
+  const showControls = alwaysShowControls || isEditing;
+
   return (
     <div className={clsx(
-      'py-3 flex items-center gap-4',
-      isSelected && 'bg-blue-50 dark:bg-blue-900/20 -mx-6 px-6'
+      'py-2.5 px-3 flex items-center gap-3 text-sm',
+      isSelected && 'bg-blue-50 dark:bg-blue-900/20',
     )}>
-      {/* Checkbox */}
       <input
         type="checkbox"
         checked={isSelected}
         onChange={onToggleSelect}
-        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600"
+        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 shrink-0"
       />
 
-      {/* Status Icon */}
-      <div className="flex-shrink-0">
-        {isMapped ? (
-          <CheckCircle2 className="w-5 h-5 text-green-500" />
-        ) : (
-          <AlertCircle className="w-5 h-5 text-amber-500" />
-        )}
-      </div>
+      {isMapped
+        ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+        : <AlertCircle  className="w-4 h-4 text-amber-500 shrink-0" />
+      }
 
-      {/* Type Badge */}
-      <Badge className={clsx('flex-shrink-0', typeColors[item.type])}>
+      <Badge className={clsx('shrink-0 text-xs', typeColors[item.type])}>
         {item.typeName}
       </Badge>
 
-      {/* Key & Summary */}
+      {/* Key + summary */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <a
             href={`${jiraBaseUrl}/browse/${item.jiraKey}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-            onClick={(e) => e.stopPropagation()}
+            className="font-mono text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5 shrink-0"
+            onClick={e => e.stopPropagation()}
           >
             {item.jiraKey}
             <ExternalLink className="w-3 h-3" />
           </a>
-          <Badge className={statusCategoryColors[item.statusCategory]} variant="default">
+          <Badge className={clsx('text-xs', statusCategoryColors[item.statusCategory])} variant="default">
             {item.status}
           </Badge>
-          {item.storyPoints && (
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              {item.storyPoints} SP
-            </span>
+          {item.storyPoints != null && (
+            <span className="text-xs text-slate-400">{item.storyPoints} SP</span>
           )}
         </div>
-        <div className="text-sm text-slate-700 dark:text-slate-300 truncate">
-          {item.summary}
-        </div>
-        {item.assigneeName && (
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            Assignee: {item.assigneeName}
-          </div>
+        <div className="text-slate-700 dark:text-slate-300 truncate mt-0.5">{item.summary}</div>
+        {item.assigneeName && !showControls && (
+          <div className="text-xs text-slate-400 mt-0.5">Assignee: {item.assigneeName}</div>
         )}
       </div>
 
-      {/* Mapping Controls */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {(item.type === 'epic') && (
+      {/* Edit override button (only for already-mapped items) */}
+      {!alwaysShowControls && (
+        <button
+          onClick={onEdit}
+          className="shrink-0 p-1.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          title={isEditing ? 'Close' : 'Override mapping'}
+        >
+          {isEditing ? <X size={14} /> : <Edit2 size={14} />}
+        </button>
+      )}
+
+      {/* Mapping controls (unmatched items always, matched items only in edit mode) */}
+      {showControls && (
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           <Select
             value={item.mappedProjectId || ''}
-            onChange={(e) => onMapProject(item.id, e.target.value || undefined)}
+            onChange={e => handleMapProject(e.target.value || undefined)}
             options={projectOptions}
-            className="w-48"
+            className="text-xs w-44"
           />
-        )}
-
-        {(item.type === 'feature') && (
-          <>
-            <Select
-              value={item.mappedProjectId || ''}
-              onChange={(e) => onMapProject(item.id, e.target.value || undefined)}
-              options={projectOptions}
-              className="w-40"
-            />
-            <Minus className="w-4 h-4 text-slate-400" />
+          {item.mappedProjectId && (
             <Select
               value={item.mappedPhaseId || ''}
-              onChange={(e) => onMapPhase(item.id, e.target.value || undefined)}
+              onChange={e => handleMapPhase(e.target.value || undefined)}
               options={getPhaseOptions(item.mappedProjectId)}
-              className="w-40"
-              disabled={!item.mappedProjectId}
+              className="text-xs w-40"
             />
-          </>
-        )}
-
-        {(item.type === 'story' || item.type === 'task' || item.type === 'bug') && (
-          <>
-            <Select
-              value={item.mappedProjectId || ''}
-              onChange={(e) => onMapProject(item.id, e.target.value || undefined)}
-              options={projectOptions}
-              className="w-36"
-            />
-            <Select
-              value={item.mappedMemberId || ''}
-              onChange={(e) => onMapMember(item.id, e.target.value || undefined)}
-              options={memberOptions}
-              className="w-36"
-            />
-          </>
-        )}
-      </div>
+          )}
+          <Select
+            value={item.mappedMemberId || ''}
+            onChange={e => handleMapMember(e.target.value || undefined)}
+            options={memberOptions}
+            className="text-xs w-36"
+          />
+        </div>
+      )}
     </div>
   );
 }

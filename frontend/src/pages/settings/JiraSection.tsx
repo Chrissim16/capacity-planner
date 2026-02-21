@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Plus, Trash2, Edit2, RefreshCw, Loader2, Power, Download, Link2, ExternalLink,
+  Plus, Trash2, Edit2, RefreshCw, Loader2, Power, Download, Link2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -360,31 +360,31 @@ export function JiraSection() {
           </CardContent>
         </Card>
 
-        {/* Mapping reference card */}
+        {/* How auto-import works */}
         <Card>
-          <CardHeader><CardTitle>Mapping Reference</CardTitle></CardHeader>
-          <CardContent>
+          <CardHeader><CardTitle>How Auto-Import Works</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
             <div className="grid md:grid-cols-3 gap-4 text-sm">
               <div className="p-3 rounded-lg bg-muted/50">
-                <div className="font-medium text-blue-600">Jira Epic</div>
-                <div className="text-muted-foreground">maps to</div>
-                <div className="font-medium">Capacity Planner Project</div>
+                <div className="font-medium text-purple-600">Jira Epic</div>
+                <div className="text-muted-foreground text-xs mt-0.5">becomes</div>
+                <div className="font-medium">→ Project</div>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
-                <div className="font-medium text-purple-600">Jira Feature</div>
-                <div className="text-muted-foreground">maps to</div>
-                <div className="font-medium">Capacity Planner Phase</div>
+                <div className="font-medium text-blue-600">Jira Feature</div>
+                <div className="text-muted-foreground text-xs mt-0.5">becomes</div>
+                <div className="font-medium">→ Phase within its Epic's Project</div>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
-                <div className="font-medium text-green-600">Jira Story/Task/Bug</div>
-                <div className="text-muted-foreground">maps to</div>
-                <div className="font-medium">Work Item (time tracking)</div>
+                <div className="font-medium text-green-600">Story / Task / Bug</div>
+                <div className="text-muted-foreground text-xs mt-0.5">drives</div>
+                <div className="font-medium">→ Assignment (via story points + sprint)</div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-4">
-              <ExternalLink className="w-3 h-3 inline mr-1" />
-              Items synced from Jira can be mapped to your existing projects and phases.
-              Story points and time tracking data will be used for capacity calculations.
+            <p className="text-xs text-muted-foreground">
+              Every time you sync, the planner checks whether new epics or features have appeared and creates or updates
+              projects and phases accordingly. Manually edited projects are never overwritten.
+              You can review the result in the <strong>Jira Overview</strong> page.
             </p>
           </CardContent>
         </Card>
