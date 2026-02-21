@@ -211,6 +211,19 @@ export function buildJQL(connection: JiraConnection, settings: JiraSettings): st
   return `${project} AND (${clauses.join(' OR ')}) ORDER BY created DESC`;
 }
 
+// Fetch only the fields we actually use — drastically reduces response size
+// and avoids Vercel's 4.5 MB function response limit on large projects.
+const JIRA_FIELDS = [
+  'summary', 'description', 'issuetype', 'status', 'priority',
+  'assignee', 'reporter', 'parent', 'labels', 'components',
+  'created', 'updated',
+  'timeoriginalestimate', 'timespent', 'timeestimate',
+  // Story-point custom fields (cloud variants)
+  'customfield_10016', 'customfield_10020', 'customfield_10026',
+  // Sprint field
+  'customfield_10020',
+].join(',');
+
 export async function fetchJiraIssues(
   connection: JiraConnection,
   settings: JiraSettings,
@@ -221,23 +234,41 @@ export async function fetchJiraIssues(
     const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
     const jql = buildJQL(connection, settings);
     if (!jql) { result.errors.push('No issue types selected'); return result; }
-    onProgress?.('Fetching issues…');
+
     const workItems: JiraWorkItem[] = [];
     let startAt = 0;
     const maxResults = 100;
-    let hasMore = true;
-    while (hasMore) {
-      const path = '/rest/api/3/search/jql?jql=' + encodeURIComponent(jql) + '&startAt=' + startAt + '&maxResults=' + maxResults + '&fields=*all';
+    let total = Infinity;
+
+    while (startAt < total) {
+      const page = Math.floor(startAt / maxResults) + 1;
+      const pagesEstimate = total === Infinity ? '?' : Math.ceil(total / maxResults);
+      onProgress?.(`Fetching page ${page} of ${pagesEstimate}…`);
+
+      const path = '/rest/api/3/search/jql'
+        + '?jql=' + encodeURIComponent(jql)
+        + '&startAt=' + startAt
+        + '&maxResults=' + maxResults
+        + '&fields=' + encodeURIComponent(JIRA_FIELDS);
+
       const response = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
       if (!response.ok) { result.errors.push('Failed: ' + response.statusText); return result; }
+
       const data = await response.json() as { startAt: number; maxResults: number; total: number; issues: JiraIssue[] };
+
+      // Jira may return 0 issues on the last page — guard against infinite loop
+      if (!data.issues || data.issues.length === 0) break;
+
       for (const issue of data.issues) {
         workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
       }
-      onProgress?.('Fetched ' + workItems.length + ' of ' + data.total);
-      startAt += maxResults;
-      hasMore = startAt < data.total;
+
+      total = data.total ?? workItems.length;
+      startAt += data.issues.length;
+
+      onProgress?.(`Fetched ${workItems.length} of ${total} items…`);
     }
+
     result.success = true;
     result.itemsSynced = workItems.length;
     result.items = workItems;
