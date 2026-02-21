@@ -224,6 +224,11 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       syncHistory: Array.isArray(c.sync_history) ? c.sync_history : [],
       createdAt: c.created_at,
       updatedAt: c.updated_at,
+      // Import behaviour — default to safe values for rows created before migration 003
+      hierarchyMode: (c.hierarchy_mode ?? 'auto') as JiraConnection['hierarchyMode'],
+      autoCreateProjects: c.auto_create_projects ?? true,
+      autoCreateAssignments: c.auto_create_assignments ?? true,
+      defaultDaysPerItem: c.default_days_per_item ?? 1,
     }));
 
     const jiraWorkItems: JiraWorkItem[] = (jiraWorkItemsRes.data ?? []).map(w => ({
@@ -534,6 +539,10 @@ async function syncJiraConnections(connections: JiraConnection[]): Promise<void>
       last_sync_status: c.lastSyncStatus,
       last_sync_error: c.lastSyncError ?? null,
       sync_history: c.syncHistory ?? [],
+      hierarchy_mode: c.hierarchyMode ?? 'auto',
+      auto_create_projects: c.autoCreateProjects ?? true,
+      auto_create_assignments: c.autoCreateAssignments ?? true,
+      default_days_per_item: c.defaultDaysPerItem ?? 1,
       created_at: c.createdAt,
       updated_at: c.updatedAt,
     })

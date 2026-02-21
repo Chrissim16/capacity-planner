@@ -11,10 +11,8 @@
 import type {
   JiraWorkItem,
   JiraConnection,
-  JiraHierarchyMode,
   Project,
   Phase,
-  Assignment,
   TeamMember,
   Sprint,
   JiraSettings,

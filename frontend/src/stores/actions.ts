@@ -583,12 +583,12 @@ export function addJiraConnection(connectionData: Omit<JiraConnection, 'id' | 'c
   const state = useAppStore.getState();
   const now = new Date().toISOString();
   const newConnection: JiraConnection = {
-    // Defaults for import behaviour (can be overridden by connectionData)
-    hierarchyMode: 'auto',
-    autoCreateProjects: true,
-    autoCreateAssignments: true,
-    defaultDaysPerItem: 1,
     ...connectionData,
+    // Ensure import behaviour defaults if the caller omitted them
+    hierarchyMode: connectionData.hierarchyMode ?? 'auto',
+    autoCreateProjects: connectionData.autoCreateProjects ?? true,
+    autoCreateAssignments: connectionData.autoCreateAssignments ?? true,
+    defaultDaysPerItem: connectionData.defaultDaysPerItem ?? 1,
     id: generateJiraId('jira-conn'),
     createdAt: now,
     updatedAt: now,
