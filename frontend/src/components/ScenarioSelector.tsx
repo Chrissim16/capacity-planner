@@ -138,8 +138,16 @@ export function ScenarioSelector() {
             {isBaseline && <Check size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />}
           </button>
 
-          {scenarios.length > 0 && (
-            <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
+          <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
+
+          {/* Empty state */}
+          {scenarios.length === 0 && (
+            <div className="px-4 py-3 text-center">
+              <p className="text-sm text-slate-500 dark:text-slate-400">No scenarios yet.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                Create one below to safely explore "what-if" plans without touching your live data.
+              </p>
+            </div>
           )}
 
           {/* Scenario list */}
@@ -174,9 +182,9 @@ export function ScenarioSelector() {
                   <div className="font-medium text-slate-900 dark:text-white truncate">{scenario.name}</div>
                 )}
                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                  {scenario.basedOnSyncAt
-                    ? `Snapshot: ${new Date(scenario.basedOnSyncAt).toLocaleDateString()}`
-                    : `Created: ${new Date(scenario.createdAt).toLocaleDateString()}`}
+                  {scenario.updatedAt !== scenario.createdAt
+                    ? `Updated ${new Date(scenario.updatedAt).toLocaleDateString()}`
+                    : `Created ${new Date(scenario.createdAt).toLocaleDateString()}`}
                 </div>
               </div>
 

@@ -17,12 +17,47 @@ import {
   AlertCircle,
   ShieldAlert,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { clsx } from 'clsx';
 import { useAppStore, useCurrentView, useSettings, useSyncStatus, useIsBaselineWithJira } from '../../stores/appStore';
 import type { ViewType } from '../../types';
 import { ScenarioSelector, getSmartScenarioName } from '../ScenarioSelector';
 import { switchScenario, refreshScenarioFromJira, createScenario } from '../../stores/actions';
+
+/**
+ * Counts structural differences between a scenario and the baseline:
+ * projects added/removed/renamed, phases added/removed, team members added/removed.
+ * Returns { total, breakdown } for display.
+ */
+function useScenarioDiff(scenarioId: string | null) {
+  const data = useAppStore(s => s.data);
+
+  return useMemo(() => {
+    if (!scenarioId) return null;
+    const scenario = data.scenarios.find(s => s.id === scenarioId);
+    if (!scenario) return null;
+
+    const baseProjectIds  = new Set(data.projects.map(p => p.id));
+    const scenProjectIds  = new Set(scenario.projects.map(p => p.id));
+    const baseMemberIds   = new Set(data.teamMembers.map(m => m.id));
+    const scenMemberIds   = new Set(scenario.teamMembers.map(m => m.id));
+
+    const projectsAdded   = scenario.projects.filter(p => !baseProjectIds.has(p.id)).length;
+    const projectsRemoved = data.projects.filter(p => !scenProjectIds.has(p.id)).length;
+    const projectsEdited  = scenario.projects.filter(p => {
+      const base = data.projects.find(b => b.id === p.id);
+      if (!base) return false;
+      // Consider a project changed if name, status, or phase count differs
+      return p.name !== base.name || p.status !== base.status || p.phases.length !== base.phases.length;
+    }).length;
+
+    const membersAdded    = scenario.teamMembers.filter(m => !baseMemberIds.has(m.id)).length;
+    const membersRemoved  = data.teamMembers.filter(m => !scenMemberIds.has(m.id)).length;
+
+    const total = projectsAdded + projectsRemoved + projectsEdited + membersAdded + membersRemoved;
+    return { total, projectsAdded, projectsRemoved, projectsEdited, membersAdded, membersRemoved };
+  }, [scenarioId, data.scenarios, data.projects, data.teamMembers]);
+}
 
 const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string; shortcut: string }[] = [
   { view: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: '1' },
@@ -160,8 +195,9 @@ export function Header() {
     setShowBannerCreate(false);
   };
 
-  const activeScenario = scenarios.find((s) => s.id === activeScenarioId);
+  const activeScenario    = scenarios.find((s) => s.id === activeScenarioId);
   const isViewingScenario = !!activeScenarioId;
+  const scenarioDiff      = useScenarioDiff(activeScenarioId ?? null);
 
   return (
     <>
@@ -300,14 +336,38 @@ export function Header() {
       {isViewingScenario && activeScenario && (
         <div className="bg-purple-50 dark:bg-purple-900/20 border-b border-purple-200 dark:border-purple-800 px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-purple-800 dark:text-purple-200">
-              <GitBranch size={20} />
-              <span className="font-medium">Viewing Scenario: {activeScenario.name}</span>
-              <span className="text-purple-600 dark:text-purple-400">
-                — Changes here don't affect your Jira baseline
+            <div className="flex items-center gap-3 text-purple-800 dark:text-purple-200 flex-wrap">
+              <GitBranch size={18} className="shrink-0" />
+              <span className="font-medium">{activeScenario.name}</span>
+
+              {/* Changes-from-baseline badge */}
+              {scenarioDiff !== null && (
+                scenarioDiff.total === 0 ? (
+                  <span className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-800/50 text-purple-600 dark:text-purple-300 rounded-full">
+                    No changes from baseline yet
+                  </span>
+                ) : (
+                  <span
+                    className="text-xs px-2 py-0.5 bg-purple-200 dark:bg-purple-700/60 text-purple-800 dark:text-purple-200 rounded-full font-medium cursor-default"
+                    title={[
+                      scenarioDiff.projectsAdded   > 0 && `${scenarioDiff.projectsAdded} project(s) added`,
+                      scenarioDiff.projectsRemoved > 0 && `${scenarioDiff.projectsRemoved} project(s) removed`,
+                      scenarioDiff.projectsEdited  > 0 && `${scenarioDiff.projectsEdited} project(s) edited`,
+                      scenarioDiff.membersAdded    > 0 && `${scenarioDiff.membersAdded} member(s) added`,
+                      scenarioDiff.membersRemoved  > 0 && `${scenarioDiff.membersRemoved} member(s) removed`,
+                    ].filter(Boolean).join(' · ')}
+                  >
+                    {scenarioDiff.total} change{scenarioDiff.total !== 1 ? 's' : ''} from baseline
+                  </span>
+                )
+              )}
+
+              <span className="text-purple-500 dark:text-purple-400 text-sm hidden sm:inline">
+                · edits here don't affect the baseline
               </span>
             </div>
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center gap-2 shrink-0">
               <RefreshFromJiraButton scenarioId={activeScenarioId!} scenarioName={activeScenario.name} />
               <button
                 onClick={() => switchScenario(null)}
