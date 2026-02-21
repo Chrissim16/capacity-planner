@@ -153,6 +153,43 @@ At one point both `api/jira.ts` and `api/jira.js` existed. Vercel sees two handl
 - `npx vercel inspect <url>` shows the `Builds` section; a `λ` symbol means a function is deployed; `[0ms]` with no `λ` means pure static (no functions)
 - `"type": "module"` in the nearest `package.json` controls whether `.js` files are ES modules or CommonJS — the export syntax must match
 - Standard `rewrites` respect function-first routing; legacy `routes` (the array format) overrides it
+- Use `npx vercel logs <url>` to stream live function logs from the CLI when the Vercel dashboard Logs tab is not available
+
+---
+
+## Bug #004: Jira sync returning "Error-gone" (410) from Atlassian API deprecation
+**Date:** 2026-02-21  
+**Severity:** High  
+**Found by:** User testing (Jira sync button)
+
+### Symptom
+Clicking "Sync Jira" produced `Error-gone` in the app. The Jira proxy function itself was healthy (returning correct 400 for missing headers when tested directly).
+
+### Root Cause
+Atlassian deprecated the `/rest/api/3/search` endpoint and replaced it with `/rest/api/3/search/jql`. The deprecated endpoint now returns HTTP 410 Gone with the message:
+> "The requested API has been removed. Please migrate to the /rest/api/3/search/jql API."
+
+See: https://developer.atlassian.com/changelog/#CHANGE-2046
+
+### Diagnosis
+Used `npx vercel logs capacity-planner-mw.vercel.app` (CLI) while triggering the sync to stream live function logs, which revealed:
+```
+[Jira Proxy] GET https://mileway.atlassian.net/rest/api/3/search?jql=... → 410 Gone
+[Jira Proxy] Error response body: {"errorMessages":["The requested API has been removed..."]}
+```
+
+### Fix
+One-line change in `frontend/src/services/jira.ts`:
+```typescript
+// Before (deprecated)
+const path = '/rest/api/3/search?jql=' + ...
+
+// After
+const path = '/rest/api/3/search/jql?jql=' + ...
+```
+
+### File Changed
+- `frontend/src/services/jira.ts` — updated search endpoint path
 
 ---
 
