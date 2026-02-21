@@ -66,12 +66,18 @@ export default async function handler(req, res) {
 
     const jiraResponse = await fetch(fullUrl, fetchOptions);
 
+    console.log(`[Jira Proxy] ${req.method} ${fullUrl} → ${jiraResponse.status} ${jiraResponse.statusText}`);
+
     const contentType = jiraResponse.headers.get('content-type');
     let data;
     if (contentType && contentType.includes('application/json')) {
       data = await jiraResponse.json();
     } else {
       data = await jiraResponse.text();
+    }
+
+    if (jiraResponse.status >= 400) {
+      console.error('[Jira Proxy] Error response body:', JSON.stringify(data).slice(0, 500));
     }
 
     return res.status(jiraResponse.status).json(data);
