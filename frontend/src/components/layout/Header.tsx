@@ -18,6 +18,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { ScenarioDiffModal } from '../ScenarioDiffModal';
 import { clsx } from 'clsx';
 import { useAppStore, useCurrentView, useSettings, useSyncStatus, useIsBaselineWithJira } from '../../stores/appStore';
 import type { ViewType } from '../../types';
@@ -198,6 +199,7 @@ export function Header() {
   const activeScenario    = scenarios.find((s) => s.id === activeScenarioId);
   const isViewingScenario = !!activeScenarioId;
   const scenarioDiff      = useScenarioDiff(activeScenarioId ?? null);
+  const [showDiff, setShowDiff] = useState(false);
 
   return (
     <>
@@ -332,6 +334,11 @@ export function Header() {
         </div>
       )}
 
+      {/* Scenario diff modal */}
+      {showDiff && activeScenario && (
+        <ScenarioDiffModal scenario={activeScenario} onClose={() => setShowDiff(false)} />
+      )}
+
       {/* Scenario Banner */}
       {isViewingScenario && activeScenario && (
         <div className="bg-purple-50 dark:bg-purple-900/20 border-b border-purple-200 dark:border-purple-800 px-4 py-3">
@@ -340,25 +347,23 @@ export function Header() {
               <GitBranch size={18} className="shrink-0" />
               <span className="font-medium">{activeScenario.name}</span>
 
-              {/* Changes-from-baseline badge */}
+              {/* Changes-from-baseline badge — clickable to open diff modal */}
               {scenarioDiff !== null && (
                 scenarioDiff.total === 0 ? (
-                  <span className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-800/50 text-purple-600 dark:text-purple-300 rounded-full">
-                    No changes from baseline yet
-                  </span>
-                ) : (
-                  <span
-                    className="text-xs px-2 py-0.5 bg-purple-200 dark:bg-purple-700/60 text-purple-800 dark:text-purple-200 rounded-full font-medium cursor-default"
-                    title={[
-                      scenarioDiff.projectsAdded   > 0 && `${scenarioDiff.projectsAdded} project(s) added`,
-                      scenarioDiff.projectsRemoved > 0 && `${scenarioDiff.projectsRemoved} project(s) removed`,
-                      scenarioDiff.projectsEdited  > 0 && `${scenarioDiff.projectsEdited} project(s) edited`,
-                      scenarioDiff.membersAdded    > 0 && `${scenarioDiff.membersAdded} member(s) added`,
-                      scenarioDiff.membersRemoved  > 0 && `${scenarioDiff.membersRemoved} member(s) removed`,
-                    ].filter(Boolean).join(' · ')}
+                  <button
+                    onClick={() => setShowDiff(true)}
+                    className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-800/50 text-purple-600 dark:text-purple-300 rounded-full hover:bg-purple-200 dark:hover:bg-purple-700/60 transition-colors"
                   >
-                    {scenarioDiff.total} change{scenarioDiff.total !== 1 ? 's' : ''} from baseline
-                  </span>
+                    No changes yet
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowDiff(true)}
+                    className="text-xs px-2 py-0.5 bg-purple-200 dark:bg-purple-700/60 text-purple-800 dark:text-purple-200 rounded-full font-medium hover:bg-purple-300 dark:hover:bg-purple-600/60 transition-colors"
+                    title="Click to view full diff and promote to baseline"
+                  >
+                    {scenarioDiff.total} change{scenarioDiff.total !== 1 ? 's' : ''} · View →
+                  </button>
                 )
               )}
 

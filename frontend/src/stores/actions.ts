@@ -821,7 +821,7 @@ export function duplicateScenario(scenarioId: string, newName: string): Scenario
   return newScenario;
 }
 
-export function updateScenario(scenarioId: string, updates: Partial<Pick<Scenario, 'name' | 'description'>>): void {
+export function updateScenario(scenarioId: string, updates: Partial<Pick<Scenario, 'name' | 'description' | 'color'>>): void {
   const state = useAppStore.getState();
   const scenarios = state.getCurrentState().scenarios.map(s =>
     s.id === scenarioId ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
@@ -843,6 +843,25 @@ export function deleteScenario(scenarioId: string): void {
 export function switchScenario(scenarioId: string | null): void {
   const state = useAppStore.getState();
   state.updateData({ activeScenarioId: scenarioId });
+}
+
+/**
+ * Promotes a scenario's data back to the baseline.
+ * Overwrites baseline projects, teamMembers, and timeOff with the scenario's versions,
+ * then switches the view back to baseline.
+ */
+export function promoteScenarioToBaseline(scenarioId: string): void {
+  const state = useAppStore.getState();
+  const data = state.data; // always the true baseline
+  const scenario = data.scenarios.find(s => s.id === scenarioId);
+  if (!scenario) return;
+
+  state.updateData({
+    projects:        JSON.parse(JSON.stringify(scenario.projects)),
+    teamMembers:     JSON.parse(JSON.stringify(scenario.teamMembers)),
+    timeOff:         JSON.parse(JSON.stringify(scenario.timeOff)),
+    activeScenarioId: null, // return to baseline view
+  });
 }
 
 export function refreshScenarioFromJira(scenarioId: string): void {

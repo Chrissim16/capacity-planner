@@ -1,16 +1,31 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Plus, Copy, Trash2, Database, GitBranch, Check, Pencil, X } from 'lucide-react';
+import { ChevronDown, Plus, Copy, Trash2, Database, Check, Pencil, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAppStore } from '../stores/appStore';
 import {
   createScenario, duplicateScenario, deleteScenario, switchScenario, updateScenario,
 } from '../stores/actions';
+import type { ScenarioColor } from '../types';
 
 // Returns a context-aware default name: "Q1 2026 – Plan A"
 export function getSmartScenarioName(): string {
   const now = new Date();
   const quarter = Math.floor(now.getMonth() / 3) + 1;
   return `Q${quarter} ${now.getFullYear()} – Plan A`;
+}
+
+// Colour palette for scenario chips
+export const SCENARIO_COLORS: { id: ScenarioColor; bg: string; ring: string; dot: string }[] = [
+  { id: 'purple', bg: 'bg-purple-100 dark:bg-purple-900/40', ring: 'ring-purple-400',  dot: 'bg-purple-500' },
+  { id: 'blue',   bg: 'bg-blue-100 dark:bg-blue-900/40',     ring: 'ring-blue-400',    dot: 'bg-blue-500'   },
+  { id: 'green',  bg: 'bg-green-100 dark:bg-green-900/40',   ring: 'ring-green-400',   dot: 'bg-green-500'  },
+  { id: 'orange', bg: 'bg-orange-100 dark:bg-orange-900/40', ring: 'ring-orange-400',  dot: 'bg-orange-500' },
+  { id: 'rose',   bg: 'bg-rose-100 dark:bg-rose-900/40',     ring: 'ring-rose-400',    dot: 'bg-rose-500'   },
+  { id: 'yellow', bg: 'bg-yellow-100 dark:bg-yellow-900/40', ring: 'ring-yellow-400',  dot: 'bg-yellow-500' },
+];
+
+export function scenarioColorDot(color?: ScenarioColor) {
+  return SCENARIO_COLORS.find(c => c.id === color) ?? SCENARIO_COLORS[0];
 }
 
 export function ScenarioSelector() {
@@ -20,6 +35,8 @@ export function ScenarioSelector() {
   const [isOpen, setIsOpen]               = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newName, setNewName]             = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newColor, setNewColor]           = useState<ScenarioColor>('purple');
   const [duplicateFrom, setDuplicateFrom] = useState<string | null>(null);
 
   // Inline rename state
@@ -51,20 +68,29 @@ export function ScenarioSelector() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const openCreate = (fromScenarioId?: string, fromName?: string) => {
+  const openCreate = (fromScenarioId?: string, fromName?: string, fromColor?: ScenarioColor) => {
     setDuplicateFrom(fromScenarioId ?? null);
     setNewName(fromName ? `${fromName} (Copy)` : getSmartScenarioName());
+    setNewDescription('');
+    setNewColor(fromColor ?? 'purple');
     setShowCreateModal(true);
   };
 
   const handleCreateScenario = () => {
     if (!newName.trim()) return;
+    let created;
     if (duplicateFrom) {
-      duplicateScenario(duplicateFrom, newName.trim());
+      created = duplicateScenario(duplicateFrom, newName.trim());
     } else {
-      createScenario(newName.trim());
+      created = createScenario(newName.trim(), newDescription.trim() || undefined);
+    }
+    // Apply chosen colour (default is purple so only update if different)
+    if (created && newColor !== 'purple') {
+      updateScenario(created.id, { color: newColor });
     }
     setNewName('');
+    setNewDescription('');
+    setNewColor('purple');
     setDuplicateFrom(null);
     setShowCreateModal(false);
     setIsOpen(false);
@@ -113,7 +139,10 @@ export function ScenarioSelector() {
         {isBaseline ? (
           <><Database size={16} /><span>Jira Baseline</span></>
         ) : (
-          <><GitBranch size={16} /><span className="max-w-[150px] truncate">{activeScenario?.name}</span></>
+          <>
+            <span className={clsx('w-2.5 h-2.5 rounded-full shrink-0', scenarioColorDot(activeScenario?.color).dot)} />
+            <span className="max-w-[150px] truncate">{activeScenario?.name}</span>
+          </>
         )}
         <ChevronDown size={14} className={clsx('transition-transform', isOpen && 'rotate-180')} />
       </button>
@@ -164,7 +193,7 @@ export function ScenarioSelector() {
                 activeScenarioId === scenario.id && 'bg-purple-50 dark:bg-purple-900/20'
               )}
             >
-              <GitBranch size={16} className="text-purple-600 dark:text-purple-400 shrink-0" />
+              <span className={clsx('w-3 h-3 rounded-full shrink-0 mt-0.5', scenarioColorDot(scenario.color).dot)} />
 
               <div className="flex-1 min-w-0">
                 {/* Inline rename input */}
@@ -181,7 +210,10 @@ export function ScenarioSelector() {
                 ) : (
                   <div className="font-medium text-slate-900 dark:text-white truncate">{scenario.name}</div>
                 )}
-                <div className="text-xs text-slate-500 dark:text-slate-400">
+                {scenario.description && (
+                  <div className="text-xs text-slate-400 dark:text-slate-500 truncate">{scenario.description}</div>
+                )}
+                <div className="text-xs text-slate-400 dark:text-slate-500">
                   {scenario.updatedAt !== scenario.createdAt
                     ? `Updated ${new Date(scenario.updatedAt).toLocaleDateString()}`
                     : `Created ${new Date(scenario.createdAt).toLocaleDateString()}`}
@@ -211,7 +243,7 @@ export function ScenarioSelector() {
                       <Pencil size={13} className="text-slate-500" />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); openCreate(scenario.id, scenario.name); }}
+                      onClick={(e) => { e.stopPropagation(); openCreate(scenario.id, scenario.name, scenario.color); }}
                       className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-600"
                       title="Duplicate"
                     >
@@ -269,6 +301,26 @@ export function ScenarioSelector() {
               }
             </p>
 
+            {/* Color picker */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Colour</label>
+              <div className="flex items-center gap-2">
+                {SCENARIO_COLORS.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setNewColor(c.id)}
+                    className={clsx(
+                      'w-7 h-7 rounded-full transition-all',
+                      c.dot,
+                      newColor === c.id ? `ring-2 ring-offset-2 ${c.ring}` : 'opacity-60 hover:opacity-100'
+                    )}
+                    title={c.id}
+                  />
+                ))}
+              </div>
+            </div>
+
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Scenario name
             </label>
@@ -277,9 +329,20 @@ export function ScenarioSelector() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="e.g. Q1 2026 – Plan A"
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleCreateScenario()}
+            />
+
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Notes <span className="font-normal text-slate-400">(optional)</span>
+            </label>
+            <textarea
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              placeholder="e.g. Exploring a reduced team size for Q1 planning"
+              rows={2}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-5"
             />
 
             <div className="flex justify-end gap-3">

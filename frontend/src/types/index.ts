@@ -407,10 +407,13 @@ export interface JiraSyncDiff {
 // SCENARIOS (What-If Planning)
 // ═══════════════════════════════════════════════════════════════════════════
 
+export type ScenarioColor = 'purple' | 'blue' | 'green' | 'orange' | 'rose' | 'yellow';
+
 export interface Scenario {
   id: string;
   name: string;
   description?: string;
+  color?: ScenarioColor;   // Visual label colour for the scenario chip
   createdAt: string;
   updatedAt: string;
   basedOnSyncAt?: string; // When the Jira data was synced that this scenario is based on
