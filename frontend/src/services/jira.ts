@@ -227,7 +227,7 @@ export async function fetchJiraIssues(
     const maxResults = 100;
     let hasMore = true;
     while (hasMore) {
-      const path = '/rest/api/3/search?jql=' + encodeURIComponent(jql) + '&startAt=' + startAt + '&maxResults=' + maxResults + '&fields=*all';
+      const path = '/rest/api/3/search/jql?jql=' + encodeURIComponent(jql) + '&startAt=' + startAt + '&maxResults=' + maxResults + '&fields=*all';
       const response = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
       if (!response.ok) { result.errors.push('Failed: ' + response.statusText); return result; }
       const data = await response.json() as { startAt: number; maxResults: number; total: number; issues: JiraIssue[] };
