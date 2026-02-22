@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDisplayDate } from '../../utils/calendar';
 import { Plus, Trash2, Edit2, RefreshCw, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -125,8 +126,7 @@ export function SprintsSection() {
                               {sprint.isByeWeek && <Badge variant="warning" className="text-xs">Bye</Badge>}
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                              {new Date(sprint.startDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} -{' '}
-                              {new Date(sprint.endDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {sprint.quarter}
+                              {formatDisplayDate(sprint.startDate, true)} – {formatDisplayDate(sprint.endDate, true)} · {sprint.quarter}
                             </p>
                           </div>
                           <div className="flex items-center gap-1 ml-2">

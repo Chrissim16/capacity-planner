@@ -270,10 +270,40 @@ export function getPreviousQuarter(quarterStr: string): string {
 }
 
 /**
- * Format a date as YYYY-MM-DD
+ * Format a date as YYYY-MM-DD (ISO, used internally / for DB)
  */
 export function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
+}
+
+/**
+ * Format an ISO date string (YYYY-MM-DD) as dd/mm/yyyy for display.
+ * Pass `omitYear: true` for compact labels like sprint headers.
+ */
+export function formatDisplayDate(isoDate: string, omitYear = false): string {
+  if (!isoDate) return '';
+  const [year, month, day] = isoDate.split('-');
+  if (!year || !month || !day) return isoDate;
+  return omitYear ? `${day}/${month}` : `${day}/${month}/${year}`;
+}
+
+/**
+ * Format two ISO date strings as a display range "dd/mm/yyyy – dd/mm/yyyy".
+ * If both dates share the same year, the first date omits the year.
+ */
+export function formatDisplayDateRange(
+  start?: string,
+  end?: string
+): string | null {
+  if (!start && !end) return null;
+  if (start && end) {
+    const sYear = start.split('-')[0];
+    const eYear = end.split('-')[0];
+    const sameYear = sYear === eYear;
+    return `${formatDisplayDate(start, sameYear)} – ${formatDisplayDate(end)}`;
+  }
+  if (start) return `From ${formatDisplayDate(start)}`;
+  return `Until ${formatDisplayDate(end!)}`;
 }
 
 /**

@@ -14,7 +14,7 @@ import { deleteTeamMember } from '../stores/actions';
 import { useAppStore } from '../stores/appStore';
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
-import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
+import { getCurrentQuarter, generateQuarters, formatDisplayDate } from '../utils/calendar';
 import type { TeamMember } from '../types';
 
 export function Team() {
@@ -485,8 +485,7 @@ export function Team() {
                             .filter(t => t.endDate >= today)
                             .sort((a, b) => a.startDate.localeCompare(b.startDate));
                           const next = upcoming[0];
-                          const fmt = (d: string) =>
-                            new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+                          const fmt = (d: string) => formatDisplayDate(d, true); // dd/mm omit year
                           return (
                             <div className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
                               <CalendarOff size={12} />

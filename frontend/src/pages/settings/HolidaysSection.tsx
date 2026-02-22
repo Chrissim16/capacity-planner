@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDisplayDate } from '../../utils/calendar';
 import { Plus, Trash2, Download, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -224,7 +225,7 @@ export function HolidaysSection() {
                         <div key={holiday.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <span className="text-slate-400 w-20">
-                              {new Date(holiday.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              {formatDisplayDate(holiday.date)}
                             </span>
                             <span className="text-slate-600 dark:text-slate-300">{holiday.name}</span>
                           </div>

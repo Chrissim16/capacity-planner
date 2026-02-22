@@ -16,7 +16,7 @@ import { useCurrentState, useAppStore } from '../stores/appStore';
 import { deleteProject, duplicateProject, archiveProject, unarchiveProject } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
-import { getCurrentQuarter } from '../utils/calendar';
+import { getCurrentQuarter, formatDisplayDateRange } from '../utils/calendar';
 import type { Project } from '../types';
 
 export function Projects() {
@@ -168,15 +168,7 @@ export function Projects() {
   const getMemberName = (memberId: string) =>
     teamMembers.find(m => m.id === memberId)?.name ?? 'Unknown';
 
-  const formatDate = (d: string) =>
-    new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-
-  const formatDateRange = (start?: string, end?: string) => {
-    if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
-    if (start) return `From ${formatDate(start)}`;
-    if (end)   return `Until ${formatDate(end)}`;
-    return null;
-  };
+  const formatDateRange = formatDisplayDateRange;
 
   const statusOptions = [
     { value: '', label: 'All Statuses' },

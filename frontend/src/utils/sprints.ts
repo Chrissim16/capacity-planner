@@ -5,6 +5,7 @@
  */
 
 import type { Sprint, Settings, PublicHoliday } from '../types';
+import { formatDisplayDate } from './calendar';
 
 /**
  * Generate sprints for a given year based on settings
@@ -183,16 +184,13 @@ export function formatSprint(sprint: Sprint): string {
 }
 
 /**
- * Format date range for display
+ * Format date range for display (compact: dd/mm – dd/mm, year only on end date if same year)
  */
 export function formatDateRange(startDate: string, endDate: string): string {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  const startStr = start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  const endStr = end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  
-  return `${startStr} - ${endStr}`;
+  const sYear = startDate.split('-')[0];
+  const eYear = endDate.split('-')[0];
+  const sameYear = sYear === eYear;
+  return `${formatDisplayDate(startDate, sameYear)} – ${formatDisplayDate(endDate)}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
