@@ -311,4 +311,39 @@ export function addHolidaysBatch(
 
 ---
 
+## Bug #008: "Not saved — Retry" caused by missing squad_id / process_team_ids columns (migration 004 not applied)
+**Date:** 2026-02-22  
+**Severity:** High  
+**Found by:** User testing
+
+### Description
+Every save attempt showed "Not saved — Retry" in the header sync indicator. The error was silent (only visible on hover).
+
+### Root Cause
+`syncTeamMembers` always includes `squad_id` and `process_team_ids` in the Supabase upsert payload (added as part of the organisational structure feature). These columns are created by `supabase/migrations/004_squads_and_process_teams.sql`. If that migration has not been run against the Supabase project, the columns do not exist and every team-member upsert returns a Postgres error such as:
+
+```
+column "squad_id" of relation "team_members" does not exist
+```
+
+This caused `saveToSupabase` to throw, setting the sync status to `error` on every save.
+
+Additionally, the error text was only visible as a hover `title` attribute on the "Retry" button — users had no visible feedback about which table was failing.
+
+### Fix
+Two changes:
+
+**1. Graceful fallback in `syncTeamMembers`** — wraps the extended upsert (with squad columns) in a try/catch. If the error message mentions `squad_id` or `process_team_ids`, it falls back to a base-columns-only upsert and logs a console warning directing the developer to run migration 004.
+
+**2. Inline error display in `SyncIndicator`** — the first error segment (table name + message) is now shown as a small red line below the "Not saved — Retry" button, so the failure is visible without hovering.
+
+### Pending action
+To fully enable squad and process-team sync, run `supabase/migrations/004_squads_and_process_teams.sql` in the Supabase SQL Editor.
+
+### Files Changed
+- `frontend/src/services/supabaseSync.ts` — `syncTeamMembers` split into `BASE_MEMBER_ROW` / `EXTENDED_MEMBER_ROW`; try/catch fallback added
+- `frontend/src/components/layout/Header.tsx` — `SyncIndicator` now renders the first error segment inline below the retry button
+
+---
+
 *End of log*
