@@ -17,6 +17,21 @@ export interface NagerHoliday {
 const BASE_URL = 'https://date.nager.at/api/v3';
 
 /**
+ * Maps commonly used but non-standard country codes to their official
+ * ISO 3166-1 alpha-2 equivalents as required by the Nager.Date API.
+ */
+const CODE_ALIASES: Record<string, string> = {
+  UK: 'GB',  // United Kingdom — ISO standard is GB, not UK
+  EN: 'GB',
+  ENG: 'GB',
+};
+
+function normaliseCode(code: string): string {
+  const upper = code.toUpperCase();
+  return CODE_ALIASES[upper] ?? upper;
+}
+
+/**
  * Fetch all public holidays for a given ISO country code and year.
  * Returns only entries marked as Public or Bank holidays (not School, Optional, etc.)
  */
@@ -24,7 +39,8 @@ export async function fetchNagerHolidays(
   countryCode: string,
   year: number
 ): Promise<NagerHoliday[]> {
-  const res = await fetch(`${BASE_URL}/PublicHolidays/${year}/${countryCode.toUpperCase()}`);
+  const isoCode = normaliseCode(countryCode);
+  const res = await fetch(`${BASE_URL}/PublicHolidays/${year}/${isoCode}`);
   if (!res.ok) {
     throw new Error(`Nager.Date API error ${res.status} for ${countryCode}/${year}`);
   }
