@@ -439,13 +439,22 @@ export function AssignmentModal({
             Select Team Members
             <span className="text-red-500">*</span>
           </label>
-          <div className={`grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border-2 rounded-lg ${
+          <div className={`grid grid-cols-2 gap-2 max-h-56 overflow-y-auto p-2 border-2 rounded-lg ${
             errors.members 
               ? 'border-red-500 ring-red-500/20 ring-2' 
               : 'border-slate-200 dark:border-slate-700'
           }`}>
             {teamMembers.map(member => {
               const isSelected = selectedMemberIds.includes(member.id);
+              const cap = selectedQuarter
+                ? calculateCapacity(member.id, selectedQuarter, state)
+                : null;
+              const availableDays = cap ? cap.totalWorkdays - cap.usedDays : null;
+              const capStatus = cap
+                ? cap.usedDays / cap.totalWorkdays > 0.9 ? 'high'
+                  : cap.usedDays / cap.totalWorkdays > 0.7 ? 'medium'
+                  : 'low'
+                : 'low';
               return (
                 <button
                   key={member.id}
@@ -456,7 +465,7 @@ export function AssignmentModal({
                       : 'bg-slate-50 dark:bg-slate-800 border-2 border-transparent hover:border-slate-300 dark:hover:border-slate-600'
                   }`}
                 >
-                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                  <div className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center ${
                     isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-300 dark:border-slate-600'
                   }`}>
                     {isSelected && <span className="text-white text-xs">✓</span>}
@@ -464,6 +473,17 @@ export function AssignmentModal({
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-700 dark:text-slate-200 truncate">{member.name}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{member.role}</p>
+                    {availableDays !== null && (
+                      <p className={`text-xs font-medium mt-0.5 ${
+                        availableDays <= 0 ? 'text-red-500 dark:text-red-400'
+                        : capStatus === 'high' ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-green-600 dark:text-green-400'
+                      }`}>
+                        {availableDays <= 0
+                          ? 'No capacity'
+                          : `${availableDays.toFixed(0)}d available`}
+                      </p>
+                    )}
                   </div>
                 </button>
               );
@@ -484,12 +504,12 @@ export function AssignmentModal({
           )}
         </div>
 
-        {/* Capacity Preview */}
-        {capacityPreviews.length > 0 && days > 0 && (
+        {/* Capacity Preview — always visible once members are selected */}
+        {capacityPreviews.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
               <Calendar size={16} />
-              Capacity Preview ({selectedQuarter})
+              {days > 0 ? `Capacity after allocation (${selectedQuarter})` : `Current capacity (${selectedQuarter})`}
             </label>
             <div className="space-y-2">
               {capacityPreviews.map(preview => {
@@ -507,20 +527,38 @@ export function AssignmentModal({
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium text-slate-700 dark:text-slate-200">{member.name}</span>
                       <div className="flex items-center gap-2 text-sm">
-                        <span className="text-slate-500">{current.usedDays.toFixed(1)}d</span>
-                        <span className="text-slate-400">→</span>
+                        {days > 0 && (
+                          <>
+                            <span className="text-slate-500">{current.usedDays.toFixed(1)}d</span>
+                            <span className="text-slate-400">→</span>
+                          </>
+                        )}
                         <span className={isOverallocated ? 'text-red-600 font-medium' : 'text-slate-700 dark:text-slate-200'}>
-                          {after.usedDays.toFixed(1)}d
+                          {(days > 0 ? after.usedDays : current.usedDays).toFixed(1)}d
                         </span>
                         <span className="text-slate-400">/ {current.totalWorkdays}d</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                          isOverallocated
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            : (days > 0 ? after.usedPercent : current.usedPercent) > 90
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                            : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        }`}>
+                          {isOverallocated ? 'Over' : `${(days > 0 ? after.usedPercent : current.usedPercent)}%`}
+                        </span>
                       </div>
                     </div>
                     <ProgressBar 
-                      value={after.usedDays} 
+                      value={days > 0 ? after.usedDays : current.usedDays}
                       max={current.totalWorkdays}
-                      status={isOverallocated ? 'danger' : after.usedPercent > 90 ? 'warning' : 'normal'}
+                      status={isOverallocated ? 'danger' : (days > 0 ? after.usedPercent : current.usedPercent) > 90 ? 'warning' : 'normal'}
                       size="sm"
                     />
+                    {days > 0 && !isOverallocated && (
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {(current.totalWorkdays - after.usedDays).toFixed(1)}d remaining after this allocation
+                      </p>
+                    )}
                     {isOverallocated && (
                       <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
                         <AlertTriangle size={12} />

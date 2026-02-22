@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter } from 'lucide-react';
+import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
@@ -209,13 +210,21 @@ export function Team() {
       {/* Team List */}
       {displayMembers.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center">
-            <Users className="mx-auto w-12 h-12 text-slate-300 dark:text-slate-600 mb-4" />
-            <p className="text-slate-500 dark:text-slate-400">
-              {teamMembers.length === 0 
-                ? 'No team members yet. Add your first team member to get started.'
-                : 'No team members match your filters.'}
-            </p>
+          <CardContent>
+            {teamMembers.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title="No team members yet"
+                description="Add your team members to start planning capacity. Include their role, country, and skills for the best results."
+                action={{ label: 'Add first team member', onClick: () => { setIsMemberFormOpen(true); setEditingMember(null); } }}
+              />
+            ) : (
+              <EmptyState
+                icon={Filter}
+                title="No matches"
+                description="No team members match your current filters. Try clearing a filter to see more results."
+              />
+            )}
           </CardContent>
         </Card>
       ) : (

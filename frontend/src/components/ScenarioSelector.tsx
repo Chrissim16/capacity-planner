@@ -5,6 +5,7 @@ import { useAppStore } from '../stores/appStore';
 import {
   createScenario, duplicateScenario, deleteScenario, switchScenario, updateScenario,
 } from '../stores/actions';
+import { ConfirmModal } from './ui/ConfirmModal';
 import type { ScenarioColor } from '../types';
 
 // Returns a context-aware default name: "Q1 2026 – Plan A"
@@ -43,6 +44,10 @@ export function ScenarioSelector() {
   const [renamingId, setRenamingId]     = useState<string | null>(null);
   const [renameValue, setRenameValue]   = useState('');
   const renameInputRef                  = useRef<HTMLInputElement>(null);
+
+  // Delete confirmation state
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const scenarioToDelete = scenarios.find(s => s.id === deleteConfirmId);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -98,9 +103,8 @@ export function ScenarioSelector() {
 
   const handleDelete = (e: React.MouseEvent, scenarioId: string) => {
     e.stopPropagation();
-    if (confirm('Delete this scenario? This cannot be undone.')) {
-      deleteScenario(scenarioId);
-    }
+    setDeleteConfirmId(scenarioId);
+    setIsOpen(false);
   };
 
   const startRename = (e: React.MouseEvent, scenarioId: string, name: string) => {
@@ -363,6 +367,18 @@ export function ScenarioSelector() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={() => {
+          if (deleteConfirmId) deleteScenario(deleteConfirmId);
+        }}
+        title="Delete scenario?"
+        message={`"${scenarioToDelete?.name ?? 'This scenario'}" will be permanently deleted. This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+      />
     </div>
   );
 }

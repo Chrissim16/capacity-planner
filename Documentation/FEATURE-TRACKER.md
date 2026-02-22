@@ -4,7 +4,7 @@
 
 **Last updated:** February 22, 2026  
 **Total features:** 56  
-**Completed:** 17 / 56
+**Completed:** 22 / 56
 
 ---
 
@@ -15,10 +15,10 @@
 | ---------------- | ------ | ------ | ----------- | ----------- |
 | 🔴 P0 — Critical | 5      | 5      | 0           | 0           |
 | 🟠 P1 — High     | 7      | 7      | 0           | 0           |
-| 🟡 P2 — Medium   | 13     | 0      | 0           | 13          |
+| 🟡 P2 — Medium   | 13     | 5      | 0           | 8           |
 | 🟢 P3 — Low      | 11     | 0      | 0           | 11          |
 | 🔵 Phase 2       | 20     | 5      | 0           | 15          |
-| **Total**        | **56** | **17** | **0**       | **39**      |
+| **Total**        | **56** | **22** | **0**       | **34**      |
 
 
 ---
@@ -71,19 +71,19 @@
 
 | ID     | Feature                                        | Type       | Status | Started | Completed | Notes                                                                      |
 | ------ | ---------------------------------------------- | ---------- | ------ | ------- | --------- | -------------------------------------------------------------------------- |
-| US-013 | Replace `confirm()` Dialogs with Styled Modals | UX/UI      | ⬜      |         |           | All browser confirm() calls replaced with in-app ConfirmModal component.   |
+| US-013 | Replace `confirm()` Dialogs with Styled Modals | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | New `ConfirmModal` component. Replaced last browser `confirm()` in `ScenarioSelector`. All delete flows use styled modals. |
 | US-014 | Undo Last Action                               | Functional | ⬜      |         |           | Undo toast for 10 seconds after any delete/destructive action.             |
 | US-015 | Capacity Bar Tooltips with Full Breakdown      | UX/UI      | ⬜      |         |           | Hover shows BAU + time off + per-project breakdown.                        |
 | US-016 | Inline Assignment Editing on Timeline          | Functional | ⬜      |         |           | Click a phase bar to edit assignments without leaving the Timeline.        |
 | US-017 | Bulk Jira Item Mapping                         | Functional | ⬜      |         |           | Select multiple unmapped items and assign them to a project/phase at once. |
-| US-018 | Assignment Validation Feedback Before Saving   | UX/UI      | ⬜      |         |           | Real-time capacity status updates as days are entered in assignment modal. |
-| US-019 | Empty State Guidance                           | UX/UI      | ⬜      |         |           | Helpful prompts and CTA buttons when views have no data.                   |
+| US-018 | Assignment Validation Feedback Before Saving   | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | Available capacity shown on each member card immediately. Capacity preview section always visible when member selected. "X days remaining" shown after entering days. |
+| US-019 | Empty State Guidance                           | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | New reusable `EmptyState` component. "Getting started" banner on Dashboard. CTA buttons on Team, Epics, Timeline pages linking to relevant pages. |
 | US-020 | Keyboard Shortcuts                             | UX/UI      | ⬜      |         |           | N for new, Ctrl+Z for undo, Escape to close, ? for help.                   |
 | US-021 | Global Search (Command Palette)                | Functional | ⬜      |         |           | Ctrl+K search across projects, team members, Jira items.                   |
 | US-022 | Export to PDF / Print View                     | Functional | ⬜      |         |           | Export Dashboard or Timeline as a formatted PDF.                           |
-| US-023 | Dark Mode Persistence Across Devices           | Technical  | ⬜      |         |           | Store dark mode preference in Supabase, not just localStorage.             |
+| US-023 | Dark Mode Persistence Across Devices           | Technical  | ✅ | —          | 2026-02-22 | Already implemented: darkMode lives inside `settings` which is persisted to Supabase on every change. |
 | US-024 | Capacity Heatmap on Team View                  | UX/UI      | ⬜      |         |           | Colour-coded grid: members × quarters showing utilisation %.               |
-| US-025 | Sprint Working Days Count per Column           | Functional | ⬜      |         |           | Show exact working days per sprint column, accounting for public holidays. |
+| US-025 | Sprint Working Days Count per Column           | Functional | ✅ | 2026-02-22 | 2026-02-22 | Working day count shown under each sprint column header. Quarter headers also show working day count. Bye-week sprints labelled clearly. |
 
 
 ---
@@ -221,6 +221,11 @@
 | US-038 | Verify & Display Email on Team Member Cards | 2026-02-22 | Email visible on member cards. Email input added to TeamMemberForm. Input `hint` prop added. |
 | US-039 | Global Rename: Project → Epic (UI only) | 2026-02-22 | All UI labels updated. Internal code names (variables, props, types) unchanged. |
 | US-040 | Global Rename: Phase → Feature (UI only) | 2026-02-22 | ProjectForm, AssignmentModal, ScenarioDiffModal, Jira pages, settings all updated. |
+| US-013 | Replace `confirm()` Dialogs with Styled Modals | 2026-02-22 | New `ConfirmModal` component with danger/warning variants. Scenario delete now uses styled modal. |
+| US-018 | Assignment Validation Feedback | 2026-02-22 | Available capacity shown per member card immediately. Capacity preview always visible once member selected. |
+| US-019 | Empty State Guidance | 2026-02-22 | `EmptyState` component with icon + CTA. Dashboard "getting started" banner. CTA links on Team/Epics/Timeline. |
+| US-023 | Dark Mode Persistence | 2026-02-22 | Already implemented via `settings` Supabase persistence. No code change required. |
+| US-025 | Sprint Working Days Count | 2026-02-22 | Working days shown under each sprint + quarter column header. Bye-weeks labelled with beach emoji. |
 
 ---
 
@@ -228,6 +233,7 @@
 
 | Date | ID | Change |
 |------|----|--------|
+| 2026-02-22 | US-013, US-018, US-019, US-023, US-025 | P2 batch completed: ConfirmModal, assignment validation feedback, empty state guidance, dark mode (already done), sprint working days. |
 | 2026-02-22 | US-056     | Added to P3 backlog: Staging / Pre-Production Environment setup (develop branch + Vercel Preview + Supabase staging project). |
 | 2026-02-22 | US-039–040 | Group B (Naming Convention) completed: Project → Epic, Phase → Feature across all UI text. Internal code unchanged. |
 | 2026-02-22 | US-036–038 | Group A (Jira Data Enrichment) completed: labels/components display + filters, start/end date import, email on team member cards. |

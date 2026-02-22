@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Copy, ExternalLink, UserPlus, ChevronDown, ChevronRight, Users } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Copy, ExternalLink, UserPlus, ChevronDown, ChevronRight, Users, FolderKanban, Filter } from 'lucide-react';
+import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -191,12 +192,21 @@ export function Projects() {
       {/* Projects List */}
       {filteredProjects.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-slate-500 dark:text-slate-400">
-              {projects.length === 0 
-                ? 'No epics yet. Create your first epic to get started.'
-                : 'No epics match your filters.'}
-            </p>
+          <CardContent>
+            {projects.length === 0 ? (
+              <EmptyState
+                icon={FolderKanban}
+                title="No epics yet"
+                description="Epics group your work into deliverables. Add features inside each epic, then assign team members to plan capacity."
+                action={{ label: 'Create first epic', onClick: () => { setEditingProject(null); setIsFormOpen(true); } }}
+              />
+            ) : (
+              <EmptyState
+                icon={Filter}
+                title="No matches"
+                description="No epics match your current filters. Try adjusting your search or filter criteria."
+              />
+            )}
           </CardContent>
         </Card>
       ) : (

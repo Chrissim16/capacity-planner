@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Eye, EyeOff, User, FolderKanban, Calendar, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, User, FolderKanban, Calendar, Zap, Filter } from 'lucide-react';
+import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { useAppStore, useCurrentState } from '../stores/appStore';
 import { calculateCapacity } from '../utils/capacity';
-import { isQuarterInRange, getCurrentQuarter } from '../utils/calendar';
-import { generateSprints, getSprintsForQuarter, formatDateRange } from '../utils/sprints';
+import { isQuarterInRange, getCurrentQuarter, getWorkWeeksInQuarter } from '../utils/calendar';
+import { generateSprints, getSprintsForQuarter, formatDateRange, getWorkdaysInSprint } from '../utils/sprints';
 import type { Project, TeamMember, Sprint } from '../types';
 
 type TimelineView = 'projects' | 'team';
@@ -15,7 +16,8 @@ type TimelineGranularity = 'quarter' | 'sprint';
 
 export function Timeline() {
   const state = useCurrentState();
-  const { projects, teamMembers, quarters, settings } = state;
+  const setCurrentView = useAppStore(s => s.setCurrentView);
+  const { projects, teamMembers, quarters, settings, publicHolidays } = state;
   
   const [viewMode, setViewMode] = useState<TimelineView>('projects');
   const [granularity, setGranularity] = useState<TimelineGranularity>('quarter');
@@ -191,36 +193,53 @@ export function Timeline() {
             
             {/* Quarter/Sprint Headers */}
             {granularity === 'quarter' ? (
-              // Quarter headers
-              visibleQuarters.map(quarter => (
-                <div
-                  key={quarter}
-                  className={`flex-1 min-w-[150px] px-3 py-3 text-center font-medium ${
-                    quarter === currentQuarter
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                      : 'text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  {quarter}
-                </div>
-              ))
-            ) : (
-              // Sprint headers - show sprints for visible quarters
-              visibleQuarters.flatMap(quarter => {
-                const sprintsInQ = getSprintsForQuarter(quarter, allSprints);
-                return sprintsInQ.map(sprint => (
+              // Quarter headers — show working day count per quarter
+              visibleQuarters.map(quarter => {
+                const workWeeks = getWorkWeeksInQuarter(quarter, []);
+                const workDays = Math.round(workWeeks * 5);
+                return (
                   <div
-                    key={sprint.id}
-                    className="flex-1 min-w-[120px] px-2 py-2 text-center border-l border-slate-200 dark:border-slate-700"
+                    key={quarter}
+                    className={`flex-1 min-w-[150px] px-3 py-3 text-center ${
+                      quarter === currentQuarter
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                        : 'text-slate-600 dark:text-slate-300'
+                    }`}
                   >
-                    <div className="font-medium text-xs text-slate-600 dark:text-slate-300">
-                      {sprint.name}
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      {formatDateRange(sprint.startDate, sprint.endDate)}
+                    <div className="font-medium">{quarter}</div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                      {workDays} working days
                     </div>
                   </div>
-                ));
+                );
+              })
+            ) : (
+              // Sprint headers — show working day count per sprint
+              visibleQuarters.flatMap(quarter => {
+                const sprintsInQ = getSprintsForQuarter(quarter, allSprints);
+                return sprintsInQ.map(sprint => {
+                  const sprintWorkdays = sprint.isByeWeek
+                    ? 0
+                    : getWorkdaysInSprint(sprint, publicHolidays);
+                  return (
+                    <div
+                      key={sprint.id}
+                      className="flex-1 min-w-[120px] px-2 py-2 text-center border-l border-slate-200 dark:border-slate-700"
+                    >
+                      <div className={`font-medium text-xs ${sprint.isByeWeek ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'}`}>
+                        {sprint.isByeWeek ? `${sprint.name} 🏖️` : sprint.name}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {formatDateRange(sprint.startDate, sprint.endDate)}
+                      </div>
+                      {!sprint.isByeWeek && (
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                          {sprintWorkdays}d
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
               })
             )}
           </div>
@@ -230,9 +249,20 @@ export function Timeline() {
             // Project View
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredProjects.length === 0 ? (
-                <div className="py-16 text-center text-slate-400">
-                  No projects to display
-                </div>
+                projects.length === 0 ? (
+                  <EmptyState
+                    icon={FolderKanban}
+                    title="No epics to display"
+                    description="Create your first epic and add features to see them on the timeline."
+                    action={{ label: 'Go to Epics', onClick: () => setCurrentView('projects') }}
+                  />
+                ) : (
+                  <EmptyState
+                    icon={Filter}
+                    title="No matches"
+                    description="No epics match your current filters."
+                  />
+                )
               ) : (
                 filteredProjects.map(project => (
                   <ProjectRow
@@ -252,9 +282,12 @@ export function Timeline() {
             // Team View
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {teamMembers.length === 0 ? (
-                <div className="py-16 text-center text-slate-400">
-                  No team members to display
-                </div>
+                <EmptyState
+                  icon={User}
+                  title="No team members yet"
+                  description="Add team members to see their capacity and assignments on the timeline."
+                  action={{ label: 'Go to Team', onClick: () => setCurrentView('team') }}
+                />
               ) : (
                 teamMembers.map(member => (
                   <TeamMemberRow

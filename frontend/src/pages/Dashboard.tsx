@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { Users, FolderKanban, AlertTriangle, TrendingUp } from 'lucide-react';
+import { EmptyState } from '../components/ui/EmptyState';
+import { useAppStore } from '../stores/appStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/ProgressBar';
@@ -9,6 +11,7 @@ import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 
 export function Dashboard() {
   const state = useCurrentState();
+  const setCurrentView = useAppStore(s => s.setCurrentView);
   const currentQuarter = getCurrentQuarter();
   const quarters = useMemo(() => generateQuarters(4), []);
 
@@ -38,6 +41,8 @@ export function Dashboard() {
     }));
   }, [state, currentQuarter]);
 
+  const isEmpty = state.teamMembers.length === 0 && state.projects.length === 0;
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -50,6 +55,19 @@ export function Dashboard() {
         </div>
         <Badge variant="primary">{currentQuarter}</Badge>
       </div>
+
+      {/* Getting Started — shown only when the app has no data yet */}
+      {isEmpty && (
+        <div className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+          <EmptyState
+            icon={TrendingUp}
+            title="Welcome to the Capacity Planner"
+            description="Get started by adding your team members and epics. Once you have data, capacity charts and warnings will appear here."
+            action={{ label: 'Add team members', onClick: () => setCurrentView('team') }}
+            secondaryAction={{ label: 'Add an epic', onClick: () => setCurrentView('projects') }}
+          />
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -119,9 +137,12 @@ export function Dashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             {memberCapacities.length === 0 ? (
-              <p className="text-slate-500 dark:text-slate-400 text-center py-8">
-                No team members found. Add team members in Settings.
-              </p>
+              <EmptyState
+                icon={Users}
+                title="No team members yet"
+                description="Add your team to see capacity bars and utilisation data here."
+                action={{ label: 'Add team members', onClick: () => setCurrentView('team') }}
+              />
             ) : (
               memberCapacities.map(({ member, capacity }) => (
                 <div key={member.id} className="flex items-center gap-4">
