@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   Link2, Search, ChevronDown, ChevronRight,
-  FolderOpen, Zap, Edit2, X, CheckCircle2, AlertCircle, ExternalLink,
+  FolderOpen, Zap, Edit2, X, AlertCircle,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -9,9 +9,9 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
-import { JiraHierarchyTree, TYPE_COLORS, STATUS_CATEGORY_COLORS } from '../components/JiraHierarchyTree';
+import { JiraHierarchyTree } from '../components/JiraHierarchyTree';
 import { useAppStore } from '../stores/appStore';
-import { updateJiraWorkItemMapping, clearJiraWorkItemMappings } from '../stores/actions';
+import { clearJiraWorkItemMappings } from '../stores/actions';
 import type { JiraWorkItem, JiraItemType, Project } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
