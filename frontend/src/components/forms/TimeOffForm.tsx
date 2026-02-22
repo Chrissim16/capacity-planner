@@ -5,7 +5,6 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { useCurrentState } from '../../stores/appStore';
 import { addTimeOff, removeTimeOff } from '../../stores/actions';
-import { formatDisplayDate } from '../../utils/calendar';
 
 interface TimeOffFormProps {
   isOpen: boolean;
@@ -62,7 +61,10 @@ export function TimeOffForm({ isOpen, onClose, memberId }: TimeOffFormProps) {
   };
 
   const formatDateRange = (start: string, end: string) => {
-    const fmt = formatDisplayDate;
+    const fmt = (d: string) =>
+      new Date(d + 'T00:00:00').toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric',
+      });
     return start === end ? fmt(start) : `${fmt(start)} – ${fmt(end)}`;
   };
 

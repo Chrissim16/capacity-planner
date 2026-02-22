@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { formatDisplayDate } from '../utils/calendar';
 import {
   Link2, Search, ExternalLink, ChevronDown, ChevronRight,
   CheckCircle2, AlertCircle, FolderOpen, Layers, Zap, Edit2, X,
@@ -568,9 +567,9 @@ function JiraItemRow({
           ))}
           {(item.startDate || item.dueDate) && (
             <span className="text-[10px] text-slate-400">
-              {item.startDate && formatDisplayDate(item.startDate, true)}
+              {item.startDate && new Date(item.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
               {item.startDate && item.dueDate && ' – '}
-              {item.dueDate && formatDisplayDate(item.dueDate)}
+              {item.dueDate && new Date(item.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             </span>
           )}
         </div>

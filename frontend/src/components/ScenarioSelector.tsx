@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { formatDisplayDate } from '../utils/calendar';
 import { ChevronDown, Plus, Copy, Trash2, Database, Check, Pencil, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAppStore } from '../stores/appStore';
@@ -220,8 +219,8 @@ export function ScenarioSelector() {
                 )}
                 <div className="text-xs text-slate-400 dark:text-slate-500">
                   {scenario.updatedAt !== scenario.createdAt
-                    ? `Updated ${formatDisplayDate(scenario.updatedAt.split('T')[0])}`
-                    : `Created ${formatDisplayDate(scenario.createdAt.split('T')[0])}`}
+                    ? `Updated ${new Date(scenario.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                    : `Created ${new Date(scenario.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
                 </div>
               </div>
 
