@@ -3,8 +3,8 @@
 # Mileway IT Capacity Planner
 
 **Last updated:** February 20, 2026  
-**Total features:** 56  
-**Completed:** 43 / 56
+**Total features:** 59  
+**Completed:** 43 / 59
 
 ---
 
@@ -17,8 +17,8 @@
 | 🟠 P1 — High     | 7      | 7      | 0           | 0           |
 | 🟡 P2 — Medium   | 13     | 12     | 0           | 1           |
 | 🟢 P3 — Low      | 11     | 4      | 0           | 7           |
-| 🔵 Phase 2       | 20     | 15     | 0           | 5           |
-| **Total**        | **56** | **43** | **0**       | **13**      |
+| 🔵 Phase 2       | 23     | 15     | 0           | 8           |
+| **Total**        | **59** | **43** | **0**       | **16**      |
 
 
 ---
@@ -200,6 +200,18 @@
 
 ---
 
+## 🔵 Phase 2 — Group I: UX Consolidation (Jira + Epics)
+
+
+| ID     | Feature                                              | Type       | Status | Started | Completed | Notes |
+| ------ | ---------------------------------------------------- | ---------- | ------ | ------- | --------- | ----- |
+| US-057 | Merge Jira mapping controls into Epics tab           | UX/UI      | ⬜      |         |           | As a planner, I want to see and manage Jira item mappings directly from the Epics tab, so that I don't need to switch between two tabs to understand project status. Inline mapping dropdowns (epic / feature / member) shown when an item is unmapped. Jira tab becomes "Connections & Sync" only. |
+| US-058 | Jira tab reduced to Connection & Sync management     | UX/UI      | ⬜      |         |           | As a planner, I want the Jira tab to focus purely on connection setup and sync history, so that the Epics tab is the single planning surface. Remove item list from Jira tab once US-057 is done; keep connection cards, sync button, automation settings, and sync history. |
+| US-059 | Bulk mapping from Epics expanded card                | Functional | ⬜      |         |           | As a planner, I want to map all unlinked Jira items under an epic to their features in one action, so that I don't have to map them one by one. "Map all" button in the expanded epic card's Jira Items section applies auto-mapping based on feature name matching. |
+
+
+---
+
 ## Completed Features
 
 | ID | Feature | Completed | Summary |
@@ -260,6 +272,7 @@
 | 2026-02-22 | US-039–040 | Group B (Naming Convention) completed: Project → Epic, Phase → Feature across all UI text. Internal code unchanged. |
 | 2026-02-22 | US-036–038 | Group A (Jira Data Enrichment) completed: labels/components display + filters, start/end date import, email on team member cards. |
 | 2026-02-22 | US-036–055 | Phase 2 backlog added: 20 new user stories across 8 groups (Jira data enrichment, naming alignment, hierarchy display, date planning, project detail, write-back, smart suggestions, holiday API). |
+| 2026-02-20 | US-057–059 | Phase 2 Group I added: UX Consolidation — merge Jira mapping into Epics tab (US-057), reduce Jira tab to connection mgmt (US-058), bulk mapping from Epics card (US-059). |
 | 2026-02-20 | US-006–012 | All P1 High items completed. Jira baseline warning banner, sync diff preview modal, mapping protection, token masking, sync history log, scenario refresh preview. |
 | 2026-02-20 | US-001–005 | All P0 Critical items completed. Supabase wired as primary data store, loading screen added, sync status indicator live in header, import overwrite safeguard added. |
 | 2026-02-20 | — | Tracker created. All 35 features added with status ⬜ Not started. |
