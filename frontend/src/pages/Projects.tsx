@@ -202,6 +202,29 @@ export function Projects() {
     ...systems.map(s => ({ value: s.id, label: s.name })),
   ];
 
+  /**
+   * Collect all jira work items in the subtree rooted at rootKey
+   * (the epic key). This includes features AND their children
+   * (stories, tasks, bugs) so the hierarchy tree renders fully.
+   */
+  const collectSubtree = (rootKey: string): JiraWorkItem[] => {
+    const result: JiraWorkItem[] = [];
+    const queue = [rootKey];
+    const visited = new Set<string>();
+    while (queue.length > 0) {
+      const key = queue.shift()!;
+      if (visited.has(key)) continue;
+      visited.add(key);
+      for (const item of jiraWorkItems) {
+        if (item.parentKey === key) {
+          result.push(item);
+          queue.push(item.jiraKey);
+        }
+      }
+    }
+    return result;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -288,9 +311,9 @@ export function Projects() {
               });
             });
 
-            const jiraItems = jiraWorkItems.filter(
-              w => project.jiraSourceKey && w.parentKey === project.jiraSourceKey
-            );
+            const jiraItems = project.jiraSourceKey
+              ? collectSubtree(project.jiraSourceKey)
+              : [];
             const jiraByStatus = jiraItems.reduce<Record<string, number>>((acc, item) => {
               const cat = item.statusCategory ?? 'To Do';
               acc[cat] = (acc[cat] ?? 0) + 1;

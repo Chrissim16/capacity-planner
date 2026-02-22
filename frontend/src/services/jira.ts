@@ -25,6 +25,14 @@ interface JiraStatus {
   statusCategory: { key: string; name: string; };
 }
 
+interface JiraSprintObject {
+  id: number;
+  name: string;
+  state: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 interface JiraIssueFields {
   summary: string;
   description?: string | { content?: unknown[] };
@@ -39,14 +47,14 @@ interface JiraIssueFields {
   created: string;
   updated: string;
   duedate?: string;
-  customfield_10015?: string; // Start date (Jira Cloud default)
-  customfield_10016?: number;
-  customfield_10020?: number;
-  customfield_10026?: number;
+  customfield_10015?: string;  // Start date (Jira Cloud)
+  customfield_10016?: number;  // Story points (classic projects)
+  customfield_10020?: JiraSprintObject[] | number; // Sprint (Jira Cloud) — also used for SP in some instances
+  customfield_10026?: number;  // Story points (some instances)
+  customfield_10028?: number;  // Story points (newer Jira Cloud)
   timeoriginalestimate?: number;
   timespent?: number;
   timeestimate?: number;
-  sprint?: { id: number; name: string; state: string; }[];
 }
 
 interface JiraIssue {
@@ -111,7 +119,19 @@ function mapStatusCategory(categoryKey: string): 'todo' | 'in_progress' | 'done'
 }
 
 function getStoryPoints(fields: JiraIssueFields): number | undefined {
-  return fields.customfield_10016 || fields.customfield_10020 || fields.customfield_10026 || undefined;
+  // customfield_10020 can be sprint objects (array) or story points (number) depending on instance
+  const cf10020 = typeof fields.customfield_10020 === 'number' ? fields.customfield_10020 : undefined;
+  return fields.customfield_10016 || fields.customfield_10028 || cf10020 || fields.customfield_10026 || undefined;
+}
+
+function getSprint(fields: JiraIssueFields): JiraSprintObject | undefined {
+  // customfield_10020 is the sprint field in Jira Cloud (array of sprint objects)
+  if (Array.isArray(fields.customfield_10020) && fields.customfield_10020.length > 0) {
+    // Return the active sprint if present, otherwise the last one
+    const active = fields.customfield_10020.find(s => s.state === 'active');
+    return active ?? fields.customfield_10020[fields.customfield_10020.length - 1];
+  }
+  return undefined;
 }
 
 function convertSecondsToHours(seconds?: number): number | undefined {
@@ -220,12 +240,14 @@ const JIRA_FIELDS = [
   'assignee', 'reporter', 'parent', 'labels', 'components',
   'created', 'updated', 'duedate',
   'timeoriginalestimate', 'timespent', 'timeestimate',
-  // Story-point custom fields (cloud variants)
-  'customfield_10016', 'customfield_10020', 'customfield_10026',
-  // Start date (Jira Cloud default custom field)
-  'customfield_10015',
-  // Sprint field
+  // Story-point custom fields (various Jira Cloud versions)
+  'customfield_10016',  // SP classic
+  'customfield_10026',  // SP alternative
+  'customfield_10028',  // SP newer Cloud
+  // customfield_10020 = Sprint (Jira Cloud) — also used for SP in some instances
   'customfield_10020',
+  // Start date
+  'customfield_10015',
 ].join(',');
 
 export async function fetchJiraIssues(
@@ -285,6 +307,7 @@ export async function fetchJiraIssues(
 
 function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWorkItem {
   const f = issue.fields;
+  const sprint = getSprint(f);
   return {
     id: 'jira-' + issue.id, connectionId, jiraKey: issue.key, jiraId: issue.id, summary: f.summary,
     description: typeof f.description === 'string' ? f.description : undefined,
@@ -297,7 +320,7 @@ function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWor
     assigneeEmail: f.assignee?.emailAddress, assigneeName: f.assignee?.displayName,
     reporterEmail: f.reporter?.emailAddress, reporterName: f.reporter?.displayName,
     parentKey: f.parent?.key, parentId: f.parent?.id,
-    sprintId: f.sprint?.[0]?.id?.toString(), sprintName: f.sprint?.[0]?.name,
+    sprintId: sprint?.id?.toString(), sprintName: sprint?.name,
     labels: f.labels || [], components: f.components?.map(c => c.name) || [],
     created: f.created, updated: f.updated,
     startDate: f.customfield_10015 ?? undefined,
