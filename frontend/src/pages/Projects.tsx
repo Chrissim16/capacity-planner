@@ -18,7 +18,7 @@ import { deleteProject, duplicateProject, archiveProject, unarchiveProject } fro
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
 import { getCurrentQuarter } from '../utils/calendar';
-import type { Project } from '../types';
+import type { Project, JiraWorkItem } from '../types';
 
 export function Projects() {
   const state = useCurrentState();
