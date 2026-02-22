@@ -346,4 +346,40 @@ To fully enable squad and process-team sync, run `supabase/migrations/004_squads
 
 ---
 
+## Bug #009: Holiday import fails — `invalid input syntax for type uuid`
+**Date:** 2026-02-22  
+**Severity:** High  
+**Found by:** User testing (inline sync error text added in Bug #008 fix)
+
+### Description
+After importing holidays from the Nager.Date API, the sync indicator showed:
+
+```
+public_holidays: [Sync] public_holidays upsert failed:
+  invalid input syntax for type uuid: "holiday-1771761261722-k4me382bc"
+```
+
+### Root Cause
+The `public_holidays` table was created in an early migration with `id uuid PRIMARY KEY`. In migration 002 all other tables were rebuilt with `id text`, but `public_holidays` was only patched (adding `country_id` text, RLS, grants) — the `id uuid` column was never changed.
+
+`generateId('holiday')` produces strings like `holiday-<timestamp>-<random>` which are valid `text` but not valid `uuid`. Postgres therefore rejects every upsert of a newly imported holiday.
+
+### Fix
+New migration `005_fix_public_holidays_id_type.sql`:
+
+```sql
+ALTER TABLE public_holidays
+  ALTER COLUMN id TYPE text USING id::text;
+```
+
+This converts any existing UUID-format values to their text representation and accepts the app's text-format IDs going forward.
+
+### Action required
+Run `supabase/migrations/005_fix_public_holidays_id_type.sql` in the Supabase SQL Editor.
+
+### Files Changed
+- `supabase/migrations/005_fix_public_holidays_id_type.sql` — new migration
+
+---
+
 *End of log*
