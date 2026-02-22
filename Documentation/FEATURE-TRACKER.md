@@ -3,8 +3,8 @@
 # Mileway IT Capacity Planner
 
 **Last updated:** February 22, 2026  
-**Total features:** 55  
-**Completed:** 15 / 55
+**Total features:** 56  
+**Completed:** 15 / 56
 
 ---
 
@@ -16,9 +16,9 @@
 | 🔴 P0 — Critical | 5      | 5      | 0           | 0           |
 | 🟠 P1 — High     | 7      | 7      | 0           | 0           |
 | 🟡 P2 — Medium   | 13     | 0      | 0           | 13          |
-| 🟢 P3 — Low      | 10     | 0      | 0           | 10          |
+| 🟢 P3 — Low      | 11     | 0      | 0           | 11          |
 | 🔵 Phase 2       | 20     | 3      | 0           | 17          |
-| **Total**        | **55** | **15** | **0**       | **40**      |
+| **Total**        | **56** | **15** | **0**       | **41**      |
 
 
 ---
@@ -103,6 +103,7 @@
 | US-033 | Team Member Availability Calendar            | UX/UI      | ⬜      |         |           | Visual calendar per member showing assignments, time off, holidays. |
 | US-034 | Import Public Holidays from External API     | Functional | ⬜      |         |           | Auto-import holidays from Nager.Date or similar API.                |
 | US-035 | Role-Based Access Control (RBAC)             | Technical  | ⬜      |         |           | Viewer / Planner / Admin / Owner roles with Supabase RLS.           |
+| US-056 | Staging / Pre-Production Environment         | Technical  | ⬜      |         |           | `develop` branch → Vercel Preview URL → separate Supabase staging project. Branch protection on `main`. |
 
 
 ---
@@ -225,6 +226,7 @@
 
 | Date | ID | Change |
 |------|----|--------|
+| 2026-02-22 | US-056     | Added to P3 backlog: Staging / Pre-Production Environment setup (develop branch + Vercel Preview + Supabase staging project). |
 | 2026-02-22 | US-036–038 | Group A (Jira Data Enrichment) completed: labels/components display + filters, start/end date import, email on team member cards. |
 | 2026-02-22 | US-036–055 | Phase 2 backlog added: 20 new user stories across 8 groups (Jira data enrichment, naming alignment, hierarchy display, date planning, project detail, write-back, smart suggestions, holiday API). |
 | 2026-02-20 | US-006–012 | All P1 High items completed. Jira baseline warning banner, sync diff preview modal, mapping protection, token masking, sync history log, scenario refresh preview. |

@@ -576,6 +576,31 @@
 
 ---
 
+### US-056 — Staging / Pre-Production Environment
+**Type:** Technical
+
+> **As a** developer,
+> **I want** a dedicated staging environment that mirrors production,
+> **so that** I can test and verify changes before they reach real users and data.
+
+**Acceptance criteria:**
+- A `develop` branch exists in GitHub; all feature work is merged here first via pull request
+- Vercel automatically deploys `develop` (and all `feature/*` branches) to a permanent preview URL (e.g. `capacity-planner-git-develop-mileway.vercel.app`)
+- A second Supabase project ("staging") is created; it receives the same migration scripts as production
+- Vercel environment variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) are scoped separately: **Production** env points to prod Supabase, **Preview** env points to staging Supabase
+- Branch protection is enabled on `main` in GitHub: direct pushes are blocked; merges require a pull request from `develop`
+- The `SETUP.md` document is updated to describe the new branching workflow and environment setup steps
+- The Jira API proxy (`frontend/api/jira.js`) and all Vercel rewrites work correctly in the preview environment
+
+**Implementation steps (manual — done in browser UIs):**
+1. Create `develop` branch in Git and push to GitHub
+2. Create a new Supabase project (name: "capacity-planner-staging"); run all migration scripts
+3. In Vercel project → Settings → Environment Variables: set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the **Preview** environment to the staging Supabase values
+4. In GitHub repo → Settings → Branches → Add branch protection rule for `main`
+5. Update `SETUP.md` to document the workflow
+
+---
+
 # Phase 2 — Advanced Features
 
 ---
@@ -963,3 +988,4 @@
 | US-053 | Suggestion UI in Assignment Flow | UX/UI | 🔵 Phase 2 |
 | US-054 | Nager.Date Holiday API Integration | Technical | 🔵 Phase 2 |
 | US-055 | Holiday Import UI in Settings | Functional | 🔵 Phase 2 |
+| US-056 | Staging / Pre-Production Environment | Technical | 🟢 P3 |
