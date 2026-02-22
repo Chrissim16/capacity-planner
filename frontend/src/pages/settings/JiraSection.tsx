@@ -354,7 +354,7 @@ export function JiraSection() {
               />
               <span className="text-sm font-medium">Auto-map by name</span>
               <span className="text-xs text-muted-foreground">
-                Automatically match Jira items to projects/phases by similar names
+                Automatically match Jira items to epics/features by similar names
               </span>
             </label>
           </CardContent>
@@ -368,12 +368,12 @@ export function JiraSection() {
               <div className="p-3 rounded-lg bg-muted/50">
                 <div className="font-medium text-purple-600">Jira Epic</div>
                 <div className="text-muted-foreground text-xs mt-0.5">becomes</div>
-                <div className="font-medium">→ Project</div>
+                <div className="font-medium">→ Epic</div>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <div className="font-medium text-blue-600">Jira Feature</div>
                 <div className="text-muted-foreground text-xs mt-0.5">becomes</div>
-                <div className="font-medium">→ Phase within its Epic's Project</div>
+                <div className="font-medium">→ Feature within its Epic</div>
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <div className="font-medium text-green-600">Story / Task / Bug</div>
@@ -383,7 +383,7 @@ export function JiraSection() {
             </div>
             <p className="text-xs text-muted-foreground">
               Every time you sync, the planner checks whether new epics or features have appeared and creates or updates
-              projects and phases accordingly. Manually edited projects are never overwritten.
+              epics and features accordingly. Manually edited epics are never overwritten.
               You can review the result in the <strong>Jira Overview</strong> page.
             </p>
           </CardContent>

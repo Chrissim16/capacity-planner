@@ -39,7 +39,7 @@ function computeProjectChanges(
   // Added
   for (const p of scenProjects) {
     if (!baseById.has(p.id)) {
-      changes.push({ type: 'added', project: p, details: [`${p.phases.length} phase(s)`] });
+      changes.push({ type: 'added', project: p, details: [`${p.phases.length} feature(s)`] });
     }
   }
 
@@ -65,8 +65,8 @@ function computeProjectChanges(
     const phasesAdded   = p.phases.filter(ph => !basePhaseIds.has(ph.id));
     const phasesRemoved = base.phases.filter(ph => !scenPhaseIds.has(ph.id));
 
-    if (phasesAdded.length)   details.push(`+${phasesAdded.length} phase(s): ${phasesAdded.map(ph => ph.name).join(', ')}`);
-    if (phasesRemoved.length) details.push(`−${phasesRemoved.length} phase(s): ${phasesRemoved.map(ph => ph.name).join(', ')}`);
+    if (phasesAdded.length)   details.push(`+${phasesAdded.length} feature(s): ${phasesAdded.map(ph => ph.name).join(', ')}`);
+    if (phasesRemoved.length) details.push(`−${phasesRemoved.length} feature(s): ${phasesRemoved.map(ph => ph.name).join(', ')}`);
 
     if (details.length) {
       changes.push({ type: 'modified', project: p, baseProject: base, details });
@@ -164,7 +164,7 @@ export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps)
         <div className="overflow-y-auto flex-1 px-6 py-4 space-y-6">
           {totalChanges === 0 && (
             <div className="text-center py-8 text-slate-400 dark:text-slate-500">
-              <p className="text-sm">Start editing projects or team members in this scenario to see changes here.</p>
+              <p className="text-sm">Start editing epics or team members in this scenario to see changes here.</p>
             </div>
           )}
 
@@ -172,7 +172,7 @@ export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps)
           {projectChanges.length > 0 && (
             <section>
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-3">
-                Projects ({projectChanges.length})
+                Epics ({projectChanges.length})
               </h3>
               <div className="space-y-2">
                 {projectChanges.map((change, i) => (
@@ -213,7 +213,7 @@ export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps)
           {!confirming ? (
             <>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
-                <strong>Promote to baseline</strong> copies this scenario's projects and team members into your live data.
+                <strong>Promote to baseline</strong> copies this scenario's epics and team members into your live data.
                 The scenario is kept as an archive.
               </p>
               <div className="flex items-center gap-2 shrink-0">

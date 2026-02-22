@@ -197,7 +197,7 @@ export function Jira() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Jira Overview</h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5">
-            Items synced from Jira, organised by project
+            Items synced from Jira, organised by epic
           </p>
         </div>
         {activeConnection?.lastSyncAt && (
@@ -216,8 +216,8 @@ export function Jira() {
               Auto-import is active
             </p>
             <p className="text-blue-600 dark:text-blue-400 mt-0.5">
-              Projects and phases are created automatically from Jira epics and features each time you sync.
-              Items are shown below grouped by their auto-created project.
+              Epics and features are created automatically in the planner from Jira each time you sync.
+              Items are shown below grouped by their auto-created epic.
               Use the edit icon (<Edit2 size={12} className="inline" />) to override a mapping for a specific item.
             </p>
           </div>
@@ -232,7 +232,7 @@ export function Jira() {
         </Card>
         <Card className="p-4">
           <div className="text-2xl font-bold text-green-600">{stats.matched}</div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Placed in a project</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Placed in an epic</div>
         </Card>
         <Card className={clsx('p-4', stats.unmatched > 0 && 'border-amber-200 dark:border-amber-700/50')}>
           <div className={clsx('text-2xl font-bold', stats.unmatched > 0 ? 'text-amber-600' : 'text-slate-400')}>

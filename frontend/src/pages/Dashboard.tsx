@@ -73,7 +73,7 @@ export function Dashboard() {
               <FolderKanban className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Active Projects</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Active Epics</p>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">
                 {activeProjects}
               </p>

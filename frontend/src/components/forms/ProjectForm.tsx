@@ -61,7 +61,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       setDevopsLink('');
       setPhases([{
         id: generateId('phase'),
-        name: 'Main',
+        name: 'Feature 1',
         startQuarter: currentQuarter,
         endQuarter: currentQuarter,
         requiredSkillIds: [],
@@ -83,7 +83,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
   const handleAddPhase = () => {
     setPhases(prev => [...prev, {
       id: generateId('phase'),
-      name: `Phase ${prev.length + 1}`,
+      name: `Feature ${prev.length + 1}`,
       startQuarter: currentQuarter,
       endQuarter: currentQuarter,
       requiredSkillIds: [],
@@ -107,7 +107,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) newErrors.name = 'This field is mandatory';
-    if (phases.length === 0) newErrors.phases = 'At least one phase is required';
+    if (phases.length === 0) newErrors.phases = 'At least one feature is required';
     phases.forEach((phase, i) => {
       if (!phase.name.trim()) newErrors[`phase-${i}`] = 'This field is mandatory';
     });
@@ -142,7 +142,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={project ? 'Edit Project' : 'New Project'}
+      title={project ? 'Edit Epic' : 'New Epic'}
       size="lg"
       footer={
         <>
@@ -150,7 +150,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
             Cancel
           </Button>
           <Button onClick={handleSubmit}>
-            {project ? 'Save Changes' : 'Create Project'}
+            {project ? 'Save Changes' : 'Create Epic'}
           </Button>
         </>
       }
@@ -159,14 +159,14 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
         {/* Basic Info */}
         <Input
           id="project-name"
-          label="Project Name"
+          label="Epic Name"
           required
           value={name}
           onChange={(e) => {
             setName(e.target.value);
             if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
           }}
-          placeholder="Enter project name"
+          placeholder="Enter epic name"
           error={errors.name}
         />
 
@@ -221,11 +221,11 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
         <div>
           <div className="flex items-center justify-between mb-3">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Phases
+              Features
             </label>
             <Button variant="ghost" size="sm" onClick={handleAddPhase}>
               <Plus size={14} />
-              Add Phase
+              Add Feature
             </Button>
           </div>
           
@@ -247,7 +247,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
                         handlePhaseChange(index, 'name', e.target.value);
                         if (errors[`phase-${index}`]) setErrors(prev => ({ ...prev, [`phase-${index}`]: '' }));
                       }}
-                      placeholder="Phase name"
+                      placeholder="Feature name"
                       required
                       error={errors[`phase-${index}`]}
                     />

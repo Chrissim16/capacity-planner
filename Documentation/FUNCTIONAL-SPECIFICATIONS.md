@@ -396,15 +396,15 @@ Each team member row shows:
 
 ---
 
-### 5.3 Projects
+### 5.3 Epics (formerly "Projects")
 
-**Purpose:** Full CRUD management of projects and their phases, with direct assignment of team members to phases.
+**Purpose:** Full CRUD management of epics (projects) and their features (phases), with direct assignment of team members to features. UI labels use "Epic" and "Feature"; internal data model retains the names `Project` and `Phase`.
 
-#### 5.3.1 Project List
+#### 5.3.1 Epic List
 
-Projects are displayed as expandable cards. The list supports:
+Epics are displayed as expandable cards. The list supports:
 
-- **Search** by project name (text input)
+- **Search** by epic name (text input)
 - **Filter by Status**: Planning / Active / On Hold / Completed / Cancelled
 - **Filter by Priority**: High / Medium / Low
 - **Filter by System**: Any system from the reference list

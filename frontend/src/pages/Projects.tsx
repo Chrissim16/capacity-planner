@@ -79,7 +79,7 @@ export function Projects() {
     if (deleteConfirm) {
       deleteProject(deleteConfirm.id);
       setDeleteConfirm(null);
-      showToast('Project deleted', 'success');
+      showToast('Epic deleted', 'success');
     }
   };
 
@@ -140,9 +140,9 @@ export function Projects() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Projects</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Epics</h1>
           <p className="text-slate-500 dark:text-slate-400">
-            {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
+            {filteredProjects.length} epic{filteredProjects.length !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -152,7 +152,7 @@ export function Projects() {
           </Button>
           <Button onClick={() => setIsFormOpen(true)}>
             <Plus size={16} />
-            New Project
+            New Epic
           </Button>
         </div>
       </div>
@@ -164,7 +164,7 @@ export function Projects() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search projects..."
+              placeholder="Search epics..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -194,8 +194,8 @@ export function Projects() {
           <CardContent className="py-16 text-center">
             <p className="text-slate-500 dark:text-slate-400">
               {projects.length === 0 
-                ? 'No projects yet. Create your first project to get started.'
-                : 'No projects match your filters.'}
+                ? 'No epics yet. Create your first epic to get started.'
+                : 'No epics match your filters.'}
             </p>
           </CardContent>
         </Card>
@@ -238,7 +238,7 @@ export function Projects() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                        <span>{project.phases.length} phase{project.phases.length !== 1 ? 's' : ''}</span>
+                        <span>{project.phases.length} feature{project.phases.length !== 1 ? 's' : ''}</span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <Users size={12} />
@@ -302,7 +302,7 @@ export function Projects() {
                   <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30">
                     {project.phases.length === 0 ? (
                       <div className="px-12 py-4 text-sm text-slate-400">
-                        No phases defined
+                        No features defined
                       </div>
                     ) : (
                       <div className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -380,7 +380,7 @@ export function Projects() {
       <Modal
         isOpen={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
-        title="Delete Project"
+        title="Delete Epic"
         size="sm"
         footer={
           <>
@@ -395,7 +395,7 @@ export function Projects() {
       >
         <p className="text-slate-600 dark:text-slate-300">
           Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>? 
-          This will also remove all phases and assignments. This action cannot be undone.
+          This will also remove all features and assignments. This action cannot be undone.
         </p>
       </Modal>
     </div>

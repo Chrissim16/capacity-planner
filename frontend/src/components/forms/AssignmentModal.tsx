@@ -181,14 +181,14 @@ export function AssignmentModal({
 
   // Options
   const projectOptions = [
-    { value: '', label: 'Select project...' },
+    { value: '', label: 'Select epic...' },
     ...projects
       .filter(p => p.status !== 'Completed')
       .map(p => ({ value: p.id, label: p.name })),
   ];
 
   const phaseOptions = [
-    { value: '', label: 'Select phase...' },
+    { value: '', label: 'Select feature...' },
     ...(selectedProject?.phases.map(ph => ({ value: ph.id, label: ph.name })) || []),
   ];
 
@@ -226,7 +226,7 @@ export function AssignmentModal({
         <div className="grid grid-cols-2 gap-4">
           <Select
             id="assign-project"
-            label="Project"
+            label="Epic"
             required
             value={selectedProjectId}
             onChange={(e) => {
@@ -239,7 +239,7 @@ export function AssignmentModal({
           />
           <Select
             id="assign-phase"
-            label="Phase"
+            label="Feature"
             required
             value={selectedPhaseId}
             onChange={(e) => {
@@ -541,7 +541,7 @@ export function AssignmentModal({
               <strong>{selectedProject?.name}</strong> → {selectedPhase.name}
             </p>
             <p className="text-blue-600 dark:text-blue-400 text-xs mt-1">
-              Phase runs: {selectedPhase.startQuarter} – {selectedPhase.endQuarter}
+              Feature runs: {selectedPhase.startQuarter} – {selectedPhase.endQuarter}
             </p>
           </div>
         )}

@@ -4,7 +4,7 @@
 
 **Last updated:** February 22, 2026  
 **Total features:** 56  
-**Completed:** 15 / 56
+**Completed:** 17 / 56
 
 ---
 
@@ -17,8 +17,8 @@
 | 🟠 P1 — High     | 7      | 7      | 0           | 0           |
 | 🟡 P2 — Medium   | 13     | 0      | 0           | 13          |
 | 🟢 P3 — Low      | 11     | 0      | 0           | 11          |
-| 🔵 Phase 2       | 20     | 3      | 0           | 17          |
-| **Total**        | **56** | **15** | **0**       | **41**      |
+| 🔵 Phase 2       | 20     | 5      | 0           | 15          |
+| **Total**        | **56** | **17** | **0**       | **39**      |
 
 
 ---
@@ -125,8 +125,8 @@
 
 | ID     | Feature                                   | Type  | Status | Started | Completed | Notes                                                                                |
 | ------ | ----------------------------------------- | ----- | ------ | ------- | --------- | ------------------------------------------------------------------------------------ |
-| US-039 | Global Rename: Project → Epic (UI only)   | UX/UI | ⬜      |         |           | All page titles, nav labels, form labels, buttons. Internal code names stay the same. |
-| US-040 | Global Rename: Phase → Feature (UI only)  | UX/UI | ⬜      |         |           | Phase forms, timeline cells, assignment dialogs, Jira overview sub-headers.           |
+| US-039 | Global Rename: Project → Epic (UI only)   | UX/UI | ✅ | 2026-02-22 | 2026-02-22 | Nav label, page title, buttons, empty states, toasts, modals, Jira overview, ScenarioDiffModal, Jira settings. Internal code names unchanged. |
+| US-040 | Global Rename: Phase → Feature (UI only)  | UX/UI | ✅ | 2026-02-22 | 2026-02-22 | ProjectForm (label, button, default name), AssignmentModal (label, placeholder, info text), ScenarioDiffModal diff details, Jira auto-import explainer. |
 
 
 ---
@@ -219,6 +219,8 @@
 | US-036 | Display Labels & Components on Jira Work Items | 2026-02-22 | Indigo label pills + teal component pills on each item row. Label/Component filter dropdowns in Jira Overview. |
 | US-037 | Import Start/End Dates from Jira | 2026-02-22 | `duedate` + `customfield_10015` mapped to `startDate`/`dueDate`. Dates shown inline on Jira items. |
 | US-038 | Verify & Display Email on Team Member Cards | 2026-02-22 | Email visible on member cards. Email input added to TeamMemberForm. Input `hint` prop added. |
+| US-039 | Global Rename: Project → Epic (UI only) | 2026-02-22 | All UI labels updated. Internal code names (variables, props, types) unchanged. |
+| US-040 | Global Rename: Phase → Feature (UI only) | 2026-02-22 | ProjectForm, AssignmentModal, ScenarioDiffModal, Jira pages, settings all updated. |
 
 ---
 
@@ -227,6 +229,7 @@
 | Date | ID | Change |
 |------|----|--------|
 | 2026-02-22 | US-056     | Added to P3 backlog: Staging / Pre-Production Environment setup (develop branch + Vercel Preview + Supabase staging project). |
+| 2026-02-22 | US-039–040 | Group B (Naming Convention) completed: Project → Epic, Phase → Feature across all UI text. Internal code unchanged. |
 | 2026-02-22 | US-036–038 | Group A (Jira Data Enrichment) completed: labels/components display + filters, start/end date import, email on team member cards. |
 | 2026-02-22 | US-036–055 | Phase 2 backlog added: 20 new user stories across 8 groups (Jira data enrichment, naming alignment, hierarchy display, date planning, project detail, write-back, smart suggestions, holiday API). |
 | 2026-02-20 | US-006–012 | All P1 High items completed. Jira baseline warning banner, sync diff preview modal, mapping protection, token masking, sync history log, scenario refresh preview. |
