@@ -315,6 +315,19 @@ export function Projects() {
                         <h3 className="font-semibold text-slate-900 dark:text-white truncate">
                           {project.name}
                         </h3>
+                        {project.jiraSourceKey && activeJiraBaseUrl && (
+                          <a
+                            href={`${activeJiraBaseUrl}/browse/${project.jiraSourceKey}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-0.5 text-blue-500 hover:text-blue-600 font-mono text-xs shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                            title={`Open ${project.jiraSourceKey} in Jira`}
+                          >
+                            {project.jiraSourceKey}
+                            <ExternalLink size={11} />
+                          </a>
+                        )}
                         {project.devopsLink && (
                           <a
                             href={project.devopsLink}
@@ -538,19 +551,20 @@ export function Projects() {
                                       {phase.assignments.slice(0, 5).map((a, i) => (
                                         <span
                                           key={i}
-                                          className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded"
+                                          className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm font-medium rounded-md"
                                         >
-                                          {getMemberName(a.memberId)} ({a.days}d)
+                                          {getMemberName(a.memberId)}
+                                          <span className="ml-1 text-xs text-blue-500 dark:text-blue-400 font-normal">{a.days}d</span>
                                         </span>
                                       ))}
                                       {phase.assignments.length > 5 && (
-                                        <span className="px-2 py-0.5 text-slate-400 text-xs">
+                                        <span className="px-2 py-1 text-slate-500 text-xs">
                                           +{phase.assignments.length - 5} more
                                         </span>
                                       )}
                                     </div>
                                   ) : (
-                                    <span className="text-xs text-slate-400">No assignments</span>
+                                    <span className="text-sm text-slate-400 italic">No assignments</span>
                                   )}
                                   <button
                                     onClick={() => openAssignment(project.id, phase.id)}

@@ -340,6 +340,7 @@ export function Timeline() {
                     getPriorityColor={getPriorityColor}
                     getStatusColor={getStatusColor}
                     onAssign={openAssign}
+                    teamMembers={teamMembers}
                   />
                 ))
               )}
@@ -577,9 +578,11 @@ interface ProjectRowProps {
   getPriorityColor: (priority: string) => string;
   getStatusColor: (status: string) => string;
   onAssign?: (projectId: string, phaseId?: string) => void;
+  teamMembers: TeamMember[];
 }
 
-function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor, onAssign }: ProjectRowProps) {
+function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor, onAssign, teamMembers }: ProjectRowProps) {
+  const getMemberName = (id: string) => teamMembers.find(m => m.id === id)?.name ?? 'Unknown';
   // US-044: collapse/expand feature sub-rows
   const [expanded, setExpanded] = useState(false);
   const hasPhases = project.phases.length > 0;
@@ -665,10 +668,11 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
         {expanded && project.phases.map(phase => {
           const phaseQuarterData = quarters.map(quarter => {
             const isActive = isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter);
-            const days = isActive
-              ? phase.assignments.reduce((sum, a) => a.quarter === quarter ? sum + a.days : sum, 0)
-              : 0;
-            return { quarter, isActive, days };
+            const quarterAssignments = isActive
+              ? phase.assignments.filter(a => a.quarter === quarter)
+              : [];
+            const days = quarterAssignments.reduce((sum, a) => sum + a.days, 0);
+            return { quarter, isActive, quarterAssignments, days };
           });
           return (
             <div key={phase.id} className="flex border-t border-dashed border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition-colors">
@@ -683,7 +687,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                   {phase.startQuarter} – {phase.endQuarter}
                 </div>
               </div>
-              {phaseQuarterData.map(({ quarter, isActive, days }) => (
+              {phaseQuarterData.map(({ quarter, isActive, quarterAssignments, days }) => (
                 <div
                   key={quarter}
                   className={`flex-1 min-w-[150px] px-3 py-2 ${quarter === currentQuarter ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}
@@ -691,10 +695,23 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                   {isActive && (
                     <button
                       onClick={() => onAssign?.(project.id, phase.id)}
-                      className="w-full text-left px-2 py-0.5 bg-blue-100/70 hover:bg-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-800/40 rounded text-[11px] font-medium text-blue-600 dark:text-blue-400 truncate transition-colors"
+                      className="w-full text-left px-2 py-1 bg-blue-100/70 hover:bg-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-800/40 rounded transition-colors"
                       title={`${phase.name} — click to edit assignments`}
                     >
-                      {days > 0 ? `${days}d assigned` : 'No assignments'}
+                      {days > 0 ? (
+                        <div>
+                          <div className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{days}d assigned</div>
+                          <div className="mt-0.5 space-y-0.5">
+                            {quarterAssignments.map((a, i) => (
+                              <div key={i} className="text-[10px] text-slate-600 dark:text-slate-400 truncate">
+                                {getMemberName(a.memberId)} · {a.days}d
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">No assignments this quarter</span>
+                      )}
                     </button>
                   )}
                 </div>

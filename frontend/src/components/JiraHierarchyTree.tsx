@@ -9,7 +9,7 @@
 import { useState, useMemo } from 'react';
 import {
   ChevronDown, ChevronRight, ExternalLink,
-  CheckCircle2, AlertCircle, Edit2, X,
+  CheckCircle2, AlertCircle, Edit2, X, User,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Badge } from './ui/Badge';
@@ -288,7 +288,10 @@ function TreeRow({
 
         {/* Assignee (read-only mode or not editing) */}
         {item.assigneeName && !showControls && (
-          <p className="text-[10px] text-slate-400 mt-0.5">→ {item.assigneeName}</p>
+          <div className="flex items-center gap-1 mt-1">
+            <User size={11} className="text-slate-400 shrink-0" />
+            <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">{item.assigneeName}</span>
+          </div>
         )}
 
         {/* Mapping controls */}
