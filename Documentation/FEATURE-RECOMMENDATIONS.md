@@ -576,6 +576,334 @@
 
 ---
 
+# Phase 2 — Advanced Features
+
+---
+
+## Group A: Jira Data Enrichment
+
+---
+
+### US-036 — Display Labels & Components on Jira Work Items
+**Type:** UX/UI
+
+> **As a** planner,  
+> **I want** to see Jira labels and components as coloured tags on each work item in the Jira Overview page,  
+> **so that** I can quickly identify categories, cross-cutting concerns, and filter to specific label sets.
+
+**Acceptance criteria:**
+- Labels shown as coloured pill badges on each `JiraItemRow`
+- Components shown as secondary pill badges (different colour family)
+- New filter dropdowns in the Jira Overview filter bar for labels and components
+- Multi-select filtering (show items matching any selected label)
+
+---
+
+### US-037 — Import Start/End Dates from Jira
+**Type:** Functional
+
+> **As a** planner,  
+> **I want** the start date and due date of Jira issues to be imported automatically during sync,  
+> **so that** I can use actual dates for planning instead of relying only on quarters.
+
+**Acceptance criteria:**
+- `duedate` and start date custom field added to `JIRA_FIELDS`
+- `startDate` and `dueDate` fields added to the `JiraWorkItem` type
+- Dates displayed on work item rows where set
+- Missing dates shown as blank (not "N/A")
+
+---
+
+### US-038 — Verify & Display Email on Team Member Cards
+**Type:** UX/UI
+
+> **As a** planner,  
+> **I want** to see team members' email addresses on their profile cards,  
+> **so that** I can contact them or verify Jira account matching.
+
+**Acceptance criteria:**
+- Email displayed on Team page member cards (the field already exists on `TeamMember`)
+- Jira account ID shown as a secondary detail for debugging
+- Email imported from Jira assignee data during sync
+
+---
+
+## Group B: Naming Convention Alignment
+
+---
+
+### US-039 — Global Rename: Project to Epic (UI Only)
+**Type:** UX/UI
+
+> **As a** user familiar with Jira,  
+> **I want** the app to use Jira's own terminology (Epic, Feature, Story),  
+> **so that** I don't have to mentally translate between two naming systems.
+
+**Acceptance criteria:**
+- "Project" renamed to "Epic" in all page titles, nav labels, form labels, buttons, and tooltips
+- Internal code names (`Project` type, `projects` array, `ViewType`) remain unchanged
+- All occurrences across Header, Projects page, ProjectForm, Timeline, Dashboard, Jira Overview, and Settings
+
+---
+
+### US-040 — Global Rename: Phase to Feature (UI Only)
+**Type:** UX/UI
+
+> **As a** user,  
+> **I want** "Phase" to be renamed to "Feature" in the UI,  
+> **so that** the app language matches the Jira hierarchy I already know.
+
+**Acceptance criteria:**
+- "Phase" renamed to "Feature" in all phase-related forms, timeline cells, assignment dialogs, and Jira overview sub-headers
+- Internal code names stay the same
+
+---
+
+## Group C: Jira Hierarchy Display
+
+---
+
+### US-041 — Reusable JiraHierarchyTree Component
+**Type:** Functional
+
+> **As a** developer,  
+> **I want** a shared tree component that renders the Jira hierarchy (Epic → Feature → Story/Task/Bug),  
+> **so that** all pages can display the same consistent collapsible tree.
+
+**Acceptance criteria:**
+- Accepts `JiraWorkItem[]` and `Project[]` as input
+- Builds a tree grouped by `parentKey` hierarchy
+- Each level is collapsible with a chevron toggle
+- Each row shows: type badge, Jira key link, summary, status, story points, assignee, labels
+
+---
+
+### US-042 — Hierarchy View on Jira Overview Page
+**Type:** UX/UI
+
+> **As a** planner,  
+> **I want** the Jira Overview page to show items in their actual Jira hierarchy,  
+> **so that** I can see how Stories relate to Features and Epics.
+
+**Acceptance criteria:**
+- Current flat-by-project grouping replaced with the `JiraHierarchyTree` component
+- Search and filter controls remain above the tree
+- Expand/collapse state persisted during the session
+
+---
+
+### US-043 — Hierarchy View on Project Detail Card
+**Type:** UX/UI
+
+> **As a** planner,  
+> **I want** to see the nested Jira items under each feature when I expand a project card,  
+> **so that** I understand the scope of each feature at a glance.
+
+**Acceptance criteria:**
+- Expanded project card shows Jira work items nested under each feature/phase
+- Uses the `JiraHierarchyTree` component
+- Only items mapped to this project are shown
+
+---
+
+### US-044 — Hierarchy View in Timeline
+**Type:** UX/UI
+
+> **As a** planner,  
+> **I want** to collapse and expand Epics in the Timeline to see or hide their Features,  
+> **so that** I can control the level of detail in my timeline view.
+
+**Acceptance criteria:**
+- Each Epic row in the Timeline has a collapse/expand chevron
+- Expanded: shows Feature sub-rows with their date/quarter ranges
+- Collapsed: shows only the Epic row spanning its full range
+
+---
+
+## Group D: Date-Driven Planning
+
+---
+
+### US-045 — Add Date Fields to Phase and Project Types
+**Type:** Technical
+
+> **As a** planner,  
+> **I want** projects and features to have optional start and end dates,  
+> **so that** I can plan with precise dates when available and fall back to quarters otherwise.
+
+**Acceptance criteria:**
+- `startDate?: string` and `endDate?: string` (YYYY-MM-DD) added to `Phase` and `Project` types
+- Auto-populated from Jira child work item dates (min start / max due) during sync
+- Manually overridable in the edit forms
+- Dates persisted to Supabase
+
+---
+
+### US-046 — Date View Mode in Timeline
+**Type:** Functional
+
+> **As a** planner,  
+> **I want** a "Dates" view mode in the Timeline alongside Quarters and Sprints,  
+> **so that** I can see exact date ranges for each feature and plan at a finer granularity.
+
+**Acceptance criteria:**
+- Third toggle option "Dates" added to Timeline granularity selector
+- Horizontal axis shows week or month columns
+- Features displayed as bars spanning their start-to-end date range
+- Features without dates fall back to quarter range converted to approximate dates
+
+---
+
+### US-047 — Date Display on Project/Phase Cards
+**Type:** UX/UI
+
+> **As a** planner,  
+> **I want** to see start and end dates on project and feature cards,  
+> **so that** I have date context alongside the quarter information.
+
+**Acceptance criteria:**
+- Dates displayed as "12 Mar – 15 Jun 2026" on expanded project cards and feature rows
+- Only shown when dates are set (no "N/A" clutter)
+- Appears alongside the existing quarter range label
+
+---
+
+## Group E: Richer Project Detail
+
+---
+
+### US-048 — Enhanced Expandable Project Card
+**Type:** UX/UI
+
+> **As a** planner,  
+> **I want** to see a rich summary when I expand a project card,  
+> **so that** I can quickly understand the project's status, team, and progress without leaving the page.
+
+**Acceptance criteria:**
+- Expanded card shows a summary section at the top with:
+  - Description, status, priority, date range, Jira key link
+  - Total story points, completion %, assigned team members, feature count
+  - Team list: name + total days for each assigned member
+  - Jira stats: items by status category (to do / in progress / done)
+- Below the summary: existing feature list with nested hierarchy (US-043)
+
+---
+
+## Group F: Jira Write-Back
+
+---
+
+### US-049 — Jira Write API in Proxy
+**Type:** Technical
+
+> **As a** developer,  
+> **I want** the Jira proxy to support writing data back to Jira,  
+> **so that** the app can update issue fields like start date, due date, and assignee.
+
+**Acceptance criteria:**
+- `updateJiraIssue(connectionId, issueKey, fields)` function in `jira.ts`
+- Calls `PUT /rest/api/3/issue/{issueIdOrKey}` through the existing proxy
+- Handles error responses and returns success/failure per item
+
+---
+
+### US-050 — "Push to Jira" Preview & Confirm UI
+**Type:** Functional
+
+> **As a** planner,  
+> **I want** a manual "Push to Jira" button that shows me what will be updated before it happens,  
+> **so that** I can review and approve changes to Jira without accidental writes.
+
+**Acceptance criteria:**
+- "Push to Jira" button on each Jira connection card in Settings
+- Preview modal listing items to update with field-level diff
+- User confirms before any write happens
+- Progress indicator and results summary (X updated, Y failed)
+
+---
+
+### US-051 — Track Push State per Work Item
+**Type:** Technical
+
+> **As a** planner,  
+> **I want** to see which work items have local changes not yet pushed to Jira,  
+> **so that** I know what's out of sync.
+
+**Acceptance criteria:**
+- `lastPushedAt` and `pushDirty` fields added to `JiraWorkItem`
+- Items marked dirty when local fields (dates, assignee) change
+- Dirty indicator badge shown on work items needing push
+- Cleared when successfully pushed
+
+---
+
+## Group G: Smart Assignment Suggestions
+
+---
+
+### US-052 — Team Member Scoring Algorithm
+**Type:** Technical
+
+> **As a** planner,  
+> **I want** the system to automatically suggest the best team members for a work item,  
+> **so that** I can make faster, data-driven assignment decisions.
+
+**Acceptance criteria:**
+- Scoring algorithm in `application/assignmentSuggester.ts`
+- Factors: available capacity (40%), skill match (35%), assignment history (25%)
+- Returns ranked list with score breakdown per member
+- Works in both baseline and scenario mode
+
+---
+
+### US-053 — Suggestion UI in Assignment Flow
+**Type:** UX/UI
+
+> **As a** planner,  
+> **I want** to see suggested team members when assigning someone to a feature,  
+> **so that** I don't have to manually check capacity and skills for every assignment.
+
+**Acceptance criteria:**
+- "Suggested" section shown above the full member list in assignment modals
+- Top 3 suggestions with match % badge and reason chips (e.g. "89% · Skills match · 12 days free")
+- Click a suggestion to assign immediately
+
+---
+
+## Group H: Holiday API Integration
+
+---
+
+### US-054 — Nager.Date Holiday API Integration
+**Type:** Technical
+
+> **As a** developer,  
+> **I want** a service that fetches public holidays from the Nager.Date API,  
+> **so that** users don't have to manually enter every public holiday.
+
+**Acceptance criteria:**
+- `fetchPublicHolidays(countryCode, year)` function in `services/holidays.ts`
+- Calls `https://date.nager.at/api/v3/PublicHolidays/{year}/{countryCode}`
+- Maps response to existing `PublicHoliday` type
+- Handles API errors gracefully
+
+---
+
+### US-055 — Holiday Import UI in Settings
+**Type:** Functional
+
+> **As a** planner,  
+> **I want** an "Import Holidays" button in Settings that lets me pick a country and year,  
+> **so that** I can populate public holidays in seconds instead of adding them one by one.
+
+**Acceptance criteria:**
+- "Import Holidays" button in the Holidays section of Settings
+- Modal with country and year selectors, plus a preview of holidays to import
+- Deduplication: existing holidays (same country + date) are skipped
+- Manual CRUD still works — imported holidays behave identically to manual ones
+
+---
+
 ## Summary Table
 
 | ID | Title | Type | Priority |
@@ -615,3 +943,23 @@
 | US-033 | Team Member Availability Calendar | UX/UI | 🟢 P3 |
 | US-034 | Import Holidays from API | Functional | 🟢 P3 |
 | US-035 | Role-Based Access Control | Technical | 🟢 P3 |
+| US-036 | Display Labels & Components on Jira Work Items | UX/UI | 🔵 Phase 2 |
+| US-037 | Import Start/End Dates from Jira | Functional | 🔵 Phase 2 |
+| US-038 | Verify & Display Email on Team Member Cards | UX/UI | 🔵 Phase 2 |
+| US-039 | Global Rename: Project → Epic (UI only) | UX/UI | 🔵 Phase 2 |
+| US-040 | Global Rename: Phase → Feature (UI only) | UX/UI | 🔵 Phase 2 |
+| US-041 | Reusable JiraHierarchyTree Component | Functional | 🔵 Phase 2 |
+| US-042 | Hierarchy View on Jira Overview Page | UX/UI | 🔵 Phase 2 |
+| US-043 | Hierarchy View on Project Detail Card | UX/UI | 🔵 Phase 2 |
+| US-044 | Hierarchy View in Timeline | UX/UI | 🔵 Phase 2 |
+| US-045 | Add Date Fields to Phase and Project | Technical | 🔵 Phase 2 |
+| US-046 | Date View Mode in Timeline | Functional | 🔵 Phase 2 |
+| US-047 | Date Display on Project/Phase Cards | UX/UI | 🔵 Phase 2 |
+| US-048 | Enhanced Expandable Project Card | UX/UI | 🔵 Phase 2 |
+| US-049 | Jira Write API in Proxy | Technical | 🔵 Phase 2 |
+| US-050 | "Push to Jira" Preview & Confirm UI | Functional | 🔵 Phase 2 |
+| US-051 | Track Push State per Work Item | Technical | 🔵 Phase 2 |
+| US-052 | Team Member Scoring Algorithm | Technical | 🔵 Phase 2 |
+| US-053 | Suggestion UI in Assignment Flow | UX/UI | 🔵 Phase 2 |
+| US-054 | Nager.Date Holiday API Integration | Technical | 🔵 Phase 2 |
+| US-055 | Holiday Import UI in Settings | Functional | 🔵 Phase 2 |

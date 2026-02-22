@@ -2,9 +2,9 @@
 
 # Mileway IT Capacity Planner
 
-**Last updated:** February 20, 2026  
-**Total features:** 35  
-**Completed:** 12 / 35
+**Last updated:** February 22, 2026  
+**Total features:** 55  
+**Completed:** 12 / 55
 
 ---
 
@@ -17,7 +17,8 @@
 | 🟠 P1 — High     | 7      | 7      | 0           | 0           |
 | 🟡 P2 — Medium   | 13     | 0      | 0           | 13          |
 | 🟢 P3 — Low      | 10     | 0      | 0           | 10          |
-| **Total**        | **35** | **12** | **0**       | **23**      |
+| 🔵 Phase 2       | 20     | 0      | 0           | 20          |
+| **Total**        | **55** | **12** | **0**       | **43**      |
 
 
 ---
@@ -106,6 +107,98 @@
 
 ---
 
+## 🔵 Phase 2 — Group A: Jira Data Enrichment
+
+
+| ID     | Feature                                              | Type       | Status | Started | Completed | Notes                                                                                |
+| ------ | ---------------------------------------------------- | ---------- | ------ | ------- | --------- | ------------------------------------------------------------------------------------ |
+| US-036 | Display Labels & Components on Jira Work Items       | UX/UI      | ⬜      |         |           | Labels as coloured tag pills, components as secondary pills. Filter bar integration. |
+| US-037 | Import Start/End Dates from Jira                     | Functional | ⬜      |         |           | Add `duedate` + start date custom field to JIRA_FIELDS. Map to JiraWorkItem type.    |
+| US-038 | Verify & Display Email on Team Member Cards          | UX/UI      | ⬜      |         |           | `email` field already exists. Ensure it's visible on Team page member cards.          |
+
+
+---
+
+## 🔵 Phase 2 — Group B: Naming Convention Alignment
+
+
+| ID     | Feature                                   | Type  | Status | Started | Completed | Notes                                                                                |
+| ------ | ----------------------------------------- | ----- | ------ | ------- | --------- | ------------------------------------------------------------------------------------ |
+| US-039 | Global Rename: Project → Epic (UI only)   | UX/UI | ⬜      |         |           | All page titles, nav labels, form labels, buttons. Internal code names stay the same. |
+| US-040 | Global Rename: Phase → Feature (UI only)  | UX/UI | ⬜      |         |           | Phase forms, timeline cells, assignment dialogs, Jira overview sub-headers.           |
+
+
+---
+
+## 🔵 Phase 2 — Group C: Jira Hierarchy Display
+
+
+| ID     | Feature                                            | Type       | Status | Started | Completed | Notes                                                                                       |
+| ------ | -------------------------------------------------- | ---------- | ------ | ------- | --------- | ------------------------------------------------------------------------------------------- |
+| US-041 | Reusable JiraHierarchyTree Component               | Functional | ⬜      |         |           | Tree grouped by parent: Epic → Feature → Story/Task/Bug. Collapsible with chevron toggle.   |
+| US-042 | Hierarchy View on Jira Overview Page               | UX/UI      | ⬜      |         |           | Replace flat grouping with nested tree. Keep search/filter controls.                         |
+| US-043 | Hierarchy View on Project Detail (Expandable Card) | UX/UI      | ⬜      |         |           | Nested Jira items shown under each feature when project card is expanded.                    |
+| US-044 | Hierarchy View in Timeline                         | UX/UI      | ⬜      |         |           | Collapsible sub-rows under each Epic row to show Feature rows.                               |
+
+
+---
+
+## 🔵 Phase 2 — Group D: Date-Driven Planning
+
+
+| ID     | Feature                                          | Type       | Status | Started | Completed | Notes                                                                                          |
+| ------ | ------------------------------------------------ | ---------- | ------ | ------- | --------- | ---------------------------------------------------------------------------------------------- |
+| US-045 | Add Date Fields to Phase and Project Types       | Technical  | ⬜      |         |           | `startDate` + `endDate` on Phase/Project. Auto-populate from Jira child dates. Manual override. |
+| US-046 | Date View Mode in Timeline                       | Functional | ⬜      |         |           | Third granularity option: week/month columns with date-range bars per phase.                    |
+| US-047 | Date Display on Project/Phase Cards              | UX/UI      | ⬜      |         |           | Show "12 Mar – 15 Jun 2026" alongside quarter label when dates are set.                         |
+
+
+---
+
+## 🔵 Phase 2 — Group E: Richer Project Detail
+
+
+| ID     | Feature                              | Type  | Status | Started | Completed | Notes                                                                                         |
+| ------ | ------------------------------------ | ----- | ------ | ------- | --------- | --------------------------------------------------------------------------------------------- |
+| US-048 | Enhanced Expandable Project Card     | UX/UI | ⬜      |         |           | Summary section: description, stats, team list, Jira stats. Below: phases + hierarchy (US-043). |
+
+
+---
+
+## 🔵 Phase 2 — Group F: Jira Write-Back
+
+
+| ID     | Feature                                  | Type       | Status | Started | Completed | Notes                                                                                               |
+| ------ | ---------------------------------------- | ---------- | ------ | ------- | --------- | --------------------------------------------------------------------------------------------------- |
+| US-049 | Jira Write API in Proxy                  | Technical  | ⬜      |         |           | `updateJiraIssue()` calling PUT /rest/api/3/issue/{key}. Proxy already allows PUT.                   |
+| US-050 | "Push to Jira" Preview & Confirm UI      | Functional | ⬜      |         |           | Button per connection. Preview modal showing fields to push. User confirms. Progress + results.       |
+| US-051 | Track Push State per Work Item           | Technical  | ⬜      |         |           | `lastPushedAt` + `pushDirty` flags on JiraWorkItem. Dirty indicator on items needing push.            |
+
+
+---
+
+## 🔵 Phase 2 — Group G: Smart Assignment Suggestions
+
+
+| ID     | Feature                                      | Type       | Status | Started | Completed | Notes                                                                                                         |
+| ------ | -------------------------------------------- | ---------- | ------ | ------- | --------- | ------------------------------------------------------------------------------------------------------------- |
+| US-052 | Team Member Scoring Algorithm                | Technical  | ⬜      |         |           | Score by: capacity (40%), skill match (35%), assignment history (25%). Ranked suggestions with score breakdown. |
+| US-053 | Suggestion UI in Assignment Flow             | UX/UI      | ⬜      |         |           | Top 3 suggestions with match % badge and reason chips above the full member list.                              |
+
+
+---
+
+## 🔵 Phase 2 — Group H: Holiday API Integration
+
+
+| ID     | Feature                                     | Type       | Status | Started | Completed | Notes                                                                                          |
+| ------ | ------------------------------------------- | ---------- | ------ | ------- | --------- | ---------------------------------------------------------------------------------------------- |
+| US-054 | Nager.Date API Integration                  | Technical  | ⬜      |         |           | `fetchPublicHolidays(countryCode, year)` calling Nager.Date API. Map to PublicHoliday type.     |
+| US-055 | Holiday Import UI in Settings               | Functional | ⬜      |         |           | Import button, country+year selector, preview, deduplication. Manual CRUD preserved.             |
+
+
+---
+
 ## Completed Features
 
 | ID | Feature | Completed | Summary |
@@ -129,6 +222,7 @@
 
 | Date | ID | Change |
 |------|----|--------|
+| 2026-02-22 | US-036–055 | Phase 2 backlog added: 20 new user stories across 8 groups (Jira data enrichment, naming alignment, hierarchy display, date planning, project detail, write-back, smart suggestions, holiday API). |
 | 2026-02-20 | US-006–012 | All P1 High items completed. Jira baseline warning banner, sync diff preview modal, mapping protection, token masking, sync history log, scenario refresh preview. |
 | 2026-02-20 | US-001–005 | All P0 Critical items completed. Supabase wired as primary data store, loading screen added, sync status indicator live in header, import overwrite safeguard added. |
 | 2026-02-20 | — | Tracker created. All 35 features added with status ⬜ Not started. |
