@@ -111,8 +111,17 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
     onClose();
   };
 
-  const roleOptions = roles.map(r => ({ value: r.name, label: r.name }));
-  const countryOptions = countries.map(c => ({ value: c.id, label: c.name }));
+  // Placeholder empty option prevents the browser from silently showing
+  // the first real option when the value is '' (which caused the "mandatory
+  // field" error — the field appeared filled but the state was empty).
+  const roleOptions = [
+    { value: '', label: '— Select a role —' },
+    ...roles.map(r => ({ value: r.name, label: r.name })),
+  ];
+  const countryOptions = [
+    { value: '', label: '— Select a country —' },
+    ...countries.map(c => ({ value: c.id, label: c.name })),
+  ];
   const squadOptions = [
     { value: '', label: 'Not assigned' },
     ...squads.map(s => ({ value: s.id, label: s.name })),
