@@ -116,7 +116,8 @@ export function applySync(diff: JiraSyncDiff, connection: JiraConnection, settin
         freshState.teamMembers,
         freshState.projects,
         freshState.sprints,
-        settings
+        settings,
+        connection.defaultDaysPerItem ?? 1
       );
       assignmentsCreated = assignResult.assignmentsCreated;
       useAppStore.getState().updateData({ projects: assignResult.projects });
@@ -142,4 +143,33 @@ export function applySync(diff: JiraSyncDiff, connection: JiraConnection, settin
   if (teamSyncResult.created > 0) message += ` · ${teamSyncResult.created} team member(s) imported`;
 
   return { message };
+}
+
+/**
+ * Manually trigger assignment-building for a connection's already-synced work items.
+ * Useful when autoCreateAssignments was off during a previous sync or story points changed.
+ */
+export function buildAssignmentsNow(connectionId: string, settings: JiraSettings): ApplySyncResult {
+  const state = useAppStore.getState().getCurrentState();
+  const connection = state.jiraConnections.find(c => c.id === connectionId);
+  if (!connection) return { message: 'Connection not found' };
+
+  const items = state.jiraWorkItems.filter(i => i.connectionId === connectionId);
+  if (items.length === 0) return { message: 'No synced items found — run a Jira sync first' };
+
+  const result = buildAssignmentsFromJira(
+    items,
+    state.teamMembers,
+    state.projects,
+    state.sprints,
+    settings,
+    connection.defaultDaysPerItem ?? 1
+  );
+  useAppStore.getState().updateData({ projects: result.projects });
+
+  return {
+    message: result.assignmentsCreated > 0
+      ? `${result.assignmentsCreated} assignment(s) built from Jira assignees`
+      : 'No new assignments — check that work items have assignees and sprint names',
+  };
 }

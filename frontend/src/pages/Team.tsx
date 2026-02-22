@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, LayoutGrid, List, CalendarDays } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, LayoutGrid, List, CalendarDays, GitBranch } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { CapacityTooltip } from '../components/ui/CapacityTooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -9,9 +9,8 @@ import { Modal } from '../components/ui/Modal';
 import { TeamMemberForm } from '../components/forms/TeamMemberForm';
 import { TimeOffForm } from '../components/forms/TimeOffForm';
 import { MemberCalendarModal } from '../components/ui/MemberCalendarModal';
-import { useCurrentState } from '../stores/appStore';
+import { useCurrentState, useAppStore } from '../stores/appStore';
 import { deleteTeamMember } from '../stores/actions';
-import { useAppStore } from '../stores/appStore';
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
@@ -131,6 +130,9 @@ export function Team() {
     ...processTeams.map(pt => ({ value: pt.id, label: pt.name })),
   ];
 
+  const activeScenarioId = useAppStore(s => s.data.activeScenarioId);
+  const activeScenario = useAppStore(s => s.data.scenarios.find(sc => sc.id === s.data.activeScenarioId));
+
   // Members needing enrichment (imported from Jira but missing role/country)
   const needsEnrichmentMembers = teamMembers.filter(m => m.needsEnrichment);
   const [enrichmentMode, setEnrichmentMode] = useState(false);
@@ -161,6 +163,15 @@ export function Team() {
 
   return (
     <div className="space-y-6">
+      {/* Scenario isolation notice */}
+      {activeScenarioId && activeScenario && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg text-sm text-purple-800 dark:text-purple-200">
+          <GitBranch size={15} className="shrink-0 text-purple-500" />
+          <span>
+            <strong>Scenario: {activeScenario.name}</strong> — Team members and time off shown here are isolated to this scenario. Changes won't affect the baseline.
+          </span>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

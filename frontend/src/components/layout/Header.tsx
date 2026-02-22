@@ -4,6 +4,7 @@ import {
   FolderKanban,
   Users,
   Settings,
+  Layers,
   Moon,
   Sun,
   Undo2,
@@ -67,7 +68,8 @@ const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string; s
   { view: 'projects', icon: FolderKanban, label: 'Epics', shortcut: '3' },
   { view: 'team', icon: Users, label: 'Team', shortcut: '4' },
   { view: 'jira', icon: Link2, label: 'Jira', shortcut: '5' },
-  { view: 'settings', icon: Settings, label: 'Settings', shortcut: '6' },
+  { view: 'scenarios', icon: Layers, label: 'Scenarios', shortcut: '6' },
+  { view: 'settings', icon: Settings, label: 'Settings', shortcut: '7' },
 ];
 
 function SyncIndicator() {

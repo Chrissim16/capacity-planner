@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Plus, Trash2, Edit2, RefreshCw, Loader2, Power, Download, Link2,
+  Plus, Trash2, Edit2, RefreshCw, Loader2, Power, Download, Link2, Zap, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -14,7 +14,7 @@ import {
   toggleJiraConnectionActive, updateJiraSettings,
 } from '../../stores/actions';
 import { testJiraConnection } from '../../services/jira';
-import { fetchSyncPreview, applySync } from '../../application/jiraSync';
+import { fetchSyncPreview, applySync, buildAssignmentsNow } from '../../application/jiraSync';
 import { useToast } from '../../components/ui/Toast';
 import type { JiraConnection, JiraSyncDiff } from '../../types';
 
@@ -29,8 +29,10 @@ export function JiraSection() {
   // Per-connection UI state
   const [testingId, setTestingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [buildingId, setBuildingId] = useState<string | null>(null);
   const [syncProgress, setSyncProgress] = useState('');
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [expandedSettingsId, setExpandedSettingsId] = useState<string | null>(null);
 
   // Sync diff preview (US-007)
   const [pendingDiff, setPendingDiff] = useState<JiraSyncDiff | null>(null);
@@ -119,6 +121,13 @@ export function JiraSection() {
     advanceQueue();
   };
 
+  const handleBuildAssignments = (conn: JiraConnection) => {
+    setBuildingId(conn.id);
+    const { message } = buildAssignmentsNow(conn.id, jiraSettings);
+    showToast(message, 'success');
+    setBuildingId(null);
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -186,6 +195,15 @@ export function JiraSection() {
                             ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />{syncProgress || 'Fetching…'}</>
                             : <><Download className="w-4 h-4 mr-1" />Sync</>}
                         </Button>
+                        <Button
+                          variant="ghost" size="sm"
+                          onClick={() => setExpandedSettingsId(expandedSettingsId === conn.id ? null : conn.id)}
+                          title="Automation settings"
+                        >
+                          {expandedSettingsId === conn.id
+                            ? <><ChevronDown className="w-3.5 h-3.5 mr-1" /><span className="text-xs">Settings</span></>
+                            : <><ChevronRight className="w-3.5 h-3.5 mr-1" /><span className="text-xs">Settings</span></>}
+                        </Button>
                         {(conn.syncHistory?.length ?? 0) > 0 && (
                           <Button
                             variant="ghost" size="sm"
@@ -215,6 +233,77 @@ export function JiraSection() {
                         </Button>
                       </div>
                     </div>
+
+                    {/* Automation settings panel */}
+                    {expandedSettingsId === conn.id && (
+                      <div className="border-t bg-slate-50 dark:bg-slate-800/50 px-4 py-4 space-y-4">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                          Automation Settings
+                        </p>
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={conn.autoCreateProjects}
+                            onChange={(e) => updateJiraConnection(conn.id, { autoCreateProjects: e.target.checked })}
+                            className="mt-0.5 rounded border-gray-300"
+                          />
+                          <div>
+                            <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Auto-create epics &amp; features</span>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                              When syncing, automatically create or update Epics and Features in the planner based on Jira epics and features.
+                            </p>
+                          </div>
+                        </label>
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={conn.autoCreateAssignments}
+                            onChange={(e) => updateJiraConnection(conn.id, { autoCreateAssignments: e.target.checked })}
+                            className="mt-0.5 rounded border-gray-300"
+                          />
+                          <div>
+                            <span className="text-sm font-medium text-slate-800 dark:text-slate-200">Auto-build capacity assignments</span>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                              When syncing, create capacity allocations for team members based on their Jira assignments and story points.
+                            </p>
+                          </div>
+                        </label>
+                        <div className="flex items-center gap-4">
+                          <div className="flex-1">
+                            <label className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                              Fallback days per item
+                            </label>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                              Days to allocate for items without story points.
+                            </p>
+                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            max="30"
+                            step="0.5"
+                            value={conn.defaultDaysPerItem}
+                            onChange={(e) => updateJiraConnection(conn.id, { defaultDaysPerItem: parseFloat(e.target.value) || 1 })}
+                            className="w-20 text-sm border border-input rounded px-2 py-1 bg-background text-right"
+                          />
+                        </div>
+                        <div className="pt-1 border-t border-slate-200 dark:border-slate-700">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleBuildAssignments(conn)}
+                            disabled={buildingId === conn.id}
+                          >
+                            {buildingId === conn.id
+                              ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />Building…</>
+                              : <><Zap className="w-4 h-4 mr-1" />Build assignments from Jira now</>}
+                          </Button>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
+                            Builds capacity assignments from already-synced items without running a full sync.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Sync history panel (US-011) */}
                     {expandedHistoryId === conn.id && conn.syncHistory && conn.syncHistory.length > 0 && (

@@ -314,7 +314,8 @@ export function buildAssignmentsFromJira(
   teamMembers: TeamMember[],
   projects: Project[],
   sprints: Sprint[],
-  jiraSettings: JiraSettings
+  jiraSettings: JiraSettings,
+  defaultDaysPerItem = 1
 ): AssignmentBuildResult {
   const memberByEmail = new Map(
     teamMembers
@@ -348,10 +349,10 @@ export function buildAssignmentsFromJira(
     const quarter = sprintNameToQuarter(item.sprintName, sprints);
     if (!quarter) continue;
 
-    // Convert story points → days
+    // Convert story points → days; use per-connection fallback for items without story points
     const days = item.storyPoints
       ? Math.round(item.storyPoints * storyPointsToDays * 10) / 10
-      : 0; // no fallback days for individual items — accumulate story-pointed ones only
+      : defaultDaysPerItem;
     if (days <= 0) continue;
 
     // Find phase

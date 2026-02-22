@@ -704,16 +704,24 @@ export function computeSyncDiff(
  */
 export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]): JiraSyncResult {
   const state = useAppStore.getState();
-  const existingItems = state.getCurrentState().jiraWorkItems;
-  
+  const currentState = state.getCurrentState();
+  const existingItems = currentState.jiraWorkItems;
+
   const otherConnectionItems = existingItems.filter(item => item.connectionId !== connectionId);
   const existingConnectionItems = existingItems.filter(item => item.connectionId === connectionId);
   const existingByJiraId = new Map(existingConnectionItems.map(item => [item.jiraId, item]));
-  
+
+  // Build email → member ID map for auto-linking assignees
+  const memberByEmail = new Map(
+    currentState.teamMembers
+      .filter(m => m.email)
+      .map(m => [m.email!.toLowerCase(), m.id])
+  );
+
   let itemsCreated = 0;
   let itemsUpdated = 0;
   let mappingsPreserved = 0;
-  
+
   const mergedItems = newItems.map(newItem => {
     const existing = existingByJiraId.get(newItem.jiraId);
     if (existing) {
@@ -721,16 +729,23 @@ export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]
       const hasMappings = !!(existing.mappedProjectId || existing.mappedPhaseId || existing.mappedMemberId);
       if (hasMappings) mappingsPreserved++;
       // US-008: Preserve all local-only fields (mappings survive the sync)
+      // Auto-set mappedMemberId from assignee email only if not already manually set
+      const autoMemberId = !existing.mappedMemberId && newItem.assigneeEmail
+        ? memberByEmail.get(newItem.assigneeEmail.toLowerCase())
+        : undefined;
       return {
         ...newItem,
         id: existing.id,
         mappedProjectId: existing.mappedProjectId,
         mappedPhaseId: existing.mappedPhaseId,
-        mappedMemberId: existing.mappedMemberId,
+        mappedMemberId: existing.mappedMemberId ?? autoMemberId,
       };
     } else {
       itemsCreated++;
-      return { ...newItem, id: generateJiraId('jira-item') };
+      const autoMemberId = newItem.assigneeEmail
+        ? memberByEmail.get(newItem.assigneeEmail.toLowerCase())
+        : undefined;
+      return { ...newItem, id: generateJiraId('jira-item'), mappedMemberId: autoMemberId };
     }
   });
   
@@ -785,6 +800,12 @@ export function createScenario(name: string, description?: string): Scenario {
   const currentState = state.getCurrentState();
   const now = new Date().toISOString();
   
+  // Deep-copy all scenario-specific data from current state
+  const copiedTimeOff = JSON.parse(JSON.stringify(currentState.timeOff));
+  if (import.meta.env.DEV && currentState.timeOff.length > 0 && copiedTimeOff.length === 0) {
+    console.warn('[createScenario] timeOff copy is empty despite source having entries — check getCurrentState()');
+  }
+
   // Create a new scenario as a copy of current baseline data
   const newScenario: Scenario = {
     id: generateId('scenario'),
@@ -797,7 +818,7 @@ export function createScenario(name: string, description?: string): Scenario {
     projects: JSON.parse(JSON.stringify(currentState.projects)),
     teamMembers: JSON.parse(JSON.stringify(currentState.teamMembers)),
     assignments: [], // Will be populated from project phases
-    timeOff: JSON.parse(JSON.stringify(currentState.timeOff)),
+    timeOff: copiedTimeOff,
     jiraWorkItems: JSON.parse(JSON.stringify(currentState.jiraWorkItems)),
   };
   

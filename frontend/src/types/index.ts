@@ -223,7 +223,7 @@ export interface MemberCapacitySummary {
 // UI STATE
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'settings';
+export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'settings';
 export type TeamViewMode = 'current' | 'all';
 export type ProjectViewMode = 'cards' | 'list';
 export type TimelineViewMode = 'week' | 'month' | 'quarter' | 'year';
