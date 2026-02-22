@@ -24,7 +24,18 @@ ALTER TABLE systems
 ALTER TABLE roles
   ALTER COLUMN id TYPE text USING id::text;
 
--- skills
+-- skills — drop FK from team_member_skills first (if that table/constraint exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'team_member_skills'
+  ) THEN
+    ALTER TABLE team_member_skills
+      DROP CONSTRAINT IF EXISTS team_member_skills_skill_id_fkey;
+  END IF;
+END $$;
+
 ALTER TABLE skills
   ALTER COLUMN id TYPE text USING id::text;
 
