@@ -71,6 +71,49 @@ export function getWorkdaysInQuarter(
 }
 
 /**
+ * Count working days within an ISO date range (start–end inclusive),
+ * optionally clamped to a quarter's boundaries.
+ * Excludes weekends and the supplied holidays.
+ */
+export function getWorkdaysInDateRange(
+  startDateStr: string,
+  endDateStr: string,
+  holidays: PublicHoliday[] = [],
+  clampStart?: Date,
+  clampEnd?: Date
+): number {
+  let from = new Date(startDateStr + 'T00:00:00');
+  let to   = new Date(endDateStr   + 'T00:00:00');
+
+  if (clampStart && from < clampStart) from = new Date(clampStart);
+  if (clampEnd   && to   > clampEnd)   to   = new Date(clampEnd);
+
+  if (from > to) return 0;
+
+  let workdays = 0;
+  const cur = new Date(from);
+  while (cur <= to) {
+    if (!isWeekend(cur) && !isPublicHoliday(cur, holidays)) workdays++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return workdays;
+}
+
+/**
+ * Count working days of a time-off date range that fall within a specific quarter.
+ */
+export function getWorkdaysInDateRangeForQuarter(
+  startDateStr: string,
+  endDateStr: string,
+  quarterStr: string,
+  holidays: PublicHoliday[] = []
+): number {
+  const range = parseQuarter(quarterStr);
+  if (!range) return 0;
+  return getWorkdaysInDateRange(startDateStr, endDateStr, holidays, range.start, range.end);
+}
+
+/**
  * Get workdays for a specific member in a quarter
  */
 export function getWorkdaysForMember(

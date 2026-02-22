@@ -14,7 +14,8 @@ import {
   getWorkdaysInQuarter, 
   getHolidaysByCountry, 
   isQuarterInRange,
-  getCurrentQuarter 
+  getCurrentQuarter,
+  getWorkdaysInDateRangeForQuarter,
 } from './calendar';
 
 /**
@@ -53,14 +54,20 @@ export function calculateCapacity(
   usedDays += bauDays;
   breakdown.push({ type: 'bau', days: bauDays });
 
-  // Time Off (in days)
-  const timeOff = state.timeOff.find(
-    t => t.memberId === memberId && t.quarter === quarter
-  );
-  if (timeOff) {
-    const toDays = timeOff.days || 0;
-    usedDays += toDays;
-    breakdown.push({ type: 'timeoff', days: toDays, reason: timeOff.reason });
+  // Time Off (date-range based — sum working days that overlap this quarter)
+  const memberTimeOff = state.timeOff.filter(t => t.memberId === memberId);
+  let totalTimeOffDays = 0;
+  for (const to of memberTimeOff) {
+    totalTimeOffDays += getWorkdaysInDateRangeForQuarter(
+      to.startDate,
+      to.endDate,
+      quarter,
+      memberHolidays
+    );
+  }
+  if (totalTimeOffDays > 0) {
+    usedDays += totalTimeOffDays;
+    breakdown.push({ type: 'timeoff', days: totalTimeOffDays });
   }
 
   // Project assignments (in days)

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Eye, EyeOff, User, FolderKanban, Calendar, Zap, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, User, FolderKanban, Calendar, Zap, Filter, CalendarOff } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -7,7 +7,7 @@ import { Select } from '../components/ui/Select';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { useAppStore, useCurrentState } from '../stores/appStore';
 import { calculateCapacity } from '../utils/capacity';
-import { isQuarterInRange, getCurrentQuarter, getWorkWeeksInQuarter } from '../utils/calendar';
+import { isQuarterInRange, getCurrentQuarter, getWorkWeeksInQuarter, getWorkdaysInDateRangeForQuarter } from '../utils/calendar';
 import { generateSprints, getSprintsForQuarter, formatDateRange, getWorkdaysInSprint } from '../utils/sprints';
 import type { Project, TeamMember, Sprint } from '../types';
 
@@ -510,6 +510,12 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
         {/* Quarter Cells with Capacity */}
         {quarters.map(quarter => {
           const capacity = calculateCapacity(member.id, quarter, state);
+          const memberHolidays = state.publicHolidays.filter(
+            h => h.countryId === (member.countryId || state.settings.defaultCountryId)
+          );
+          const timeOffDays = state.timeOff
+            .filter(t => t.memberId === member.id)
+            .reduce((sum, t) => sum + getWorkdaysInDateRangeForQuarter(t.startDate, t.endDate, quarter, memberHolidays), 0);
           
           return (
             <div
@@ -538,6 +544,14 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
                   {capacity.usedPercent}%
                 </span>
               </div>
+              {timeOffDays > 0 && (
+                <div className="flex items-center gap-1 mt-1">
+                  <CalendarOff size={10} className="text-orange-500 shrink-0" />
+                  <span className="text-[10px] text-orange-500 font-medium">
+                    {timeOffDays}d off
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Users, FolderKanban, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Users, FolderKanban, AlertTriangle, TrendingUp, CalendarOff } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useAppStore } from '../stores/appStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -145,12 +145,25 @@ export function Dashboard() {
                 action={{ label: 'Add team members', onClick: () => setCurrentView('team') }}
               />
             ) : (
-              memberCapacities.map(({ member, capacity }) => (
+              memberCapacities.map(({ member, capacity }) => {
+                const timeOffDays = capacity.breakdown.find(b => b.type === 'timeoff')?.days ?? 0;
+                return (
                 <div key={member.id} className="flex items-center gap-4">
                   <div className="w-40 truncate">
-                    <p className="font-medium text-slate-900 dark:text-white truncate">
-                      {member.name}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium text-slate-900 dark:text-white truncate">
+                        {member.name}
+                      </p>
+                      {timeOffDays > 0 && (
+                        <span
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded shrink-0"
+                          title={`${timeOffDays}d of PTO in ${currentQuarter}`}
+                        >
+                          <CalendarOff size={9} />
+                          {timeOffDays}d
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {member.role}
                     </p>
@@ -175,7 +188,7 @@ export function Dashboard() {
                      capacity.status === 'warning' ? 'High' : 'OK'}
                   </Badge>
                 </div>
-              ))
+              );})
             )}
           </CardContent>
         </Card>

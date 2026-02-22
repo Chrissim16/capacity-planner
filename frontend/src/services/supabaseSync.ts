@@ -209,9 +209,9 @@ export async function loadFromSupabase(): Promise<AppState | null> {
     const timeOff: TimeOff[] = (timeOffRes.data ?? []).map(t => ({
       id: t.id,
       memberId: t.member_id,
-      quarter: t.quarter,
-      days: Number(t.days),
-      reason: t.reason ?? undefined,
+      startDate: t.start_date,
+      endDate: t.end_date,
+      note: t.note ?? undefined,
     }));
 
     const sprints: Sprint[] = (sprintsRes.data ?? []).map(s => ({
@@ -541,20 +541,15 @@ async function syncProjects(projects: Project[]): Promise<void> {
 }
 
 async function syncTimeOff(timeOff: TimeOff[]): Promise<void> {
-  // Ensure every entry has an id
-  const withIds = timeOff.map(t => ({
-    ...t,
-    id: t.id ?? `timeoff-${t.memberId}-${t.quarter}`.replace(/\s/g, '-'),
-  }));
   await upsertAndPrune(
     'time_off',
-    withIds,
+    timeOff,
     t => ({
       id: t.id,
       member_id: t.memberId,
-      quarter: t.quarter,
-      days: t.days,
-      reason: t.reason ?? null,
+      start_date: t.startDate,
+      end_date: t.endDate,
+      note: t.note ?? null,
     })
   );
 }

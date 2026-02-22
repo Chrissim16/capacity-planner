@@ -69,11 +69,11 @@ export interface TeamMember {
 }
 
 export interface TimeOff {
-  id?: string;
+  id: string;
   memberId: string;
-  quarter: string; // "Q1 2026" format
-  days: number;
-  reason?: string;
+  startDate: string; // ISO date "2026-04-15"
+  endDate: string;   // ISO date "2026-04-19"
+  note?: string;
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

@@ -457,12 +457,26 @@ export function Team() {
                         )}
                         
                         {/* Time Off indicator */}
-                        {timeOff.length > 0 && (
-                          <div className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
-                            <CalendarOff size={12} />
-                            {timeOff.length} quarter{timeOff.length > 1 ? 's' : ''} with time off
-                          </div>
-                        )}
+                        {timeOff.length > 0 && (() => {
+                          const today = new Date().toISOString().split('T')[0];
+                          const upcoming = timeOff
+                            .filter(t => t.endDate >= today)
+                            .sort((a, b) => a.startDate.localeCompare(b.startDate));
+                          const next = upcoming[0];
+                          const fmt = (d: string) =>
+                            new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+                          return (
+                            <div className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                              <CalendarOff size={12} />
+                              {timeOff.length} absence{timeOff.length > 1 ? 's' : ''}
+                              {next && (
+                                <span className="text-orange-400 dark:text-orange-500">
+                                  · Next: {fmt(next.startDate)}{next.startDate !== next.endDate ? `–${fmt(next.endDate)}` : ''}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         
                         {/* Max projects */}
                         <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">

@@ -2,7 +2,7 @@
  * Import/Export utilities for the Capacity Planner
  */
 
-import type { AppState, Project, Phase } from '../types';
+import type { AppState, Project, Phase, TimeOff } from '../types';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // JSON EXPORT/IMPORT
@@ -157,8 +157,8 @@ export async function exportToExcel(state: AppState, filename = 'capacity-planne
 
   // Time Off sheet
   const timeOffData = [
-    ['Member ID', 'Quarter', 'Days', 'Reason'],
-    ...state.timeOff.map(t => [t.memberId, t.quarter, t.days, t.reason || ''])
+    ['ID', 'Member ID', 'Start Date', 'End Date', 'Note'],
+    ...state.timeOff.map(t => [t.id, t.memberId, t.startDate, t.endDate, t.note || ''])
   ];
   const timeOffSheet = XLSX.utils.aoa_to_sheet(timeOffData);
   XLSX.utils.book_append_sheet(workbook, timeOffSheet, 'TimeOff');
@@ -411,12 +411,13 @@ export async function importFromExcel(file: File): Promise<{ data: Partial<AppSt
     result.projects = Array.from(projectsMap.values()).filter(p => p.name);
 
     // Import Time Off
-    result.timeOff = readSheet('TimeOff', row => ({
-      memberId: String(row['Member ID'] || ''),
-      quarter: String(row['Quarter'] || ''),
-      days: Number(row['Days'] || 0),
-      reason: row['Reason'] ? String(row['Reason']) : undefined,
-    })).filter(t => t.memberId && t.quarter);
+    result.timeOff = (readSheet('TimeOff', row => ({
+      id:        String(row['ID'] || `timeoff-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+      memberId:  String(row['Member ID'] || ''),
+      startDate: String(row['Start Date'] || ''),
+      endDate:   String(row['End Date'] || ''),
+      note:      row['Note'] ? String(row['Note']) : undefined,
+    })) as TimeOff[]).filter((t: TimeOff) => t.memberId && t.startDate && t.endDate);
 
     return { data: result, warnings: warnings.length > 0 ? warnings : undefined };
   } catch (e) {

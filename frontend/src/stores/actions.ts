@@ -302,37 +302,22 @@ export function syncTeamMembersFromJira(): TeamMemberSyncResult {
 // TIME OFF ACTIONS
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-export function setTimeOff(memberId: string, quarter: string, days: number, reason?: string): void {
+export function addTimeOff(memberId: string, startDate: string, endDate: string, note?: string): void {
   const state = useAppStore.getState();
   const timeOff = state.getCurrentState().timeOff;
-  
-  const existingIndex = timeOff.findIndex(
-    t => t.memberId === memberId && t.quarter === quarter
-  );
-  
-  let newTimeOff: TimeOff[];
-  if (days === 0) {
-    // Remove if days is 0
-    newTimeOff = timeOff.filter(
-      t => !(t.memberId === memberId && t.quarter === quarter)
-    );
-  } else if (existingIndex >= 0) {
-    // Update existing
-    newTimeOff = [...timeOff];
-    newTimeOff[existingIndex] = { memberId, quarter, days, reason };
-  } else {
-    // Add new
-    newTimeOff = [...timeOff, { memberId, quarter, days, reason }];
-  }
-  
-  state.updateData({ timeOff: newTimeOff });
+  const newEntry: TimeOff = {
+    id: generateId('timeoff'),
+    memberId,
+    startDate,
+    endDate,
+    note,
+  };
+  state.updateData({ timeOff: [...timeOff, newEntry] });
 }
 
-export function deleteTimeOff(memberId: string, quarter: string): void {
+export function removeTimeOff(id: string): void {
   const state = useAppStore.getState();
-  const timeOff = state.getCurrentState().timeOff.filter(
-    t => !(t.memberId === memberId && t.quarter === quarter)
-  );
+  const timeOff = state.getCurrentState().timeOff.filter(t => t.id !== id);
   state.updateData({ timeOff });
 }
 
