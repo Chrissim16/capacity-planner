@@ -193,4 +193,39 @@ const path = '/rest/api/3/search/jql?jql=' + ...
 
 ---
 
+## Bug #005: Holiday API import returning 404 (country.id sent instead of country.code)
+**Date:** 2026-02-22  
+**Severity:** Medium  
+**Found by:** User testing (Settings > Holidays > Import from Nager.Date API)
+
+### Description
+Clicking "Preview" in the new holiday import UI immediately returned a 404 error from the Nager.Date API regardless of which country was selected.
+
+### Root Cause
+The Nager.Date API URL is `https://date.nager.at/api/v3/PublicHolidays/{year}/{countryCode}` and expects an ISO 3166-1 alpha-2 country code such as `NL` or `DE`.
+
+Each country record in the app has two separate fields:
+- `id` — an internal generated key (e.g. `country-abc123`), used as the foreign key to link holidays, team members, etc.
+- `code` — the ISO alpha-2 string (e.g. `NL`, `DE`, `CZ`)
+
+The `handleFetchPreview` function in `HolidaysSection.tsx` was passing `country.id` to `fetchNagerHolidays()` instead of `country.code`, producing URLs like:
+```
+GET https://date.nager.at/api/v3/PublicHolidays/2026/country-abc123  →  404
+```
+
+### Fix
+One-character change in `frontend/src/pages/settings/HolidaysSection.tsx`:
+```typescript
+// Before (buggy)
+const holidays = await fetchNagerHolidays(country.id, Number(importYear));
+
+// After
+const holidays = await fetchNagerHolidays(country.code, Number(importYear));
+```
+
+### File Changed
+- `frontend/src/pages/settings/HolidaysSection.tsx` — use `country.code` (ISO alpha-2) for the Nager.Date API call
+
+---
+
 *End of log*
