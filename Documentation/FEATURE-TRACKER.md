@@ -4,7 +4,7 @@
 
 **Last updated:** February 20, 2026  
 **Total features:** 56  
-**Completed:** 39 / 56
+**Completed:** 43 / 56
 
 ---
 
@@ -17,8 +17,8 @@
 | 🟠 P1 — High     | 7      | 7      | 0           | 0           |
 | 🟡 P2 — Medium   | 13     | 12     | 0           | 1           |
 | 🟢 P3 — Low      | 11     | 4      | 0           | 7           |
-| 🔵 Phase 2       | 20     | 11     | 0           | 9           |
-| **Total**        | **56** | **39** | **0**       | **17**      |
+| 🔵 Phase 2       | 20     | 15     | 0           | 5           |
+| **Total**        | **56** | **43** | **0**       | **13**      |
 
 
 ---
@@ -136,10 +136,10 @@
 
 | ID     | Feature                                            | Type       | Status | Started | Completed | Notes                                                                                       |
 | ------ | -------------------------------------------------- | ---------- | ------ | ------- | --------- | ------------------------------------------------------------------------------------------- |
-| US-041 | Reusable JiraHierarchyTree Component               | Functional | ⬜      |         |           | Tree grouped by parent: Epic → Feature → Story/Task/Bug. Collapsible with chevron toggle.   |
-| US-042 | Hierarchy View on Jira Overview Page               | UX/UI      | ⬜      |         |           | Replace flat grouping with nested tree. Keep search/filter controls.                         |
-| US-043 | Hierarchy View on Project Detail (Expandable Card) | UX/UI      | ⬜      |         |           | Nested Jira items shown under each feature when project card is expanded.                    |
-| US-044 | Hierarchy View in Timeline                         | UX/UI      | ⬜      |         |           | Collapsible sub-rows under each Epic row to show Feature rows.                               |
+| US-041 | Reusable JiraHierarchyTree Component               | Functional | ✅ | 2026-02-20 | 2026-02-20 | `JiraHierarchyTree.tsx` — builds tree from `parentKey`, collapsible at each level, read-only + edit modes. |
+| US-042 | Hierarchy View on Jira Overview Page               | UX/UI      | ✅ | 2026-02-20 | 2026-02-20 | `ProjectGroup` now renders `JiraHierarchyTree` instead of flat phase list. Mapping controls intact.        |
+| US-043 | Hierarchy View on Project Detail (Expandable Card) | UX/UI      | ✅ | 2026-02-20 | 2026-02-20 | Expanded project card shows a Jira Items section above the feature list using `JiraHierarchyTree` (read-only). |
+| US-044 | Hierarchy View in Timeline                         | UX/UI      | ✅ | 2026-02-20 | 2026-02-20 | `ProjectRow` has a chevron toggle; when expanded shows per-feature sub-rows for both quarter and sprint views. |
 
 
 ---
