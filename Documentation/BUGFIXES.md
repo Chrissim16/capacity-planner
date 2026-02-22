@@ -228,4 +228,41 @@ const holidays = await fetchNagerHolidays(country.code, Number(importYear));
 
 ---
 
+## Bug #006: Holiday API import returns 404 for United Kingdom (UK vs GB)
+**Date:** 2026-02-22  
+**Severity:** Low  
+**Found by:** User testing
+
+### Description
+The holiday import preview worked for all countries except the United Kingdom. Selecting "UK" produced a 404 from the Nager.Date API.
+
+### Root Cause
+The Nager.Date API strictly follows the ISO 3166-1 alpha-2 standard, where the United Kingdom's official code is `GB`, not `UK`. `UK` is a commonly used informal alias that is not a valid ISO code. If the country was stored in the app with code `UK`, the API call would generate:
+```
+GET https://date.nager.at/api/v3/PublicHolidays/2026/UK  →  404
+```
+
+### Fix
+Added a `CODE_ALIASES` map and `normaliseCode()` helper in `nagerHolidays.ts` that transparently converts known informal codes to their ISO standard equivalents before the API call:
+
+```typescript
+const CODE_ALIASES: Record<string, string> = {
+  UK: 'GB',
+  EN: 'GB',
+  ENG: 'GB',
+};
+
+function normaliseCode(code: string): string {
+  const upper = code.toUpperCase();
+  return CODE_ALIASES[upper] ?? upper;
+}
+```
+
+The app-side country code (`UK`) is preserved unchanged — only the value sent to the external API is normalised.
+
+### File Changed
+- `frontend/src/services/nagerHolidays.ts` — added `CODE_ALIASES` map and `normaliseCode()` function
+
+---
+
 *End of log*
