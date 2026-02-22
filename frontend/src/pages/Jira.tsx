@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
-  Link2, Search, ExternalLink, ChevronDown, ChevronRight,
-  CheckCircle2, AlertCircle, FolderOpen, Layers, Zap, Edit2, X,
+  Link2, Search, ChevronDown, ChevronRight,
+  FolderOpen, Zap, Edit2, X, CheckCircle2, AlertCircle, ExternalLink,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -9,23 +9,10 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
+import { JiraHierarchyTree, TYPE_COLORS, STATUS_CATEGORY_COLORS } from '../components/JiraHierarchyTree';
 import { useAppStore } from '../stores/appStore';
 import { updateJiraWorkItemMapping, clearJiraWorkItemMappings } from '../stores/actions';
 import type { JiraWorkItem, JiraItemType, Project } from '../types';
-
-const typeColors: Record<JiraItemType, string> = {
-  epic:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  feature: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  story:   'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  task:    'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
-  bug:     'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-};
-
-const statusCategoryColors: Record<string, string> = {
-  todo:        'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
-  in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  done:        'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -384,33 +371,12 @@ interface ProjectGroupProps {
 }
 
 function ProjectGroup({
-  groupId, title, subtitle, icon, items, projects, expanded, onToggle,
+  groupId: _groupId, title, subtitle, icon, items, projects: _projects, expanded, onToggle,
   editingItemId, onEditItem, projectOptions, getPhaseOptions, memberOptions,
   connectionBaseUrls, selectedItems, onToggleSelect, alwaysShowControls = false,
 }: ProjectGroupProps) {
-  // Group items further by phase within this project
-  const phases = useMemo(() => {
-    const project = projects.find(p => p.id === groupId);
-    const byPhase = new Map<string, JiraWorkItem[]>();
-    const noPhase: JiraWorkItem[] = [];
-    for (const item of items) {
-      if (item.mappedPhaseId) {
-        const list = byPhase.get(item.mappedPhaseId) ?? [];
-        list.push(item);
-        byPhase.set(item.mappedPhaseId, list);
-      } else {
-        noPhase.push(item);
-      }
-    }
-    const result: { phaseId: string; phaseName: string; items: JiraWorkItem[] }[] = [];
-    for (const [phaseId, phaseItems] of byPhase.entries()) {
-      const phase = project?.phases.find(ph => ph.id === phaseId);
-      result.push({ phaseId, phaseName: phase?.name ?? phaseId, items: phaseItems });
-    }
-    result.sort((a, b) => a.phaseName.localeCompare(b.phaseName));
-    if (noPhase.length) result.push({ phaseId: '__none__', phaseName: 'No phase', items: noPhase });
-    return result;
-  }, [items, projects, groupId]);
+  // All items in this group share the same connectionId (or we just take the first)
+  const groupBaseUrl = connectionBaseUrls[items[0]?.connectionId ?? ''] ?? '';
 
   return (
     <Card>
@@ -437,38 +403,20 @@ function ProjectGroup({
       </CardHeader>
 
       {expanded && (
-        <CardContent className="pt-0 pb-2">
-          {phases.map(({ phaseId, phaseName, items: phaseItems }) => (
-            <div key={phaseId} className="mb-4 last:mb-0">
-              {/* Phase sub-header (only when there's more than one phase, or it's a real phase) */}
-              {(phases.length > 1 || phaseId !== '__none__') && (
-                <div className="flex items-center gap-2 px-2 py-1 mb-1">
-                  <Layers size={13} className="text-slate-400 shrink-0" />
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                    {phaseName}
-                  </span>
-                  <span className="text-xs text-slate-400">({phaseItems.length})</span>
-                </div>
-              )}
-              <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-lg border border-slate-100 dark:border-slate-800">
-                {phaseItems.map(item => (
-                  <JiraItemRow
-                    key={item.id}
-                    item={item}
-                    isSelected={selectedItems.has(item.id)}
-                    onToggleSelect={() => onToggleSelect(item.id)}
-                    isEditing={editingItemId === item.id}
-                    onEdit={() => onEditItem(editingItemId === item.id ? null : item.id)}
-                    projectOptions={projectOptions}
-                    getPhaseOptions={getPhaseOptions}
-                    memberOptions={memberOptions}
-                    jiraBaseUrl={connectionBaseUrls[item.connectionId] ?? ''}
-                    alwaysShowControls={alwaysShowControls}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+        <CardContent className="pt-2 pb-3">
+          <JiraHierarchyTree
+            items={items}
+            jiraBaseUrl={groupBaseUrl}
+            readOnly={false}
+            projectOptions={projectOptions}
+            getPhaseOptions={getPhaseOptions}
+            memberOptions={memberOptions}
+            selectedItems={selectedItems}
+            onToggleSelect={onToggleSelect}
+            editingItemId={editingItemId}
+            onEditItem={onEditItem}
+            alwaysShowControls={alwaysShowControls}
+          />
         </CardContent>
       )}
     </Card>
@@ -478,143 +426,3 @@ function ProjectGroup({
 // ─────────────────────────────────────────────────────────────────────────────
 // JiraItemRow
 // ─────────────────────────────────────────────────────────────────────────────
-
-interface JiraItemRowProps {
-  item: JiraWorkItem;
-  isSelected: boolean;
-  onToggleSelect: () => void;
-  isEditing: boolean;
-  onEdit: () => void;
-  projectOptions: { value: string; label: string }[];
-  getPhaseOptions: (pid: string | undefined) => { value: string; label: string }[];
-  memberOptions: { value: string; label: string }[];
-  jiraBaseUrl: string;
-  alwaysShowControls: boolean;
-}
-
-function JiraItemRow({
-  item, isSelected, onToggleSelect, isEditing, onEdit,
-  projectOptions, getPhaseOptions, memberOptions, jiraBaseUrl, alwaysShowControls,
-}: JiraItemRowProps) {
-  const isMapped = !!item.mappedProjectId;
-
-  const handleMapProject = (projectId: string | undefined) => {
-    updateJiraWorkItemMapping(item.id, { mappedProjectId: projectId, mappedPhaseId: undefined });
-  };
-  const handleMapPhase = (phaseId: string | undefined) => {
-    updateJiraWorkItemMapping(item.id, { mappedPhaseId: phaseId });
-  };
-  const handleMapMember = (memberId: string | undefined) => {
-    updateJiraWorkItemMapping(item.id, { mappedMemberId: memberId });
-  };
-
-  const showControls = alwaysShowControls || isEditing;
-
-  return (
-    <div className={clsx(
-      'py-2.5 px-3 flex items-center gap-3 text-sm',
-      isSelected && 'bg-blue-50 dark:bg-blue-900/20',
-    )}>
-      <input
-        type="checkbox"
-        checked={isSelected}
-        onChange={onToggleSelect}
-        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 shrink-0"
-      />
-
-      {isMapped
-        ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-        : <AlertCircle  className="w-4 h-4 text-amber-500 shrink-0" />
-      }
-
-      <Badge className={clsx('shrink-0 text-xs', typeColors[item.type])}>
-        {item.typeName}
-      </Badge>
-
-      {/* Key + summary */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <a
-            href={`${jiraBaseUrl}/browse/${item.jiraKey}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-mono text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5 shrink-0"
-            onClick={e => e.stopPropagation()}
-          >
-            {item.jiraKey}
-            <ExternalLink className="w-3 h-3" />
-          </a>
-          <Badge className={clsx('text-xs', statusCategoryColors[item.statusCategory])} variant="default">
-            {item.status}
-          </Badge>
-          {item.storyPoints != null && (
-            <span className="text-xs text-slate-400">{item.storyPoints} SP</span>
-          )}
-        </div>
-        <div className="text-slate-700 dark:text-slate-300 truncate mt-0.5">{item.summary}</div>
-
-        {/* Labels + components + dates */}
-        <div className="flex items-center gap-1.5 flex-wrap mt-1 empty:mt-0">
-          {item.labels.map(l => (
-            <span key={l} className="px-1.5 py-0 text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded">
-              {l}
-            </span>
-          ))}
-          {item.components.map(c => (
-            <span key={c} className="px-1.5 py-0 text-[10px] font-medium bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 rounded">
-              {c}
-            </span>
-          ))}
-          {(item.startDate || item.dueDate) && (
-            <span className="text-[10px] text-slate-400">
-              {item.startDate && new Date(item.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-              {item.startDate && item.dueDate && ' – '}
-              {item.dueDate && new Date(item.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-            </span>
-          )}
-        </div>
-
-        {item.assigneeName && !showControls && (
-          <div className="text-xs text-slate-400 mt-0.5">Assignee: {item.assigneeName}</div>
-        )}
-      </div>
-
-      {/* Edit override button (only for already-mapped items) */}
-      {!alwaysShowControls && (
-        <button
-          onClick={onEdit}
-          className="shrink-0 p-1.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-          title={isEditing ? 'Close' : 'Override mapping'}
-        >
-          {isEditing ? <X size={14} /> : <Edit2 size={14} />}
-        </button>
-      )}
-
-      {/* Mapping controls (unmatched items always, matched items only in edit mode) */}
-      {showControls && (
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
-          <Select
-            value={item.mappedProjectId || ''}
-            onChange={e => handleMapProject(e.target.value || undefined)}
-            options={projectOptions}
-            className="text-xs w-44"
-          />
-          {item.mappedProjectId && (
-            <Select
-              value={item.mappedPhaseId || ''}
-              onChange={e => handleMapPhase(e.target.value || undefined)}
-              options={getPhaseOptions(item.mappedProjectId)}
-              className="text-xs w-40"
-            />
-          )}
-          <Select
-            value={item.mappedMemberId || ''}
-            onChange={e => handleMapMember(e.target.value || undefined)}
-            options={memberOptions}
-            className="text-xs w-36"
-          />
-        </div>
-      )}
-    </div>
-  );
-}

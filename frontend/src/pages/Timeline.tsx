@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Eye, EyeOff, User, FolderKanban, Calendar, Zap, Filter, CalendarOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Eye, EyeOff, User, FolderKanban, Calendar, Zap, Filter, CalendarOff } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -580,152 +580,267 @@ interface ProjectRowProps {
 }
 
 function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor, onAssign }: ProjectRowProps) {
+  // US-044: collapse/expand feature sub-rows
+  const [expanded, setExpanded] = useState(false);
+  const hasPhases = project.phases.length > 0;
+
   if (granularity === 'quarter') {
-    // Quarter view
     const quarterData = quarters.map(quarter => {
-      const activePhases = project.phases.filter(phase => 
+      const activePhases = project.phases.filter(phase =>
         isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter)
       );
-      
-      const totalDays = activePhases.reduce((sum, phase) => {
-        return sum + phase.assignments.reduce((asum, a) => 
-          a.quarter === quarter ? asum + a.days : asum, 0
-        );
-      }, 0);
-      
+      const totalDays = activePhases.reduce((sum, phase) =>
+        sum + phase.assignments.reduce((asum, a) => a.quarter === quarter ? asum + a.days : asum, 0), 0
+      );
       return { quarter, activePhases, totalDays };
     });
 
     return (
-      <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-        {/* Project Info */}
-        <div className={`w-64 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
-          <div className="font-medium text-slate-900 dark:text-white truncate" title={project.name}>
-            {project.name}
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              {project.phases.length} phase{project.phases.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-        </div>
-        
-        {/* Quarter Cells */}
-        {quarterData.map(({ quarter, activePhases, totalDays }) => (
-          <div
-            key={quarter}
-            className={`flex-1 min-w-[150px] px-3 py-3 ${
-              quarter === currentQuarter 
-                ? 'bg-blue-50/50 dark:bg-blue-900/10' 
-                : ''
-            }`}
-          >
-            {activePhases.length > 0 && (
-              <div className="space-y-1">
-                {activePhases.map(phase => (
-                  <button
-                    key={phase.id}
-                    onClick={() => onAssign?.(project.id, phase.id)}
-                    className="w-full text-left px-2 py-1 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-800/50 rounded text-xs font-medium text-blue-700 dark:text-blue-300 truncate transition-colors group"
-                    title={`${phase.name} — click to edit assignments`}
-                  >
-                    <span className="truncate">{phase.name}</span>
-                    <span className="hidden group-hover:inline ml-1 text-blue-500 dark:text-blue-400">✎</span>
-                  </button>
-                ))}
-                {totalDays > 0 && (
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {totalDays}d allocated
-                  </div>
-                )}
+      <div>
+        {/* Epic / project summary row */}
+        <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+          <div className={`w-64 shrink-0 px-3 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
+            <div className="flex items-center gap-1.5">
+              {hasPhases && (
+                <button
+                  onClick={() => setExpanded(v => !v)}
+                  className="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  title={expanded ? 'Collapse features' : 'Expand features'}
+                >
+                  {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+              )}
+              <div className="font-medium text-slate-900 dark:text-white truncate" title={project.name}>
+                {project.name}
               </div>
-            )}
-            {activePhases.length === 0 && onAssign && (
-              <button
-                onClick={() => onAssign(project.id)}
-                className="w-full text-left px-2 py-1 rounded text-xs text-slate-300 dark:text-slate-600 hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors opacity-0 hover:opacity-100 group-hover:opacity-100"
-              >
-                + Assign
-              </button>
-            )}
+            </div>
+            <div className="flex items-center gap-2 mt-1 pl-5">
+              <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {project.phases.length} feature{project.phases.length !== 1 ? 's' : ''}
+              </span>
+            </div>
           </div>
-        ))}
+
+          {/* Quarter Cells — aggregate when expanded, detailed when collapsed */}
+          {quarterData.map(({ quarter, activePhases, totalDays }) => (
+            <div
+              key={quarter}
+              className={`flex-1 min-w-[150px] px-3 py-3 ${quarter === currentQuarter ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+            >
+              {!expanded && activePhases.length > 0 && (
+                <div className="space-y-1">
+                  {activePhases.map(phase => (
+                    <button
+                      key={phase.id}
+                      onClick={() => onAssign?.(project.id, phase.id)}
+                      className="w-full text-left px-2 py-1 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-800/50 rounded text-xs font-medium text-blue-700 dark:text-blue-300 truncate transition-colors group"
+                      title={`${phase.name} — click to edit assignments`}
+                    >
+                      <span className="truncate">{phase.name}</span>
+                      <span className="hidden group-hover:inline ml-1 text-blue-500 dark:text-blue-400">✎</span>
+                    </button>
+                  ))}
+                  {totalDays > 0 && (
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{totalDays}d allocated</div>
+                  )}
+                </div>
+              )}
+              {expanded && totalDays > 0 && (
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">{totalDays}d total</div>
+              )}
+              {activePhases.length === 0 && !expanded && onAssign && (
+                <button
+                  onClick={() => onAssign(project.id)}
+                  className="w-full text-left px-2 py-1 rounded text-xs text-slate-300 dark:text-slate-600 hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  + Assign
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Feature sub-rows — shown when expanded */}
+        {expanded && project.phases.map(phase => {
+          const phaseQuarterData = quarters.map(quarter => {
+            const isActive = isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter);
+            const days = isActive
+              ? phase.assignments.reduce((sum, a) => a.quarter === quarter ? sum + a.days : sum, 0)
+              : 0;
+            return { quarter, isActive, days };
+          });
+          return (
+            <div key={phase.id} className="flex border-t border-dashed border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition-colors">
+              <div className="w-64 shrink-0 pl-10 pr-3 py-2 border-r border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1 h-1 rounded-full bg-blue-400 shrink-0" />
+                  <span className="text-xs text-slate-700 dark:text-slate-300 truncate" title={phase.name}>
+                    {phase.name}
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5 pl-2.5">
+                  {phase.startQuarter} – {phase.endQuarter}
+                </div>
+              </div>
+              {phaseQuarterData.map(({ quarter, isActive, days }) => (
+                <div
+                  key={quarter}
+                  className={`flex-1 min-w-[150px] px-3 py-2 ${quarter === currentQuarter ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}
+                >
+                  {isActive && (
+                    <button
+                      onClick={() => onAssign?.(project.id, phase.id)}
+                      className="w-full text-left px-2 py-0.5 bg-blue-100/70 hover:bg-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-800/40 rounded text-[11px] font-medium text-blue-600 dark:text-blue-400 truncate transition-colors"
+                      title={`${phase.name} — click to edit assignments`}
+                    >
+                      {days > 0 ? `${days}d assigned` : 'No assignments'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
     );
   }
 
-  // Sprint view
+  // ── Sprint view ──────────────────────────────────────────────────────────────
   const sprintCells = quarters.flatMap(quarter => {
     const sprintsInQ = getSprintsForQuarter(quarter, sprints);
     return sprintsInQ.map(sprint => {
-      const activePhases = project.phases.filter(phase => 
+      const activePhases = project.phases.filter(phase =>
         isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter)
       );
-      
-      // Get sprint-specific assignments
-      const sprintDays = activePhases.reduce((sum, phase) => {
-        return sum + phase.assignments.reduce((asum, a) => {
-          if (a.sprint === `${sprint.name} ${sprint.year}`) {
-            return asum + a.days;
-          }
-          // Fall back to quarter assignment distributed across sprints
+      const sprintDays = activePhases.reduce((sum, phase) =>
+        sum + phase.assignments.reduce((asum, a) => {
+          if (a.sprint === `${sprint.name} ${sprint.year}`) return asum + a.days;
           if (a.quarter === quarter && !a.sprint) {
             const sprintCount = sprintsInQ.length || 1;
             return asum + (a.days / sprintCount);
           }
           return asum;
-        }, 0);
-      }, 0);
-      
+        }, 0), 0
+      );
       return { sprint, activePhases, sprintDays };
     });
   });
 
   return (
-    <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-      {/* Project Info */}
-      <div className={`w-64 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
-        <div className="font-medium text-slate-900 dark:text-white truncate" title={project.name}>
-          {project.name}
+    <div>
+      {/* Epic / project summary row */}
+      <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+        <div className={`w-64 shrink-0 px-3 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
+          <div className="flex items-center gap-1.5">
+            {hasPhases && (
+              <button
+                onClick={() => setExpanded(v => !v)}
+                className="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                title={expanded ? 'Collapse features' : 'Expand features'}
+              >
+                {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
+            )}
+            <div className="font-medium text-slate-900 dark:text-white truncate" title={project.name}>
+              {project.name}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-1 pl-5">
+            <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              {project.phases.length} feature{project.phases.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            {project.phases.length} phase{project.phases.length !== 1 ? 's' : ''}
-          </span>
-        </div>
+
+        {sprintCells.map(({ sprint, activePhases, sprintDays }) => (
+          <div
+            key={sprint.id}
+            className={`flex-1 min-w-[120px] px-2 py-3 border-l border-slate-100 dark:border-slate-800 ${
+              sprint.quarter === currentQuarter ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+            }`}
+          >
+            {activePhases.length > 0 && sprintDays > 0 && (
+              <button
+                onClick={() => onAssign?.(project.id)}
+                className="w-full space-y-1 group"
+                title="Click to edit assignments"
+              >
+                <div className="h-2 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden group-hover:ring-2 group-hover:ring-blue-400 transition-all">
+                  <div
+                    className="h-full bg-blue-500 dark:bg-blue-500 rounded-full"
+                    style={{ width: `${Math.min(100, (sprintDays / 15) * 100)}%` }}
+                  />
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 text-center">
+                  {sprintDays.toFixed(1)}d
+                </div>
+              </button>
+            )}
+          </div>
+        ))}
       </div>
-      
-      {/* Sprint Cells */}
-      {sprintCells.map(({ sprint, activePhases, sprintDays }) => (
-        <div
-          key={sprint.id}
-          className={`flex-1 min-w-[120px] px-2 py-3 border-l border-slate-100 dark:border-slate-800 ${
-            sprint.quarter === currentQuarter 
-              ? 'bg-blue-50/50 dark:bg-blue-900/10' 
-              : ''
-          }`}
-        >
-          {activePhases.length > 0 && sprintDays > 0 && (
-            <button
-              onClick={() => onAssign?.(project.id)}
-              className="w-full space-y-1 group"
-              title="Click to edit assignments"
-            >
-              <div className="h-2 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden group-hover:ring-2 group-hover:ring-blue-400 transition-all">
-                <div 
-                  className="h-full bg-blue-500 dark:bg-blue-500 rounded-full"
-                  style={{ width: `${Math.min(100, (sprintDays / 15) * 100)}%` }}
-                />
+
+      {/* Feature sub-rows in sprint view */}
+      {expanded && project.phases.map(phase => {
+        const phaseSprintCells = quarters.flatMap(quarter => {
+          const sprintsInQ = getSprintsForQuarter(quarter, sprints);
+          return sprintsInQ.map(sprint => {
+            const isActive = isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter);
+            const days = isActive
+              ? phase.assignments.reduce((sum, a) => {
+                  if (a.sprint === `${sprint.name} ${sprint.year}`) return sum + a.days;
+                  if (a.quarter === quarter && !a.sprint) {
+                    const sc = sprintsInQ.length || 1;
+                    return sum + (a.days / sc);
+                  }
+                  return sum;
+                }, 0)
+              : 0;
+            return { sprint, isActive, days };
+          });
+        });
+        return (
+          <div key={phase.id} className="flex border-t border-dashed border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+            <div className="w-64 shrink-0 pl-10 pr-3 py-2 border-r border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1 h-1 rounded-full bg-blue-400 shrink-0" />
+                <span className="text-xs text-slate-700 dark:text-slate-300 truncate" title={phase.name}>
+                  {phase.name}
+                </span>
               </div>
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 text-center">
-                {sprintDays.toFixed(1)}d
+              <div className="text-[10px] text-slate-400 mt-0.5 pl-2.5">
+                {phase.startQuarter} – {phase.endQuarter}
               </div>
-            </button>
-          )}
-        </div>
-      ))}
+            </div>
+            {phaseSprintCells.map(({ sprint, isActive, days }) => (
+              <div
+                key={sprint.id}
+                className={`flex-1 min-w-[120px] px-2 py-2 border-l border-slate-100 dark:border-slate-800 ${
+                  sprint.quarter === currentQuarter ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''
+                }`}
+              >
+                {isActive && days > 0 && (
+                  <button
+                    onClick={() => onAssign?.(project.id, phase.id)}
+                    className="w-full space-y-1 group"
+                    title={`${phase.name} — click to edit`}
+                  >
+                    <div className="h-1.5 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-400 dark:bg-blue-500 rounded-full"
+                        style={{ width: `${Math.min(100, (days / 15) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-[9px] text-slate-400 text-center">{days.toFixed(1)}d</div>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

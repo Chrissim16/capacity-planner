@@ -5,6 +5,7 @@ import {
   Archive, ArchiveRestore, StickyNote, Calendar,
 } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
+import { JiraHierarchyTree } from '../components/JiraHierarchyTree';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -25,6 +26,8 @@ export function Projects() {
   const systems = state.systems;
   const teamMembers = state.teamMembers;
   const jiraWorkItems = state.jiraWorkItems ?? [];
+  const jiraConnections = state.jiraConnections ?? [];
+  const activeJiraBaseUrl = jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
   const { showToast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -483,6 +486,20 @@ export function Projects() {
                         </div>
                       )}
                     </div>
+
+                    {/* Jira hierarchy — US-043 */}
+                    {jiraItems.length > 0 && (
+                      <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+                          Jira Items ({jiraItems.length})
+                        </p>
+                        <JiraHierarchyTree
+                          items={jiraItems}
+                          jiraBaseUrl={activeJiraBaseUrl}
+                          readOnly
+                        />
+                      </div>
+                    )}
 
                     {/* Feature list */}
                     {project.phases.length === 0 ? (
