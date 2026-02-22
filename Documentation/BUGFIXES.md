@@ -265,4 +265,50 @@ The app-side country code (`UK`) is preserved unchanged — only the value sent 
 
 ---
 
+## Bug #007: Imported holidays not saved (multiple `updateData` calls in loop)
+**Date:** 2026-02-22  
+**Severity:** High  
+**Found by:** User testing (Settings > Holidays > Import from Nager.Date API)
+
+### Description
+Clicking "Import all" showed a success message (e.g. "13 holidays imported") but the holidays did not reliably appear in the list or persist after refresh.
+
+### Root Cause
+`handleImportAll` called `addHoliday()` once per entry in a `for` loop. Each `addHoliday` call:
+1. Reads the current `publicHolidays` array from the Zustand store
+2. Appends one new entry
+3. Calls `updateData({ publicHolidays })` which writes to the store, `localStorage`, and schedules a Supabase sync
+
+Calling `updateData` N times in rapid succession means N separate `localStorage.setItem()` writes and N `scheduleSyncToSupabase()` calls that each reset a debounce timer. If a sync is already in-flight from a prior action when `handleImportAll` runs, the in-flight sync captures an intermediate state that does not include the newly imported holidays. When `upsertAndPrune` runs for that in-flight sync, it prunes entries whose IDs are not in its snapshot — deleting the just-imported rows from Supabase.
+
+### Fix
+Replaced the N-call loop with a single batch action `addHolidaysBatch` that:
+1. Reads `publicHolidays` once
+2. Builds all new entries at once
+3. Calls `updateData` a **single time** with the complete updated array
+
+```typescript
+// actions.ts — new action
+export function addHolidaysBatch(
+  entries: Array<{ countryId: string; date: string; name: string }>
+): void {
+  if (entries.length === 0) return;
+  const state = useAppStore.getState();
+  const existing = state.getCurrentState().publicHolidays;
+  const newEntries = entries.map(e => ({
+    id: generateId('holiday'),
+    countryId: e.countryId,
+    date: e.date,
+    name: e.name,
+  }));
+  state.updateData({ publicHolidays: [...existing, ...newEntries] });
+}
+```
+
+### Files Changed
+- `frontend/src/stores/actions.ts` — added `addHolidaysBatch` action
+- `frontend/src/pages/settings/HolidaysSection.tsx` — `handleImportAll` now uses `addHolidaysBatch` with a single `updateData` call
+
+---
+
 *End of log*
