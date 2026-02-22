@@ -36,13 +36,16 @@ export function TimeOffForm({
 
   const currentQuarter = getCurrentQuarter();
 
+  // teamMembers excluded from deps intentionally — background syncs create new array
+  // references which would reset the user's selection mid-edit.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setMemberId(initialMemberId || teamMembers[0]?.id || '');
     setQuarter(initialQuarter || currentQuarter);
     setDays(existingDays || 0);
     setReason(existingReason || '');
     setErrors({});
-  }, [isOpen, initialMemberId, initialQuarter, existingDays, existingReason, teamMembers, currentQuarter]);
+  }, [isOpen, initialMemberId, initialQuarter, existingDays, existingReason, currentQuarter]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};

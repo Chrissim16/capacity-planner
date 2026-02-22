@@ -27,7 +27,10 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Reset form when member changes
+  // Reset form only when the modal opens or the target member changes.
+  // roles/countries are intentionally excluded from deps — background syncs
+  // create new array references which would silently reset the user's selections.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (member) {
       setName(member.name);
@@ -45,7 +48,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
       setSelectedSkills([]);
     }
     setErrors({});
-  }, [member, isOpen, roles, countries]);
+  }, [member?.id, isOpen]);
 
   const handleSkillToggle = (skillId: string) => {
     setSelectedSkills(prev =>
