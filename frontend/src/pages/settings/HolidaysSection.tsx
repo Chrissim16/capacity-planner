@@ -39,7 +39,7 @@ export function HolidaysSection() {
     setImportPreview(null);
     setImportSuccess(null);
     try {
-      const holidays = await fetchNagerHolidays(country.id, Number(importYear));
+      const holidays = await fetchNagerHolidays(country.code, Number(importYear));
       setImportPreview(holidays);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Failed to fetch holidays');
