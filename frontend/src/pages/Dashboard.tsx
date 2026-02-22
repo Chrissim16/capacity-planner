@@ -5,6 +5,7 @@ import { useAppStore } from '../stores/appStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/ProgressBar';
+import { CapacityTooltip } from '../components/ui/CapacityTooltip';
 import { useCurrentState } from '../stores/appStore';
 import { calculateCapacity, getWarnings, getTeamUtilizationSummary } from '../utils/capacity';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
@@ -155,12 +156,14 @@ export function Dashboard() {
                     </p>
                   </div>
                   <div className="flex-1">
-                    <ProgressBar
-                      value={capacity.usedDays}
-                      max={capacity.totalWorkdays}
-                      status={capacity.status}
-                      showLabel
-                    />
+                    <CapacityTooltip capacity={capacity}>
+                      <ProgressBar
+                        value={capacity.usedDays}
+                        max={capacity.totalWorkdays}
+                        status={capacity.status}
+                        showLabel
+                      />
+                    </CapacityTooltip>
                   </div>
                   <Badge
                     variant={

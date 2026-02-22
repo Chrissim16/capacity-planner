@@ -4,7 +4,7 @@
 
 **Last updated:** February 22, 2026  
 **Total features:** 56  
-**Completed:** 22 / 56
+**Completed:** 28 / 56
 
 ---
 
@@ -15,10 +15,10 @@
 | ---------------- | ------ | ------ | ----------- | ----------- |
 | 🔴 P0 — Critical | 5      | 5      | 0           | 0           |
 | 🟠 P1 — High     | 7      | 7      | 0           | 0           |
-| 🟡 P2 — Medium   | 13     | 5      | 0           | 8           |
-| 🟢 P3 — Low      | 11     | 0      | 0           | 11          |
-| 🔵 Phase 2       | 20     | 5      | 0           | 15          |
-| **Total**        | **56** | **22** | **0**       | **34**      |
+| 🟡 P2 — Medium   | 13     | 9      | 0           | 4           |
+| 🟢 P3 — Low      | 11     | 1      | 0           | 10          |
+| 🔵 Phase 2       | 20     | 7      | 0           | 13          |
+| **Total**        | **56** | **28** | **0**       | **28**      |
 
 
 ---
@@ -73,16 +73,16 @@
 | ------ | ---------------------------------------------- | ---------- | ------ | ------- | --------- | -------------------------------------------------------------------------- |
 | US-013 | Replace `confirm()` Dialogs with Styled Modals | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | New `ConfirmModal` component. Replaced last browser `confirm()` in `ScenarioSelector`. All delete flows use styled modals. |
 | US-014 | Undo Last Action                               | Functional | ⬜      |         |           | Undo toast for 10 seconds after any delete/destructive action.             |
-| US-015 | Capacity Bar Tooltips with Full Breakdown      | UX/UI      | ⬜      |         |           | Hover shows BAU + time off + per-project breakdown.                        |
+| US-015 | Capacity Bar Tooltips with Full Breakdown      | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | `CapacityTooltip` wrapper component. Shows BAU, time off, per-project breakdown and available days on hover. Used on Dashboard capacity bars and Team heatmap. |
 | US-016 | Inline Assignment Editing on Timeline          | Functional | ⬜      |         |           | Click a phase bar to edit assignments without leaving the Timeline.        |
 | US-017 | Bulk Jira Item Mapping                         | Functional | ⬜      |         |           | Select multiple unmapped items and assign them to a project/phase at once. |
 | US-018 | Assignment Validation Feedback Before Saving   | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | Available capacity shown on each member card immediately. Capacity preview section always visible when member selected. "X days remaining" shown after entering days. |
 | US-019 | Empty State Guidance                           | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | New reusable `EmptyState` component. "Getting started" banner on Dashboard. CTA buttons on Team, Epics, Timeline pages linking to relevant pages. |
-| US-020 | Keyboard Shortcuts                             | UX/UI      | ⬜      |         |           | N for new, Ctrl+Z for undo, Escape to close, ? for help.                   |
+| US-020 | Keyboard Shortcuts                             | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | N → open "add" form on Team/Projects. ? → toggle `KeyboardShortcutsModal`. `?` button added to header. Custom event bus (`keyboard:new`) used for page-specific actions. |
 | US-021 | Global Search (Command Palette)                | Functional | ⬜      |         |           | Ctrl+K search across projects, team members, Jira items.                   |
 | US-022 | Export to PDF / Print View                     | Functional | ⬜      |         |           | Export Dashboard or Timeline as a formatted PDF.                           |
 | US-023 | Dark Mode Persistence Across Devices           | Technical  | ✅ | —          | 2026-02-22 | Already implemented: darkMode lives inside `settings` which is persisted to Supabase on every change. |
-| US-024 | Capacity Heatmap on Team View                  | UX/UI      | ⬜      |         |           | Colour-coded grid: members × quarters showing utilisation %.               |
+| US-024 | Capacity Heatmap on Team View                  | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | Toggle button (List/Grid icons) on Team page. Heatmap: members × next 5 quarters, cells colour-coded green/amber/red. `CapacityTooltip` on every cell. Legend included. |
 | US-025 | Sprint Working Days Count per Column           | Functional | ✅ | 2026-02-22 | 2026-02-22 | Working day count shown under each sprint column header. Quarter headers also show working day count. Bye-week sprints labelled clearly. |
 
 
@@ -95,13 +95,13 @@
 | ------ | -------------------------------------------- | ---------- | ------ | ------- | --------- | ------------------------------------------------------------------- |
 | US-026 | Scenario Side-by-Side Comparison             | Functional | ⬜      |         |           | Compare two scenarios with a diff view.                             |
 | US-027 | Comments / Notes on Projects and Phases      | Functional | ⬜      |         |           | Free-text notes field on project and phase forms.                   |
-| US-028 | Notifications for Overallocation on Save     | Functional | ⬜      |         |           | Toast notification when an assignment causes overallocation.        |
+| US-028 | Notifications for Overallocation on Save     | Functional | ✅ | 2026-02-22 | 2026-02-22 | Warning toast fired in `AssignmentModal` after save when one or more members exceed 100% utilisation in the selected quarter. |
 | US-029 | Custom Quarters / Fiscal Year Support        | Functional | ⬜      |         |           | Allow Q1 to start in April to match Mileway's fiscal year.          |
 | US-030 | Azure DevOps Integration                     | Functional | ⬜      |         |           | Sync project status from Azure DevOps / ADO.                        |
 | US-031 | Automated Weekly Capacity Report by Email    | Functional | ⬜      |         |           | Send weekly email summary via Supabase Edge Function CRON.          |
 | US-032 | Archive / Soft Delete for Completed Projects | Functional | ⬜      |         |           | Hide completed projects without permanently deleting them.          |
 | US-033 | Team Member Availability Calendar            | UX/UI      | ⬜      |         |           | Visual calendar per member showing assignments, time off, holidays. |
-| US-034 | Import Public Holidays from External API     | Functional | ⬜      |         |           | Auto-import holidays from Nager.Date or similar API.                |
+| US-034 | Import Public Holidays from External API     | Functional | ✅ | 2026-02-22 | 2026-02-22 | See US-054/US-055 — implemented as Nager.Date service + Settings import UI. |
 | US-035 | Role-Based Access Control (RBAC)             | Technical  | ⬜      |         |           | Viewer / Planner / Admin / Owner roles with Supabase RLS.           |
 | US-056 | Staging / Pre-Production Environment         | Technical  | ⬜      |         |           | `develop` branch → Vercel Preview URL → separate Supabase staging project. Branch protection on `main`. |
 
@@ -194,8 +194,8 @@
 
 | ID     | Feature                                     | Type       | Status | Started | Completed | Notes                                                                                          |
 | ------ | ------------------------------------------- | ---------- | ------ | ------- | --------- | ---------------------------------------------------------------------------------------------- |
-| US-054 | Nager.Date API Integration                  | Technical  | ⬜      |         |           | `fetchPublicHolidays(countryCode, year)` calling Nager.Date API. Map to PublicHoliday type.     |
-| US-055 | Holiday Import UI in Settings               | Functional | ⬜      |         |           | Import button, country+year selector, preview, deduplication. Manual CRUD preserved.             |
+| US-054 | Nager.Date API Integration                  | Technical  | ✅ | 2026-02-22 | 2026-02-22 | `nagerHolidays.ts` service. `fetchNagerHolidays(countryCode, year)` returns Public/Bank holidays only. No auth required. |
+| US-055 | Holiday Import UI in Settings               | Functional | ✅ | 2026-02-22 | 2026-02-22 | New card in Settings > Holidays: country + year selectors, "Preview" fetches from API, list shows which are new vs. already added, "Import all" skips duplicates. Manual CRUD preserved. |
 
 
 ---
@@ -226,6 +226,13 @@
 | US-019 | Empty State Guidance | 2026-02-22 | `EmptyState` component with icon + CTA. Dashboard "getting started" banner. CTA links on Team/Epics/Timeline. |
 | US-023 | Dark Mode Persistence | 2026-02-22 | Already implemented via `settings` Supabase persistence. No code change required. |
 | US-025 | Sprint Working Days Count | 2026-02-22 | Working days shown under each sprint + quarter column header. Bye-weeks labelled with beach emoji. |
+| US-015 | Capacity Bar Tooltips | 2026-02-22 | `CapacityTooltip` wrapper on Dashboard capacity bars and Team heatmap cells. Shows full BAU + time off + per-project breakdown on hover. |
+| US-020 | Keyboard Shortcuts | 2026-02-22 | N → new form, ? → shortcuts help modal. `?` hint button in header. Custom event bus for page-aware N action. |
+| US-024 | Capacity Heatmap | 2026-02-22 | Members × quarters heatmap on Team page behind List/Grid toggle. Green/amber/red cells, tooltips, legend. |
+| US-028 | Overallocation Toast | 2026-02-22 | Warning toast after saving assignment when one or more selected members exceed 100% utilisation. |
+| US-034 | Holiday API Import | 2026-02-22 | Duplicate of US-054/055 — Nager.Date API service + Settings import UI with preview and deduplication. |
+| US-054 | Nager.Date Service | 2026-02-22 | `nagerHolidays.ts` — `fetchNagerHolidays(code, year)` returns filtered Public/Bank holidays. |
+| US-055 | Holiday Import UI | 2026-02-22 | Settings > Holidays: country + year selectors, preview list, one-click "Import all" with duplicate skip. |
 
 ---
 
@@ -233,6 +240,7 @@
 
 | Date | ID | Change |
 |------|----|--------|
+| 2026-02-22 | US-015, US-020, US-024, US-028, US-054, US-055 | P2+P3+Group H batch: capacity tooltips, keyboard shortcuts, capacity heatmap, overallocation toast, Nager.Date holiday API + import UI. |
 | 2026-02-22 | US-013, US-018, US-019, US-023, US-025 | P2 batch completed: ConfirmModal, assignment validation feedback, empty state guidance, dark mode (already done), sprint working days. |
 | 2026-02-22 | US-056     | Added to P3 backlog: Staging / Pre-Production Environment setup (develop branch + Vercel Preview + Supabase staging project). |
 | 2026-02-22 | US-039–040 | Group B (Naming Convention) completed: Project → Epic, Phase → Feature across all UI text. Internal code unchanged. |

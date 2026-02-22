@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Download, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -8,6 +8,8 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { useCurrentState } from '../../stores/appStore';
 import { addHoliday, deleteHoliday } from '../../stores/actions';
+import { fetchNagerHolidays } from '../../services/nagerHolidays';
+import type { NagerHoliday } from '../../services/nagerHolidays';
 
 export function HolidaysSection() {
   const { countries, publicHolidays } = useCurrentState();
@@ -15,6 +17,54 @@ export function HolidaysSection() {
   const [date, setDate] = useState('');
   const [name, setName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+
+  // US-054 / US-055: API import state
+  const currentYear = new Date().getFullYear();
+  const [importCountryId, setImportCountryId] = useState('');
+  const [importYear, setImportYear] = useState(String(currentYear));
+  const [importLoading, setImportLoading] = useState(false);
+  const [importPreview, setImportPreview] = useState<NagerHoliday[] | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<number | null>(null);
+
+  const yearOptions = Array.from({ length: 4 }, (_, i) => currentYear + i - 1).map(y => ({
+    value: String(y), label: String(y),
+  }));
+
+  const handleFetchPreview = async () => {
+    const country = countries.find(c => c.id === importCountryId);
+    if (!country || !importYear) return;
+    setImportLoading(true);
+    setImportError(null);
+    setImportPreview(null);
+    setImportSuccess(null);
+    try {
+      const holidays = await fetchNagerHolidays(country.id, Number(importYear));
+      setImportPreview(holidays);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Failed to fetch holidays');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleImportAll = () => {
+    if (!importPreview || !importCountryId) return;
+    const existing = new Set(
+      publicHolidays
+        .filter(h => h.countryId === importCountryId)
+        .map(h => h.date)
+    );
+    let added = 0;
+    for (const h of importPreview) {
+      if (!existing.has(h.date)) {
+        addHoliday(importCountryId, h.date, h.name);
+        added++;
+      }
+    }
+    setImportSuccess(added);
+    setImportPreview(null);
+  };
 
   const countryOptions = [
     { value: '', label: 'Select country' },
@@ -35,6 +85,99 @@ export function HolidaysSection() {
 
   return (
     <>
+      {/* US-054/055: Import from Nager.Date API */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Import from Nager.Date API</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Automatically import official public holidays for any country and year using the free{' '}
+            <a href="https://date.nager.at" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Nager.Date</a> API.
+            Duplicates are skipped automatically.
+          </p>
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="w-52">
+              <Select
+                label="Country"
+                value={importCountryId}
+                onChange={e => { setImportCountryId(e.target.value); setImportPreview(null); setImportError(null); setImportSuccess(null); }}
+                options={[{ value: '', label: 'Select country' }, ...countries.map(c => ({ value: c.id, label: `${c.flag || '🏳️'} ${c.name}` }))]}
+              />
+            </div>
+            <div className="w-28">
+              <Select
+                label="Year"
+                value={importYear}
+                onChange={e => { setImportYear(e.target.value); setImportPreview(null); setImportError(null); setImportSuccess(null); }}
+                options={yearOptions}
+              />
+            </div>
+            <Button
+              onClick={handleFetchPreview}
+              disabled={!importCountryId || importLoading}
+              variant="secondary"
+            >
+              {importLoading ? 'Fetching…' : <><Download size={14} /> Preview</>}
+            </Button>
+          </div>
+
+          {importError && (
+            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+              <AlertTriangle size={16} /> {importError}
+            </div>
+          )}
+
+          {importSuccess !== null && (
+            <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+              <CheckCircle size={16} /> {importSuccess} holiday{importSuccess !== 1 ? 's' : ''} imported successfully.
+            </div>
+          )}
+
+          {importPreview && importPreview.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {importPreview.length} holidays found — {
+                    (() => {
+                      const existing = new Set(publicHolidays.filter(h => h.countryId === importCountryId).map(h => h.date));
+                      const newCount = importPreview.filter(h => !existing.has(h.date)).length;
+                      return newCount > 0 ? `${newCount} new` : 'all already imported';
+                    })()
+                  }
+                </p>
+                <Button size="sm" onClick={handleImportAll}>
+                  <Download size={14} /> Import all
+                </Button>
+              </div>
+              <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
+                {importPreview.map(h => {
+                  const alreadyExists = publicHolidays.some(
+                    ph => ph.countryId === importCountryId && ph.date === h.date
+                  );
+                  return (
+                    <div
+                      key={h.date}
+                      className={`flex items-center justify-between px-3 py-2 text-sm border-b border-slate-100 dark:border-slate-800 last:border-0 ${alreadyExists ? 'opacity-40' : ''}`}
+                    >
+                      <span className="text-slate-600 dark:text-slate-300">{h.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-slate-400 text-xs">{h.date}</span>
+                        {alreadyExists && <span className="text-xs text-slate-400 italic">already added</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {importPreview && importPreview.length === 0 && (
+            <p className="text-sm text-slate-400 italic">No public holidays found for this selection.</p>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Public Holidays</CardTitle>

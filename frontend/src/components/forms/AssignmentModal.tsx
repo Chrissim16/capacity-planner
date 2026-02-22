@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { useCurrentState } from '../../stores/appStore';
 import { setAssignment } from '../../stores/actions';
+import { useToast } from '../ui/Toast';
 import { calculateCapacity } from '../../utils/capacity';
 import { getWorkWeeksInQuarter, getHolidaysByCountry } from '../../utils/calendar';
 import { generateSprints, getSprintsForQuarter, getWorkdaysInSprint, formatDateRange } from '../../utils/sprints';
@@ -31,6 +32,7 @@ export function AssignmentModal({
 }: AssignmentModalProps) {
   const state = useCurrentState();
   const { projects, teamMembers, quarters, publicHolidays, settings } = state;
+  const { showToast } = useToast();
   
   // Form state
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -175,6 +177,18 @@ export function AssignmentModal({
     selectedMemberIds.forEach(memberId => {
       setAssignment(selectedProjectId, selectedPhaseId, memberId, selectedQuarter, days, sprintName);
     });
+
+    // Warn if any member will be overallocated
+    const overallocated = capacityPreviews.filter(p => p?.isOverallocated);
+    if (overallocated.length > 0) {
+      const names = overallocated.map(p => p!.member.name).join(', ');
+      showToast(
+        overallocated.length === 1
+          ? `⚠ ${names} is over-allocated in ${selectedQuarter}`
+          : `⚠ ${overallocated.length} members over-allocated in ${selectedQuarter}: ${names}`,
+        'warning'
+      );
+    }
 
     onClose();
   };

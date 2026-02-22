@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, Copy, ExternalLink, UserPlus, ChevronDown, ChevronRight, Users, FolderKanban, Filter } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
@@ -21,6 +21,13 @@ export function Projects() {
   const { showToast } = useToast();
   
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  // N shortcut → open "Add epic" form
+  useEffect(() => {
+    const handler = () => { setEditingProject(null); setIsFormOpen(true); };
+    window.addEventListener('keyboard:new', handler);
+    return () => window.removeEventListener('keyboard:new', handler);
+  }, []);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Project | null>(null);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
