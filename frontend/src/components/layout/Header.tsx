@@ -92,15 +92,24 @@ function SyncIndicator() {
   }
 
   if (status === 'error') {
+    // Show first table:error segment so the user knows which table failed
+    const shortError = error ? error.split(';')[0].trim() : null;
     return (
-      <button
-        onClick={retrySyncToSupabase}
-        className="flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-        title={error ?? 'Save failed — click to retry'}
-      >
-        <AlertCircle size={13} />
-        <span>Not saved — Retry</span>
-      </button>
+      <div className="flex flex-col items-end gap-0.5">
+        <button
+          onClick={retrySyncToSupabase}
+          className="flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+          title={error ?? 'Save failed — click to retry'}
+        >
+          <AlertCircle size={13} />
+          <span>Not saved — Retry</span>
+        </button>
+        {shortError && (
+          <span className="text-[10px] text-red-400 dark:text-red-500 max-w-[220px] truncate leading-tight" title={error ?? ''}>
+            {shortError}
+          </span>
+        )}
+      </div>
     );
   }
 

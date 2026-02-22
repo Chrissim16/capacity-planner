@@ -476,35 +476,51 @@ async function syncProcessTeams(processTeams: ProcessTeam[]): Promise<void> {
   );
 }
 
+const BASE_MEMBER_ROW = (m: TeamMember) => ({
+  id: m.id,
+  name: m.name,
+  role: m.role,
+  country_id: m.countryId,
+  skill_ids: m.skillIds,
+  max_concurrent_projects: m.maxConcurrentProjects,
+  email: m.email ?? null,
+  jira_account_id: m.jiraAccountId ?? null,
+  synced_from_jira: m.syncedFromJira ?? false,
+  needs_enrichment: m.needsEnrichment ?? false,
+  is_active: true,
+});
+
+const EXTENDED_MEMBER_ROW = (m: TeamMember) => ({
+  ...BASE_MEMBER_ROW(m),
+  // Added by migration 004 — may not exist on all Supabase instances
+  squad_id: m.squadId ?? null,
+  process_team_ids: m.processTeamIds ?? [],
+});
+
+const softDeleteMembers = async (idsToRemove: string[]) => {
+  if (idsToRemove.length > 0) {
+    await supabase.from('team_members').update({ is_active: false }).in('id', idsToRemove);
+  }
+};
+
 async function syncTeamMembers(members: TeamMember[]): Promise<void> {
-  await upsertAndPrune(
-    'team_members',
-    members,
-    m => ({
-      id: m.id,
-      name: m.name,
-      role: m.role,
-      country_id: m.countryId,
-      skill_ids: m.skillIds,
-      max_concurrent_projects: m.maxConcurrentProjects,
-      squad_id: m.squadId ?? null,
-      process_team_ids: m.processTeamIds ?? [],
-      email: m.email ?? null,
-      jira_account_id: m.jiraAccountId ?? null,
-      synced_from_jira: m.syncedFromJira ?? false,
-      needs_enrichment: m.needsEnrichment ?? false,
-      is_active: true,
-    }),
-    // Soft-delete: mark as inactive rather than deleting, in case data is needed
-    async (idsToRemove) => {
-      if (idsToRemove.length > 0) {
-        await supabase
-          .from('team_members')
-          .update({ is_active: false })
-          .in('id', idsToRemove);
-      }
+  try {
+    // Try with squad / process-team columns (migration 004)
+    await upsertAndPrune('team_members', members, EXTENDED_MEMBER_ROW, softDeleteMembers);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // If the error is specifically about missing squad/process-team columns
+    // (migration 004 not yet applied), fall back to base columns only.
+    if (msg.includes('squad_id') || msg.includes('process_team_ids')) {
+      console.warn(
+        '[Sync] team_members: squad_id / process_team_ids columns missing — ' +
+        'falling back to base sync. Run supabase/migrations/004_squads_and_process_teams.sql to enable.'
+      );
+      await upsertAndPrune('team_members', members, BASE_MEMBER_ROW, softDeleteMembers);
+    } else {
+      throw err; // Re-throw unrelated errors
     }
-  );
+  }
 }
 
 async function syncProjects(projects: Project[]): Promise<void> {
