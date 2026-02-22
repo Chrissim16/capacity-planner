@@ -2,9 +2,9 @@
 
 # Mileway IT Capacity Planner
 
-**Last updated:** February 22, 2026  
+**Last updated:** February 20, 2026  
 **Total features:** 56  
-**Completed:** 28 / 56
+**Completed:** 39 / 56
 
 ---
 
@@ -15,10 +15,10 @@
 | ---------------- | ------ | ------ | ----------- | ----------- |
 | 🔴 P0 — Critical | 5      | 5      | 0           | 0           |
 | 🟠 P1 — High     | 7      | 7      | 0           | 0           |
-| 🟡 P2 — Medium   | 13     | 9      | 0           | 4           |
-| 🟢 P3 — Low      | 11     | 1      | 0           | 10          |
-| 🔵 Phase 2       | 20     | 7      | 0           | 13          |
-| **Total**        | **56** | **28** | **0**       | **28**      |
+| 🟡 P2 — Medium   | 13     | 12     | 0           | 1           |
+| 🟢 P3 — Low      | 11     | 4      | 0           | 7           |
+| 🔵 Phase 2       | 20     | 11     | 0           | 9           |
+| **Total**        | **56** | **39** | **0**       | **17**      |
 
 
 ---
@@ -72,14 +72,14 @@
 | ID     | Feature                                        | Type       | Status | Started | Completed | Notes                                                                      |
 | ------ | ---------------------------------------------- | ---------- | ------ | ------- | --------- | -------------------------------------------------------------------------- |
 | US-013 | Replace `confirm()` Dialogs with Styled Modals | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | New `ConfirmModal` component. Replaced last browser `confirm()` in `ScenarioSelector`. All delete flows use styled modals. |
-| US-014 | Undo Last Action                               | Functional | ⬜      |         |           | Undo toast for 10 seconds after any delete/destructive action.             |
+| US-014 | Undo Last Action                               | Functional | ✅      | 2026-02-20 | 2026-02-20 | 10-second undo toast with "Undo" action button. Implemented for deleteProject, deleteTeamMember, archiveProject via state snapshot + restore. |
 | US-015 | Capacity Bar Tooltips with Full Breakdown      | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | `CapacityTooltip` wrapper component. Shows BAU, time off, per-project breakdown and available days on hover. Used on Dashboard capacity bars and Team heatmap. |
-| US-016 | Inline Assignment Editing on Timeline          | Functional | ⬜      |         |           | Click a phase bar to edit assignments without leaving the Timeline.        |
+| US-016 | Inline Assignment Editing on Timeline          | Functional | ✅      | 2026-02-20 | 2026-02-20 | Phase bars in Timeline project rows are now clickable buttons. Clicking opens AssignmentModal pre-filled with project + phase. Works in both Quarter and Sprint views. |
 | US-017 | Bulk Jira Item Mapping                         | Functional | ⬜      |         |           | Select multiple unmapped items and assign them to a project/phase at once. |
 | US-018 | Assignment Validation Feedback Before Saving   | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | Available capacity shown on each member card immediately. Capacity preview section always visible when member selected. "X days remaining" shown after entering days. |
 | US-019 | Empty State Guidance                           | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | New reusable `EmptyState` component. "Getting started" banner on Dashboard. CTA buttons on Team, Epics, Timeline pages linking to relevant pages. |
 | US-020 | Keyboard Shortcuts                             | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | N → open "add" form on Team/Projects. ? → toggle `KeyboardShortcutsModal`. `?` button added to header. Custom event bus (`keyboard:new`) used for page-specific actions. |
-| US-021 | Global Search (Command Palette)                | Functional | ⬜      |         |           | Ctrl+K search across projects, team members, Jira items.                   |
+| US-021 | Global Search (Command Palette)                | Functional | ✅      | 2026-02-20 | 2026-02-20 | Ctrl+K/Cmd+K opens CommandPalette. Results grouped by Epics, Members, Jira Items. Keyboard nav (↑↓↵Esc). Navigates view and highlights/expands matching item. Search button added to header. |
 | US-022 | Export to PDF / Print View                     | Functional | ⬜      |         |           | Export Dashboard or Timeline as a formatted PDF.                           |
 | US-023 | Dark Mode Persistence Across Devices           | Technical  | ✅ | —          | 2026-02-22 | Already implemented: darkMode lives inside `settings` which is persisted to Supabase on every change. |
 | US-024 | Capacity Heatmap on Team View                  | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | Toggle button (List/Grid icons) on Team page. Heatmap: members × next 5 quarters, cells colour-coded green/amber/red. `CapacityTooltip` on every cell. Legend included. |
@@ -94,13 +94,13 @@
 | ID     | Feature                                      | Type       | Status | Started | Completed | Notes                                                               |
 | ------ | -------------------------------------------- | ---------- | ------ | ------- | --------- | ------------------------------------------------------------------- |
 | US-026 | Scenario Side-by-Side Comparison             | Functional | ⬜      |         |           | Compare two scenarios with a diff view.                             |
-| US-027 | Comments / Notes on Projects and Phases      | Functional | ⬜      |         |           | Free-text notes field on project and phase forms.                   |
+| US-027 | Comments / Notes on Projects and Phases      | Functional | ✅      | 2026-02-20 | 2026-02-20 | Notes field on Project and Phase. Shown in expanded project cards with amber highlight. StickyNote icon in project header when notes exist. Included in Excel export. |
 | US-028 | Notifications for Overallocation on Save     | Functional | ✅ | 2026-02-22 | 2026-02-22 | Warning toast fired in `AssignmentModal` after save when one or more members exceed 100% utilisation in the selected quarter. |
 | US-029 | Custom Quarters / Fiscal Year Support        | Functional | ⬜      |         |           | Allow Q1 to start in April to match Mileway's fiscal year.          |
 | US-030 | Azure DevOps Integration                     | Functional | ⬜      |         |           | Sync project status from Azure DevOps / ADO.                        |
 | US-031 | Automated Weekly Capacity Report by Email    | Functional | ⬜      |         |           | Send weekly email summary via Supabase Edge Function CRON.          |
-| US-032 | Archive / Soft Delete for Completed Projects | Functional | ⬜      |         |           | Hide completed projects without permanently deleting them.          |
-| US-033 | Team Member Availability Calendar            | UX/UI      | ⬜      |         |           | Visual calendar per member showing assignments, time off, holidays. |
+| US-032 | Archive / Soft Delete for Completed Projects | Functional | ✅      | 2026-02-20 | 2026-02-20 | Archive button on Completed/Cancelled projects. "Show Archived" toggle on Epics page. Undo available for 10s after archive. `archived` flag on Project type persisted to Supabase. |
+| US-033 | Team Member Availability Calendar            | UX/UI      | ✅      | 2026-02-20 | 2026-02-20 | `MemberCalendarModal` with monthly calendar grid. Days color-coded for weekends, public holidays, time off, and project assignments. CalendarDays button on each member card. |
 | US-034 | Import Public Holidays from External API     | Functional | ✅ | 2026-02-22 | 2026-02-22 | See US-054/US-055 — implemented as Nager.Date service + Settings import UI. |
 | US-035 | Role-Based Access Control (RBAC)             | Technical  | ⬜      |         |           | Viewer / Planner / Admin / Owner roles with Supabase RLS.           |
 | US-056 | Staging / Pre-Production Environment         | Technical  | ⬜      |         |           | `develop` branch → Vercel Preview URL → separate Supabase staging project. Branch protection on `main`. |
@@ -149,9 +149,9 @@
 
 | ID     | Feature                                          | Type       | Status | Started | Completed | Notes                                                                                          |
 | ------ | ------------------------------------------------ | ---------- | ------ | ------- | --------- | ---------------------------------------------------------------------------------------------- |
-| US-045 | Add Date Fields to Phase and Project Types       | Technical  | ⬜      |         |           | `startDate` + `endDate` on Phase/Project. Auto-populate from Jira child dates. Manual override. |
-| US-046 | Date View Mode in Timeline                       | Functional | ⬜      |         |           | Third granularity option: week/month columns with date-range bars per phase.                    |
-| US-047 | Date Display on Project/Phase Cards              | UX/UI      | ⬜      |         |           | Show "12 Mar – 15 Jun 2026" alongside quarter label when dates are set.                         |
+| US-045 | Add Date Fields to Phase and Project Types       | Technical  | ✅      | 2026-02-20 | 2026-02-20 | `startDate?` + `endDate?` added to Phase and Project types. Date pickers integrated in ProjectForm for both project and each phase. |
+| US-046 | Date View Mode in Timeline                       | Functional | ✅      | 2026-02-20 | 2026-02-20 | "Dates" toggle in granularity selector. Month-column headers (3× quartersToShow). Horizontal bars per project spanning start–end dates. Fallback to quarter boundaries. Phase bars nested below. Today line marker. |
+| US-047 | Date Display on Project/Phase Cards              | UX/UI      | ✅      | 2026-02-20 | 2026-02-20 | Project and phase date ranges shown in expanded project cards. Formatted as "15 Jan – 30 Jun 2026". Only displayed when dates are set. |
 
 
 ---
@@ -161,7 +161,7 @@
 
 | ID     | Feature                              | Type  | Status | Started | Completed | Notes                                                                                         |
 | ------ | ------------------------------------ | ----- | ------ | ------- | --------- | --------------------------------------------------------------------------------------------- |
-| US-048 | Enhanced Expandable Project Card     | UX/UI | ⬜      |         |           | Summary section: description, stats, team list, Jira stats. Below: phases + hierarchy (US-043). |
+| US-048 | Enhanced Expandable Project Card     | UX/UI | ✅      | 2026-02-20 | 2026-02-20 | 4-column expanded summary: description + notes (amber box) + date range, team breakdown with allocated days, Jira stats by status category. |
 
 
 ---
@@ -183,8 +183,8 @@
 
 | ID     | Feature                                      | Type       | Status | Started | Completed | Notes                                                                                                         |
 | ------ | -------------------------------------------- | ---------- | ------ | ------- | --------- | ------------------------------------------------------------------------------------------------------------- |
-| US-052 | Team Member Scoring Algorithm                | Technical  | ⬜      |         |           | Score by: capacity (40%), skill match (35%), assignment history (25%). Ranked suggestions with score breakdown. |
-| US-053 | Suggestion UI in Assignment Flow             | UX/UI      | ⬜      |         |           | Top 3 suggestions with match % badge and reason chips above the full member list.                              |
+| US-052 | Team Member Scoring Algorithm                | Technical  | ✅      | 2026-02-20 | 2026-02-20 | `assignmentSuggester.ts`: scores on capacity (40%), skill match (35%), assignment history (25%). Returns top 5 with breakdown and reason chips. |
+| US-053 | Suggestion UI in Assignment Flow             | UX/UI      | ✅      | 2026-02-20 | 2026-02-20 | "Suggested" section in AssignmentModal above member grid. Top 3 with % score badge, name, role, reason chips ("Xd free", "All skills match", "Worked on project"). |
 
 
 ---
@@ -233,6 +233,18 @@
 | US-034 | Holiday API Import | 2026-02-22 | Duplicate of US-054/055 — Nager.Date API service + Settings import UI with preview and deduplication. |
 | US-054 | Nager.Date Service | 2026-02-22 | `nagerHolidays.ts` — `fetchNagerHolidays(code, year)` returns filtered Public/Bank holidays. |
 | US-055 | Holiday Import UI | 2026-02-22 | Settings > Holidays: country + year selectors, preview list, one-click "Import all" with duplicate skip. |
+| US-014 | Undo Last Action | 2026-02-20 | Toast.tsx extended with action buttons + custom duration. Undo for delete/archive via state snapshot restore. |
+| US-016 | Inline Assignment Editing on Timeline | 2026-02-20 | Phase bars in Timeline are clickable buttons → opens AssignmentModal pre-filled. Works in Quarter + Sprint views. |
+| US-021 | Global Search / Command Palette | 2026-02-20 | Ctrl+K command palette. Grouped results (Epics, Members, Jira). Keyboard nav. Search button in header. |
+| US-027 | Notes on Projects and Phases | 2026-02-20 | Notes textarea on ProjectForm for project + each phase. Amber highlight in expanded cards. Excel export included. |
+| US-032 | Archive / Soft Delete for Completed Projects | 2026-02-20 | Archive button for Completed/Cancelled epics. Show Archived toggle. Undo available. `archived` flag persisted. |
+| US-033 | Team Member Availability Calendar | 2026-02-20 | Monthly calendar modal per member. Color-coded: weekends, public holidays, time off, project assignments. |
+| US-045 | Date Fields on Project/Phase Types | 2026-02-20 | `startDate?` + `endDate?` on Project and Phase. Date pickers in ProjectForm. |
+| US-046 | Date View Mode in Timeline | 2026-02-20 | "Dates" toggle in granularity selector. Month columns. Horizontal project/phase bars. Today line. Fallback to quarters. |
+| US-047 | Date Display on Project/Phase Cards | 2026-02-20 | Formatted date ranges shown in expanded project cards and phase rows when dates are set. |
+| US-048 | Enhanced Expandable Project Card | 2026-02-20 | 4-column expanded summary: description+notes, team breakdown, Jira stats by status category. |
+| US-052 | Team Member Scoring Algorithm | 2026-02-20 | `assignmentSuggester.ts`: capacity 40% + skill match 35% + history 25%. Top 5 with breakdown. |
+| US-053 | Suggestion UI in Assignment Flow | 2026-02-20 | Top 3 suggestions in AssignmentModal with % score badge and reason chips. |
 
 ---
 
@@ -240,6 +252,8 @@
 
 | Date | ID | Change |
 |------|----|--------|
+| 2026-02-20 | US-016, US-021, US-033, US-046 | Option A batch: inline timeline assignment editing, global command palette (Ctrl+K), member availability calendar, date view mode in Timeline. |
+| 2026-02-20 | US-014, US-027, US-032, US-045, US-047, US-048, US-052, US-053 | Option C batch: undo last action, notes, archive, date fields, enhanced project card, smart assignment suggestions. |
 | 2026-02-22 | US-015, US-020, US-024, US-028, US-054, US-055 | P2+P3+Group H batch: capacity tooltips, keyboard shortcuts, capacity heatmap, overallocation toast, Nager.Date holiday API + import UI. |
 | 2026-02-22 | US-013, US-018, US-019, US-023, US-025 | P2 batch completed: ConfirmModal, assignment validation feedback, empty state guidance, dark mode (already done), sprint working days. |
 | 2026-02-22 | US-056     | Added to P3 backlog: Staging / Pre-Production Environment setup (develop branch + Vercel Preview + Supabase staging project). |

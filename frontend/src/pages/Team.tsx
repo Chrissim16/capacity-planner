@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, LayoutGrid, List } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, LayoutGrid, List, CalendarDays } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { CapacityTooltip } from '../components/ui/CapacityTooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -8,6 +8,7 @@ import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
 import { TeamMemberForm } from '../components/forms/TeamMemberForm';
 import { TimeOffForm } from '../components/forms/TimeOffForm';
+import { MemberCalendarModal } from '../components/ui/MemberCalendarModal';
 import { useCurrentState } from '../stores/appStore';
 import { deleteTeamMember } from '../stores/actions';
 import { useAppStore } from '../stores/appStore';
@@ -38,6 +39,7 @@ export function Team() {
   const [deleteConfirm, setDeleteConfirm] = useState<TeamMember | null>(null);
   const [isTimeOffOpen, setIsTimeOffOpen] = useState(false);
   const [timeOffMemberId, setTimeOffMemberId] = useState<string>();
+  const [calendarMember, setCalendarMember] = useState<TeamMember | null>(null);
   
   // Filters
   const [search, setSearch] = useState('');
@@ -434,6 +436,13 @@ export function Team() {
                               <CalendarOff size={14} />
                             </button>
                             <button
+                              onClick={() => setCalendarMember(member)}
+                              className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                              title="View Availability Calendar"
+                            >
+                              <CalendarDays size={14} />
+                            </button>
+                            <button
                               onClick={() => handleEdit(member)}
                               className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Edit"
@@ -519,6 +528,13 @@ export function Team() {
         isOpen={isTimeOffOpen}
         onClose={() => setIsTimeOffOpen(false)}
         memberId={timeOffMemberId}
+      />
+
+      {/* Member Availability Calendar (US-033) */}
+      <MemberCalendarModal
+        isOpen={!!calendarMember}
+        onClose={() => setCalendarMember(null)}
+        member={calendarMember}
       />
 
       {/* Delete Confirmation Modal */}

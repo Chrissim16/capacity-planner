@@ -16,6 +16,7 @@ import {
   WifiOff,
   AlertCircle,
   ShieldAlert,
+  Search,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { ScenarioDiffModal } from '../ScenarioDiffModal';
@@ -280,7 +281,17 @@ export function Header() {
             {/* Scenario Selector */}
             <ScenarioSelector />
 
-            {/* Theme Toggle */}
+            {/* Search button (US-021) */}
+            <button
+              onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700"
+              title="Global search (Ctrl+K)"
+            >
+              <Search size={14} />
+              <span className="hidden lg:inline text-xs">Search</span>
+              <kbd className="hidden lg:inline text-[10px] text-slate-400 bg-slate-200 dark:bg-slate-700 px-1 rounded">⌃K</kbd>
+            </button>
+
             {/* Keyboard shortcuts hint (US-020) */}
             <button
               onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))}

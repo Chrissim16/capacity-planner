@@ -9,6 +9,8 @@ import { Settings } from './pages/Settings';
 import { ToastProvider } from './components/ui/Toast';
 import { LoadingScreen } from './components/ui/LoadingScreen';
 import { KeyboardShortcutsModal } from './components/ui/KeyboardShortcutsModal';
+import { CommandPalette } from './components/ui/CommandPalette';
+import type { CommandPayload } from './components/ui/CommandPalette';
 import { useAppStore, useCurrentView, useSettings, useIsInitializing, useSyncStatus } from './stores/appStore';
 import type { ViewType } from './types';
 
@@ -33,6 +35,7 @@ function App() {
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const initializeFromSupabase = useAppStore((s) => s.initializeFromSupabase);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   // US-001 / US-002: Load data from Supabase on first mount
   useEffect(() => {
@@ -80,6 +83,12 @@ function App() {
         setShowShortcuts(prev => !prev);
       }
 
+      // Ctrl+K / Cmd+K — command palette
+      if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+      }
+
       // N — trigger "new" action for current view
       if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !isTyping) {
         const newItemEvent = new CustomEvent('keyboard:new', { detail: { view: currentView } });
@@ -103,6 +112,18 @@ function App() {
         <CurrentPage />
       </Layout>
       <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onNavigate={(view: ViewType, payload?: CommandPayload) => {
+          setCurrentView(view);
+          if (payload?.highlightId) {
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('search:highlight', { detail: { id: payload.highlightId, view } }));
+            }, 100);
+          }
+        }}
+      />
     </ToastProvider>
   );
 }

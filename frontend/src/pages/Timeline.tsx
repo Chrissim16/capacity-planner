@@ -5,6 +5,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { ProgressBar } from '../components/ui/ProgressBar';
+import { AssignmentModal } from '../components/forms/AssignmentModal';
 import { useAppStore, useCurrentState } from '../stores/appStore';
 import { calculateCapacity } from '../utils/capacity';
 import { isQuarterInRange, getCurrentQuarter, getWorkWeeksInQuarter, getWorkdaysInDateRangeForQuarter } from '../utils/calendar';
@@ -12,7 +13,7 @@ import { generateSprints, getSprintsForQuarter, formatDateRange, getWorkdaysInSp
 import type { Project, TeamMember, Sprint } from '../types';
 
 type TimelineView = 'projects' | 'team';
-type TimelineGranularity = 'quarter' | 'sprint';
+type TimelineGranularity = 'quarter' | 'sprint' | 'dates';
 
 export function Timeline() {
   const state = useCurrentState();
@@ -24,7 +25,14 @@ export function Timeline() {
   const [startQuarterIndex, setStartQuarterIndex] = useState(0);
   const [quartersToShow, setQuartersToShow] = useState(4);
   const [showCompleted, setShowCompleted] = useState(false);
-  
+  const [assignContext, setAssignContext] = useState<{ projectId?: string; phaseId?: string }>({});
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+
+  const openAssign = (projectId: string, phaseId?: string) => {
+    setAssignContext({ projectId, phaseId });
+    setIsAssignOpen(true);
+  };
+
   const currentQuarter = getCurrentQuarter();
   
   // Generate all sprints
@@ -32,6 +40,27 @@ export function Timeline() {
   
   // Get visible quarters
   const visibleQuarters = quarters.slice(startQuarterIndex, startQuarterIndex + quartersToShow);
+
+  // For 'dates' granularity: compute visible months (3 per quarter × quartersToShow)
+  const visibleMonths = useMemo(() => {
+    const firstQ = visibleQuarters[0];
+    if (!firstQ) return [];
+    const [q, yr] = firstQ.split(' ');
+    const year = parseInt(yr);
+    const startMonth = (parseInt(q.slice(1)) - 1) * 3; // Q1→0, Q2→3, Q3→6, Q4→9
+    const totalMonths = quartersToShow * 3;
+    const months: { year: number; month: number; label: string }[] = [];
+    for (let i = 0; i < totalMonths; i++) {
+      const m = (startMonth + i) % 12;
+      const y = year + Math.floor((startMonth + i) / 12);
+      months.push({
+        year: y,
+        month: m,
+        label: `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m]} ${y}`,
+      });
+    }
+    return months;
+  }, [visibleQuarters, quartersToShow]);
   
   // Filter projects
   const filteredProjects = useMemo(() => {
@@ -143,6 +172,17 @@ export function Timeline() {
               <Zap size={14} />
               Sprints
             </button>
+            <button
+              onClick={() => setGranularity('dates')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                granularity === 'dates'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <CalendarOff size={14} />
+              Dates
+            </button>
           </div>
           
           {viewMode === 'projects' && (
@@ -191,8 +231,24 @@ export function Timeline() {
               </div>
             </div>
             
-            {/* Quarter/Sprint Headers */}
-            {granularity === 'quarter' ? (
+            {/* Quarter / Sprint / Dates Headers */}
+            {granularity === 'dates' ? (
+              visibleMonths.map(({ year, month, label }) => {
+                const nowY = new Date().getFullYear();
+                const nowM = new Date().getMonth();
+                const isCurrent = year === nowY && month === nowM;
+                return (
+                  <div
+                    key={label}
+                    className={`flex-1 min-w-[100px] px-2 py-3 text-center ${
+                      isCurrent ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="font-medium text-xs">{label}</div>
+                  </div>
+                );
+              })
+            ) : granularity === 'quarter' ? (
               // Quarter headers — show working day count per quarter
               visibleQuarters.map(quarter => {
                 const workWeeks = getWorkWeeksInQuarter(quarter, []);
@@ -213,7 +269,7 @@ export function Timeline() {
                   </div>
                 );
               })
-            ) : (
+            ) : granularity === 'sprint' ? (
               // Sprint headers — show working day count per sprint
               visibleQuarters.flatMap(quarter => {
                 const sprintsInQ = getSprintsForQuarter(quarter, allSprints);
@@ -241,12 +297,21 @@ export function Timeline() {
                   );
                 });
               })
-            )}
+            ) : null}
           </div>
 
           {/* Rows */}
-          {viewMode === 'projects' ? (
-            // Project View
+          {granularity === 'dates' && viewMode === 'projects' ? (
+            // Date view — project bars spanning months
+            <DateView
+              projects={filteredProjects}
+              months={visibleMonths}
+              getPriorityColor={getPriorityColor}
+              getStatusColor={getStatusColor}
+              onAssign={openAssign}
+            />
+          ) : granularity !== 'dates' && viewMode === 'projects' ? (
+            // Project View (quarter / sprint)
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredProjects.length === 0 ? (
                 projects.length === 0 ? (
@@ -274,12 +339,13 @@ export function Timeline() {
                     currentQuarter={currentQuarter}
                     getPriorityColor={getPriorityColor}
                     getStatusColor={getStatusColor}
+                    onAssign={openAssign}
                   />
                 ))
               )}
             </div>
           ) : (
-            // Team View
+            // Team View (quarter / sprint) — dates mode shows no team rows
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {teamMembers.length === 0 ? (
                 <EmptyState
@@ -295,7 +361,7 @@ export function Timeline() {
                     member={member}
                     quarters={visibleQuarters}
                     sprints={allSprints}
-                    granularity={granularity}
+                    granularity={granularity as 'quarter' | 'sprint'}
                     currentQuarter={currentQuarter}
                     state={state}
                   />
@@ -305,6 +371,14 @@ export function Timeline() {
           )}
         </CardContent>
       </Card>
+
+      {/* Inline Assignment Modal (US-016) */}
+      <AssignmentModal
+        isOpen={isAssignOpen}
+        onClose={() => { setIsAssignOpen(false); setAssignContext({}); }}
+        projectId={assignContext.projectId}
+        phaseId={assignContext.phaseId}
+      />
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 text-sm">
@@ -330,6 +404,167 @@ export function Timeline() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// DATE VIEW COMPONENT (US-046)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface MonthInfo { year: number; month: number; label: string; }
+
+function quarterToDateRange(q: string): { start: string; end: string } {
+  const [qStr, yr] = q.split(' ');
+  const year = parseInt(yr);
+  const qNum = parseInt(qStr.slice(1));
+  const startMonth = (qNum - 1) * 3;
+  const endMonth = startMonth + 2;
+  const endDay = [31,28,31,30,31,30,31,31,30,31,30,31][endMonth];
+  const pad = (n: number) => String(n + 1).padStart(2, '0');
+  return {
+    start: `${year}-${pad(startMonth)}-01`,
+    end: `${year}-${pad(endMonth)}-${endDay}`,
+  };
+}
+
+interface DateViewProps {
+  projects: Project[];
+  months: MonthInfo[];
+  getPriorityColor: (p: string) => string;
+  getStatusColor: (s: string) => string;
+  onAssign?: (projectId: string, phaseId?: string) => void;
+}
+
+function DateView({ projects, months, getPriorityColor, getStatusColor, onAssign }: DateViewProps) {
+  if (months.length === 0) return null;
+
+  const firstMonth = months[0];
+  const lastMonth = months[months.length - 1];
+  const viewStart = new Date(firstMonth.year, firstMonth.month, 1);
+  const viewEnd = new Date(lastMonth.year, lastMonth.month + 1, 0);
+  const totalDays = Math.ceil((viewEnd.getTime() - viewStart.getTime()) / 86400000) + 1;
+
+  const getBarStyle = (startStr: string | undefined, endStr: string | undefined) => {
+    if (!startStr || !endStr) return null;
+    const s = new Date(startStr + 'T00:00:00');
+    const e = new Date(endStr + 'T23:59:59');
+    if (e < viewStart || s > viewEnd) return null;
+    const clampedS = s < viewStart ? viewStart : s;
+    const clampedE = e > viewEnd ? viewEnd : e;
+    const offsetDays = Math.ceil((clampedS.getTime() - viewStart.getTime()) / 86400000);
+    const spanDays = Math.ceil((clampedE.getTime() - clampedS.getTime()) / 86400000) + 1;
+    return {
+      left: `${(offsetDays / totalDays) * 100}%`,
+      width: `${Math.max((spanDays / totalDays) * 100, 1.5)}%`,
+    };
+  };
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayOffset = Math.ceil((new Date(today).getTime() - viewStart.getTime()) / 86400000);
+  const todayPct = totalDays > 0 ? (todayOffset / totalDays) * 100 : -1;
+
+  const STATUS_COLORS: Record<string, string> = {
+    'Active': 'bg-emerald-500',
+    'Planning': 'bg-blue-500',
+    'On Hold': 'bg-amber-500',
+    'Completed': 'bg-slate-400',
+    'Cancelled': 'bg-red-400',
+  };
+
+  return (
+    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+      {projects.map(project => {
+        // Determine project date range
+        let projStart = project.startDate;
+        let projEnd = project.endDate;
+        if (!projStart && !projEnd && project.phases.length > 0) {
+          const allQuarters = project.phases.flatMap(ph => {
+            const r = quarterToDateRange(ph.startQuarter);
+            const r2 = quarterToDateRange(ph.endQuarter);
+            return [r.start, r2.end];
+          });
+          projStart = allQuarters.sort()[0];
+          projEnd = allQuarters.sort().reverse()[0];
+        }
+
+        const barStyle = getBarStyle(projStart, projEnd);
+        const color = STATUS_COLORS[project.status] ?? 'bg-blue-400';
+
+        return (
+          <div key={project.id} className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+            {/* Project label */}
+            <div className={`w-64 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
+              <div className="font-medium text-slate-900 dark:text-white truncate text-sm" title={project.name}>
+                {project.name}
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
+                <span className="text-xs text-slate-400 dark:text-slate-500">
+                  {projStart && projEnd ? `${projStart} → ${projEnd}` : 'No dates set'}
+                </span>
+              </div>
+            </div>
+
+            {/* Bar area */}
+            <div className="flex-1 relative py-4 overflow-hidden min-w-0">
+              {/* Month grid lines */}
+              <div className="absolute inset-0 flex pointer-events-none">
+                {months.map((m, i) => (
+                  <div key={m.label} className={`flex-1 ${i > 0 ? 'border-l border-slate-100 dark:border-slate-800' : ''}`} />
+                ))}
+              </div>
+
+              {/* Today line */}
+              {todayPct >= 0 && todayPct <= 100 && (
+                <div
+                  className="absolute top-0 bottom-0 w-px bg-red-400 dark:bg-red-500 z-10 pointer-events-none"
+                  style={{ left: `${todayPct}%` }}
+                />
+              )}
+
+              {/* Project bar */}
+              {barStyle ? (
+                <button
+                  className={`absolute top-1/2 -translate-y-1/2 h-6 rounded ${color} opacity-80 hover:opacity-100 transition-opacity flex items-center px-2 overflow-hidden`}
+                  style={barStyle}
+                  onClick={() => onAssign?.(project.id)}
+                  title={`${project.name} — click to assign`}
+                >
+                  <span className="text-white text-[10px] font-medium truncate">{project.name}</span>
+                </button>
+              ) : (
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 italic">
+                  no dates
+                </span>
+              )}
+
+              {/* Phase bars below project bar */}
+              {project.phases.map((phase, pIdx) => {
+                const phStart = phase.startDate ?? quarterToDateRange(phase.startQuarter).start;
+                const phEnd = phase.endDate ?? quarterToDateRange(phase.endQuarter).end;
+                const phStyle = getBarStyle(phStart, phEnd);
+                if (!phStyle) return null;
+                const top = `${50 + 26 + pIdx * 18}%`;
+                return (
+                  <button
+                    key={phase.id}
+                    className="absolute h-4 rounded bg-blue-300 dark:bg-blue-700 opacity-70 hover:opacity-100 flex items-center px-1 overflow-hidden transition-opacity"
+                    style={{ ...phStyle, top, transform: 'translateY(-50%)' }}
+                    onClick={() => onAssign?.(project.id, phase.id)}
+                    title={`${phase.name} — click to assign`}
+                  >
+                    <span className="text-blue-900 dark:text-blue-100 text-[9px] truncate">{phase.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      {projects.length === 0 && (
+        <div className="py-12 text-center text-slate-400 text-sm">No epics match the current filters.</div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // PROJECT ROW COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -341,9 +576,10 @@ interface ProjectRowProps {
   currentQuarter: string;
   getPriorityColor: (priority: string) => string;
   getStatusColor: (status: string) => string;
+  onAssign?: (projectId: string, phaseId?: string) => void;
 }
 
-function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor }: ProjectRowProps) {
+function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor, onAssign }: ProjectRowProps) {
   if (granularity === 'quarter') {
     // Quarter view
     const quarterData = quarters.map(quarter => {
@@ -388,13 +624,15 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
             {activePhases.length > 0 && (
               <div className="space-y-1">
                 {activePhases.map(phase => (
-                  <div
+                  <button
                     key={phase.id}
-                    className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded text-xs font-medium text-blue-700 dark:text-blue-300 truncate"
-                    title={`${phase.name}`}
+                    onClick={() => onAssign?.(project.id, phase.id)}
+                    className="w-full text-left px-2 py-1 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-800/50 rounded text-xs font-medium text-blue-700 dark:text-blue-300 truncate transition-colors group"
+                    title={`${phase.name} — click to edit assignments`}
                   >
-                    {phase.name}
-                  </div>
+                    <span className="truncate">{phase.name}</span>
+                    <span className="hidden group-hover:inline ml-1 text-blue-500 dark:text-blue-400">✎</span>
+                  </button>
                 ))}
                 {totalDays > 0 && (
                   <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -402,6 +640,14 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                   </div>
                 )}
               </div>
+            )}
+            {activePhases.length === 0 && onAssign && (
+              <button
+                onClick={() => onAssign(project.id)}
+                className="w-full text-left px-2 py-1 rounded text-xs text-slate-300 dark:text-slate-600 hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors opacity-0 hover:opacity-100 group-hover:opacity-100"
+              >
+                + Assign
+              </button>
             )}
           </div>
         ))}
@@ -462,8 +708,12 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
           }`}
         >
           {activePhases.length > 0 && sprintDays > 0 && (
-            <div className="space-y-1">
-              <div className="h-2 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
+            <button
+              onClick={() => onAssign?.(project.id)}
+              className="w-full space-y-1 group"
+              title="Click to edit assignments"
+            >
+              <div className="h-2 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden group-hover:ring-2 group-hover:ring-blue-400 transition-all">
                 <div 
                   className="h-full bg-blue-500 dark:bg-blue-500 rounded-full"
                   style={{ width: `${Math.min(100, (sprintDays / 15) * 100)}%` }}
@@ -472,7 +722,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
               <div className="text-[10px] text-slate-500 dark:text-slate-400 text-center">
                 {sprintDays.toFixed(1)}d
               </div>
-            </div>
+            </button>
           )}
         </div>
       ))}
@@ -488,7 +738,7 @@ interface TeamMemberRowProps {
   member: TeamMember;
   quarters: string[];
   sprints: Sprint[];
-  granularity: TimelineGranularity;
+  granularity: 'quarter' | 'sprint';
   currentQuarter: string;
   state: ReturnType<typeof useAppStore.getState>['data'];
 }

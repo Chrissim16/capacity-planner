@@ -9,7 +9,8 @@ const SHORTCUTS = [
   { keys: ['N'], description: 'New item (add team member, epic, etc. on current page)' },
   { keys: ['?'], description: 'Show this keyboard shortcuts reference' },
   { keys: ['Esc'], description: 'Close modal or panel' },
-  { keys: ['Ctrl', 'K'], description: 'Global search (coming soon)' },
+  { keys: ['Ctrl', 'K'], description: 'Global search — epics, members, Jira items' },
+  { keys: ['1–6'], description: 'Navigate to view (Dashboard, Timeline, Epics, Team, Jira, Settings)' },
 ];
 
 function Key({ label }: { label: string }) {

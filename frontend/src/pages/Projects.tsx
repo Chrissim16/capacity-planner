@@ -42,6 +42,20 @@ export function Projects() {
     return () => window.removeEventListener('keyboard:new', handler);
   }, []);
 
+  // Command palette highlight → expand the matching project
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { id, view } = (e as CustomEvent).detail;
+      if (view !== 'projects') return;
+      setExpandedProjects(prev => { const next = new Set(prev); next.add(id); return next; });
+      setTimeout(() => {
+        document.getElementById(`project-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 150);
+    };
+    window.addEventListener('search:highlight', handler);
+    return () => window.removeEventListener('search:highlight', handler);
+  }, []);
+
   // Assignment modal state
   const [isAssignmentOpen, setIsAssignmentOpen] = useState(false);
   const [assignmentContext, setAssignmentContext] = useState<{
@@ -283,7 +297,7 @@ export function Projects() {
             const dateRange = formatDateRange(project.startDate, project.endDate);
 
             return (
-              <Card key={project.id} className="overflow-hidden">
+              <Card key={project.id} id={`project-${project.id}`} className="overflow-hidden">
                 {/* Project Header */}
                 <div
                   className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
