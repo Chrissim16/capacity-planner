@@ -79,6 +79,8 @@ const defaultAppState: AppState = {
   roles: [],
   skills: [],
   systems: [],
+  squads: [],
+  processTeams: [],
   teamMembers: [],
   projects: [],
   timeOff: [],

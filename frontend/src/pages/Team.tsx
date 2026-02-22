@@ -17,6 +17,8 @@ export function Team() {
   const roles = state.roles;
   const countries = state.countries;
   const skills = state.skills;
+  const squads = state.squads;
+  const processTeams = state.processTeams;
   const { showToast } = useToast();
   
   const [isMemberFormOpen, setIsMemberFormOpen] = useState(false);
@@ -29,12 +31,16 @@ export function Team() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
+  const [squadFilter, setSquadFilter] = useState('');
+  const [processTeamFilter, setProcessTeamFilter] = useState('');
 
   // Filter team members
   const filteredMembers = teamMembers.filter(member => {
     if (search && !member.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (roleFilter && member.role !== roleFilter) return false;
     if (countryFilter && member.countryId !== countryFilter) return false;
+    if (squadFilter && member.squadId !== squadFilter) return false;
+    if (processTeamFilter && !(member.processTeamIds ?? []).includes(processTeamFilter)) return false;
     return true;
   });
 
@@ -87,6 +93,16 @@ export function Team() {
   const countryOptions = [
     { value: '', label: 'All Countries' },
     ...countries.map(c => ({ value: c.id, label: `${c.flag || '🏳️'} ${c.name}` })),
+  ];
+
+  const squadFilterOptions = [
+    { value: '', label: 'All Squads' },
+    ...squads.map(s => ({ value: s.id, label: s.name })),
+  ];
+
+  const processTeamFilterOptions = [
+    { value: '', label: 'All Process Teams' },
+    ...processTeams.map(pt => ({ value: pt.id, label: pt.name })),
   ];
 
   // Members needing enrichment (imported from Jira but missing role/country)
@@ -174,6 +190,20 @@ export function Team() {
           onChange={(e) => setCountryFilter(e.target.value)}
           options={countryOptions}
         />
+        {squads.length > 0 && (
+          <Select
+            value={squadFilter}
+            onChange={(e) => setSquadFilter(e.target.value)}
+            options={squadFilterOptions}
+          />
+        )}
+        {processTeams.length > 0 && (
+          <Select
+            value={processTeamFilter}
+            onChange={(e) => setProcessTeamFilter(e.target.value)}
+            options={processTeamFilterOptions}
+          />
+        )}
       </div>
 
       {/* Team List */}
@@ -240,6 +270,27 @@ export function Team() {
                                 <Mail size={11} className="shrink-0" />
                                 {member.email}
                               </p>
+                            )}
+                            {/* Squad + Process Teams */}
+                            {(member.squadId || (member.processTeamIds ?? []).length > 0) && (
+                              <div className="flex items-center flex-wrap gap-1 mt-1.5">
+                                {member.squadId && (() => {
+                                  const squad = squads.find(s => s.id === member.squadId);
+                                  return squad ? (
+                                    <span className="px-1.5 py-0 text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded">
+                                      {squad.name}
+                                    </span>
+                                  ) : null;
+                                })()}
+                                {(member.processTeamIds ?? []).map(ptId => {
+                                  const pt = processTeams.find(p => p.id === ptId);
+                                  return pt ? (
+                                    <span key={ptId} className="px-1.5 py-0 text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 rounded">
+                                      {pt.name}
+                                    </span>
+                                  ) : null;
+                                })}
+                              </div>
                             )}
                           </div>
                           <div className="flex items-center gap-1 ml-2">

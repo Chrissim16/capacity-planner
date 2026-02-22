@@ -37,6 +37,16 @@ export interface System {
   description?: string;
 }
 
+export interface Squad {
+  id: string;
+  name: string;   // e.g. "ERP" | "EPM"
+}
+
+export interface ProcessTeam {
+  id: string;
+  name: string;   // e.g. "R2R" | "L2C" | "P2P" | "Planning" | "Treasury" | "FP&A"
+}
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TEAM MEMBERS
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -48,6 +58,9 @@ export interface TeamMember {
   countryId: string;
   skillIds: string[];
   maxConcurrentProjects: number;
+  // Organisational structure
+  squadId?: string;                  // IT team: ERP or EPM
+  processTeamIds?: string[];         // Cross-functional process teams: R2R, L2C, P2P, etc.
   // Jira integration fields
   email?: string;                    // For matching with Jira assignees
   jiraAccountId?: string;            // Jira user account ID
@@ -150,6 +163,8 @@ export interface AppState {
   roles: Role[];
   skills: Skill[];
   systems: System[];
+  squads: Squad[];
+  processTeams: ProcessTeam[];
   teamMembers: TeamMember[];
   projects: Project[];
   timeOff: TimeOff[];

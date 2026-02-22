@@ -34,6 +34,8 @@ import type {
   Role,
   Skill,
   System,
+  Squad,
+  ProcessTeam,
   Settings,
   JiraSettings,
 } from '../types';
@@ -93,6 +95,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
   try {
     const [
       rolesRes, countriesRes, holidaysRes, skillsRes, systemsRes,
+      squadsRes, processTeamsRes,
       teamMembersRes, projectsRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes,
     ] = await Promise.all([
@@ -101,6 +104,8 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       supabase.from('public_holidays').select('*').order('date'),
       supabase.from('skills').select('*').order('name'),
       supabase.from('systems').select('*').order('name'),
+      supabase.from('squads').select('*').order('name'),
+      supabase.from('process_teams').select('*').order('name'),
       supabase.from('team_members').select('*').eq('is_active', true).order('name'),
       supabase.from('projects').select('*').order('name'),
       supabase.from('time_off').select('*'),
@@ -116,6 +121,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
     // Only bail out completely if ALL tables fail (network / config problem).
     const allResults = [
       rolesRes, countriesRes, holidaysRes, skillsRes, systemsRes,
+      squadsRes, processTeamsRes,
       teamMembersRes, projectsRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes,
     ];
@@ -164,6 +170,16 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       description: s.description ?? undefined,
     }));
 
+    const squads: Squad[] = (squadsRes.data ?? []).map(s => ({
+      id: s.id,
+      name: s.name,
+    }));
+
+    const processTeams: ProcessTeam[] = (processTeamsRes.data ?? []).map(pt => ({
+      id: pt.id,
+      name: pt.name,
+    }));
+
     const teamMembers: TeamMember[] = (teamMembersRes.data ?? []).map(m => ({
       id: m.id,
       name: m.name,
@@ -171,6 +187,8 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       countryId: m.country_id ?? '',
       skillIds: Array.isArray(m.skill_ids) ? m.skill_ids : [],
       maxConcurrentProjects: m.max_concurrent_projects ?? 2,
+      squadId: m.squad_id ?? undefined,
+      processTeamIds: Array.isArray(m.process_team_ids) ? m.process_team_ids : [],
       email: m.email ?? undefined,
       jiraAccountId: m.jira_account_id ?? undefined,
       syncedFromJira: m.synced_from_jira ?? false,
@@ -323,6 +341,8 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       roles,
       skills,
       systems,
+      squads,
+      processTeams,
       teamMembers,
       projects,
       timeOff,
@@ -364,6 +384,8 @@ export async function saveToSupabase(state: AppState): Promise<void> {
     ['public_holidays',  syncHolidays(state.publicHolidays)],
     ['skills',           syncSkills(state.skills)],
     ['systems',          syncSystems(state.systems)],
+    ['squads',           syncSquads(state.squads)],
+    ['process_teams',    syncProcessTeams(state.processTeams)],
     ['team_members',     syncTeamMembers(state.teamMembers)],
     ['projects',         syncProjects(state.projects)],
     ['time_off',         syncTimeOff(state.timeOff)],
@@ -438,6 +460,22 @@ async function syncSystems(systems: System[]): Promise<void> {
   );
 }
 
+async function syncSquads(squads: Squad[]): Promise<void> {
+  await upsertAndPrune(
+    'squads',
+    squads,
+    s => ({ id: s.id, name: s.name })
+  );
+}
+
+async function syncProcessTeams(processTeams: ProcessTeam[]): Promise<void> {
+  await upsertAndPrune(
+    'process_teams',
+    processTeams,
+    pt => ({ id: pt.id, name: pt.name })
+  );
+}
+
 async function syncTeamMembers(members: TeamMember[]): Promise<void> {
   await upsertAndPrune(
     'team_members',
@@ -449,6 +487,8 @@ async function syncTeamMembers(members: TeamMember[]): Promise<void> {
       country_id: m.countryId,
       skill_ids: m.skillIds,
       max_concurrent_projects: m.maxConcurrentProjects,
+      squad_id: m.squadId ?? null,
+      process_team_ids: m.processTeamIds ?? [],
       email: m.email ?? null,
       jira_account_id: m.jiraAccountId ?? null,
       synced_from_jira: m.syncedFromJira ?? false,

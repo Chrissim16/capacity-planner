@@ -18,11 +18,15 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
   const roles = state.roles;
   const countries = state.countries;
   const skills = state.skills;
+  const squads = state.squads;
+  const processTeams = state.processTeams;
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [countryId, setCountryId] = useState('');
+  const [squadId, setSquadId] = useState('');
+  const [selectedProcessTeamIds, setSelectedProcessTeamIds] = useState<string[]>([]);
   const [maxConcurrentProjects, setMaxConcurrentProjects] = useState(2);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -37,6 +41,8 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
       setEmail(member.email || '');
       setRole(member.role);
       setCountryId(member.countryId);
+      setSquadId(member.squadId || '');
+      setSelectedProcessTeamIds(member.processTeamIds || []);
       setMaxConcurrentProjects(member.maxConcurrentProjects);
       setSelectedSkills(member.skillIds || []);
     } else {
@@ -44,6 +50,8 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
       setEmail('');
       setRole(roles[0]?.name || '');
       setCountryId(countries[0]?.id || '');
+      setSquadId('');
+      setSelectedProcessTeamIds([]);
       setMaxConcurrentProjects(2);
       setSelectedSkills([]);
     }
@@ -55,6 +63,14 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
       prev.includes(skillId)
         ? prev.filter(id => id !== skillId)
         : [...prev, skillId]
+    );
+  };
+
+  const handleProcessTeamToggle = (ptId: string) => {
+    setSelectedProcessTeamIds(prev =>
+      prev.includes(ptId)
+        ? prev.filter(id => id !== ptId)
+        : [...prev, ptId]
     );
   };
 
@@ -75,6 +91,8 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
       email: email.trim() || undefined,
       role,
       countryId,
+      squadId: squadId || undefined,
+      processTeamIds: selectedProcessTeamIds,
       maxConcurrentProjects,
       skillIds: selectedSkills,
     };
@@ -95,6 +113,10 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
 
   const roleOptions = roles.map(r => ({ value: r.name, label: r.name }));
   const countryOptions = countries.map(c => ({ value: c.id, label: c.name }));
+  const squadOptions = [
+    { value: '', label: 'Not assigned' },
+    ...squads.map(s => ({ value: s.id, label: s.name })),
+  ];
 
   // Group skills by category
   const skillsByCategory = skills.reduce((acc, skill) => {
@@ -170,6 +192,41 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
             error={errors.countryId}
           />
         </div>
+
+        {/* Squad + Process Teams */}
+        {squads.length > 0 && (
+          <Select
+            id="squad"
+            label="IT Team (Squad)"
+            value={squadId}
+            onChange={(e) => setSquadId(e.target.value)}
+            options={squadOptions}
+          />
+        )}
+
+        {processTeams.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Process Teams
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {processTeams.map(pt => (
+                <button
+                  key={pt.id}
+                  type="button"
+                  onClick={() => handleProcessTeamToggle(pt.id)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    selectedProcessTeamIds.includes(pt.id)
+                      ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  {pt.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Input
           id="max-projects"
