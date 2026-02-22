@@ -437,6 +437,25 @@ export function addHoliday(countryId: string, date: string, name: string): void 
   state.updateData({ publicHolidays });
 }
 
+/**
+ * Add multiple holidays in a single state update to avoid race conditions
+ * when importing a batch from an external API.
+ */
+export function addHolidaysBatch(
+  entries: Array<{ countryId: string; date: string; name: string }>
+): void {
+  if (entries.length === 0) return;
+  const state = useAppStore.getState();
+  const existing = state.getCurrentState().publicHolidays;
+  const newEntries = entries.map(e => ({
+    id: generateId('holiday'),
+    countryId: e.countryId,
+    date: e.date,
+    name: e.name,
+  }));
+  state.updateData({ publicHolidays: [...existing, ...newEntries] });
+}
+
 export function updateHoliday(holidayId: string, updates: { date?: string; name?: string }): void {
   const state = useAppStore.getState();
   const publicHolidays = state.getCurrentState().publicHolidays.map(h =>

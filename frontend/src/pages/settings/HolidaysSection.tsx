@@ -7,7 +7,7 @@ import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { useCurrentState } from '../../stores/appStore';
-import { addHoliday, deleteHoliday } from '../../stores/actions';
+import { addHoliday, addHolidaysBatch, deleteHoliday } from '../../stores/actions';
 import { fetchNagerHolidays } from '../../services/nagerHolidays';
 import type { NagerHoliday } from '../../services/nagerHolidays';
 
@@ -50,19 +50,19 @@ export function HolidaysSection() {
 
   const handleImportAll = () => {
     if (!importPreview || !importCountryId) return;
-    const existing = new Set(
+    const existingDates = new Set(
       publicHolidays
         .filter(h => h.countryId === importCountryId)
         .map(h => h.date)
     );
-    let added = 0;
-    for (const h of importPreview) {
-      if (!existing.has(h.date)) {
-        addHoliday(importCountryId, h.date, h.name);
-        added++;
-      }
-    }
-    setImportSuccess(added);
+    const newEntries = importPreview
+      .filter(h => !existingDates.has(h.date))
+      .map(h => ({ countryId: importCountryId, date: h.date, name: h.name }));
+
+    // Single batch update — avoids multiple updateData calls in a loop
+    addHolidaysBatch(newEntries);
+
+    setImportSuccess(newEntries.length);
     setImportPreview(null);
   };
 
