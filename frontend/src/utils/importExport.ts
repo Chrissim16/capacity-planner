@@ -117,10 +117,12 @@ export async function exportToExcel(state: AppState, filename = 'capacity-planne
 
   // Projects sheet
   const projectsData = [
-    ['ID', 'Name', 'Priority', 'Status', 'DevOps Link', 'System IDs'],
+    ['ID', 'Name', 'Priority', 'Status', 'DevOps Link', 'System IDs', 'Start Date', 'End Date', 'Description', 'Notes'],
     ...state.projects.map(p => [
       p.id, p.name, p.priority, p.status, p.devopsLink || '',
-      (p.systemIds || []).join(';')
+      (p.systemIds || []).join(';'),
+      p.startDate || '', p.endDate || '',
+      p.description || '', p.notes || '',
     ])
   ];
   const projectsSheet = XLSX.utils.aoa_to_sheet(projectsData);
@@ -128,13 +130,14 @@ export async function exportToExcel(state: AppState, filename = 'capacity-planne
 
   // Phases sheet
   const phasesData: (string | number)[][] = [
-    ['Project ID', 'Phase ID', 'Name', 'Start Quarter', 'End Quarter', 'Required Skill IDs']
+    ['Project ID', 'Phase ID', 'Name', 'Start Quarter', 'End Quarter', 'Required Skill IDs', 'Start Date', 'End Date', 'Notes']
   ];
   state.projects.forEach(p => {
     p.phases.forEach(ph => {
       phasesData.push([
         p.id, ph.id, ph.name, ph.startQuarter, ph.endQuarter,
-        (ph.requiredSkillIds || []).join(';')
+        (ph.requiredSkillIds || []).join(';'),
+        ph.startDate || '', ph.endDate || '', ph.notes || '',
       ]);
     });
   });

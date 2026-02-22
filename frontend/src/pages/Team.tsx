@@ -10,6 +10,7 @@ import { TeamMemberForm } from '../components/forms/TeamMemberForm';
 import { TimeOffForm } from '../components/forms/TimeOffForm';
 import { useCurrentState } from '../stores/appStore';
 import { deleteTeamMember } from '../stores/actions';
+import { useAppStore } from '../stores/appStore';
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
@@ -65,11 +66,23 @@ export function Team() {
   };
 
   const confirmDelete = () => {
-    if (deleteConfirm) {
-      deleteTeamMember(deleteConfirm.id);
-      setDeleteConfirm(null);
-      showToast('Team member deleted', 'success');
-    }
+    if (!deleteConfirm) return;
+    const snapshotMembers  = JSON.parse(JSON.stringify(state.teamMembers));
+    const snapshotProjects = JSON.parse(JSON.stringify(state.projects));
+    const deleted = deleteConfirm;
+    deleteTeamMember(deleteConfirm.id);
+    setDeleteConfirm(null);
+    showToast(`"${deleted.name}" deleted`, {
+      type: 'warning',
+      duration: 10000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          useAppStore.getState().updateData({ teamMembers: snapshotMembers, projects: snapshotProjects });
+          showToast('Delete undone', 'success');
+        },
+      },
+    });
   };
 
   const handleAddTimeOff = (memberId: string) => {
@@ -526,8 +539,8 @@ export function Team() {
         }
       >
         <p className="text-slate-600 dark:text-slate-300">
-          Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>? 
-          This will also remove all their project assignments. This action cannot be undone.
+          Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>?
+          This will also remove all their project assignments. You can undo for 10 seconds after deletion.
         </p>
       </Modal>
     </div>

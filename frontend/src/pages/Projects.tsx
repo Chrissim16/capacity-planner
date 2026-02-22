@@ -1,5 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Copy, ExternalLink, UserPlus, ChevronDown, ChevronRight, Users, FolderKanban, Filter } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import {
+  Plus, Search, Edit2, Trash2, Copy, ExternalLink, UserPlus,
+  ChevronDown, ChevronRight, Users, FolderKanban, Filter,
+  Archive, ArchiveRestore, StickyNote, Calendar,
+} from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -8,9 +12,11 @@ import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
 import { ProjectForm } from '../components/forms/ProjectForm';
 import { AssignmentModal } from '../components/forms/AssignmentModal';
-import { useCurrentState } from '../stores/appStore';
-import { deleteProject, duplicateProject } from '../stores/actions';
+import { useCurrentState, useAppStore } from '../stores/appStore';
+import { deleteProject, duplicateProject, archiveProject, unarchiveProject } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
+import { calculateCapacity } from '../utils/capacity';
+import { getCurrentQuarter } from '../utils/calendar';
 import type { Project } from '../types';
 
 export function Projects() {
@@ -18,9 +24,16 @@ export function Projects() {
   const projects = state.projects;
   const systems = state.systems;
   const teamMembers = state.teamMembers;
+  const jiraWorkItems = state.jiraWorkItems ?? [];
   const { showToast } = useToast();
-  
+
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Project | null>(null);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
+
+  const currentQuarter = getCurrentQuarter();
 
   // N shortcut → open "Add epic" form
   useEffect(() => {
@@ -28,51 +41,49 @@ export function Projects() {
     window.addEventListener('keyboard:new', handler);
     return () => window.removeEventListener('keyboard:new', handler);
   }, []);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Project | null>(null);
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-  
+
   // Assignment modal state
   const [isAssignmentOpen, setIsAssignmentOpen] = useState(false);
   const [assignmentContext, setAssignmentContext] = useState<{
     projectId?: string;
     phaseId?: string;
   }>({});
-  
+
   // Filters
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [systemFilter, setSystemFilter] = useState('');
 
-  const getStatusVariant = (status: string) => {
+  const getStatusVariant = (status: string): 'success' | 'primary' | 'warning' | 'default' => {
     switch (status) {
       case 'Active': return 'success';
       case 'Planning': return 'primary';
       case 'On Hold': return 'warning';
-      case 'Completed': return 'default';
-      case 'Cancelled': return 'default';
       default: return 'default';
     }
   };
 
-  const getPriorityVariant = (priority: string) => {
+  const getPriorityVariant = (priority: string): 'danger' | 'warning' | 'default' => {
     switch (priority) {
       case 'High': return 'danger';
       case 'Medium': return 'warning';
-      case 'Low': return 'default';
       default: return 'default';
     }
   };
 
   // Filter projects
-  const filteredProjects = projects.filter(project => {
+  const filteredProjects = useMemo(() => projects.filter(project => {
+    if (!showArchived && project.archived) return false;
+    if (showArchived && !project.archived) return false;
     if (search && !project.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (statusFilter && project.status !== statusFilter) return false;
     if (priorityFilter && project.priority !== priorityFilter) return false;
     if (systemFilter && !project.systemIds?.includes(systemFilter)) return false;
     return true;
-  });
+  }), [projects, showArchived, search, statusFilter, priorityFilter, systemFilter]);
+
+  const archivedCount = useMemo(() => projects.filter(p => p.archived).length, [projects]);
 
   const handleEdit = (project: Project) => {
     setEditingProject(project);
@@ -84,16 +95,42 @@ export function Projects() {
   };
 
   const confirmDelete = () => {
-    if (deleteConfirm) {
-      deleteProject(deleteConfirm.id);
-      setDeleteConfirm(null);
-      showToast('Epic deleted', 'success');
-    }
+    if (!deleteConfirm) return;
+    const snapshot = JSON.parse(JSON.stringify(state.projects)) as Project[];
+    const deletedProject = deleteConfirm;
+    deleteProject(deleteConfirm.id);
+    setDeleteConfirm(null);
+    showToast(`"${deletedProject.name}" deleted`, {
+      type: 'warning',
+      duration: 10000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          useAppStore.getState().updateData({ projects: snapshot });
+          showToast('Delete undone', 'success');
+        },
+      },
+    });
   };
 
   const handleDuplicate = (project: Project) => {
     duplicateProject(project.id);
     showToast(`Duplicated "${project.name}"`, 'success');
+  };
+
+  const handleArchive = (project: Project) => {
+    archiveProject(project.id);
+    showToast(`"${project.name}" archived`, {
+      type: 'info',
+      duration: 6000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          unarchiveProject(project.id);
+          showToast('Archive undone', 'success');
+        },
+      },
+    });
   };
 
   const handleCloseForm = () => {
@@ -104,11 +141,7 @@ export function Projects() {
   const toggleExpanded = (projectId: string) => {
     setExpandedProjects(prev => {
       const next = new Set(prev);
-      if (next.has(projectId)) {
-        next.delete(projectId);
-      } else {
-        next.add(projectId);
-      }
+      if (next.has(projectId)) next.delete(projectId); else next.add(projectId);
       return next;
     });
   };
@@ -118,8 +151,17 @@ export function Projects() {
     setIsAssignmentOpen(true);
   };
 
-  const getMemberName = (memberId: string) => {
-    return teamMembers.find(m => m.id === memberId)?.name || 'Unknown';
+  const getMemberName = (memberId: string) =>
+    teamMembers.find(m => m.id === memberId)?.name ?? 'Unknown';
+
+  const formatDate = (d: string) =>
+    new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const formatDateRange = (start?: string, end?: string) => {
+    if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
+    if (start) return `From ${formatDate(start)}`;
+    if (end)   return `Until ${formatDate(end)}`;
+    return null;
   };
 
   const statusOptions = [
@@ -151,14 +193,25 @@ export function Projects() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Epics</h1>
           <p className="text-slate-500 dark:text-slate-400">
             {filteredProjects.length} epic{filteredProjects.length !== 1 ? 's' : ''}
+            {showArchived && ' (archived)'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {archivedCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowArchived(v => !v)}
+            >
+              {showArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+              {showArchived ? 'Hide archived' : `Archived (${archivedCount})`}
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => setIsAssignmentOpen(true)}>
             <UserPlus size={16} />
             Assign Team
           </Button>
-          <Button onClick={() => setIsFormOpen(true)}>
+          <Button onClick={() => { setEditingProject(null); setIsFormOpen(true); }}>
             <Plus size={16} />
             New Epic
           </Button>
@@ -179,28 +232,16 @@ export function Projects() {
             />
           </div>
         </div>
-        <Select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          options={statusOptions}
-        />
-        <Select
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-          options={priorityOptions}
-        />
-        <Select
-          value={systemFilter}
-          onChange={(e) => setSystemFilter(e.target.value)}
-          options={systemOptions}
-        />
+        <Select value={statusFilter}   onChange={(e) => setStatusFilter(e.target.value)}   options={statusOptions}   />
+        <Select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} options={priorityOptions} />
+        <Select value={systemFilter}   onChange={(e) => setSystemFilter(e.target.value)}   options={systemOptions}   />
       </div>
 
       {/* Projects List */}
       {filteredProjects.length === 0 ? (
         <Card>
           <CardContent>
-            {projects.length === 0 ? (
+            {projects.filter(p => !p.archived).length === 0 && !showArchived ? (
               <EmptyState
                 icon={FolderKanban}
                 title="No epics yet"
@@ -221,20 +262,35 @@ export function Projects() {
           {filteredProjects.map(project => {
             const projectSystems = systems.filter(s => project.systemIds?.includes(s.id));
             const isExpanded = expandedProjects.has(project.id);
-            const totalAssignments = project.phases.reduce((sum, ph) => sum + ph.assignments.length, 0);
-            
+
+            // — US-048 summary data —
+            const uniqueMembers = new Map<string, number>();
+            project.phases.forEach(ph => {
+              ph.assignments.forEach(a => {
+                uniqueMembers.set(a.memberId, (uniqueMembers.get(a.memberId) ?? 0) + a.days);
+              });
+            });
+
+            const jiraItems = jiraWorkItems.filter(
+              w => project.jiraSourceKey && w.parentKey === project.jiraSourceKey
+            );
+            const jiraByStatus = jiraItems.reduce<Record<string, number>>((acc, item) => {
+              const cat = item.statusCategory ?? 'To Do';
+              acc[cat] = (acc[cat] ?? 0) + 1;
+              return acc;
+            }, {});
+
+            const dateRange = formatDateRange(project.startDate, project.endDate);
+
             return (
-              <Card 
-                key={project.id} 
-                className="overflow-hidden"
-              >
+              <Card key={project.id} className="overflow-hidden">
                 {/* Project Header */}
-                <div 
+                <div
                   className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
                   onClick={() => toggleExpanded(project.id)}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <button className="p-1 text-slate-400">
+                    <button className="p-1 text-slate-400 shrink-0">
                       {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                     </button>
                     <div className="flex-1 min-w-0">
@@ -247,20 +303,34 @@ export function Projects() {
                             href={project.devopsLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-slate-400 hover:text-blue-500"
+                            className="text-slate-400 hover:text-blue-500 shrink-0"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <ExternalLink size={14} />
                           </a>
                         )}
+                        {project.notes && (
+                          <span title="Has notes">
+                            <StickyNote size={13} className="text-amber-400 shrink-0" />
+                          </span>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-sm text-slate-500 dark:text-slate-400">
                         <span>{project.phases.length} feature{project.phases.length !== 1 ? 's' : ''}</span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <Users size={12} />
-                          {totalAssignments} assignment{totalAssignments !== 1 ? 's' : ''}
+                          {uniqueMembers.size} member{uniqueMembers.size !== 1 ? 's' : ''}
                         </span>
+                        {dateRange && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Calendar size={12} />
+                              {dateRange}
+                            </span>
+                          </>
+                        )}
                         {projectSystems.length > 0 && (
                           <>
                             <span>•</span>
@@ -270,17 +340,13 @@ export function Projects() {
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
+
+                  <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
-                      <Badge variant={getPriorityVariant(project.priority)}>
-                        {project.priority}
-                      </Badge>
-                      <Badge variant={getStatusVariant(project.status)}>
-                        {project.status}
-                      </Badge>
+                      <Badge variant={getPriorityVariant(project.priority)}>{project.priority}</Badge>
+                      <Badge variant={getStatusVariant(project.status)}>{project.status}</Badge>
                     </div>
-                    
+
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openAssignment(project.id)}
@@ -303,6 +369,24 @@ export function Projects() {
                       >
                         <Copy size={16} />
                       </button>
+                      {(project.status === 'Completed' || project.status === 'Cancelled') && !project.archived && (
+                        <button
+                          onClick={() => handleArchive(project)}
+                          className="p-2 text-slate-400 hover:text-violet-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                          title="Archive"
+                        >
+                          <Archive size={16} />
+                        </button>
+                      )}
+                      {project.archived && (
+                        <button
+                          onClick={() => { unarchiveProject(project.id); showToast('Unarchived', 'success'); }}
+                          className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                          title="Unarchive"
+                        >
+                          <ArchiveRestore size={16} />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(project)}
                         className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -314,57 +398,141 @@ export function Projects() {
                   </div>
                 </div>
 
-                {/* Expanded Phases */}
+                {/* Expanded Section — US-048 enhanced card */}
                 {isExpanded && (
                   <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30">
-                    {project.phases.length === 0 ? (
-                      <div className="px-12 py-4 text-sm text-slate-400">
-                        No features defined
+
+                    {/* Summary row */}
+                    <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border-b border-slate-200 dark:border-slate-700">
+                      {/* Description / Notes */}
+                      <div className="lg:col-span-2 space-y-2">
+                        {project.description && (
+                          <p className="text-sm text-slate-600 dark:text-slate-300">{project.description}</p>
+                        )}
+                        {project.notes && (
+                          <div className="flex gap-1.5 p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                            <StickyNote size={13} className="text-amber-500 shrink-0 mt-0.5" />
+                            <p className="text-xs text-amber-800 dark:text-amber-300 whitespace-pre-wrap">{project.notes}</p>
+                          </div>
+                        )}
+                        {dateRange && (
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                            <Calendar size={12} />
+                            {dateRange}
+                          </div>
+                        )}
                       </div>
+
+                      {/* Team summary */}
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+                          Team ({uniqueMembers.size})
+                        </p>
+                        {uniqueMembers.size === 0 ? (
+                          <p className="text-xs text-slate-400">No assignments yet</p>
+                        ) : (
+                          <div className="space-y-0.5">
+                            {Array.from(uniqueMembers.entries()).map(([memberId, days]) => {
+                              const cap = calculateCapacity(memberId, currentQuarter, state);
+                              return (
+                                <div key={memberId} className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-700 dark:text-slate-300 truncate">
+                                    {getMemberName(memberId)}
+                                  </span>
+                                  <span className={`ml-2 shrink-0 font-medium ${
+                                    cap.status === 'overallocated' ? 'text-red-500' :
+                                    cap.status === 'warning' ? 'text-amber-500' : 'text-slate-500'
+                                  }`}>
+                                    {days}d
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Jira stats */}
+                      {jiraItems.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+                            Jira ({jiraItems.length})
+                          </p>
+                          <div className="space-y-0.5">
+                            {Object.entries(jiraByStatus).map(([cat, count]) => (
+                              <div key={cat} className="flex justify-between text-xs">
+                                <span className="text-slate-600 dark:text-slate-400">{cat}</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Feature list */}
+                    {project.phases.length === 0 ? (
+                      <div className="px-12 py-4 text-sm text-slate-400">No features defined</div>
                     ) : (
                       <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                        {project.phases.map(phase => (
-                          <div key={phase.id} className="px-12 py-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium text-slate-700 dark:text-slate-200">
-                                  {phase.name}
-                                </p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                  {phase.startQuarter} – {phase.endQuarter}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                {phase.assignments.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1.5 max-w-md">
-                                    {phase.assignments.slice(0, 5).map((a, i) => (
-                                      <span 
-                                        key={i}
-                                        className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded"
-                                      >
-                                        {getMemberName(a.memberId)} ({a.days}d)
-                                      </span>
-                                    ))}
-                                    {phase.assignments.length > 5 && (
-                                      <span className="px-2 py-0.5 text-slate-400 text-xs">
-                                        +{phase.assignments.length - 5} more
+                        {project.phases.map(phase => {
+                          const phaseDate = formatDateRange(phase.startDate, phase.endDate);
+                          return (
+                            <div key={phase.id} className="px-12 py-3">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <p className="font-medium text-slate-700 dark:text-slate-200">
+                                    {phase.name}
+                                  </p>
+                                  <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                      {phase.startQuarter} – {phase.endQuarter}
+                                    </p>
+                                    {phaseDate && (
+                                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                                        <Calendar size={10} />
+                                        {phaseDate}
                                       </span>
                                     )}
                                   </div>
-                                ) : (
-                                  <span className="text-xs text-slate-400">No assignments</span>
-                                )}
-                                <button
-                                  onClick={() => openAssignment(project.id, phase.id)}
-                                  className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-700 rounded transition-colors"
-                                  title="Assign to this phase"
-                                >
-                                  <UserPlus size={14} />
-                                </button>
+                                  {phase.notes && (
+                                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 italic">
+                                      {phase.notes}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-4 shrink-0">
+                                  {phase.assignments.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5 max-w-xs justify-end">
+                                      {phase.assignments.slice(0, 5).map((a, i) => (
+                                        <span
+                                          key={i}
+                                          className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded"
+                                        >
+                                          {getMemberName(a.memberId)} ({a.days}d)
+                                        </span>
+                                      ))}
+                                      {phase.assignments.length > 5 && (
+                                        <span className="px-2 py-0.5 text-slate-400 text-xs">
+                                          +{phase.assignments.length - 5} more
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-slate-400">No assignments</span>
+                                  )}
+                                  <button
+                                    onClick={() => openAssignment(project.id, phase.id)}
+                                    className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-700 rounded transition-colors"
+                                    title="Assign to this feature"
+                                  >
+                                    <UserPlus size={14} />
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -411,8 +579,8 @@ export function Projects() {
         }
       >
         <p className="text-slate-600 dark:text-slate-300">
-          Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>? 
-          This will also remove all features and assignments. This action cannot be undone.
+          Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>?
+          This will also remove all features and assignments. You can undo for 10 seconds after deletion.
         </p>
       </Modal>
     </div>

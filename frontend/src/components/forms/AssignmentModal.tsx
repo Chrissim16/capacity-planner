@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calculator, AlertTriangle, Users, Calendar, Zap } from 'lucide-react';
+import { Calculator, AlertTriangle, Users, Calendar, Zap, Sparkles } from 'lucide-react';
+import { suggestAssignees } from '../../application/assignmentSuggester';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -207,6 +208,20 @@ export function AssignmentModal({
   ];
 
   const quarterOptions = quarters.map(q => ({ value: q, label: q }));
+
+  // Smart suggestions (US-052/053) — shown when project + phase + quarter are selected
+  const suggestions = useMemo(() => {
+    if (!selectedProjectId || !selectedPhaseId || !selectedQuarter) return [];
+    const phase = projects.find(p => p.id === selectedProjectId)
+      ?.phases.find(ph => ph.id === selectedPhaseId);
+    return suggestAssignees({
+      projectId: selectedProjectId,
+      phaseId: selectedPhaseId,
+      quarter: selectedQuarter,
+      requiredSkillIds: phase?.requiredSkillIds ?? [],
+      state,
+    }).slice(0, 3);
+  }, [selectedProjectId, selectedPhaseId, selectedQuarter, projects, state]);
 
   const hasOverallocation = capacityPreviews.some(p => p?.isOverallocated);
   const canSave = selectedProjectId && selectedPhaseId && selectedMemberIds.length > 0 && selectedQuarter;
@@ -446,11 +461,62 @@ export function AssignmentModal({
           </div>
         </div>
 
+        {/* Smart Suggestions (US-053) */}
+        {suggestions.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+              <Sparkles size={16} className="text-yellow-500" />
+              Suggested
+            </label>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {suggestions.map(s => {
+                const isSelected = selectedMemberIds.includes(s.member.id);
+                return (
+                  <button
+                    key={s.member.id}
+                    onClick={() => toggleMember(s.member.id)}
+                    className={`flex flex-col items-start p-3 rounded-lg text-left text-sm transition-colors border-2 ${
+                      isSelected
+                        ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400'
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-yellow-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="font-medium text-slate-800 dark:text-slate-100 truncate">
+                        {s.member.name}
+                      </span>
+                      <span className={`ml-1 shrink-0 text-xs font-bold px-1.5 py-0.5 rounded ${
+                        s.score >= 70
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : s.score >= 40
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                      }`}>
+                        {s.score}%
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate w-full">
+                      {s.member.role}
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {s.reasons.map(r => (
+                        <span key={r} className="text-[10px] px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded">
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Team Member Selection */}
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
             <Users size={16} />
-            Select Team Members
+            {suggestions.length > 0 ? 'All Members' : 'Select Team Members'}
             <span className="text-red-500">*</span>
           </label>
           <div className={`grid grid-cols-2 gap-2 max-h-56 overflow-y-auto p-2 border-2 rounded-lg ${

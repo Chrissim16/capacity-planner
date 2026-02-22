@@ -3,7 +3,7 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
 import { addProject, updateProject, generateId } from '../../stores/actions';
 import { getCurrentQuarter } from '../../utils/calendar';
@@ -29,22 +29,38 @@ const statusOptions = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
+function makeBlankPhase(n: number, currentQuarter: string): Phase {
+  return {
+    id: generateId('phase'),
+    name: `Feature ${n}`,
+    startQuarter: currentQuarter,
+    endQuarter: currentQuarter,
+    requiredSkillIds: [],
+    predecessorPhaseId: null,
+    assignments: [],
+  };
+}
+
 export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
   const state = useCurrentState();
   const systems = state.systems;
   const quarters = state.quarters;
-  
-  const [name, setName] = useState('');
-  const [priority, setPriority] = useState<ProjectPriority>('Medium');
-  const [status, setStatus] = useState<ProjectStatus>('Planning');
-  const [selectedSystems, setSelectedSystems] = useState<string[]>([]);
-  const [devopsLink, setDevopsLink] = useState('');
-  const [phases, setPhases] = useState<Phase[]>([]);
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const currentQuarter = getCurrentQuarter();
 
-  // Reset form when project changes
+  const [name, setName]               = useState('');
+  const [priority, setPriority]       = useState<ProjectPriority>('Medium');
+  const [status, setStatus]           = useState<ProjectStatus>('Planning');
+  const [selectedSystems, setSelectedSystems] = useState<string[]>([]);
+  const [devopsLink, setDevopsLink]   = useState('');
+  const [description, setDescription] = useState('');
+  const [notes, setNotes]             = useState('');
+  const [startDate, setStartDate]     = useState('');
+  const [endDate, setEndDate]         = useState('');
+  const [phases, setPhases]           = useState<Phase[]>([]);
+  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
+  const [errors, setErrors]           = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (project) {
       setName(project.name);
@@ -52,6 +68,10 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       setStatus(project.status);
       setSelectedSystems(project.systemIds || []);
       setDevopsLink(project.devopsLink || '');
+      setDescription(project.description || '');
+      setNotes(project.notes || '');
+      setStartDate(project.startDate || '');
+      setEndDate(project.endDate || '');
       setPhases(project.phases || []);
     } else {
       setName('');
@@ -59,18 +79,16 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       setStatus('Planning');
       setSelectedSystems([]);
       setDevopsLink('');
-      setPhases([{
-        id: generateId('phase'),
-        name: 'Feature 1',
-        startQuarter: currentQuarter,
-        endQuarter: currentQuarter,
-        requiredSkillIds: [],
-        predecessorPhaseId: null,
-        assignments: [],
-      }]);
+      setDescription('');
+      setNotes('');
+      setStartDate('');
+      setEndDate('');
+      setPhases([makeBlankPhase(1, currentQuarter)]);
     }
+    setExpandedPhases(new Set());
     setErrors({});
-  }, [project, isOpen, currentQuarter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, isOpen]);
 
   const handleSystemToggle = (systemId: string) => {
     setSelectedSystems(prev =>
@@ -81,15 +99,8 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
   };
 
   const handleAddPhase = () => {
-    setPhases(prev => [...prev, {
-      id: generateId('phase'),
-      name: `Feature ${prev.length + 1}`,
-      startQuarter: currentQuarter,
-      endQuarter: currentQuarter,
-      requiredSkillIds: [],
-      predecessorPhaseId: null,
-      assignments: [],
-    }]);
+    const newPhase = makeBlankPhase(phases.length + 1, currentQuarter);
+    setPhases(prev => [...prev, newPhase]);
   };
 
   const handlePhaseChange = (index: number, field: keyof Phase, value: string) => {
@@ -102,6 +113,14 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
     if (phases.length > 1) {
       setPhases(prev => prev.filter((_, i) => i !== index));
     }
+  };
+
+  const togglePhaseExpanded = (phaseId: string) => {
+    setExpandedPhases(prev => {
+      const next = new Set(prev);
+      if (next.has(phaseId)) next.delete(phaseId); else next.add(phaseId);
+      return next;
+    });
   };
 
   const validate = (): boolean => {
@@ -124,6 +143,10 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       status,
       systemIds: selectedSystems,
       devopsLink: devopsLink.trim() || undefined,
+      description: description.trim() || undefined,
+      notes: notes.trim() || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
       phases,
     };
 
@@ -155,7 +178,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
         </>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Basic Info */}
         <Input
           id="project-name"
@@ -194,30 +217,79 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
           />
         </div>
 
-        {/* Systems */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-            Systems
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {systems.map(system => (
-              <button
-                key={system.id}
-                type="button"
-                onClick={() => handleSystemToggle(system.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  selectedSystems.includes(system.id)
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                    : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                }`}
-              >
-                {system.name}
-              </button>
-            ))}
-          </div>
+        {/* Date range */}
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            id="project-start"
+            label="Start date (optional)"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <Input
+            id="project-end"
+            label="End date (optional)"
+            type="date"
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
         </div>
 
-        {/* Phases */}
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Description (optional)
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Brief description of this epic..."
+            rows={2}
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          />
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Notes (optional)
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Decisions, blockers, or context..."
+            rows={2}
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          />
+        </div>
+
+        {/* Systems */}
+        {systems.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Systems
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {systems.map(system => (
+                <button
+                  key={system.id}
+                  type="button"
+                  onClick={() => handleSystemToggle(system.id)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    selectedSystems.includes(system.id)
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  {system.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Features / Phases */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -228,52 +300,98 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
               Add Feature
             </Button>
           </div>
-          
+
           {errors.phases && (
             <p className="text-sm text-red-500 mb-2">{errors.phases}</p>
           )}
-          
-          <div className="space-y-3">
-            {phases.map((phase, index) => (
-              <div
-                key={phase.id}
-                className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="flex-1 grid grid-cols-3 gap-3">
-                    <Input
-                      value={phase.name}
-                      onChange={(e) => {
-                        handlePhaseChange(index, 'name', e.target.value);
-                        if (errors[`phase-${index}`]) setErrors(prev => ({ ...prev, [`phase-${index}`]: '' }));
-                      }}
-                      placeholder="Feature name"
-                      required
-                      error={errors[`phase-${index}`]}
-                    />
-                    <Select
-                      value={phase.startQuarter}
-                      onChange={(e) => handlePhaseChange(index, 'startQuarter', e.target.value)}
-                      options={quarterOptions}
-                    />
-                    <Select
-                      value={phase.endQuarter}
-                      onChange={(e) => handlePhaseChange(index, 'endQuarter', e.target.value)}
-                      options={quarterOptions}
-                    />
-                  </div>
-                  {phases.length > 1 && (
+
+          <div className="space-y-2">
+            {phases.map((phase, index) => {
+              const isPhaseExpanded = expandedPhases.has(phase.id);
+              return (
+                <div
+                  key={phase.id}
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 overflow-hidden"
+                >
+                  {/* Phase header row */}
+                  <div className="flex items-start gap-3 p-3">
                     <button
                       type="button"
-                      onClick={() => handleRemovePhase(index)}
-                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                      onClick={() => togglePhaseExpanded(phase.id)}
+                      className="mt-2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 shrink-0"
                     >
-                      <Trash2 size={16} />
+                      {isPhaseExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </button>
+                    <div className="flex-1 grid grid-cols-3 gap-3">
+                      <Input
+                        value={phase.name}
+                        onChange={(e) => {
+                          handlePhaseChange(index, 'name', e.target.value);
+                          if (errors[`phase-${index}`]) setErrors(prev => ({ ...prev, [`phase-${index}`]: '' }));
+                        }}
+                        placeholder="Feature name"
+                        required
+                        error={errors[`phase-${index}`]}
+                      />
+                      <Select
+                        value={phase.startQuarter}
+                        onChange={(e) => handlePhaseChange(index, 'startQuarter', e.target.value)}
+                        options={quarterOptions}
+                      />
+                      <Select
+                        value={phase.endQuarter}
+                        onChange={(e) => handlePhaseChange(index, 'endQuarter', e.target.value)}
+                        options={quarterOptions}
+                      />
+                    </div>
+                    {phases.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhase(index)}
+                        className="mt-2 p-1 text-slate-400 hover:text-red-500 shrink-0 transition-colors"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Expanded phase details: dates + notes */}
+                  {isPhaseExpanded && (
+                    <div className="px-10 pb-3 space-y-3 border-t border-slate-200 dark:border-slate-700 pt-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          id={`phase-start-${index}`}
+                          label="Start date (optional)"
+                          type="date"
+                          value={phase.startDate || ''}
+                          onChange={(e) => handlePhaseChange(index, 'startDate', e.target.value)}
+                        />
+                        <Input
+                          id={`phase-end-${index}`}
+                          label="End date (optional)"
+                          type="date"
+                          value={phase.endDate || ''}
+                          min={phase.startDate || undefined}
+                          onChange={(e) => handlePhaseChange(index, 'endDate', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Notes (optional)
+                        </label>
+                        <textarea
+                          value={phase.notes || ''}
+                          onChange={(e) => handlePhaseChange(index, 'notes', e.target.value)}
+                          placeholder="Decisions, blockers, or context for this feature..."
+                          rows={2}
+                          className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

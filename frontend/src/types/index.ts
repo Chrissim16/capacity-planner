@@ -111,9 +111,12 @@ export interface Phase {
   name: string;
   startQuarter: string;
   endQuarter: string;
+  startDate?: string;       // ISO date "2026-03-01" — optional, for date-range planning
+  endDate?: string;         // ISO date "2026-06-30"
   requiredSkillIds: string[];
   predecessorPhaseId: string | null;
   assignments: Assignment[];
+  notes?: string;           // Free-text planning notes
   jiraSourceKey?: string;   // Jira key of the Feature/Epic this phase was created from
 }
 
@@ -125,7 +128,11 @@ export interface Project {
   systemIds: string[];
   devopsLink?: string;
   description?: string;
+  startDate?: string;       // ISO date — optional project-level date range
+  endDate?: string;
   phases: Phase[];
+  notes?: string;           // Free-text planning notes
+  archived?: boolean;       // Soft-deleted: hidden from default views
   jiraSourceKey?: string;   // Jira key of the Epic/Feature this project was created from
   syncedFromJira?: boolean; // true = created automatically during Jira sync
 }

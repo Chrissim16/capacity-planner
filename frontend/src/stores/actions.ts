@@ -45,6 +45,22 @@ export function deleteProject(projectId: string): void {
   state.updateData({ projects });
 }
 
+export function archiveProject(projectId: string): void {
+  const state = useAppStore.getState();
+  const projects = state.getCurrentState().projects.map(p =>
+    p.id === projectId ? { ...p, archived: true } : p
+  );
+  state.updateData({ projects });
+}
+
+export function unarchiveProject(projectId: string): void {
+  const state = useAppStore.getState();
+  const projects = state.getCurrentState().projects.map(p =>
+    p.id === projectId ? { ...p, archived: false } : p
+  );
+  state.updateData({ projects });
+}
+
 export function duplicateProject(projectId: string): Project | null {
   const state = useAppStore.getState();
   const original = state.getCurrentState().projects.find(p => p.id === projectId);
