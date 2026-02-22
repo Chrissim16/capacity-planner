@@ -203,26 +203,42 @@ export function Projects() {
   ];
 
   /**
-   * Collect all jira work items in the subtree rooted at rootKey
-   * (the epic key). This includes features AND their children
-   * (stories, tasks, bugs) so the hierarchy tree renders fully.
+   * Collect all Jira work items that belong to a project, via two routes:
+   *   1. jiraSourceKey subtree — items whose ancestor is the epic key
+   *      (set when autoCreateProjects builds the project from Jira).
+   *   2. mappedProjectId — items manually mapped to this project in the
+   *      Jira tab (no jiraSourceKey required on the project).
+   * Using both means manually-mapped AND auto-created items both appear
+   * in the Epics tab, and the hierarchy tree renders the full depth.
    */
-  const collectSubtree = (rootKey: string): JiraWorkItem[] => {
-    const result: JiraWorkItem[] = [];
-    const queue = [rootKey];
-    const visited = new Set<string>();
-    while (queue.length > 0) {
-      const key = queue.shift()!;
-      if (visited.has(key)) continue;
-      visited.add(key);
-      for (const item of jiraWorkItems) {
-        if (item.parentKey === key) {
-          result.push(item);
-          queue.push(item.jiraKey);
+  const collectJiraItemsForProject = (project: Project): JiraWorkItem[] => {
+    const included = new Set<string>();
+
+    // Route 1: breadth-first walk of the Jira subtree
+    if (project.jiraSourceKey) {
+      const queue = [project.jiraSourceKey];
+      const visited = new Set<string>();
+      while (queue.length > 0) {
+        const key = queue.shift()!;
+        if (visited.has(key)) continue;
+        visited.add(key);
+        for (const item of jiraWorkItems) {
+          if (item.parentKey === key) {
+            included.add(item.id);
+            queue.push(item.jiraKey);
+          }
         }
       }
     }
-    return result;
+
+    // Route 2: items explicitly mapped to this project in the Jira tab
+    for (const item of jiraWorkItems) {
+      if (item.mappedProjectId === project.id) {
+        included.add(item.id);
+      }
+    }
+
+    return jiraWorkItems.filter(i => included.has(i.id));
   };
 
   return (
@@ -311,9 +327,7 @@ export function Projects() {
               });
             });
 
-            const jiraItems = project.jiraSourceKey
-              ? collectSubtree(project.jiraSourceKey)
-              : [];
+            const jiraItems = collectJiraItemsForProject(project);
             const jiraByStatus = jiraItems.reduce<Record<string, number>>((acc, item) => {
               const cat = item.statusCategory ?? 'To Do';
               acc[cat] = (acc[cat] ?? 0) + 1;
