@@ -204,6 +204,12 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       phases: Array.isArray(p.phases) ? p.phases : [],
       devopsLink: p.devops_link ?? undefined,
       description: p.description ?? undefined,
+      notes: p.notes ?? undefined,
+      startDate: p.start_date ?? undefined,
+      endDate: p.end_date ?? undefined,
+      archived: p.archived ?? false,
+      jiraSourceKey: p.jira_source_key ?? undefined,
+      syncedFromJira: p.synced_from_jira ?? false,
     }));
 
     const timeOff: TimeOff[] = (timeOffRes.data ?? []).map(t => ({
@@ -536,6 +542,12 @@ async function syncProjects(projects: Project[]): Promise<void> {
       phases: p.phases,
       devops_link: p.devopsLink ?? null,
       description: p.description ?? null,
+      notes: p.notes ?? null,
+      start_date: p.startDate ?? null,
+      end_date: p.endDate ?? null,
+      archived: p.archived ?? false,
+      jira_source_key: p.jiraSourceKey ?? null,
+      synced_from_jira: p.syncedFromJira ?? false,
     })
   );
 }

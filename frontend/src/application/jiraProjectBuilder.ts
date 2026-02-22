@@ -97,8 +97,9 @@ export function buildProjectsFromJira(
   const jiraProjects = existingProjects.filter(p => p.syncedFromJira);
   // Track which jira-sourced projects were touched so we can keep un-touched ones
   const touchedJiraKeys = new Set<string>();
+  // Track legacy manual projects superseded by a matched Jira project (so we exclude them)
+  const supersededManualIds = new Set<string>();
 
-  const resultProjects: Project[] = [...manualProjects];
   const updatedWorkItems: JiraWorkItem[] = workItems.map(i => ({ ...i }));
 
   // Helper: find or create a Project from a Jira item
@@ -116,6 +117,19 @@ export function buildProjectsFromJira(
       return existing;
     }
 
+    // Legacy fallback: if a manual project has the same name, it was likely a Jira-created
+    // project whose jiraSourceKey was lost due to a prior sync/load bug. Re-adopt it instead
+    // of creating a duplicate.
+    const legacyMatch = manualProjects.find(
+      p => p.name.toLowerCase() === item.summary.toLowerCase()
+    );
+    if (legacyMatch) {
+      supersededManualIds.add(legacyMatch.id);
+      touchedJiraKeys.add(item.jiraKey);
+      projectsUpdated++;
+      return { ...legacyMatch, jiraSourceKey: item.jiraKey, syncedFromJira: true };
+    }
+
     projectsCreated++;
     touchedJiraKeys.add(item.jiraKey);
     return {
@@ -129,6 +143,10 @@ export function buildProjectsFromJira(
       syncedFromJira: true,
     };
   };
+
+  // Build the initial result list, excluding any manual projects already superseded above
+  // (supersededManualIds is populated lazily by upsertProject calls below)
+  const getResultProjects = () => manualProjects.filter(p => !supersededManualIds.has(p.id));
 
   // Helper: find or create a Phase within a project
   const upsertPhase = (project: Project, item: JiraWorkItem): { project: Project; phase: Phase } => {
@@ -263,7 +281,11 @@ export function buildProjectsFromJira(
     }
   }
 
-  // Collect assembled projects
+  // Build the final project list:
+  // - manual projects that were NOT superseded by a Jira match
+  // - all Jira-assembled projects from this sync
+  // - Jira-sourced projects from other connections/syncs that weren't touched
+  const resultProjects: Project[] = getResultProjects();
   for (const project of projectMap.values()) {
     resultProjects.push(project);
   }
