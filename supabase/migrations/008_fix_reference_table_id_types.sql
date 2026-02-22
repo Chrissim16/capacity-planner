@@ -24,10 +24,17 @@ ALTER TABLE systems
 ALTER TABLE roles
   ALTER COLUMN id TYPE text USING id::text;
 
--- countries
-ALTER TABLE countries
-  ALTER COLUMN id TYPE text USING id::text;
-
 -- skills
 ALTER TABLE skills
   ALTER COLUMN id TYPE text USING id::text;
+
+-- countries — must drop FK from public_holidays first, then fix both columns
+ALTER TABLE public_holidays
+  DROP CONSTRAINT IF EXISTS public_holidays_country_id_fkey;
+
+ALTER TABLE countries
+  ALTER COLUMN id TYPE text USING id::text;
+
+-- Also fix public_holidays.country_id in case it is still uuid
+ALTER TABLE public_holidays
+  ALTER COLUMN country_id TYPE text USING country_id::text;
