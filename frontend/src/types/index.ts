@@ -345,6 +345,8 @@ export interface JiraWorkItem {
   components: string[];
   created: string;
   updated: string;
+  startDate?: string;  // YYYY-MM-DD from Jira (custom field or planned start)
+  dueDate?: string;    // YYYY-MM-DD from Jira duedate field
   mappedProjectId?: string;
   mappedPhaseId?: string;
   mappedMemberId?: string;

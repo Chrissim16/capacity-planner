@@ -5,10 +5,11 @@ import { clsx } from 'clsx';
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  hint?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, id, required, ...props }, ref) => {
+  ({ className, label, error, hint, id, required, ...props }, ref) => {
     return (
       <div className="space-y-1.5">
         {label && (
@@ -36,6 +37,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           {...props}
         />
+        {hint && !error && (
+          <p className="text-xs text-slate-400">{hint}</p>
+        )}
         {error && (
           <p className="text-sm text-red-500 font-medium flex items-center gap-1">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

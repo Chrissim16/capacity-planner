@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
@@ -235,6 +235,12 @@ export function Team() {
                               <span>{countryInfo.flag}</span>
                               <span>{countryInfo.name}</span>
                             </p>
+                            {member.email && (
+                              <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5 truncate" title={member.email}>
+                                <Mail size={11} className="shrink-0" />
+                                {member.email}
+                              </p>
+                            )}
                           </div>
                           <div className="flex items-center gap-1 ml-2">
                             <button

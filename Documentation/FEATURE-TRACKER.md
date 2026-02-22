@@ -4,7 +4,7 @@
 
 **Last updated:** February 22, 2026  
 **Total features:** 55  
-**Completed:** 12 / 55
+**Completed:** 15 / 55
 
 ---
 
@@ -17,8 +17,8 @@
 | 🟠 P1 — High     | 7      | 7      | 0           | 0           |
 | 🟡 P2 — Medium   | 13     | 0      | 0           | 13          |
 | 🟢 P3 — Low      | 10     | 0      | 0           | 10          |
-| 🔵 Phase 2       | 20     | 0      | 0           | 20          |
-| **Total**        | **55** | **12** | **0**       | **43**      |
+| 🔵 Phase 2       | 20     | 3      | 0           | 17          |
+| **Total**        | **55** | **15** | **0**       | **40**      |
 
 
 ---
@@ -112,9 +112,9 @@
 
 | ID     | Feature                                              | Type       | Status | Started | Completed | Notes                                                                                |
 | ------ | ---------------------------------------------------- | ---------- | ------ | ------- | --------- | ------------------------------------------------------------------------------------ |
-| US-036 | Display Labels & Components on Jira Work Items       | UX/UI      | ⬜      |         |           | Labels as coloured tag pills, components as secondary pills. Filter bar integration. |
-| US-037 | Import Start/End Dates from Jira                     | Functional | ⬜      |         |           | Add `duedate` + start date custom field to JIRA_FIELDS. Map to JiraWorkItem type.    |
-| US-038 | Verify & Display Email on Team Member Cards          | UX/UI      | ⬜      |         |           | `email` field already exists. Ensure it's visible on Team page member cards.          |
+| US-036 | Display Labels & Components on Jira Work Items       | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | Labels shown as indigo tag pills, components as teal pills on each Jira item row. Label and Component filter dropdowns added to Jira Overview filter bar. |
+| US-037 | Import Start/End Dates from Jira                     | Functional | ✅ | 2026-02-22 | 2026-02-22 | `duedate` + `customfield_10015` (start date) added to JIRA_FIELDS. Mapped to `startDate`/`dueDate` on `JiraWorkItem`. Dates displayed inline on Jira item rows. |
+| US-038 | Verify & Display Email on Team Member Cards          | UX/UI      | ✅ | 2026-02-22 | 2026-02-22 | Email shown on Team page member cards with mail icon. Email field added to TeamMemberForm for manual entry. Input component enhanced with `hint` prop. |
 
 
 ---
@@ -215,6 +215,9 @@
 | US-010 | API Token Masking | 2026-02-20 | Tokens masked in UI as `••••••••abcd`. "Change Token" flow prevents accidental exposure. |
 | US-011 | Sync History Log | 2026-02-20 | Last 10 syncs stored per connection; expandable history panel in Settings > Jira. |
 | US-012 | Scenario Refresh Preview | 2026-02-20 | Inline change summary + Yes/Cancel confirmation before refreshing scenario Jira data. |
+| US-036 | Display Labels & Components on Jira Work Items | 2026-02-22 | Indigo label pills + teal component pills on each item row. Label/Component filter dropdowns in Jira Overview. |
+| US-037 | Import Start/End Dates from Jira | 2026-02-22 | `duedate` + `customfield_10015` mapped to `startDate`/`dueDate`. Dates shown inline on Jira items. |
+| US-038 | Verify & Display Email on Team Member Cards | 2026-02-22 | Email visible on member cards. Email input added to TeamMemberForm. Input `hint` prop added. |
 
 ---
 
@@ -222,6 +225,7 @@
 
 | Date | ID | Change |
 |------|----|--------|
+| 2026-02-22 | US-036–038 | Group A (Jira Data Enrichment) completed: labels/components display + filters, start/end date import, email on team member cards. |
 | 2026-02-22 | US-036–055 | Phase 2 backlog added: 20 new user stories across 8 groups (Jira data enrichment, naming alignment, hierarchy display, date planning, project detail, write-back, smart suggestions, holiday API). |
 | 2026-02-20 | US-006–012 | All P1 High items completed. Jira baseline warning banner, sync diff preview modal, mapping protection, token masking, sync history log, scenario refresh preview. |
 | 2026-02-20 | US-001–005 | All P0 Critical items completed. Supabase wired as primary data store, loading screen added, sync status indicator live in header, import overwrite safeguard added. |

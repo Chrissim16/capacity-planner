@@ -492,6 +492,7 @@ Each member card shows:
 - Member name
 - Role badge
 - Country flag + name
+- Email address with mail icon (if set) (US-038)
 - Skills tags (System / Process / Technical, colour-coded by category)
 - Max concurrent projects indicator
 - Time off entries (if any)
@@ -588,6 +589,8 @@ The **Jira** page displays all synced work items with the following capabilities
 - Search by summary or Jira key
 - Filter by mapping status: All / Mapped / Unmapped
 - Filter by issue type: All / Epic / Feature / Story / Task / Bug
+- Filter by label (dynamic dropdown populated from synced items) (US-036)
+- Filter by component (dynamic dropdown populated from synced items) (US-036)
 
 **Group By:**
 - Type (default)
@@ -602,6 +605,8 @@ The **Jira** page displays all synced work items with the following capabilities
 - Assignee name (if set)
 - Story points / estimate
 - Sprint name (if set)
+- Labels (indigo tag pills) and Components (teal tag pills) (US-036)
+- Start date / due date (inline, formatted as day-month or day-month-year) (US-037)
 - Mapping status: which local project / phase / member it is mapped to
 
 #### 5.5.3 Mapping Work Items

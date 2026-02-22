@@ -20,6 +20,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
   const skills = state.skills;
   
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [countryId, setCountryId] = useState('');
   const [maxConcurrentProjects, setMaxConcurrentProjects] = useState(2);
@@ -30,12 +31,14 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
   useEffect(() => {
     if (member) {
       setName(member.name);
+      setEmail(member.email || '');
       setRole(member.role);
       setCountryId(member.countryId);
       setMaxConcurrentProjects(member.maxConcurrentProjects);
       setSelectedSkills(member.skillIds || []);
     } else {
       setName('');
+      setEmail('');
       setRole(roles[0]?.name || '');
       setCountryId(countries[0]?.id || '');
       setMaxConcurrentProjects(2);
@@ -66,6 +69,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
 
     const memberData: Partial<TeamMember> & Pick<TeamMember, 'name' | 'role' | 'countryId' | 'skillIds' | 'maxConcurrentProjects'> = {
       name: name.trim(),
+      email: email.trim() || undefined,
       role,
       countryId,
       maxConcurrentProjects,
@@ -125,6 +129,16 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
           }}
           placeholder="Enter name"
           error={errors.name}
+        />
+
+        <Input
+          id="member-email"
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="user@company.com"
+          hint="Used to match with Jira assignees"
         />
 
         <div className="grid grid-cols-2 gap-4">

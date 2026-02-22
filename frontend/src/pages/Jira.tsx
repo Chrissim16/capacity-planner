@@ -35,12 +35,29 @@ export function Jira() {
 
   const [search, setSearch]               = useState('');
   const [filterIssueType, setFilterIssueType] = useState<JiraItemType | 'all'>('all');
+  const [filterLabel, setFilterLabel]     = useState('');
+  const [filterComponent, setFilterComponent] = useState('');
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(['__unmatched__']));
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
   const autoEnabled = jiraConnections.some(c => c.isActive && c.autoCreateProjects);
   const activeConnection = jiraConnections.find(c => c.isActive);
+
+  // ── Unique labels / components (for filter dropdowns) ─────────────────────
+
+  const { allLabels, allComponents } = useMemo(() => {
+    const labels = new Set<string>();
+    const components = new Set<string>();
+    for (const item of jiraWorkItems) {
+      item.labels.forEach(l => labels.add(l));
+      item.components.forEach(c => components.add(c));
+    }
+    return {
+      allLabels: [...labels].sort(),
+      allComponents: [...components].sort(),
+    };
+  }, [jiraWorkItems]);
 
   // ── Filtered items ────────────────────────────────────────────────────────
 
@@ -53,9 +70,11 @@ export function Jira() {
         }
       }
       if (filterIssueType !== 'all' && item.type !== filterIssueType) return false;
+      if (filterLabel && !item.labels.includes(filterLabel)) return false;
+      if (filterComponent && !item.components.includes(filterComponent)) return false;
       return true;
     });
-  }, [jiraWorkItems, search, filterIssueType]);
+  }, [jiraWorkItems, search, filterIssueType, filterLabel, filterComponent]);
 
   // ── Group by mapped project ───────────────────────────────────────────────
 
@@ -250,6 +269,26 @@ export function Jira() {
                 { value: 'bug',     label: 'Bugs' },
               ]}
             />
+            {allLabels.length > 0 && (
+              <Select
+                value={filterLabel}
+                onChange={e => setFilterLabel(e.target.value)}
+                options={[
+                  { value: '', label: 'All Labels' },
+                  ...allLabels.map(l => ({ value: l, label: l })),
+                ]}
+              />
+            )}
+            {allComponents.length > 0 && (
+              <Select
+                value={filterComponent}
+                onChange={e => setFilterComponent(e.target.value)}
+                options={[
+                  { value: '', label: 'All Components' },
+                  ...allComponents.map(c => ({ value: c, label: c })),
+                ]}
+              />
+            )}
           </div>
 
           {selectedItems.size > 0 && (
@@ -513,6 +552,28 @@ function JiraItemRow({
           )}
         </div>
         <div className="text-slate-700 dark:text-slate-300 truncate mt-0.5">{item.summary}</div>
+
+        {/* Labels + components + dates */}
+        <div className="flex items-center gap-1.5 flex-wrap mt-1 empty:mt-0">
+          {item.labels.map(l => (
+            <span key={l} className="px-1.5 py-0 text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded">
+              {l}
+            </span>
+          ))}
+          {item.components.map(c => (
+            <span key={c} className="px-1.5 py-0 text-[10px] font-medium bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 rounded">
+              {c}
+            </span>
+          ))}
+          {(item.startDate || item.dueDate) && (
+            <span className="text-[10px] text-slate-400">
+              {item.startDate && new Date(item.startDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+              {item.startDate && item.dueDate && ' – '}
+              {item.dueDate && new Date(item.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          )}
+        </div>
+
         {item.assigneeName && !showControls && (
           <div className="text-xs text-slate-400 mt-0.5">Assignee: {item.assigneeName}</div>
         )}

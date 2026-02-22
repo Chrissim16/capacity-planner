@@ -38,6 +38,8 @@ interface JiraIssueFields {
   components?: { name: string }[];
   created: string;
   updated: string;
+  duedate?: string;
+  customfield_10015?: string; // Start date (Jira Cloud default)
   customfield_10016?: number;
   customfield_10020?: number;
   customfield_10026?: number;
@@ -216,10 +218,12 @@ export function buildJQL(connection: JiraConnection, settings: JiraSettings): st
 const JIRA_FIELDS = [
   'summary', 'description', 'issuetype', 'status', 'priority',
   'assignee', 'reporter', 'parent', 'labels', 'components',
-  'created', 'updated',
+  'created', 'updated', 'duedate',
   'timeoriginalestimate', 'timespent', 'timeestimate',
   // Story-point custom fields (cloud variants)
   'customfield_10016', 'customfield_10020', 'customfield_10026',
+  // Start date (Jira Cloud default custom field)
+  'customfield_10015',
   // Sprint field
   'customfield_10020',
 ].join(',');
@@ -296,6 +300,8 @@ function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWor
     sprintId: f.sprint?.[0]?.id?.toString(), sprintName: f.sprint?.[0]?.name,
     labels: f.labels || [], components: f.components?.map(c => c.name) || [],
     created: f.created, updated: f.updated,
+    startDate: f.customfield_10015 ?? undefined,
+    dueDate: f.duedate ?? undefined,
   };
 }
 
