@@ -171,13 +171,6 @@ export function JiraHierarchyTree({
 
 // ─── tree row ────────────────────────────────────────────────────────────────
 
-const CONFIDENCE_OPTIONS = [
-  { value: '', label: 'Default confidence' },
-  { value: 'high',   label: 'High (+5%)' },
-  { value: 'medium', label: 'Medium (+15%)' },
-  { value: 'low',    label: 'Low (+25%)' },
-];
-
 const CONFIDENCE_BADGE: Record<ConfidenceLevel, string> = {
   high:   'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
@@ -284,7 +277,7 @@ function TreeRow({
             {item.status}
           </Badge>
 
-          {/* Leaf items: show raw days and forecasted days */}
+          {/* Leaf items: show raw days, confidence selector, and forecasted days */}
           {isLeaf && item.storyPoints != null && (() => {
             const confidence = item.confidenceLevel ?? defaultConfidenceLevel;
             const raw = item.storyPoints;
@@ -294,14 +287,28 @@ function TreeRow({
                 <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
                   {raw}d raw
                 </span>
+                {/* Inline confidence selector — always visible, even in read-only tree */}
+                <select
+                  value={item.confidenceLevel ?? ''}
+                  onChange={e => handleConfidence(e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                  className={clsx(
+                    'text-[10px] rounded px-1 py-0 border leading-tight cursor-pointer',
+                    'bg-white dark:bg-slate-800 dark:text-slate-200',
+                    item.confidenceLevel
+                      ? CONFIDENCE_BADGE[item.confidenceLevel] + ' border-transparent'
+                      : 'text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600'
+                  )}
+                  title="Confidence level — affects forecasted days"
+                >
+                  <option value="">Default ({defaultConfidenceLevel})</option>
+                  <option value="high">High (+5%)</option>
+                  <option value="medium">Medium (+15%)</option>
+                  <option value="low">Low (+25%)</option>
+                </select>
                 <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
-                  → {forecasted}d forecasted
+                  → {forecasted}d
                 </span>
-                {item.confidenceLevel && (
-                  <Badge className={clsx('text-[10px]', CONFIDENCE_BADGE[item.confidenceLevel])}>
-                    {item.confidenceLevel}
-                  </Badge>
-                )}
               </>
             );
           })()}
@@ -381,15 +388,6 @@ function TreeRow({
               options={memberOptions}
               className="text-xs w-36"
             />
-            {/* Confidence override — only meaningful on leaf items that carry days */}
-            {isLeaf && item.storyPoints != null && (
-              <Select
-                value={item.confidenceLevel ?? ''}
-                onChange={e => handleConfidence(e.target.value)}
-                options={CONFIDENCE_OPTIONS}
-                className="text-xs w-40"
-              />
-            )}
           </div>
         )}
       </div>
