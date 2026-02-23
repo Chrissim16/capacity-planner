@@ -233,6 +233,12 @@ export interface JiraKeyDiagnostic {
   statusFilterUsed?: string;
   /** reason why the item would be excluded, or null if it passes */
   exclusionReason?: string | null;
+  /** story points value resolved by the sync engine (undefined = none found) */
+  storyPoints?: number;
+  /** which custom field ID held the story points value */
+  storyPointsFieldId?: string;
+  /** all numeric customfields on this issue: {fieldId → value} — helps identify the right SP field */
+  numericCustomFields?: Record<string, number>;
 }
 
 /**
@@ -247,12 +253,11 @@ export async function diagnoseJiraKey(
 ): Promise<{ success: boolean; data?: JiraKeyDiagnostic; error?: string }> {
   try {
     const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
-    const fields = ['summary', 'issuetype', 'status', 'parent', 'customfield_10014', 'customfield_10008'].join(',');
 
-    // Fetch the single issue
+    // Fetch all fields so we can inspect every customfield_ for story points
     const response = await jiraFetch(
       connection.jiraBaseUrl,
-      `/rest/api/3/issue/${encodeURIComponent(key.trim())}?fields=${encodeURIComponent(fields)}`,
+      `/rest/api/3/issue/${encodeURIComponent(key.trim())}?fields=*all`,
       authHeader,
       { method: 'GET' }
     );
@@ -260,6 +265,29 @@ export async function diagnoseJiraKey(
     if (!response.ok) return { success: false, error: 'Jira returned ' + response.status };
     const issue = await response.json() as JiraIssue;
     const f = issue.fields;
+
+    // Collect all numeric customfields — helps identify the story points field
+    const numericCustomFields: Record<string, number> = {};
+    for (const [k, v] of Object.entries(f)) {
+      if (k.startsWith('customfield_') && typeof v === 'number' && v > 0) {
+        numericCustomFields[k] = v as number;
+      }
+    }
+
+    // Discover which field Jira labels as "Story Points" on this instance
+    const discoveredSpField = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader);
+
+    // Resolve story points using the same logic as the sync engine
+    const storyPoints = getStoryPoints(f, discoveredSpField);
+    const storyPointsFieldId = storyPoints != null
+      ? (discoveredSpField && typeof f[discoveredSpField] === 'number' && (f[discoveredSpField] as number) > 0
+          ? discoveredSpField
+          : f.customfield_10016 ? 'customfield_10016'
+          : f.customfield_10028 ? 'customfield_10028'
+          : f.customfield_10026 ? 'customfield_10026'
+          : typeof f.customfield_10020 === 'number' ? 'customfield_10020'
+          : undefined)
+      : undefined;
 
     function extractKey(field: string | { key?: string } | undefined): string | undefined {
       if (!field) return undefined;
@@ -353,6 +381,9 @@ export async function diagnoseJiraKey(
         statusPasses,
         statusFilterUsed,
         exclusionReason,
+        storyPoints,
+        storyPointsFieldId,
+        numericCustomFields: Object.keys(numericCustomFields).length > 0 ? numericCustomFields : undefined,
       },
     };
   } catch (error) {

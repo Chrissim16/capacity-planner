@@ -681,6 +681,23 @@ export function JiraSection() {
                               </td>
                             </tr>
                           )}
+                          <tr className={d.storyPoints != null ? 'bg-green-50 dark:bg-green-900/20' : 'bg-amber-50 dark:bg-amber-900/20'}>
+                            <td className="px-4 py-2.5 font-medium text-muted-foreground">Story points</td>
+                            <td className="px-4 py-2.5 text-xs">
+                              {d.storyPoints != null
+                                ? <span className="text-green-700 dark:text-green-400 font-medium">
+                                    ✓ {d.storyPoints} SP — from <code className="font-mono">{d.storyPointsFieldId}</code>
+                                  </span>
+                                : <span className="text-amber-700 dark:text-amber-400 font-medium">
+                                    None found in standard fields (10016, 10028, 10026)
+                                    {d.numericCustomFields && Object.keys(d.numericCustomFields).length > 0
+                                      ? <span> — numeric custom fields on this issue: {Object.entries(d.numericCustomFields).map(([k, v]) => `${k}=${v}`).join(', ')}</span>
+                                      : <span> — no numeric custom fields found on this issue</span>
+                                    }
+                                  </span>
+                              }
+                            </td>
+                          </tr>
                           <tr className={!localItem ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}>
                             <td className="px-4 py-2.5 font-semibold">In local sync store?</td>
                             <td className="px-4 py-2.5">
