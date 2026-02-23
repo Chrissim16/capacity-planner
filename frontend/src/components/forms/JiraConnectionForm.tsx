@@ -69,7 +69,8 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
 
   const loadProjects = async () => {
     setLoadingProjects(true);
-    const result = await getJiraProjects(jiraBaseUrl, userEmail, apiToken);
+    const tokenToUse = tokenChanged ? apiToken.trim() : (connection?.apiToken || '');
+    const result = await getJiraProjects(jiraBaseUrl, userEmail, tokenToUse);
     if (result.success && result.projects) {
       setAvailableProjects(result.projects);
       if (connection?.jiraProjectKey) {
