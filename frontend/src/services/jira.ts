@@ -642,6 +642,41 @@ export async function fetchJiraIssues(
 }
 
 /**
+ * Batch-fetch the current status of specific Jira keys.
+ * Used to refresh stale items (mapped items that fell out of the main JQL)
+ * so their real status (e.g. Done/Closed) is reflected in the store.
+ */
+export async function refreshItemStatuses(
+  connection: JiraConnection,
+  jiraKeys: string[],
+  customSpField?: string
+): Promise<JiraWorkItem[]> {
+  if (jiraKeys.length === 0) return [];
+  const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
+  const fields = buildJiraFields(customSpField);
+  const CHUNK = 50;
+  const refreshed: JiraWorkItem[] = [];
+
+  for (let o = 0; o < jiraKeys.length; o += CHUNK) {
+    const keyList = jiraKeys.slice(o, o + CHUNK).map(k => `"${k}"`).join(', ');
+    const path = '/rest/api/3/search/jql'
+      + '?jql=' + encodeURIComponent(`key IN (${keyList})`)
+      + '&maxResults=' + CHUNK
+      + '&fields=' + encodeURIComponent(fields);
+    try {
+      const resp = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
+      if (resp.ok) {
+        const data = await resp.json() as { issues: JiraIssue[] };
+        for (const issue of (data.issues ?? [])) {
+          refreshed.push(mapJiraIssueToWorkItem(issue, connection.id, customSpField));
+        }
+      }
+    } catch { /* non-fatal */ }
+  }
+  return refreshed;
+}
+
+/**
  * Extract an epic key from any of the Epic Link custom fields Jira uses.
  * - API v3 may return a plain string key OR an object {key, id, self, ...}
  * - customfield_10014 is the standard Epic Link; 10008 is used on some instances.

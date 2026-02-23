@@ -7,7 +7,7 @@
  */
 
 import type { JiraConnection, JiraSettings, JiraSyncDiff } from '../types';
-import { fetchJiraIssues } from '../services/jira';
+import { fetchJiraIssues, refreshItemStatuses } from '../services/jira';
 import {
   computeSyncDiff,
   syncJiraWorkItems,
@@ -41,7 +41,23 @@ export async function fetchSyncPreview(
     const result = await fetchJiraIssues(connection, settings, onProgress);
 
     if (result.success && result.items && result.items.length > 0) {
-      const diff = computeSyncDiff(connection.id, result.items);
+      const initialDiff = computeSyncDiff(connection.id, result.items);
+
+      // Refresh stale items (mapped items no longer in the main JQL) so their
+      // real current status is fetched directly and included in the sync.
+      let fetchedItems = result.items;
+      if (initialDiff.toKeepStale.length > 0) {
+        onProgress?.(`Refreshing ${initialDiff.toKeepStale.length} stale item(s)…`);
+        const staleKeys = initialDiff.toKeepStale.map(i => i.jiraKey);
+        const refreshed = await refreshItemStatuses(connection, staleKeys);
+        if (refreshed.length > 0) {
+          // Merge refreshed items into the fetched list so they become normal updates
+          const refreshedIds = new Set(refreshed.map(i => i.jiraId));
+          fetchedItems = [...result.items.filter(i => !refreshedIds.has(i.jiraId)), ...refreshed];
+        }
+      }
+
+      const diff = computeSyncDiff(connection.id, fetchedItems);
       return { diff, error: null, empty: false };
     }
 
