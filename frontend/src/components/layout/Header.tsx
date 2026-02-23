@@ -108,7 +108,7 @@ function SyncIndicator() {
           <span>Not saved — Retry</span>
         </button>
         {shortError && (
-          <span className="text-[10px] text-red-400 dark:text-red-500 max-w-[220px] truncate leading-tight" title={error ?? ''}>
+          <span className="text-xs text-red-400 dark:text-red-500 max-w-[220px] truncate leading-tight" title={error ?? ''}>
             {shortError}
           </span>
         )}
@@ -236,7 +236,7 @@ export function Header() {
 
             {/* Navigation */}
             <nav className="flex items-center gap-1">
-              {navItems.map(({ view, icon: Icon, label, shortcut }) => (
+              {navItems.map(({ view, icon: Icon, label }) => (
                 <button
                   key={view}
                   onClick={() => setCurrentView(view)}
@@ -249,63 +249,18 @@ export function Header() {
                 >
                   <Icon size={16} />
                   {label}
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1">
-                    {shortcut}
-                  </span>
                 </button>
               ))}
             </nav>
           </div>
 
           {/* Right side actions */}
-          <div className="flex items-center gap-3">
-            {/* Undo/Redo */}
-            <div className="flex items-center gap-1 border-r border-slate-200 dark:border-slate-700 pr-3">
-              <button
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30"
-                title="Undo (Ctrl+Z)"
-                disabled
-              >
-                <Undo2 size={16} />
-              </button>
-              <button
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30"
-                title="Redo (Ctrl+Y)"
-                disabled
-              >
-                <Redo2 size={16} />
-              </button>
-            </div>
-
-            {/* Sync Status (US-004) */}
+          <div className="flex items-center gap-4">
             <SyncIndicator />
-
-            {/* Scenario Selector */}
             <ScenarioSelector />
-
-            {/* Search button (US-021) */}
-            <button
-              onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700"
-              title="Global search (Ctrl+K)"
-            >
-              <Search size={14} />
-              <span className="hidden lg:inline text-xs">Search</span>
-              <kbd className="hidden lg:inline text-[10px] text-slate-400 bg-slate-200 dark:bg-slate-700 px-1 rounded">⌃K</kbd>
-            </button>
-
-            {/* Keyboard shortcuts hint (US-020) */}
-            <button
-              onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))}
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 text-sm font-mono"
-              title="Keyboard shortcuts (?)"
-            >
-              ?
-            </button>
-
             <button
               onClick={toggleDarkMode}
-              className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
               title="Toggle Dark Mode"
             >
               {settings.darkMode ? <Sun size={18} /> : <Moon size={18} />}

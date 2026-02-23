@@ -422,7 +422,7 @@ export function Team() {
                                 {member.squadId && (() => {
                                   const squad = squads.find(s => s.id === member.squadId);
                                   return squad ? (
-                                    <span className="px-1.5 py-0 text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded">
+                                    <span className="px-1.5 py-0 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded">
                                       {squad.name}
                                     </span>
                                   ) : null;
@@ -430,7 +430,7 @@ export function Team() {
                                 {(member.processTeamIds ?? []).map(ptId => {
                                   const pt = processTeams.find(p => p.id === ptId);
                                   return pt ? (
-                                    <span key={ptId} className="px-1.5 py-0 text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 rounded">
+                                    <span key={ptId} className="px-1.5 py-0 text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 rounded">
                                       {pt.name}
                                     </span>
                                   ) : null;

@@ -21,11 +21,11 @@ import { computeRollup, getForecastedDays, type RollupResult } from '../utils/co
 // ─── shared colour maps (re-exported so other files don't duplicate them) ────
 
 export const TYPE_COLORS: Record<JiraItemType, string> = {
-  epic:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  feature: 'bg-blue-100   text-blue-700   dark:bg-blue-900/30   dark:text-blue-300',
-  story:   'bg-green-100  text-green-700  dark:bg-green-900/30  dark:text-green-300',
-  task:    'bg-cyan-100   text-cyan-700   dark:bg-cyan-900/30   dark:text-cyan-300',
-  bug:     'bg-red-100    text-red-700    dark:bg-red-900/30    dark:text-red-300',
+  epic:    'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
+  feature: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
+  story:   'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
+  task:    'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
+  bug:     'bg-red-50    text-red-700    dark:bg-red-900/30    dark:text-red-300',
 };
 
 export const STATUS_CATEGORY_COLORS: Record<string, string> = {
@@ -171,12 +171,6 @@ export function JiraHierarchyTree({
 
 // ─── tree row ────────────────────────────────────────────────────────────────
 
-const CONFIDENCE_BADGE: Record<ConfidenceLevel, string> = {
-  high:   'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
-  low:    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-};
-
 interface TreeRowProps {
   item: JiraWorkItem;
   depth: number;
@@ -220,7 +214,7 @@ function TreeRow({
   return (
     <div
       className={clsx(
-        'flex items-start gap-2 py-2 text-sm transition-colors',
+        'flex items-start gap-2 py-2.5 text-sm transition-colors',
         isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30',
         depth > 0 && 'border-l-2 border-slate-200 dark:border-slate-700 ml-4',
       )}
@@ -252,14 +246,14 @@ function TreeRow({
       </button>
 
       {/* Type badge */}
-      <Badge className={clsx('shrink-0 text-[10px] mt-0.5', TYPE_COLORS[item.type])}>
+      <Badge className={clsx('shrink-0 text-xs mt-0.5', TYPE_COLORS[item.type])}>
         {item.typeName}
       </Badge>
 
       {/* Main content */}
       <div className="flex-1 min-w-0">
-        {/* Key · status · SP */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        {/* Line 1: Key + status + days */}
+        <div className="flex items-center gap-2 flex-wrap">
           <a
             href={`${jiraBaseUrl}/browse/${item.jiraKey}`}
             target="_blank"
@@ -271,91 +265,50 @@ function TreeRow({
             <ExternalLink className="w-3 h-3" />
           </a>
           <Badge
-            className={clsx('text-[10px]', STATUS_CATEGORY_COLORS[item.statusCategory] ?? STATUS_CATEGORY_COLORS['todo'])}
+            className={clsx('text-xs', STATUS_CATEGORY_COLORS[item.statusCategory] ?? STATUS_CATEGORY_COLORS['todo'])}
             variant="default"
           >
             {item.status}
           </Badge>
 
-          {/* Leaf items: show raw days, confidence selector, and forecasted days */}
+          {/* Leaf items: days + confidence */}
           {isLeaf && item.storyPoints != null && (() => {
             const confidence = item.confidenceLevel ?? defaultConfidenceLevel;
             const raw = item.storyPoints;
             const forecasted = getForecastedDays(raw, confidence);
             return (
               <>
-                <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
-                  {raw}d raw
-                </span>
-                {/* Inline confidence selector — always visible, even in read-only tree */}
+                <span className="text-xs text-slate-500 dark:text-slate-400">{raw}d</span>
                 <select
                   value={item.confidenceLevel ?? ''}
                   onChange={e => handleConfidence(e.target.value)}
                   onClick={e => e.stopPropagation()}
-                  className={clsx(
-                    'text-[10px] rounded px-1 py-0 border leading-tight cursor-pointer',
-                    'bg-white dark:bg-slate-800 dark:text-slate-200',
-                    item.confidenceLevel
-                      ? CONFIDENCE_BADGE[item.confidenceLevel] + ' border-transparent'
-                      : 'text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600'
-                  )}
-                  title="Confidence level — affects forecasted days"
+                  className="text-xs rounded px-1 py-0.5 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
+                  title="Confidence level"
                 >
                   <option value="">Default ({defaultConfidenceLevel})</option>
                   <option value="high">High (+5%)</option>
                   <option value="medium">Medium (+15%)</option>
                   <option value="low">Low (+25%)</option>
                 </select>
-                <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
                   → {forecasted}d
                 </span>
               </>
             );
           })()}
 
-          {/* Parent items: show rolled-up totals */}
+          {/* Parent items: rolled-up totals */}
           {!isLeaf && rollup && rollup.itemCount > 0 && (
-            <>
-              <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
-                {rollup.rawDays}d raw
-              </span>
-              <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
-                → {rollup.forecastedDays}d forecasted
-              </span>
-              <span className="text-[10px] text-slate-400">({rollup.itemCount} items)</span>
-            </>
-          )}
-
-          {hasChildren && (
-            <span className="text-[10px] text-slate-400">
-              {children.length} child{children.length !== 1 ? 'ren' : ''}
+            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+              {rollup.forecastedDays}d forecasted
+              <span className="font-normal text-slate-400 ml-1">({rollup.itemCount} items)</span>
             </span>
           )}
         </div>
 
-        {/* Summary */}
-        <p className="text-slate-700 dark:text-slate-300 truncate mt-0.5">{item.summary}</p>
-
-        {/* Labels + components + dates */}
-        <div className="flex flex-wrap gap-1 mt-1 empty:hidden">
-          {item.labels.map(l => (
-            <span key={l} className="px-1.5 text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded">
-              {l}
-            </span>
-          ))}
-          {item.components.map(c => (
-            <span key={c} className="px-1.5 text-[10px] font-medium bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 rounded">
-              {c}
-            </span>
-          ))}
-          {(item.startDate || item.dueDate) && (
-            <span className="text-[10px] text-slate-400">
-              {item.startDate && new Date(item.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-              {item.startDate && item.dueDate && ' – '}
-              {item.dueDate && new Date(item.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-            </span>
-          )}
-        </div>
+        {/* Line 2: Summary */}
+        <p className="text-sm text-slate-700 dark:text-slate-300 truncate mt-0.5">{item.summary}</p>
 
         {/* Assignee (read-only mode or not editing) */}
         {item.assigneeName && !showControls && (

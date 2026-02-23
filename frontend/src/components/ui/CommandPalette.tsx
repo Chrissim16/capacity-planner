@@ -205,7 +205,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
           {grouped.map(group => (
             <div key={group.type}>
               <div className="px-4 pt-3 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
                   {group.label}s
                 </span>
               </div>
@@ -246,7 +246,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
 
         {/* Footer hint */}
         {results.length > 0 && (
-          <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3 text-[10px] text-slate-400">
+          <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3 text-xs text-slate-400">
             <span><kbd className="bg-slate-100 dark:bg-slate-800 px-1 rounded">↑↓</kbd> navigate</span>
             <span><kbd className="bg-slate-100 dark:bg-slate-800 px-1 rounded">↵</kbd> select</span>
             <span><kbd className="bg-slate-100 dark:bg-slate-800 px-1 rounded">Esc</kbd> close</span>

@@ -267,7 +267,7 @@ export function Jira() {
                     {epic.summary}
                   </span>
                   {epic.statusCategory === 'done' && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shrink-0">Closed</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shrink-0">Closed</span>
                   )}
                   {project && (
                     <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 shrink-0">

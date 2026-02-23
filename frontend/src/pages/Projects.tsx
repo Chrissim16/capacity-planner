@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Search, Edit2, Trash2, Copy, ExternalLink, UserPlus,
   ChevronDown, ChevronRight, Users, FolderKanban, Filter,
-  Archive, ArchiveRestore, StickyNote, Calendar,
+  Archive, ArchiveRestore, StickyNote, Calendar, MoreHorizontal,
 } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { JiraHierarchyTree } from '../components/JiraHierarchyTree';
@@ -328,7 +328,7 @@ export function Projects() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filteredProjects.map(project => {
             const projectSystems = systems.filter(s => project.systemIds?.includes(s.id));
             const isExpanded = expandedProjects.has(project.id);
@@ -389,7 +389,8 @@ export function Projects() {
                       {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
+                      {/* Line 1: Name + Jira key */}
+                      <div className="flex items-center gap-3">
                         <h3 className="font-semibold text-slate-900 dark:text-white truncate">
                           {project.name}
                         </h3>
@@ -406,113 +407,67 @@ export function Projects() {
                             <ExternalLink size={11} />
                           </a>
                         )}
-                        {project.devopsLink && (
-                          <a
-                            href={project.devopsLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-slate-400 hover:text-blue-500 shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink size={14} />
-                          </a>
-                        )}
-                        {project.notes && (
-                          <span title="Has notes">
-                            <StickyNote size={13} className="text-amber-400 shrink-0" />
-                          </span>
-                        )}
                       </div>
-                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-sm text-slate-500 dark:text-slate-400">
+                      {/* Line 2: Key stats */}
+                      <div className="flex items-center gap-3 mt-1 text-sm text-slate-500 dark:text-slate-400">
                         <span>{displayFeatureCount} feature{displayFeatureCount !== 1 ? 's' : ''}</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Users size={12} />
-                          {displayMemberCount} member{displayMemberCount !== 1 ? 's' : ''}
-                        </span>
+                        <span className="text-slate-300 dark:text-slate-600">|</span>
+                        <span>{displayMemberCount} member{displayMemberCount !== 1 ? 's' : ''}</span>
                         {epicRollup && epicRollup.itemCount > 0 && (
                           <>
-                            <span>•</span>
-                            <span className="text-slate-500 dark:text-slate-400">
-                              {epicRollup.rawDays}d raw
-                            </span>
+                            <span className="text-slate-300 dark:text-slate-600">|</span>
                             <span className="font-semibold text-blue-600 dark:text-blue-400">
-                              → {epicRollup.forecastedDays}d forecasted
+                              {epicRollup.forecastedDays}d forecasted
                             </span>
-                          </>
-                        )}
-                        {dateRange && (
-                          <>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
-                              <Calendar size={12} />
-                              {dateRange}
-                            </span>
-                          </>
-                        )}
-                        {projectSystems.length > 0 && (
-                          <>
-                            <span>•</span>
-                            <span>{projectSystems.map(s => s.name).join(', ')}</span>
                           </>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getPriorityVariant(project.priority)}>{project.priority}</Badge>
-                      <Badge variant={getStatusVariant(project.status)}>{project.status}</Badge>
-                    </div>
+                  <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <Badge variant={getStatusVariant(project.status)}>{project.status}</Badge>
+                    <Badge variant={getPriorityVariant(project.priority)}>{project.priority}</Badge>
 
-                    <div className="flex items-center gap-1">
+                    {/* Primary action */}
+                    <button
+                      onClick={() => openAssignment(project.id)}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                      title="Assign Team"
+                    >
+                      <UserPlus size={16} />
+                    </button>
+
+                    {/* Overflow menu */}
+                    <div className="relative group">
                       <button
-                        onClick={() => openAssignment(project.id)}
-                        className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                        title="Assign Team"
+                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                        title="More actions"
                       >
-                        <UserPlus size={16} />
+                        <MoreHorizontal size={16} />
                       </button>
-                      <button
-                        onClick={() => handleEdit(project)}
-                        className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                        title="Edit"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDuplicate(project)}
-                        className="p-2 text-slate-400 hover:text-green-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                        title="Duplicate"
-                      >
-                        <Copy size={16} />
-                      </button>
-                      {(project.status === 'Completed' || project.status === 'Cancelled') && !project.archived && (
-                        <button
-                          onClick={() => handleArchive(project)}
-                          className="p-2 text-slate-400 hover:text-violet-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                          title="Archive"
-                        >
-                          <Archive size={16} />
+                      <div className="absolute right-0 top-full mt-1 w-40 py-1 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 hidden group-focus-within:block hover:block z-20">
+                        <button onClick={() => handleEdit(project)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                          <Edit2 size={14} /> Edit
                         </button>
-                      )}
-                      {project.archived && (
-                        <button
-                          onClick={() => { unarchiveProject(project.id); showToast('Unarchived', 'success'); }}
-                          className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                          title="Unarchive"
-                        >
-                          <ArchiveRestore size={16} />
+                        <button onClick={() => handleDuplicate(project)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                          <Copy size={14} /> Duplicate
                         </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(project)}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                        {(project.status === 'Completed' || project.status === 'Cancelled') && !project.archived && (
+                          <button onClick={() => handleArchive(project)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                            <Archive size={14} /> Archive
+                          </button>
+                        )}
+                        {project.archived && (
+                          <button onClick={() => { unarchiveProject(project.id); showToast('Unarchived', 'success'); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                            <ArchiveRestore size={14} /> Unarchive
+                          </button>
+                        )}
+                        <div className="border-t border-slate-100 dark:border-slate-700 my-1" />
+                        <button onClick={() => handleDelete(project)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                          <Trash2 size={14} /> Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

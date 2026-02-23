@@ -500,7 +500,7 @@ export function AssignmentModal({
                     </p>
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {s.reasons.map(r => (
-                        <span key={r} className="text-[10px] px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded">
+                        <span key={r} className="text-xs px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded">
                           {r}
                         </span>
                       ))}

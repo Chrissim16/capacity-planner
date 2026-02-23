@@ -169,7 +169,7 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
         </div>
 
         {/* Day-of-week headers */}
-        <div className="grid grid-cols-7 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+        <div className="grid grid-cols-7 text-center text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
           {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
             <div key={d} className="py-1">{d}</div>
           ))}

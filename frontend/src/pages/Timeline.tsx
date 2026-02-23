@@ -283,7 +283,7 @@ export function Timeline() {
                     }`}
                   >
                     <div className="font-medium">{quarter}</div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                    <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                       {workDays} working days
                     </div>
                   </div>
@@ -305,11 +305,11 @@ export function Timeline() {
                       <div className={`font-medium text-xs ${sprint.isByeWeek ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'}`}>
                         {sprint.isByeWeek ? `${sprint.name} 🏖️` : sprint.name}
                       </div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         {formatDateRange(sprint.startDate, sprint.endDate)}
                       </div>
                       {!sprint.isByeWeek && (
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                        <div className="text-xs text-slate-400 dark:text-slate-500">
                           {sprintWorkdays}d
                         </div>
                       )}
@@ -547,10 +547,10 @@ function DateView({ projects, months, getPriorityColor, getStatusColor, onAssign
                   onClick={() => onAssign?.(project.id)}
                   title={`${project.name} — click to assign`}
                 >
-                  <span className="text-white text-[10px] font-medium truncate">{project.name}</span>
+                  <span className="text-white text-xs font-medium truncate">{project.name}</span>
                 </button>
               ) : (
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 italic">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 italic">
                   no dates
                 </span>
               )}
@@ -734,7 +734,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                         <div className="px-2 py-1 rounded bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 group-hover:border-blue-300 dark:group-hover:border-blue-600 transition-colors">
                           <div className="flex items-center justify-between gap-1 mb-1">
                             <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{days}d</span>
-                            <span className="text-[10px] text-blue-500 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">Edit</span>
+                            <span className="text-xs text-blue-500 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">Edit</span>
                           </div>
                           <div className="space-y-0.5">
                             {quarterAssignments.map((a, i) => (
@@ -826,7 +826,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                     style={{ width: `${Math.min(100, (sprintDays / 15) * 100)}%` }}
                   />
                 </div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 text-center">
+                <div className="text-xs text-slate-500 dark:text-slate-400 text-center">
                   {sprintDays.toFixed(1)}d
                 </div>
               </button>
@@ -863,7 +863,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                   {phase.name}
                 </span>
               </div>
-              <div className="text-[10px] text-slate-400 mt-0.5 pl-2.5">
+              <div className="text-xs text-slate-400 mt-0.5 pl-2.5">
                 {phase.startQuarter} – {phase.endQuarter}
               </div>
             </div>
@@ -965,7 +965,7 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
               {timeOffDays > 0 && (
                 <div className="flex items-center gap-1 mt-1">
                   <CalendarOff size={10} className="text-orange-500 shrink-0" />
-                  <span className="text-[10px] text-orange-500 font-medium">
+                  <span className="text-xs text-orange-500 font-medium">
                     {timeOffDays}d off
                   </span>
                 </div>
@@ -1040,10 +1040,10 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
             size="sm"
           />
           <div className="flex justify-between items-center mt-1">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">
+            <span className="text-xs text-slate-500 dark:text-slate-400">
               {sprintDays.toFixed(0)}d
             </span>
-            <span className={`text-[10px] font-medium ${
+            <span className={`text-xs font-medium ${
               status === 'overallocated' ? 'text-red-500' :
               status === 'warning' ? 'text-amber-500' :
               'text-green-500'

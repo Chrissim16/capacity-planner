@@ -51,15 +51,15 @@ export function Dashboard() {
   const isEmpty = state.teamMembers.length === 0 && state.projects.length === 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-          <p className="text-slate-500 dark:text-slate-400">
-            Capacity overview for {selectedQuarter}
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Capacity Overview</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            {selectedQuarter}
             {selectedQuarter !== currentQuarter && (
-              <span className="ml-2 text-xs text-blue-500">(current: {currentQuarter})</span>
+              <span className="ml-2 text-blue-500">(current: {currentQuarter})</span>
             )}
           </p>
         </div>
@@ -87,7 +87,7 @@ export function Dashboard() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <Card>
           <CardContent className="flex items-center gap-4">
             <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/30">
@@ -172,7 +172,7 @@ export function Dashboard() {
                       </p>
                       {timeOffDays > 0 && (
                         <span
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded shrink-0"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded shrink-0"
                           title={`${timeOffDays}d of PTO in ${selectedQuarter}`}
                         >
                           <CalendarOff size={9} />
@@ -266,25 +266,25 @@ export function Dashboard() {
           <CardTitle>Quarter Overview</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
             {quarters.map(quarter => {
               const summary = getTeamUtilizationSummary(quarter, state);
               return (
                 <div
                   key={quarter}
-                  className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+                  className="p-5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
                 >
-                  <p className="font-medium text-slate-900 dark:text-white">{quarter}</p>
-                  <div className="mt-2 space-y-1">
+                  <p className="font-semibold text-slate-900 dark:text-white">{quarter}</p>
+                  <div className="mt-3 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-500 dark:text-slate-400">Avg Utilization</span>
-                      <span className="font-medium text-slate-900 dark:text-white">
+                      <span className="font-semibold text-slate-900 dark:text-white">
                         {summary.averageUtilization}%
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-500 dark:text-slate-400">Overallocated</span>
-                      <span className={`font-medium ${summary.overallocated > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
+                      <span className={`font-semibold ${summary.overallocated > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
                         {summary.overallocated}
                       </span>
                     </div>
