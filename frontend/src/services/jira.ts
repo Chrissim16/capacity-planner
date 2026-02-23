@@ -527,9 +527,13 @@ export async function fetchJiraIssues(
     const jql = buildJQL(connection, settings);
     if (!jql) { result.errors.push('No issue types selected'); return result; }
 
-    // Auto-discover the story points custom field for this Jira instance (non-fatal)
-    onProgress?.('Detecting story points field…');
-    const customSpField = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader);
+    // Use the cached field ID if already known; otherwise discover and cache it.
+    let customSpField = connection.storyPointsFieldId;
+    if (!customSpField) {
+      onProgress?.('Detecting story points field…');
+      customSpField = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader);
+      if (customSpField) result.discoveredStoryPointsFieldId = customSpField;
+    }
     const jiraFields = buildJiraFields(customSpField);
 
     const workItems: JiraWorkItem[] = [];
