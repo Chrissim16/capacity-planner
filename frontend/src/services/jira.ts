@@ -47,6 +47,7 @@ interface JiraIssueFields {
   created: string;
   updated: string;
   duedate?: string;
+  customfield_10014?: string;  // Epic Link (classic projects — stores parent epic key)
   customfield_10015?: string;  // Start date (Jira Cloud)
   customfield_10016?: number;  // Story points (classic projects)
   customfield_10020?: JiraSprintObject[] | number; // Sprint (Jira Cloud) — also used for SP in some instances
@@ -248,6 +249,8 @@ const JIRA_FIELDS = [
   'customfield_10020',
   // Start date
   'customfield_10015',
+  // Epic Link — classic/company-managed projects store the parent epic key here
+  'customfield_10014',
 ].join(',');
 
 export async function fetchJiraIssues(
@@ -319,7 +322,9 @@ function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWor
     remainingEstimate: convertSecondsToHours(f.timeestimate),
     assigneeEmail: f.assignee?.emailAddress, assigneeName: f.assignee?.displayName,
     reporterEmail: f.reporter?.emailAddress, reporterName: f.reporter?.displayName,
-    parentKey: f.parent?.key, parentId: f.parent?.id,
+    // parent.key covers next-gen/team-managed projects; customfield_10014 covers
+    // classic/company-managed projects where the Epic Link field is used instead.
+    parentKey: f.parent?.key ?? f.customfield_10014, parentId: f.parent?.id,
     sprintId: sprint?.id?.toString(), sprintName: sprint?.name,
     labels: f.labels || [], components: f.components?.map(c => c.name) || [],
     created: f.created, updated: f.updated,
