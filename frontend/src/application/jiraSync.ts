@@ -146,6 +146,38 @@ export function applySync(diff: JiraSyncDiff, connection: JiraConnection, settin
 }
 
 /**
+ * On-demand auto-link: run buildProjectsFromJira against already-synced items for a
+ * connection without doing a full Jira API fetch. Useful when autoCreateProjects was
+ * off during the last sync, or when items arrived without a parent epic in Jira.
+ * Returns a human-readable result message.
+ */
+export function autoLinkNow(connectionId: string, _settings: JiraSettings): ApplySyncResult {
+  const state = useAppStore.getState().getCurrentState();
+  const connection = state.jiraConnections.find(c => c.id === connectionId);
+  if (!connection) return { message: 'Connection not found' };
+
+  const items = state.jiraWorkItems.filter(i => i.connectionId === connectionId);
+  if (items.length === 0) return { message: 'No synced items found — run a sync first' };
+
+  const result = buildProjectsFromJira(items, connection, state.projects, state.sprints);
+
+  useAppStore.getState().updateData({
+    projects: result.projects,
+    jiraWorkItems: [
+      ...state.jiraWorkItems.filter(i => i.connectionId !== connectionId),
+      ...result.workItems,
+    ],
+  });
+
+  const parts: string[] = [];
+  if (result.projectsCreated > 0) parts.push(`${result.projectsCreated} epic(s) created`);
+  if (result.projectsUpdated > 0) parts.push(`${result.projectsUpdated} updated`);
+  if (parts.length === 0) parts.push('All items already linked — no changes needed');
+
+  return { message: parts.join(', ') };
+}
+
+/**
  * Manually trigger assignment-building for a connection's already-synced work items.
  * Useful when autoCreateAssignments was off during a previous sync or story points changed.
  */

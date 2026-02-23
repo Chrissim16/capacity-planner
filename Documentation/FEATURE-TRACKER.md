@@ -4,7 +4,7 @@
 
 **Last updated:** February 20, 2026  
 **Total features:** 59  
-**Completed:** 43 / 59
+**Completed:** 45 / 59
 
 ---
 
@@ -17,7 +17,7 @@
 | 🟠 P1 — High     | 7      | 7      | 0           | 0           |
 | 🟡 P2 — Medium   | 13     | 12     | 0           | 1           |
 | 🟢 P3 — Low      | 11     | 4      | 0           | 7           |
-| 🔵 Phase 2       | 23     | 15     | 0           | 8           |
+| 🔵 Phase 2       | 23     | 17     | 0           | 6           |
 | **Total**        | **59** | **43** | **0**       | **16**      |
 
 
@@ -205,8 +205,8 @@
 
 | ID     | Feature                                              | Type       | Status | Started | Completed | Notes |
 | ------ | ---------------------------------------------------- | ---------- | ------ | ------- | --------- | ----- |
-| US-057 | Merge Jira mapping controls into Epics tab           | UX/UI      | ⬜      |         |           | As a planner, I want to see and manage Jira item mappings directly from the Epics tab, so that I don't need to switch between two tabs to understand project status. Inline mapping dropdowns (epic / feature / member) shown when an item is unmapped. Jira tab becomes "Connections & Sync" only. |
-| US-058 | Jira tab reduced to Connection & Sync management     | UX/UI      | ⬜      |         |           | As a planner, I want the Jira tab to focus purely on connection setup and sync history, so that the Epics tab is the single planning surface. Remove item list from Jira tab once US-057 is done; keep connection cards, sync button, automation settings, and sync history. |
+| US-057 | Merge Jira mapping controls into Epics tab           | UX/UI      | ✅      | 2026-02-20 | 2026-02-20 | Jira items now surface in the Epics tab via both jiraSourceKey subtree and mappedProjectId. Manual mapping removed from Jira tab entirely. |
+| US-058 | Jira tab reduced to Connection & Sync management     | UX/UI      | ✅      | 2026-02-20 | 2026-02-20 | Jira.tsx rewritten as a read-only sync dashboard: stats by type, per-connection auto-link banner, collapsible epic trees (read-only), unlinked items section, "Go to Epics" CTA. All mapping dropdowns removed. autoLinkNow() added to jiraSync.ts for on-demand project building without a full API fetch. |
 | US-059 | Bulk mapping from Epics expanded card                | Functional | ⬜      |         |           | As a planner, I want to map all unlinked Jira items under an epic to their features in one action, so that I don't have to map them one by one. "Map all" button in the expanded epic card's Jira Items section applies auto-mapping based on feature name matching. |
 
 
