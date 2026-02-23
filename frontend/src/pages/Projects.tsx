@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Search, Edit2, Trash2, Copy, ExternalLink, UserPlus,
-  ChevronDown, ChevronRight, Users, FolderKanban, Filter,
+  ChevronDown, ChevronRight, FolderKanban, Filter,
   Archive, ArchiveRestore, StickyNote, Calendar, MoreHorizontal,
 } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -325,7 +325,6 @@ export function Projects() {
       ) : (
         <div className="space-y-4">
           {filteredProjects.map(project => {
-            const projectSystems = systems.filter(s => project.systemIds?.includes(s.id));
             const isExpanded = expandedProjects.has(project.id);
 
             // — US-048 summary data —

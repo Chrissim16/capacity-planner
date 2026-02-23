@@ -7,8 +7,6 @@ import {
   Layers,
   Moon,
   Sun,
-  Undo2,
-  Redo2,
   GitBranch,
   RefreshCw,
   Link2,
@@ -17,7 +15,6 @@ import {
   WifiOff,
   AlertCircle,
   ShieldAlert,
-  Search,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { ScenarioDiffModal } from '../ScenarioDiffModal';
