@@ -13,7 +13,7 @@ import { useState, useMemo } from 'react';
 import {
   Link2, RefreshCw, Zap, AlertCircle, CheckCircle2,
   ChevronDown, ChevronRight, ExternalLink, Settings,
-  FolderKanban, GitBranch,
+  FolderKanban, GitBranch, EyeOff, Eye,
 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -42,6 +42,7 @@ export function Jira() {
   const [expandedEpics, setExpandedEpics] = useState<Set<string>>(new Set());
   const [autoLinkMsg, setAutoLinkMsg] = useState<Record<string, string>>({});
   const [autoLinking, setAutoLinking] = useState<string | null>(null);
+  const [hideClosedEpics, setHideClosedEpics] = useState(true);
 
   const activeConnection = jiraConnections.find(c => c.isActive);
   const activeBaseUrl = activeConnection?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
@@ -216,12 +217,31 @@ export function Jira() {
       ))}
 
       {/* Items — grouped by epic, read-only tree */}
-      {epicGroups.length > 0 && (
+      {epicGroups.length > 0 && (() => {
+        const closedCount = epicGroups.filter(g => g.epic.statusCategory === 'done').length;
+        const visibleGroups = hideClosedEpics
+          ? epicGroups.filter(g => g.epic.statusCategory !== 'done')
+          : epicGroups;
+        return (
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-1">
-            Items by Epic ({epicGroups.length})
-          </p>
-          {epicGroups.map(({ epic, items }) => {
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              Items by Epic ({visibleGroups.length}{hideClosedEpics && closedCount > 0 ? ` of ${epicGroups.length}` : ''})
+            </p>
+            {closedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setHideClosedEpics(h => !h)}
+                className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+              >
+                {hideClosedEpics
+                  ? <><Eye size={13} /> Show {closedCount} closed</>
+                  : <><EyeOff size={13} /> Hide {closedCount} closed</>
+                }
+              </button>
+            )}
+          </div>
+          {visibleGroups.map(({ epic, items }) => {
             const project = projects.find(p => p.jiraSourceKey === epic.jiraKey || p.id === epic.mappedProjectId);
             const isOpen = expandedEpics.has(epic.jiraKey);
             return (
@@ -243,7 +263,12 @@ export function Jira() {
                   >
                     {epic.jiraKey}<ExternalLink size={10} />
                   </a>
-                  <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate flex-1">{epic.summary}</span>
+                  <span className={`text-sm font-medium truncate flex-1 ${epic.statusCategory === 'done' ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>
+                    {epic.summary}
+                  </span>
+                  {epic.statusCategory === 'done' && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shrink-0">Closed</span>
+                  )}
                   {project && (
                     <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 shrink-0">
                       <FolderKanban size={12} />
@@ -266,7 +291,8 @@ export function Jira() {
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
       {/* Unlinked items — no epic parent */}
       {unlinkedItems.length > 0 && (
