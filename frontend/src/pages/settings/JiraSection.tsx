@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Plus, Trash2, Edit2, RefreshCw, Loader2, Power, Download, Link2, Zap, ChevronDown, ChevronRight,
+  Plus, Trash2, Edit2, RefreshCw, Loader2, Power, Download, Link2, Zap, ChevronDown, ChevronRight, Search, CheckCircle, AlertCircle, Copy,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -13,7 +13,8 @@ import {
   addJiraConnection, updateJiraConnection, deleteJiraConnection,
   toggleJiraConnectionActive, updateJiraSettings,
 } from '../../stores/actions';
-import { testJiraConnection } from '../../services/jira';
+import { testJiraConnection, buildJQL, getJiraIssueTypes } from '../../services/jira';
+import type { JiraIssueType } from '../../services/jira';
 import { fetchSyncPreview, applySync, buildAssignmentsNow } from '../../application/jiraSync';
 import { useToast } from '../../components/ui/Toast';
 import type { JiraConnection, JiraSyncDiff } from '../../types';
@@ -42,6 +43,12 @@ export function JiraSection() {
 
   // Delete confirm
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+
+  // Issue type checker
+  const [issueTypeCheckConnId, setIssueTypeCheckConnId] = useState<string | null>(null);
+  const [issueTypeCheckLoading, setIssueTypeCheckLoading] = useState(false);
+  const [issueTypeCheckResult, setIssueTypeCheckResult] = useState<JiraIssueType[] | null>(null);
+  const [issueTypeCheckError, setIssueTypeCheckError] = useState<string | null>(null);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -126,6 +133,20 @@ export function JiraSection() {
     const { message } = buildAssignmentsNow(conn.id, jiraSettings);
     showToast(message, 'success');
     setBuildingId(null);
+  };
+
+  const handleCheckIssueTypes = async (conn: JiraConnection) => {
+    setIssueTypeCheckConnId(conn.id);
+    setIssueTypeCheckLoading(true);
+    setIssueTypeCheckResult(null);
+    setIssueTypeCheckError(null);
+    const result = await getJiraIssueTypes(conn);
+    setIssueTypeCheckLoading(false);
+    if (result.success && result.issueTypes) {
+      setIssueTypeCheckResult(result.issueTypes);
+    } else {
+      setIssueTypeCheckError(result.error || 'Failed to fetch issue types');
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -413,6 +434,39 @@ export function JiraSection() {
               </div>
             </div>
 
+            {/* Generated JQL preview */}
+            {jiraConnections.filter(c => c.isActive).length > 0 && (
+              <div>
+                <label className="text-sm font-medium">Generated JQL (for active connections)</label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  This is the exact query sent to Jira. Copy it into Jira's issue navigator to verify which items are in scope.
+                </p>
+                <div className="space-y-2">
+                  {jiraConnections.filter(c => c.isActive).map(conn => {
+                    const jql = buildJQL(conn, jiraSettings);
+                    return (
+                      <div key={conn.id} className="rounded-lg border bg-slate-50 dark:bg-slate-800/60 p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{conn.name} ({conn.jiraProjectKey})</span>
+                          <button
+                            type="button"
+                            onClick={() => jql && navigator.clipboard.writeText(jql)}
+                            className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700"
+                            title="Copy JQL"
+                          >
+                            <Copy size={12} /> Copy
+                          </button>
+                        </div>
+                        <code className="text-xs text-slate-700 dark:text-slate-300 break-all whitespace-pre-wrap">
+                          {jql ?? '(no issue types enabled)'}
+                        </code>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label className="text-sm font-medium">Story Points to Days</label>
@@ -448,6 +502,103 @@ export function JiraSection() {
             </label>
           </CardContent>
         </Card>
+
+        {/* Issue type checker */}
+        {jiraConnections.filter(c => c.isActive).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Issue Type Checker</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Fetch the actual issue type names from your Jira project and compare them against
+                the five names the sync queries (<code className="bg-muted px-1 rounded text-xs">Epic, Feature, Story, Task, Bug</code>).
+                If any items are missing, a type name mismatch is likely the cause.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {jiraConnections.filter(c => c.isActive).map(conn => (
+                  <Button
+                    key={conn.id}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleCheckIssueTypes(conn)}
+                    disabled={issueTypeCheckLoading && issueTypeCheckConnId === conn.id}
+                  >
+                    {issueTypeCheckLoading && issueTypeCheckConnId === conn.id
+                      ? <><Loader2 size={14} className="animate-spin mr-1" />Fetching…</>
+                      : <><Search size={14} className="mr-1" />Check {conn.jiraProjectKey}</>}
+                  </Button>
+                ))}
+              </div>
+              {issueTypeCheckError && (
+                <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                  <AlertCircle size={14} /> {issueTypeCheckError}
+                </div>
+              )}
+              {issueTypeCheckResult && (() => {
+                const SYNCED_NAMES = new Set(['Epic', 'Feature', 'Story', 'Task', 'Bug']);
+                const conn = jiraConnections.find(c => c.id === issueTypeCheckConnId);
+                const jql = conn ? buildJQL(conn, jiraSettings) : null;
+                const enabledNames = new Set<string>();
+                if (jiraSettings.syncEpics)    enabledNames.add('Epic');
+                if (jiraSettings.syncFeatures) enabledNames.add('Feature');
+                if (jiraSettings.syncStories)  enabledNames.add('Story');
+                if (jiraSettings.syncTasks)    enabledNames.add('Task');
+                if (jiraSettings.syncBugs)     enabledNames.add('Bug');
+                return (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Project: <strong>{conn?.jiraProjectKey}</strong> — {issueTypeCheckResult.length} issue type(s) found
+                    </p>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/50 border-b">
+                            <th className="text-left px-4 py-2 font-medium text-muted-foreground">Jira Type Name</th>
+                            <th className="text-left px-4 py-2 font-medium text-muted-foreground">Sub-task?</th>
+                            <th className="text-left px-4 py-2 font-medium text-muted-foreground">Sync status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {issueTypeCheckResult.map(t => {
+                            const inEnabled = enabledNames.has(t.name);
+                            const inSupported = SYNCED_NAMES.has(t.name);
+                            return (
+                              <tr key={t.id}>
+                                <td className="px-4 py-2.5 font-mono text-xs font-medium">{t.name}</td>
+                                <td className="px-4 py-2.5 text-xs text-muted-foreground">{t.subtask ? 'Yes' : 'No'}</td>
+                                <td className="px-4 py-2.5">
+                                  {inEnabled
+                                    ? <span className="flex items-center gap-1 text-green-600 text-xs"><CheckCircle size={12} /> Will be synced</span>
+                                    : inSupported
+                                      ? <span className="flex items-center gap-1 text-amber-600 text-xs"><AlertCircle size={12} /> Supported but disabled (turn on in settings)</span>
+                                      : <span className="flex items-center gap-1 text-red-500 text-xs"><AlertCircle size={12} /> Not supported — type name doesn't match</span>
+                                  }
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {issueTypeCheckResult.some(t => !SYNCED_NAMES.has(t.name)) && (
+                      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-200">
+                        <strong>Types not matching the 5 supported names will never be synced.</strong>
+                        {' '}Use the <em>Additional JQL filter</em> field in your connection settings to narrow scope,
+                        or check in Jira what exact type ERP-3423, ERP-2841, ERP-3647 are assigned.
+                      </div>
+                    )}
+                    {jql && (
+                      <div className="text-xs text-muted-foreground">
+                        Current query: <code className="bg-muted px-1 rounded">{jql}</code>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
 
         {/* How auto-import works */}
         <Card>

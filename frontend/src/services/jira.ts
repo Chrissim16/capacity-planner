@@ -181,6 +181,42 @@ export async function getJiraProjects(
   }
 }
 
+export interface JiraIssueType {
+  id: string;
+  name: string;
+  subtask: boolean;
+  description?: string;
+}
+
+/**
+ * Fetches the issue types defined in a specific Jira project.
+ * Used to diagnose mismatches between the hardcoded sync type names and the
+ * actual type names used by the project.
+ */
+export async function getJiraIssueTypes(
+  connection: JiraConnection
+): Promise<{ success: boolean; issueTypes?: JiraIssueType[]; error?: string }> {
+  try {
+    const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
+    const response = await jiraFetch(
+      connection.jiraBaseUrl,
+      `/rest/api/3/project/${encodeURIComponent(connection.jiraProjectKey)}/statuses`,
+      authHeader,
+      { method: 'GET' }
+    );
+    if (!response.ok) return { success: false, error: 'Failed: ' + response.statusText };
+    const data = await response.json() as { id: string; name: string; subtask: boolean; statuses: unknown[] }[];
+    const issueTypes: JiraIssueType[] = (data ?? []).map(t => ({
+      id: t.id,
+      name: t.name,
+      subtask: t.subtask ?? false,
+    }));
+    return { success: true, issueTypes };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 /**
  * Translates a JiraStatusFilter value into a JQL status clause fragment.
  * Returns an empty string when no filtering is needed.
