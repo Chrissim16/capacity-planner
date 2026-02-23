@@ -60,6 +60,8 @@ interface JiraIssueFields {
   timeoriginalestimate?: number;
   timespent?: number;
   timeestimate?: number;
+  // Dynamic index for user-configured story points field
+  [key: string]: unknown;
 }
 
 interface JiraIssue {
@@ -123,7 +125,12 @@ function mapStatusCategory(categoryKey: string): 'todo' | 'in_progress' | 'done'
   return 'todo';
 }
 
-function getStoryPoints(fields: JiraIssueFields): number | undefined {
+function getStoryPoints(fields: JiraIssueFields, customField?: string): number | undefined {
+  // If the user configured a specific custom field, try it first
+  if (customField) {
+    const val = fields[customField];
+    if (typeof val === 'number' && val > 0) return val;
+  }
   // customfield_10020 can be sprint objects (array) or story points (number) depending on instance
   const cf10020 = typeof fields.customfield_10020 === 'number' ? fields.customfield_10020 : undefined;
   return fields.customfield_10016 || fields.customfield_10028 || cf10020 || fields.customfield_10026 || undefined;
@@ -431,7 +438,7 @@ export function buildJQL(connection: JiraConnection, settings: JiraSettings): st
 
 // Fetch only the fields we actually use — drastically reduces response size
 // and avoids Vercel's 4.5 MB function response limit on large projects.
-const JIRA_FIELDS = [
+const BASE_JIRA_FIELDS = [
   'summary', 'description', 'issuetype', 'status', 'priority',
   'assignee', 'reporter', 'parent', 'labels', 'components',
   'created', 'updated', 'duedate',
@@ -448,7 +455,14 @@ const JIRA_FIELDS = [
   'customfield_10014',
   // Alternative Epic Link field used on some Jira instances
   'customfield_10008',
-].join(',');
+];
+
+function buildJiraFields(customSpField?: string): string {
+  if (customSpField && !BASE_JIRA_FIELDS.includes(customSpField)) {
+    return [...BASE_JIRA_FIELDS, customSpField].join(',');
+  }
+  return BASE_JIRA_FIELDS.join(',');
+}
 
 export async function fetchJiraIssues(
   connection: JiraConnection,
@@ -460,6 +474,9 @@ export async function fetchJiraIssues(
     const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
     const jql = buildJQL(connection, settings);
     if (!jql) { result.errors.push('No issue types selected'); return result; }
+
+    const customSpField = settings.storyPointsCustomField?.trim() || undefined;
+    const jiraFields = buildJiraFields(customSpField);
 
     const workItems: JiraWorkItem[] = [];
     const maxResults = 100;
@@ -480,7 +497,7 @@ export async function fetchJiraIssues(
       let path = '/rest/api/3/search/jql'
         + '?jql=' + encodeURIComponent(jql)
         + '&maxResults=' + maxResults
-        + '&fields=' + encodeURIComponent(JIRA_FIELDS);
+        + '&fields=' + encodeURIComponent(jiraFields);
 
       if (nextPageToken) {
         path += '&nextPageToken=' + encodeURIComponent(nextPageToken);
@@ -503,7 +520,7 @@ export async function fetchJiraIssues(
       if (!data.issues || data.issues.length === 0) break;
 
       for (const issue of data.issues) {
-        workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
+        workItems.push(mapJiraIssueToWorkItem(issue, connection.id, customSpField));
       }
 
       if (data.total != null) knownTotal = data.total;
@@ -544,14 +561,14 @@ export async function fetchJiraIssues(
         const path = '/rest/api/3/search/jql'
           + '?jql=' + encodeURIComponent(`key IN (${keyList})`)
           + '&maxResults=' + CHUNK
-          + '&fields=' + encodeURIComponent(JIRA_FIELDS);
+          + '&fields=' + encodeURIComponent(jiraFields);
         try {
           const resp = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
           if (resp.ok) {
             const data = await resp.json() as { issues: JiraIssue[] };
             for (const issue of (data.issues ?? [])) {
               if (!fetchedKeys.has(issue.key)) {
-                workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
+                workItems.push(mapJiraIssueToWorkItem(issue, connection.id, customSpField));
                 fetchedKeys.add(issue.key);
               }
             }
@@ -583,7 +600,7 @@ function extractEpicLinkKey(
   return field.key || undefined;
 }
 
-function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWorkItem {
+function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string, customSpField?: string): JiraWorkItem {
   const f = issue.fields;
   const sprint = getSprint(f);
 
@@ -598,7 +615,7 @@ function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWor
     description: typeof f.description === 'string' ? f.description : undefined,
     type: mapJiraTypeToItemType(f.issuetype.name), typeName: f.issuetype.name,
     status: f.status.name, statusCategory: mapStatusCategory(f.status.statusCategory.key),
-    priority: f.priority?.name, storyPoints: getStoryPoints(f),
+    priority: f.priority?.name, storyPoints: getStoryPoints(f, customSpField),
     originalEstimate: convertSecondsToHours(f.timeoriginalestimate),
     timeSpent: convertSecondsToHours(f.timespent),
     remainingEstimate: convertSecondsToHours(f.timeestimate),

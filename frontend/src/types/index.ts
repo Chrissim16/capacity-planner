@@ -404,6 +404,10 @@ export interface JiraSettings {
   statusFilterStories: JiraStatusFilter;
   statusFilterTasks: JiraStatusFilter;
   statusFilterBugs: JiraStatusFilter;
+  /** Custom field ID used for story points on this Jira instance.
+   *  Leave blank to auto-detect from common fields (10016, 10028, 10026).
+   *  Example: "customfield_10034" */
+  storyPointsCustomField?: string;
 }
 
 export interface JiraSyncResult {
