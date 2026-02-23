@@ -23,13 +23,13 @@ import { useCurrentState, useAppStore } from '../stores/appStore';
 import { autoLinkNow } from '../application/jiraSync';
 import type { JiraItemType } from '../types';
 
-// ─── type-badge colours (reused from JiraHierarchyTree) ──────────────────────
+// ─── type-badge colours — neutral slate for everything, red for bugs ────────
 const TYPE_COUNT_COLORS: Record<JiraItemType, string> = {
-  epic:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  feature: 'bg-blue-100   text-blue-700   dark:bg-blue-900/30   dark:text-blue-300',
-  story:   'bg-green-100  text-green-700  dark:bg-green-900/30  dark:text-green-300',
-  task:    'bg-cyan-100   text-cyan-700   dark:bg-cyan-900/30   dark:text-cyan-300',
-  bug:     'bg-red-100    text-red-700    dark:bg-red-900/30    dark:text-red-300',
+  epic:    'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+  feature: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+  story:   'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+  task:    'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+  bug:     'bg-red-100   text-red-700   dark:bg-red-900/30 dark:text-red-300',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -179,20 +179,20 @@ export function Jira() {
       {jiraConnections.filter(c => c.isActive).map(conn => (
         <div key={conn.id} className={`flex items-start gap-3 px-4 py-3 rounded-lg border ${
           conn.autoCreateProjects
-            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700/50'
+            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700/50'
             : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700/50'
         }`}>
           {conn.autoCreateProjects
-            ? <CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            ? <CheckCircle2 size={18} className="text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
             : <AlertCircle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           }
           <div className="flex-1 min-w-0">
-            <p className={`text-sm font-medium ${conn.autoCreateProjects ? 'text-emerald-800 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'}`}>
+            <p className={`text-sm font-medium ${conn.autoCreateProjects ? 'text-green-800 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}>
               {conn.autoCreateProjects
                 ? `Auto-import active for ${conn.name}`
                 : `Auto-import is off for ${conn.name}`}
             </p>
-            <p className={`text-xs mt-0.5 ${conn.autoCreateProjects ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
+            <p className={`text-xs mt-0.5 ${conn.autoCreateProjects ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
               {conn.autoCreateProjects
                 ? 'Epics and features are created automatically in the planner on every sync. View them in the Epics tab.'
                 : 'Enable "Auto-create epics & features" in Settings → Jira Integration to let Jira drive your planner automatically.'}
@@ -270,7 +270,7 @@ export function Jira() {
                     <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shrink-0">Closed</span>
                   )}
                   {project && (
-                    <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 shrink-0">
+                    <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 shrink-0">
                       <FolderKanban size={12} />
                       {project.name}
                     </span>

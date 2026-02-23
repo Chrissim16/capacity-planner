@@ -101,7 +101,7 @@ export function Timeline() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Active': return 'bg-emerald-500';
+      case 'Active': return 'bg-green-500';
       case 'Planning': return 'bg-blue-500';
       case 'On Hold': return 'bg-amber-500';
       case 'Completed': return 'bg-slate-400';
@@ -404,7 +404,7 @@ export function Timeline() {
       {/* Legend */}
       <div className="flex flex-wrap gap-4 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-emerald-500" />
+          <div className="w-3 h-3 rounded-full bg-green-500" />
           <span className="text-slate-600 dark:text-slate-400">Active</span>
         </div>
         <div className="flex items-center gap-2">
@@ -481,7 +481,7 @@ function DateView({ projects, months, getPriorityColor, getStatusColor, onAssign
   const todayPct = totalDays > 0 ? (todayOffset / totalDays) * 100 : -1;
 
   const STATUS_COLORS: Record<string, string> = {
-    'Active': 'bg-emerald-500',
+    'Active': 'bg-green-500',
     'Planning': 'bg-blue-500',
     'On Hold': 'bg-amber-500',
     'Completed': 'bg-slate-400',
@@ -964,8 +964,8 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
               </div>
               {timeOffDays > 0 && (
                 <div className="flex items-center gap-1 mt-1">
-                  <CalendarOff size={10} className="text-orange-500 shrink-0" />
-                  <span className="text-xs text-orange-500 font-medium">
+                  <CalendarOff size={10} className="text-amber-500 shrink-0" />
+                  <span className="text-xs text-amber-500 font-medium">
                     {timeOffDays}d off
                   </span>
                 </div>

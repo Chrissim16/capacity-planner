@@ -74,21 +74,16 @@ export function Projects() {
   const [priorityFilter, setPriorityFilter] = useState('');
   const [systemFilter, setSystemFilter] = useState('');
 
-  const getStatusVariant = (status: string): 'success' | 'primary' | 'warning' | 'default' => {
+  const getStatusVariant = (status: string): 'success' | 'warning' | 'default' => {
     switch (status) {
       case 'Active': return 'success';
-      case 'Planning': return 'primary';
       case 'On Hold': return 'warning';
       default: return 'default';
     }
   };
 
-  const getPriorityVariant = (priority: string): 'danger' | 'warning' | 'default' => {
-    switch (priority) {
-      case 'High': return 'danger';
-      case 'Medium': return 'warning';
-      default: return 'default';
-    }
+  const getPriorityVariant = (_priority: string): 'default' => {
+    return 'default';
   };
 
   // Index Jira epics by key for fast status lookup
@@ -612,7 +607,7 @@ export function Projects() {
                                   )}
                                   <button
                                     onClick={() => openAssignment(project.id, phase.id)}
-                                    className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-700 rounded transition-colors"
+                                    className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-white dark:hover:bg-slate-700 rounded transition-colors"
                                     title="Assign to this feature"
                                   >
                                     <UserPlus size={14} />

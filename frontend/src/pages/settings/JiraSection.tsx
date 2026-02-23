@@ -406,10 +406,10 @@ export function JiraSection() {
                   </thead>
                   <tbody className="divide-y">
                     {[
-                      { syncKey: 'syncEpics',    filterKey: 'statusFilterEpics',    label: 'Epics',    color: 'text-purple-600' },
-                      { syncKey: 'syncFeatures', filterKey: 'statusFilterFeatures', label: 'Features', color: 'text-blue-600'   },
-                      { syncKey: 'syncStories',  filterKey: 'statusFilterStories',  label: 'Stories',  color: 'text-green-600'  },
-                      { syncKey: 'syncTasks',    filterKey: 'statusFilterTasks',    label: 'Tasks',    color: 'text-cyan-600'   },
+                      { syncKey: 'syncEpics',    filterKey: 'statusFilterEpics',    label: 'Epics',    color: 'text-slate-700 dark:text-slate-300' },
+                      { syncKey: 'syncFeatures', filterKey: 'statusFilterFeatures', label: 'Features', color: 'text-slate-700 dark:text-slate-300' },
+                      { syncKey: 'syncStories',  filterKey: 'statusFilterStories',  label: 'Stories',  color: 'text-slate-700 dark:text-slate-300' },
+                      { syncKey: 'syncTasks',    filterKey: 'statusFilterTasks',    label: 'Tasks',    color: 'text-slate-700 dark:text-slate-300' },
                       { syncKey: 'syncBugs',     filterKey: 'statusFilterBugs',     label: 'Bugs',     color: 'text-red-600'    },
                     ].map(({ syncKey, filterKey, label, color }) => {
                       const enabled = jiraSettings[syncKey as keyof typeof jiraSettings] as boolean;
@@ -638,7 +638,7 @@ export function JiraSection() {
                             <td className="px-4 py-2.5 font-semibold">Resolved parentKey (what sync stores)</td>
                             <td className="px-4 py-2.5 font-mono font-semibold">
                               {d.resolvedParentKey
-                                ? <span className="text-indigo-700 dark:text-indigo-300">{d.resolvedParentKey}</span>
+                                ? <span className="text-blue-700 dark:text-blue-300">{d.resolvedParentKey}</span>
                                 : <span className="text-red-500 italic">none — would be unlinked</span>}
                             </td>
                           </tr>
@@ -846,7 +846,7 @@ export function JiraSection() {
           <CardContent className="space-y-4">
             <div className="grid md:grid-cols-3 gap-4 text-sm">
               <div className="p-3 rounded-lg bg-muted/50">
-                <div className="font-medium text-purple-600">Jira Epic</div>
+                <div className="font-medium text-slate-700 dark:text-slate-300">Jira Epic</div>
                 <div className="text-muted-foreground text-xs mt-0.5">becomes</div>
                 <div className="font-medium">→ Epic</div>
               </div>
@@ -912,8 +912,8 @@ export function JiraSection() {
                 </div>
               )}
               {pendingDiff.mappingsToPreserve > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg text-sm">
-                  <span className="w-2 h-2 rounded-full bg-purple-500" />
+                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
                   <strong>{pendingDiff.mappingsToPreserve}</strong> local mappings will be kept
                 </div>
               )}

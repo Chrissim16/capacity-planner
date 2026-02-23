@@ -140,7 +140,7 @@ export function TimeOffForm({ isOpen, onClose, memberId }: TimeOffFormProps) {
                   className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <CalendarOff size={13} className="shrink-0 text-orange-500" />
+                    <CalendarOff size={13} className="shrink-0 text-amber-500" />
                     <div className="min-w-0">
                       <p className="text-sm text-slate-700 dark:text-slate-200 truncate">
                         {formatDateRange(entry.startDate, entry.endDate)}

@@ -228,7 +228,7 @@ export function Scenarios() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Layers size={24} className="text-purple-600" />
+            <Layers size={24} className="text-blue-600" />
             Scenarios
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
@@ -339,13 +339,13 @@ export function Scenarios() {
         return (
           <Card
             key={scenario.id}
-            className={clsx('border-2 transition-colors', isActive ? 'border-purple-400 dark:border-purple-600' : 'border-slate-200 dark:border-slate-700')}
+            className={clsx('border-2 transition-colors', isActive ? 'border-blue-400 dark:border-blue-600' : 'border-slate-200 dark:border-slate-700')}
           >
             <CardHeader>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center', colorSet.bg)}>
-                    <GitBranch size={20} className="text-purple-600 dark:text-purple-400" />
+                    <GitBranch size={20} className="text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

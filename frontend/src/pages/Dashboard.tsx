@@ -172,7 +172,7 @@ export function Dashboard() {
                       </p>
                       {timeOffDays > 0 && (
                         <span
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded shrink-0"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded shrink-0"
                           title={`${timeOffDays}d of PTO in ${selectedQuarter}`}
                         >
                           <CalendarOff size={9} />
@@ -245,11 +245,11 @@ export function Dashboard() {
                   </div>
                 ))}
                 {warnings.tooManyProjects.map((w, i) => (
-                  <div key={`proj-${i}`} className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                    <p className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                  <div key={`proj-${i}`} className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
                       {w.member.name}: {w.count} projects
                     </p>
-                    <p className="text-xs text-orange-600 dark:text-orange-400">
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
                       Max concurrent: {w.max}
                     </p>
                   </div>

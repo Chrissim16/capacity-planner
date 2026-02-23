@@ -154,15 +154,15 @@ function RefreshFromJiraButton({ scenarioId, scenarioName: _scenarioName }: { sc
 
   if (showConfirm) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-lg text-sm">
-        <span className="text-purple-700 dark:text-purple-300 text-xs">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+        <span className="text-blue-700 dark:text-blue-300 text-xs">
           {hasChanges
             ? `${toAdd} new · ${toUpdate} updated · ${toRemove} removed — apply?`
             : `${toUpdate} items will be updated — apply?`}
         </span>
         <button
           onClick={() => { refreshScenarioFromJira(scenarioId); setShowConfirm(false); }}
-          className="px-2 py-0.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded"
+          className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded"
         >
           Yes
         </button>
@@ -176,7 +176,7 @@ function RefreshFromJiraButton({ scenarioId, scenarioName: _scenarioName }: { sc
   return (
     <button
       onClick={() => setShowConfirm(true)}
-      className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-200 dark:bg-purple-800 dark:text-purple-200 dark:hover:bg-purple-700"
+      className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-200 dark:bg-blue-800 dark:text-blue-200 dark:hover:bg-blue-700"
     >
       <RefreshCw size={14} />
       Refresh from Jira
@@ -327,9 +327,9 @@ export function Header() {
 
       {/* Scenario Banner */}
       {isViewingScenario && activeScenario && (
-        <div className="bg-purple-50 dark:bg-purple-900/20 border-b border-purple-200 dark:border-purple-800 px-4 py-3">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-purple-800 dark:text-purple-200 flex-wrap">
+            <div className="flex items-center gap-3 text-blue-800 dark:text-blue-200 flex-wrap">
               <GitBranch size={18} className="shrink-0" />
               <span className="font-medium">{activeScenario.name}</span>
 
@@ -338,14 +338,14 @@ export function Header() {
                 scenarioDiff.total === 0 ? (
                   <button
                     onClick={() => setShowDiff(true)}
-                    className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-800/50 text-purple-600 dark:text-purple-300 rounded-full hover:bg-purple-200 dark:hover:bg-purple-700/60 transition-colors"
+                    className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-800/50 text-blue-600 dark:text-blue-300 rounded-full hover:bg-blue-200 dark:hover:bg-blue-700/60 transition-colors"
                   >
                     No changes yet
                   </button>
                 ) : (
                   <button
                     onClick={() => setShowDiff(true)}
-                    className="text-xs px-2 py-0.5 bg-purple-200 dark:bg-purple-700/60 text-purple-800 dark:text-purple-200 rounded-full font-medium hover:bg-purple-300 dark:hover:bg-purple-600/60 transition-colors"
+                    className="text-xs px-2 py-0.5 bg-blue-200 dark:bg-blue-700/60 text-blue-800 dark:text-blue-200 rounded-full font-medium hover:bg-blue-300 dark:hover:bg-blue-600/60 transition-colors"
                     title="Click to view full diff and promote to baseline"
                   >
                     {scenarioDiff.total} change{scenarioDiff.total !== 1 ? 's' : ''} · View →
@@ -353,7 +353,7 @@ export function Header() {
                 )
               )}
 
-              <span className="text-purple-500 dark:text-purple-400 text-sm hidden sm:inline">
+              <span className="text-blue-500 dark:text-blue-400 text-sm hidden sm:inline">
                 · edits here don't affect the baseline
               </span>
             </div>

@@ -126,8 +126,8 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
   const typeIcon = (type: SearchResult['type']) => {
     switch (type) {
       case 'project': return <FolderKanban size={14} className="text-blue-500 shrink-0" />;
-      case 'member':  return <Users size={14} className="text-green-500 shrink-0" />;
-      case 'jira':    return <ExternalLink size={14} className="text-violet-500 shrink-0" />;
+      case 'member':  return <Users size={14} className="text-slate-500 shrink-0" />;
+      case 'jira':    return <ExternalLink size={14} className="text-slate-500 shrink-0" />;
     }
   };
 
