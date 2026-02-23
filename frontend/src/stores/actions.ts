@@ -708,7 +708,7 @@ export function computeSyncDiff(
  * US-008: Smart merge — updates Jira fields but always preserves local mappings.
  * Returns a result including how many mappings were preserved.
  */
-export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]): JiraSyncResult {
+export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[], settings?: JiraSettings): JiraSyncResult {
   const state = useAppStore.getState();
   const currentState = state.getCurrentState();
   const existingItems = currentState.jiraWorkItems;
@@ -761,7 +761,25 @@ export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]
   // Items with local mappings are kept as stale rather than deleted — prevents losing
   // mapping work when a type is temporarily disabled or an item moves to Done.
   const isMapped = (i: JiraWorkItem) => !!(i.mappedProjectId || i.mappedPhaseId || i.mappedMemberId);
-  const staleItems = notFoundItems.filter(isMapped).map(item => ({ ...item, staleFromJira: true }));
+
+  // Determine which types still have an exclude_done filter active — if an item of
+  // that type disappears from the sync results, it almost certainly moved to Done.
+  const excludeDoneTypes = new Set<string>();
+  if (settings) {
+    if (settings.syncEpics    && (settings.statusFilterEpics    ?? 'all') === 'exclude_done') excludeDoneTypes.add('epic');
+    if (settings.syncFeatures && (settings.statusFilterFeatures ?? 'all') === 'exclude_done') excludeDoneTypes.add('feature');
+    if (settings.syncStories  && (settings.statusFilterStories  ?? 'all') === 'exclude_done') excludeDoneTypes.add('story');
+    if (settings.syncTasks    && (settings.statusFilterTasks    ?? 'all') === 'exclude_done') excludeDoneTypes.add('task');
+    if (settings.syncBugs     && (settings.statusFilterBugs     ?? 'all') === 'exclude_done') excludeDoneTypes.add('bug');
+  }
+
+  const staleItems = notFoundItems.filter(isMapped).map(item => ({
+    ...item,
+    staleFromJira: true,
+    // If the type was being synced with an exclude_done filter, mark status as done
+    // so the UI reflects the most likely reason it disappeared from results.
+    ...(excludeDoneTypes.has(item.type) ? { statusCategory: 'done' as const, status: item.status } : {}),
+  }));
   const removedItems = notFoundItems.filter(i => !isMapped(i));
 
   // Clear the stale flag for any previously-stale items that came back in this sync

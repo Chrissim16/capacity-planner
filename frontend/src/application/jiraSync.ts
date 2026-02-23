@@ -75,7 +75,7 @@ export function applySync(diff: JiraSyncDiff, connection: JiraConnection, settin
   const { connectionId, fetchedItems } = diff;
 
   // 1. Merge work items (preserves existing mappings)
-  const syncResult = syncJiraWorkItems(connectionId, fetchedItems);
+  const syncResult = syncJiraWorkItems(connectionId, fetchedItems, settings);
 
   // 2. Sync team members from assignees (existing behaviour)
   const teamSyncResult = syncTeamMembersFromJira();
