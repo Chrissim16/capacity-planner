@@ -633,14 +633,51 @@ export function JiraSection() {
                                 : <span className="text-red-500 italic">none — would be unlinked</span>}
                             </td>
                           </tr>
+                          {d.matchedByProjectOnly !== undefined && (
+                            <tr className={d.matchedByProjectOnly ? '' : 'bg-red-50 dark:bg-red-900/20'}>
+                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Test 1: project only</td>
+                              <td className="px-4 py-2.5 text-xs">
+                                <code className="bg-muted px-1 rounded">{`project = "${d.key.split('-')[0]}" AND key = "${d.key}"`}</code>
+                                {' → '}
+                                {d.matchedByProjectOnly
+                                  ? <span className="text-green-600">✓ found</span>
+                                  : <span className="text-red-600 font-semibold">✗ NOT FOUND — wrong project key in connection settings</span>}
+                              </td>
+                            </tr>
+                          )}
+                          {d.matchedByProjectAndType !== undefined && (
+                            <tr className={d.matchedByProjectAndType ? '' : 'bg-red-50 dark:bg-red-900/20'}>
+                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Test 2: project + type</td>
+                              <td className="px-4 py-2.5 text-xs">
+                                <code className="bg-muted px-1 rounded">{`... AND issuetype = "${d.typeName}"`}</code>
+                                {' → '}
+                                {d.matchedByProjectAndType
+                                  ? <span className="text-green-600">✓ found</span>
+                                  : <span className="text-red-600 font-semibold">✗ NOT FOUND — type name mismatch in JQL</span>}
+                              </td>
+                            </tr>
+                          )}
                           {d.matchedByJql !== undefined && (
                             <tr className={d.matchedByJql ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}>
-                              <td className="px-4 py-2.5 font-semibold">Matched by current JQL?</td>
+                              <td className="px-4 py-2.5 font-semibold">Test 3: full sync JQL</td>
                               <td className="px-4 py-2.5">
                                 {d.matchedByJql
-                                  ? <span className="flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-medium"><CheckCircle size={12} /> Yes — Jira's API returns this item with the current filters</span>
-                                  : <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium"><AlertCircle size={12} /> No — the current sync query does NOT return this item</span>
+                                  ? <span className="flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-medium"><CheckCircle size={12} /> Matched — item IS in scope</span>
+                                  : <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium"><AlertCircle size={12} /> NOT matched — status filter is excluding this item</span>
                                 }
+                              </td>
+                            </tr>
+                          )}
+                          {d.jqlUsed && (
+                            <tr>
+                              <td className="px-4 py-2.5 font-medium text-muted-foreground">JQL used for test</td>
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-start gap-2">
+                                  <code className="text-xs break-all text-slate-600 dark:text-slate-400 flex-1">{d.jqlUsed}</code>
+                                  <button type="button" onClick={() => navigator.clipboard.writeText(d.jqlUsed!)} className="shrink-0 text-blue-500 hover:text-blue-700" title="Copy JQL">
+                                    <Copy size={12} />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           )}
