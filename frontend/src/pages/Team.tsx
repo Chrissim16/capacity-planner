@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, LayoutGrid, List, CalendarDays, GitBranch } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
-import { CapacityTooltip } from '../components/ui/CapacityTooltip';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
@@ -12,8 +11,6 @@ import { MemberCalendarModal } from '../components/ui/MemberCalendarModal';
 import { useCurrentState, useAppStore } from '../stores/appStore';
 import { deleteTeamMember } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
-import { calculateCapacity } from '../utils/capacity';
-import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 import type { TeamMember } from '../types';
 
 export function Team() {
@@ -137,16 +134,6 @@ export function Team() {
   const needsEnrichmentMembers = teamMembers.filter(m => m.needsEnrichment);
   const [enrichmentMode, setEnrichmentMode] = useState(false);
 
-  // US-024: view mode toggle
-  const [viewMode, setViewMode] = useState<'cards' | 'heatmap'>('cards');
-
-  // Heatmap: next 5 quarters starting from current
-  const currentQuarter = getCurrentQuarter();
-  const heatmapQuarters = useMemo(() => {
-    const all = generateQuarters();
-    const idx = all.indexOf(currentQuarter);
-    return idx >= 0 ? all.slice(idx, idx + 5) : all.slice(0, 5);
-  }, [currentQuarter]);
 
   // In enrichment mode, override filters to show only needing-enrichment members
   const displayMembers = enrichmentMode
@@ -180,29 +167,10 @@ export function Team() {
             {filteredMembers.length} team member{filteredMembers.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`p-2 transition-colors ${viewMode === 'cards' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-              title="Card view"
-            >
-              <List size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode('heatmap')}
-              className={`p-2 transition-colors ${viewMode === 'heatmap' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-              title="Heatmap view"
-            >
-              <LayoutGrid size={16} />
-            </button>
-          </div>
-          <Button onClick={() => setIsMemberFormOpen(true)}>
-            <Plus size={16} />
-            Add Member
-          </Button>
-        </div>
+        <Button onClick={() => setIsMemberFormOpen(true)}>
+          <Plus size={16} />
+          Add Member
+        </Button>
       </div>
 
       {/* Enrichment banner — shown when Jira-imported members are missing role/country */}
@@ -273,78 +241,8 @@ export function Team() {
         )}
       </div>
 
-      {/* US-024: Heatmap view */}
-      {viewMode === 'heatmap' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Capacity Heatmap</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {displayMembers.length === 0 ? (
-              <EmptyState
-                icon={LayoutGrid}
-                title="No team members"
-                description="Add team members to see the capacity heatmap."
-              />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th className="text-left py-2 pr-4 font-medium text-slate-500 dark:text-slate-400 w-40">Member</th>
-                      {heatmapQuarters.map(q => (
-                        <th key={q} className="text-center py-2 px-2 font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">
-                          {q}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {displayMembers.map(member => (
-                      <tr key={member.id}>
-                        <td className="py-2 pr-4">
-                          <div className="font-medium text-slate-900 dark:text-white truncate max-w-[140px]">{member.name}</div>
-                          <div className="text-xs text-slate-400 truncate">{member.role}</div>
-                        </td>
-                        {heatmapQuarters.map(q => {
-                          const cap = calculateCapacity(member.id, q, state);
-                          const pct = cap.usedPercent;
-                          const isOver = cap.status === 'overallocated';
-                          const isWarn = cap.status === 'warning';
-                          const cellColor = isOver
-                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                            : isWarn
-                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                            : pct > 0
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                            : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500';
-                          return (
-                            <td key={q} className="py-2 px-2 text-center">
-                              <CapacityTooltip capacity={cap}>
-                                <span className={`inline-block w-full rounded-md py-1 px-2 text-xs font-semibold cursor-default ${cellColor}`}>
-                                  {pct > 0 ? `${pct}%` : '—'}
-                                </span>
-                              </CapacityTooltip>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-200 dark:bg-green-800 inline-block" /> Available (&lt;90%)</span>
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-200 dark:bg-amber-800 inline-block" /> High (90–99%)</span>
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-200 dark:bg-red-800 inline-block" /> Over-allocated (≥100%)</span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Team List (cards view) */}
-      {viewMode === 'cards' && displayMembers.length === 0 ? (
+      {/* Team List */}
+      {displayMembers.length === 0 ? (
         <Card>
           <CardContent>
             {teamMembers.length === 0 ? (
@@ -363,7 +261,7 @@ export function Team() {
             )}
           </CardContent>
         </Card>
-      ) : viewMode === 'cards' ? (
+      ) : (
         <div className="space-y-6">
           {Object.entries(membersByRole).map(([role, members]) => (
             <div key={role}>
@@ -525,7 +423,7 @@ export function Team() {
             </div>
           ))}
         </div>
-      ) : null}
+      )}
 
       {/* Team Member Form Modal */}
       <TeamMemberForm
