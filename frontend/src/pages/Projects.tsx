@@ -94,7 +94,8 @@ export function Projects() {
     if (!showArchived && project.archived) return false;
     if (showArchived && !project.archived) return false;
     if (search && !project.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (statusFilter && project.status !== statusFilter) return false;
+    if (statusFilter === '__open__' && (project.status === 'Completed' || project.status === 'Cancelled')) return false;
+    if (statusFilter && statusFilter !== '__open__' && project.status !== statusFilter) return false;
     if (priorityFilter && project.priority !== priorityFilter) return false;
     if (systemFilter && !project.systemIds?.includes(systemFilter)) return false;
     return true;
@@ -183,6 +184,7 @@ export function Projects() {
 
   const statusOptions = [
     { value: '', label: 'All Statuses' },
+    { value: '__open__', label: 'Open (not completed)' },
     { value: 'Planning', label: 'Planning' },
     { value: 'Active', label: 'Active' },
     { value: 'On Hold', label: 'On Hold' },
