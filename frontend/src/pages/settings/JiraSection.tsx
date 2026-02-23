@@ -633,65 +633,43 @@ export function JiraSection() {
                                 : <span className="text-red-500 italic">none — would be unlinked</span>}
                             </td>
                           </tr>
-                          {d.matchedByKeyOnly !== undefined && (
-                            <tr className={d.matchedByKeyOnly ? '' : 'bg-red-50 dark:bg-red-900/20'}>
+                          {d.typeEnabled !== undefined && (
+                            <tr className={d.typeEnabled ? '' : 'bg-red-50 dark:bg-red-900/20'}>
+                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Type enabled in settings?</td>
+                              <td className="px-4 py-2.5 text-xs">
+                                {d.typeEnabled
+                                  ? <span className="text-green-600 font-medium">✓ "{d.typeName}" is enabled</span>
+                                  : <span className="text-red-600 font-semibold">✗ "{d.typeName}" is disabled — turn it on in Sync Settings</span>}
+                              </td>
+                            </tr>
+                          )}
+                          {d.statusPasses !== undefined && (
+                            <tr className={d.statusPasses ? '' : 'bg-red-50 dark:bg-red-900/20'}>
                               <td className="px-4 py-2.5 font-medium text-muted-foreground">
-                                Test 0: bare key
-                                {d.testStatuses && <span className="ml-1 text-slate-400">HTTP {d.testStatuses.keyOnly}</span>}
+                                Status passes filter?
+                                {d.statusFilterUsed && <span className="block text-xs text-slate-400 font-normal">filter: {d.statusFilterUsed}</span>}
                               </td>
                               <td className="px-4 py-2.5 text-xs">
-                                <code className="bg-muted px-1 rounded">{`key = "${d.key}"`}</code>
-                                {' → '}
-                                {d.matchedByKeyOnly
-                                  ? <span className="text-green-600">✓ found — API token can see this issue</span>
-                                  : <span className="text-red-600 font-semibold">✗ NOT FOUND — API token cannot see this issue at all (security level or permissions)</span>}
+                                {d.statusPasses
+                                  ? <span className="text-green-600 font-medium">✓ "{d.statusName}" passes the "{d.statusFilterUsed}" filter</span>
+                                  : <span className="text-red-600 font-semibold">✗ {d.exclusionReason}</span>}
                               </td>
                             </tr>
                           )}
-                          {d.matchedByProjectOnly !== undefined && (
-                            <tr className={d.matchedByProjectOnly ? '' : 'bg-red-50 dark:bg-red-900/20'}>
-                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Test 1: project only
-                                {d.testStatuses && <span className="ml-1 text-slate-400">HTTP {d.testStatuses.projectOnly}</span>}
-                              </td>
-                              <td className="px-4 py-2.5 text-xs">
-                                <code className="bg-muted px-1 rounded">{`project = "${d.key.split('-')[0]}" AND key = "${d.key}"`}</code>
-                                {' → '}
-                                {d.matchedByProjectOnly
-                                  ? <span className="text-green-600">✓ found</span>
-                                  : <span className="text-red-600 font-semibold">✗ NOT FOUND — wrong project key in connection settings</span>}
-                              </td>
-                            </tr>
-                          )}
-                          {d.matchedByProjectAndType !== undefined && (
-                            <tr className={d.matchedByProjectAndType ? '' : 'bg-red-50 dark:bg-red-900/20'}>
-                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Test 2: project + type
-                                {d.testStatuses && <span className="ml-1 text-slate-400">HTTP {d.testStatuses.projectAndType}</span>}
-                              </td>
-                              <td className="px-4 py-2.5 text-xs">
-                                <code className="bg-muted px-1 rounded">{`... AND issuetype = "${d.typeName}"`}</code>
-                                {' → '}
-                                {d.matchedByProjectAndType
-                                  ? <span className="text-green-600">✓ found</span>
-                                  : <span className="text-red-600 font-semibold">✗ NOT FOUND — type name mismatch in JQL</span>}
-                              </td>
-                            </tr>
-                          )}
-                          {d.matchedByJql !== undefined && (
-                            <tr className={d.matchedByJql ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}>
-                              <td className="px-4 py-2.5 font-semibold">Test 3: full sync JQL
-                                {d.testStatuses && <span className="ml-1 font-normal text-slate-400">HTTP {d.testStatuses.fullJql}</span>}
-                              </td>
-                              <td className="px-4 py-2.5">
-                                {d.matchedByJql
-                                  ? <span className="flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-medium"><CheckCircle size={12} /> Matched — item IS in scope</span>
-                                  : <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium"><AlertCircle size={12} /> NOT matched — status filter is excluding this item</span>
-                                }
+                          {d.exclusionReason === null && d.typeEnabled && d.statusPasses && (
+                            <tr className="bg-amber-50 dark:bg-amber-900/20">
+                              <td className="px-4 py-2.5 font-medium text-amber-700 dark:text-amber-300">Why is it missing?</td>
+                              <td className="px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300">
+                                Type is enabled and status passes the filter — this item SHOULD be synced.
+                                Most likely causes: (1) has not been synced yet — run a sync now, or
+                                (2) project has more than 5,000 non-done items (Jira's search limit) — add an
+                                Additional JQL filter (e.g. <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">updatedDate &gt;= -180d</code>) in the connection settings.
                               </td>
                             </tr>
                           )}
                           {d.jqlUsed && (
                             <tr>
-                              <td className="px-4 py-2.5 font-medium text-muted-foreground">JQL used for test</td>
+                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Sync JQL</td>
                               <td className="px-4 py-2.5">
                                 <div className="flex items-start gap-2">
                                   <code className="text-xs break-all text-slate-600 dark:text-slate-400 flex-1">{d.jqlUsed}</code>
@@ -699,19 +677,6 @@ export function JiraSection() {
                                     <Copy size={12} />
                                   </button>
                                 </div>
-                              </td>
-                            </tr>
-                          )}
-                          {d.jqlTotal !== undefined && (
-                            <tr className={d.jqlTotal >= 5000 ? 'bg-amber-50 dark:bg-amber-900/20' : ''}>
-                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Total items in JQL scope</td>
-                              <td className="px-4 py-2.5">
-                                <span className={`font-mono font-semibold ${d.jqlTotal >= 5000 ? 'text-amber-600' : 'text-slate-700 dark:text-slate-300'}`}>
-                                  {d.jqlTotal.toLocaleString()}
-                                </span>
-                                {d.jqlTotal >= 5000 && (
-                                  <span className="text-xs text-amber-600 ml-2">⚠ at or above Jira's 5,000-item limit — older items will be cut off</span>
-                                )}
                               </td>
                             </tr>
                           )}

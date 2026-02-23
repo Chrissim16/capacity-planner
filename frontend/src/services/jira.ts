@@ -195,20 +195,16 @@ export interface JiraKeyDiagnostic {
   cf10008?: string;
   /** resolved parentKey that our sync would store */
   resolvedParentKey?: string;
-  /** whether the item is matched by the current sync JQL */
-  matchedByJql?: boolean;
-  /** total number of items the current JQL returns (to check for 5000 cap) */
-  jqlTotal?: number;
-  /** the exact JQL used for the match test — paste into Jira to verify */
+  /** the exact JQL the sync would use for this connection */
   jqlUsed?: string;
-  /** bare key-only lookup: key = "X" with no other filters */
-  matchedByKeyOnly?: boolean;
-  /** whether the project clause alone (no type/status filter) returns this key */
-  matchedByProjectOnly?: boolean;
-  /** whether the type clause matches */
-  matchedByProjectAndType?: boolean;
-  /** raw HTTP status codes for each test call */
-  testStatuses?: { keyOnly: number; projectOnly: number; projectAndType: number; fullJql: number };
+  /** local analysis: is this item's type enabled in sync settings? */
+  typeEnabled?: boolean;
+  /** local analysis: does this item's status pass the configured filter? */
+  statusPasses?: boolean;
+  /** which status filter applies to this item's type */
+  statusFilterUsed?: string;
+  /** reason why the item would be excluded, or null if it passes */
+  exclusionReason?: string | null;
 }
 
 /**
@@ -247,58 +243,69 @@ export async function diagnoseJiraKey(
     const cf10008 = extractKey(f.customfield_10008);
     const resolvedParentKey = f.parent?.key ?? cf10014 ?? cf10008;
 
-    // Run incremental JQL tests using POST to /rest/api/3/search to avoid any
-    // GET proxy/caching issues. POST sends JQL in the request body which is
-    // more reliable than URL-encoded query strings through the Vercel proxy.
-    let matchedByJql: boolean | undefined;
-    let jqlTotal: number | undefined;
+    // Evaluate JQL match locally — no extra API calls needed.
+    // We already have type, status and parent from the direct issue fetch above.
     let jqlUsed: string | undefined;
-    let matchedByKeyOnly: boolean | undefined;
-    let matchedByProjectOnly: boolean | undefined;
-    let matchedByProjectAndType: boolean | undefined;
-    let testStatuses: JiraKeyDiagnostic['testStatuses'] | undefined;
-
-    const searchOne = async (jql: string): Promise<{ ok: boolean; total: number; status: number }> => {
-      const r = await jiraFetch(
-        connection.jiraBaseUrl,
-        '/rest/api/3/search',
-        authHeader,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jql, maxResults: 1, fields: ['summary'] }),
-        }
-      );
-      if (!r.ok) return { ok: false, total: 0, status: r.status };
-      const data = await r.json() as { total?: number };
-      return { ok: true, total: data.total ?? 0, status: r.status };
-    };
+    let typeEnabled: boolean | undefined;
+    let statusPasses: boolean | undefined;
+    let statusFilterUsed: string | undefined;
+    let exclusionReason: string | null | undefined;
 
     if (settings) {
-      try {
-        const syncJql = buildJQL(connection, settings);
-        if (syncJql) {
-          const jqlBase = syncJql.replace(/ ORDER BY.*$/i, '');
-          jqlUsed = `(${jqlBase}) AND key = "${key.trim()}"`;
+      const syncJql = buildJQL(connection, settings);
+      if (syncJql) jqlUsed = syncJql;
 
-          const r0 = await searchOne(`key = "${key.trim()}"`);
-          matchedByKeyOnly = r0.total > 0;
+      const typeName = f.issuetype.name;
+      const catKey = f.status.statusCategory?.key ?? '';
 
-          const r1 = await searchOne(`project = "${connection.jiraProjectKey}" AND key = "${key.trim()}"`);
-          matchedByProjectOnly = r1.total > 0;
+      // Determine which filter applies to this type
+      const typeFilterMap: Record<string, { enabled: boolean; filter: string }> = {
+        'Epic':    { enabled: settings.syncEpics    ?? false, filter: settings.statusFilterEpics    ?? 'all' },
+        'Feature': { enabled: settings.syncFeatures ?? false, filter: settings.statusFilterFeatures ?? 'all' },
+        'Story':   { enabled: settings.syncStories  ?? false, filter: settings.statusFilterStories  ?? 'all' },
+        'Task':    { enabled: settings.syncTasks    ?? false, filter: settings.statusFilterTasks    ?? 'all' },
+        'Bug':     { enabled: settings.syncBugs     ?? false, filter: settings.statusFilterBugs     ?? 'all' },
+      };
 
-          const r2 = await searchOne(`project = "${connection.jiraProjectKey}" AND issuetype = "${issue.fields.issuetype.name}" AND key = "${key.trim()}"`);
-          matchedByProjectAndType = r2.total > 0;
+      // Match by include() so "User Story" → story, "Sub-bug" → bug, etc.
+      const lowerType = typeName.toLowerCase();
+      const matchedEntry = Object.entries(typeFilterMap).find(([k]) => lowerType.includes(k.toLowerCase()));
 
-          const r3 = await searchOne(jqlUsed);
-          matchedByJql = r3.total > 0;
+      if (!matchedEntry) {
+        typeEnabled = false;
+        statusPasses = undefined;
+        statusFilterUsed = undefined;
+        exclusionReason = `Type "${typeName}" is not one of the 5 supported types (Epic, Feature, Story, Task, Bug)`;
+      } else {
+        const [, { enabled, filter }] = matchedEntry;
+        typeEnabled = enabled;
+        statusFilterUsed = filter;
 
-          testStatuses = { keyOnly: r0.status, projectOnly: r1.status, projectAndType: r2.status, fullJql: r3.status };
-
-          const rc = await searchOne(jqlBase);
-          jqlTotal = rc.total;
+        if (!enabled) {
+          statusPasses = undefined;
+          exclusionReason = `Type "${typeName}" is disabled in Sync Settings`;
+        } else {
+          // Check status category against filter
+          // catKey: 'new' = To Do, 'indeterminate' = In Progress, 'done' = Done
+          switch (filter) {
+            case 'exclude_done':
+              statusPasses = catKey !== 'done';
+              exclusionReason = catKey === 'done' ? `Status "${f.status.name}" is "Done" — excluded by "Exclude Done" filter` : null;
+              break;
+            case 'active_only':
+              statusPasses = catKey === 'new' || catKey === 'indeterminate';
+              exclusionReason = statusPasses ? null : `Status "${f.status.name}" is not "To Do" or "In Progress" — excluded by "Active only" filter`;
+              break;
+            case 'todo_only':
+              statusPasses = catKey === 'new';
+              exclusionReason = statusPasses ? null : `Status "${f.status.name}" is not "To Do" — excluded by "To Do only" filter`;
+              break;
+            default: // 'all'
+              statusPasses = true;
+              exclusionReason = null;
+          }
         }
-      } catch { /* non-fatal */ }
+      }
     }
 
     return {
@@ -313,13 +320,11 @@ export async function diagnoseJiraKey(
         cf10014,
         cf10008,
         resolvedParentKey,
-        matchedByJql,
-        jqlTotal,
         jqlUsed,
-        matchedByKeyOnly,
-        matchedByProjectOnly,
-        matchedByProjectAndType,
-        testStatuses,
+        typeEnabled,
+        statusPasses,
+        statusFilterUsed,
+        exclusionReason,
       },
     };
   } catch (error) {
