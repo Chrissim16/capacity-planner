@@ -16,7 +16,7 @@ import { Badge } from './ui/Badge';
 import { Select } from './ui/Select';
 import { updateJiraWorkItemMapping } from '../stores/actions';
 import type { JiraWorkItem, JiraItemType, ConfidenceLevel } from '../types';
-import { computeRollup, getRawDays, getForecastedDays, type RollupResult } from '../utils/confidence';
+import { computeRollup, getForecastedDays, type RollupResult } from '../utils/confidence';
 
 // ─── shared colour maps (re-exported so other files don't duplicate them) ────
 

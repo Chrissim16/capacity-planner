@@ -813,8 +813,11 @@ export function updateJiraWorkItemMapping(
   mapping: { mappedProjectId?: string; mappedPhaseId?: string; mappedMemberId?: string; confidenceLevel?: 'high' | 'medium' | 'low' | null }
 ): void {
   const state = useAppStore.getState();
+  const { confidenceLevel, ...rest } = mapping;
   const jiraWorkItems = state.getCurrentState().jiraWorkItems.map(item =>
-    item.id === workItemId ? { ...item, ...mapping } : item
+    item.id === workItemId
+      ? { ...item, ...rest, confidenceLevel: confidenceLevel ?? undefined }
+      : item
   );
   state.updateData({ jiraWorkItems });
 }
