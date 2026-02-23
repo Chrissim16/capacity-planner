@@ -89,17 +89,27 @@ export function Projects() {
     }
   };
 
+  // Index Jira epics by key for fast status lookup
+  const jiraEpicByKey = useMemo(() =>
+    new Map(jiraWorkItems.filter(i => i.type === 'epic').map(i => [i.jiraKey, i]))
+  , [jiraWorkItems]);
+
   // Filter projects
   const filteredProjects = useMemo(() => projects.filter(project => {
     if (!showArchived && project.archived) return false;
     if (showArchived && !project.archived) return false;
     if (search && !project.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (statusFilter === '__open__' && (project.status === 'Completed' || project.status === 'Cancelled')) return false;
+    if (statusFilter === '__open__') {
+      if (project.status === 'Completed' || project.status === 'Cancelled') return false;
+      // Also hide if the linked Jira epic is closed
+      const linkedEpic = project.jiraSourceKey ? jiraEpicByKey.get(project.jiraSourceKey) : undefined;
+      if (linkedEpic?.statusCategory === 'done') return false;
+    }
     if (statusFilter && statusFilter !== '__open__' && project.status !== statusFilter) return false;
     if (priorityFilter && project.priority !== priorityFilter) return false;
     if (systemFilter && !project.systemIds?.includes(systemFilter)) return false;
     return true;
-  }), [projects, showArchived, search, statusFilter, priorityFilter, systemFilter]);
+  }), [projects, showArchived, search, statusFilter, priorityFilter, systemFilter, jiraEpicByKey]);
 
   const archivedCount = useMemo(() => projects.filter(p => p.archived).length, [projects]);
 
