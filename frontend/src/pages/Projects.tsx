@@ -328,6 +328,17 @@ export function Projects() {
             });
 
             const jiraItems = collectJiraItemsForProject(project);
+
+            // Feature count: use planner phases when populated, otherwise fall back
+            // to Jira feature-type items (epics auto-created from Jira may have phases
+            // from Jira features rather than hand-crafted planner phases).
+            const jiraFeatureCount = jiraItems.filter(i => i.type === 'feature').length;
+            const displayFeatureCount = project.phases.length > 0 ? project.phases.length : jiraFeatureCount;
+
+            // Member count: planner assignments take precedence; fall back to unique
+            // Jira assignees so the counter isn't stuck at 0 for auto-imported epics.
+            const jiraAssigneeNames = new Set(jiraItems.map(i => i.assigneeName).filter(Boolean));
+            const displayMemberCount = uniqueMembers.size > 0 ? uniqueMembers.size : jiraAssigneeNames.size;
             const jiraByStatus = jiraItems.reduce<Record<string, number>>((acc, item) => {
               const cat = item.statusCategory ?? 'To Do';
               acc[cat] = (acc[cat] ?? 0) + 1;
@@ -383,11 +394,11 @@ export function Projects() {
                         )}
                       </div>
                       <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-sm text-slate-500 dark:text-slate-400">
-                        <span>{project.phases.length} feature{project.phases.length !== 1 ? 's' : ''}</span>
+                        <span>{displayFeatureCount} feature{displayFeatureCount !== 1 ? 's' : ''}</span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <Users size={12} />
-                          {uniqueMembers.size} member{uniqueMembers.size !== 1 ? 's' : ''}
+                          {displayMemberCount} member{displayMemberCount !== 1 ? 's' : ''}
                         </span>
                         {dateRange && (
                           <>
