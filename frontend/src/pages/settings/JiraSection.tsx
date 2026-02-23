@@ -13,14 +13,14 @@ import {
   addJiraConnection, updateJiraConnection, deleteJiraConnection,
   toggleJiraConnectionActive, updateJiraSettings,
 } from '../../stores/actions';
-import { testJiraConnection, buildJQL, getJiraIssueTypes } from '../../services/jira';
-import type { JiraIssueType } from '../../services/jira';
+import { testJiraConnection, buildJQL, getJiraIssueTypes, diagnoseJiraKey } from '../../services/jira';
+import type { JiraIssueType, JiraKeyDiagnostic } from '../../services/jira';
 import { fetchSyncPreview, applySync, buildAssignmentsNow } from '../../application/jiraSync';
 import { useToast } from '../../components/ui/Toast';
 import type { JiraConnection, JiraSyncDiff } from '../../types';
 
 export function JiraSection() {
-  const { jiraConnections, jiraSettings } = useCurrentState();
+  const { jiraConnections, jiraSettings, jiraWorkItems } = useCurrentState();
   const { showToast } = useToast();
 
   // Connection modal
@@ -49,6 +49,12 @@ export function JiraSection() {
   const [issueTypeCheckLoading, setIssueTypeCheckLoading] = useState(false);
   const [issueTypeCheckResult, setIssueTypeCheckResult] = useState<JiraIssueType[] | null>(null);
   const [issueTypeCheckError, setIssueTypeCheckError] = useState<string | null>(null);
+
+  // Key lookup diagnostic
+  const [keyLookupInput, setKeyLookupInput] = useState('');
+  const [keyLookupLoading, setKeyLookupLoading] = useState(false);
+  const [keyLookupResult, setKeyLookupResult] = useState<JiraKeyDiagnostic | null>(null);
+  const [keyLookupError, setKeyLookupError] = useState<string | null>(null);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -146,6 +152,23 @@ export function JiraSection() {
       setIssueTypeCheckResult(result.issueTypes);
     } else {
       setIssueTypeCheckError(result.error || 'Failed to fetch issue types');
+    }
+  };
+
+  const handleKeyLookup = async () => {
+    const key = keyLookupInput.trim().toUpperCase();
+    if (!key) return;
+    const conn = jiraConnections.find(c => c.isActive);
+    if (!conn) { setKeyLookupError('No active Jira connection'); return; }
+    setKeyLookupLoading(true);
+    setKeyLookupResult(null);
+    setKeyLookupError(null);
+    const result = await diagnoseJiraKey(conn, key);
+    setKeyLookupLoading(false);
+    if (result.success && result.data) {
+      setKeyLookupResult(result.data);
+    } else {
+      setKeyLookupError(result.error || 'Lookup failed');
     }
   };
 
@@ -502,6 +525,150 @@ export function JiraSection() {
             </label>
           </CardContent>
         </Card>
+
+        {/* Key lookup diagnostic */}
+        {jiraConnections.filter(c => c.isActive).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Key Lookup Diagnostic</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Enter a Jira key to see exactly how it would be linked in the sync — what parent fields Jira returns,
+                whether it exists in the local store, and what <code className="bg-muted px-1 rounded text-xs">parentKey</code> would be stored.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={keyLookupInput}
+                  onChange={e => setKeyLookupInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === 'Enter' && handleKeyLookup()}
+                  placeholder="e.g. ERP-3647"
+                  className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono"
+                />
+                <Button onClick={handleKeyLookup} disabled={keyLookupLoading || !keyLookupInput.trim()}>
+                  {keyLookupLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                </Button>
+              </div>
+              {keyLookupError && (
+                <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                  <AlertCircle size={14} /> {keyLookupError}
+                </div>
+              )}
+              {keyLookupResult && (() => {
+                const d = keyLookupResult;
+                const localItem = jiraWorkItems?.find(i => i.jiraKey === d.key);
+                const SYNCED_NAMES = new Set(['Epic', 'Feature', 'Story', 'Task', 'Bug']);
+                const settings = jiraSettings;
+                const typeEnabled =
+                  (d.typeName === 'Epic' && settings.syncEpics) ||
+                  (d.typeName === 'Feature' && settings.syncFeatures) ||
+                  (d.typeName === 'Story' && settings.syncStories) ||
+                  (d.typeName === 'Task' && settings.syncTasks) ||
+                  (d.typeName === 'Bug' && settings.syncBugs);
+                const typeSupported = SYNCED_NAMES.has(d.typeName);
+
+                return (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border bg-slate-50 dark:bg-slate-800/60 overflow-hidden">
+                      <table className="w-full text-sm">
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                          <tr>
+                            <td className="px-4 py-2.5 font-medium text-muted-foreground w-48">Key</td>
+                            <td className="px-4 py-2.5 font-mono font-semibold">{d.key}</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2.5 font-medium text-muted-foreground">Summary</td>
+                            <td className="px-4 py-2.5 truncate max-w-xs">{d.summary}</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2.5 font-medium text-muted-foreground">Type</td>
+                            <td className="px-4 py-2.5">
+                              <span className="font-mono">{d.typeName}</span>
+                              {' '}
+                              {!typeSupported
+                                ? <span className="text-xs text-red-500 ml-1">not a supported type name</span>
+                                : !typeEnabled
+                                  ? <span className="text-xs text-amber-500 ml-1">disabled in settings</span>
+                                  : <span className="text-xs text-green-600 ml-1">✓ enabled</span>
+                              }
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2.5 font-medium text-muted-foreground">Status</td>
+                            <td className="px-4 py-2.5">
+                              {d.statusName}
+                              <span className="text-xs text-muted-foreground ml-1">({d.statusCategory})</span>
+                            </td>
+                          </tr>
+                          <tr className={!d.parentKey ? 'bg-amber-50 dark:bg-amber-900/20' : ''}>
+                            <td className="px-4 py-2.5 font-medium text-muted-foreground">parent.key (hierarchy)</td>
+                            <td className="px-4 py-2.5 font-mono">
+                              {d.parentKey
+                                ? <span className="text-green-700 dark:text-green-400">{d.parentKey}</span>
+                                : <span className="text-slate-400 italic">not set</span>}
+                            </td>
+                          </tr>
+                          <tr className={!d.cf10014 ? 'opacity-60' : ''}>
+                            <td className="px-4 py-2.5 font-medium text-muted-foreground">customfield_10014 (Epic Link)</td>
+                            <td className="px-4 py-2.5 font-mono">
+                              {d.cf10014
+                                ? <span className="text-blue-700 dark:text-blue-400">{d.cf10014}</span>
+                                : <span className="text-slate-400 italic">not set</span>}
+                            </td>
+                          </tr>
+                          <tr className={!d.cf10008 ? 'opacity-60' : ''}>
+                            <td className="px-4 py-2.5 font-medium text-muted-foreground">customfield_10008 (alt. Epic Link)</td>
+                            <td className="px-4 py-2.5 font-mono">
+                              {d.cf10008
+                                ? <span className="text-blue-700 dark:text-blue-400">{d.cf10008}</span>
+                                : <span className="text-slate-400 italic">not set</span>}
+                            </td>
+                          </tr>
+                          <tr className="bg-slate-100 dark:bg-slate-700/50">
+                            <td className="px-4 py-2.5 font-semibold">Resolved parentKey (what sync stores)</td>
+                            <td className="px-4 py-2.5 font-mono font-semibold">
+                              {d.resolvedParentKey
+                                ? <span className="text-indigo-700 dark:text-indigo-300">{d.resolvedParentKey}</span>
+                                : <span className="text-red-500 italic">none — would be unlinked</span>}
+                            </td>
+                          </tr>
+                          <tr className={!localItem ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}>
+                            <td className="px-4 py-2.5 font-semibold">In local sync store?</td>
+                            <td className="px-4 py-2.5">
+                              {localItem
+                                ? <span className="flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-medium">
+                                    <CheckCircle size={12} /> Yes — stored parentKey: <code className="font-mono ml-1">{localItem.parentKey ?? 'none'}</code>
+                                  </span>
+                                : <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium">
+                                    <AlertCircle size={12} /> Not in local store — run a sync to fetch it
+                                  </span>
+                              }
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    {d.resolvedParentKey && d.resolvedParentKey !== 'ERP-3394' && (
+                      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-200">
+                        <strong>The resolved parent key is not ERP-3394.</strong>
+                        {' '}Jira is linking this item to <code className="font-mono">{d.resolvedParentKey}</code> rather than ERP-3394.
+                        This is what Jira's API returns — the hierarchy in the planner will reflect this.
+                      </div>
+                    )}
+                    {!d.resolvedParentKey && (
+                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3 text-xs text-red-800 dark:text-red-200">
+                        <strong>No parent key found in any field.</strong>
+                        {' '}This item will appear as an unlinked item after sync. In Jira, ensure it has a parent set
+                        (in a next-gen project) or an Epic Link (in a classic project).
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Issue type checker */}
         {jiraConnections.filter(c => c.isActive).length > 0 && (

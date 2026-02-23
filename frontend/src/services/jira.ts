@@ -181,6 +181,74 @@ export async function getJiraProjects(
   }
 }
 
+export interface JiraKeyDiagnostic {
+  key: string;
+  summary: string;
+  typeName: string;
+  statusName: string;
+  statusCategory: string;
+  /** direct parent field (next-gen / Advanced Roadmaps) */
+  parentKey?: string;
+  /** Epic Link custom field 10014 */
+  cf10014?: string;
+  /** Epic Link custom field 10008 */
+  cf10008?: string;
+  /** resolved parentKey that our sync would store */
+  resolvedParentKey?: string;
+}
+
+/**
+ * Fetch a single Jira issue by key and return the raw parent-linking fields
+ * used by the sync engine. Use this to diagnose why an item isn't appearing
+ * under its expected parent.
+ */
+export async function diagnoseJiraKey(
+  connection: JiraConnection,
+  key: string
+): Promise<{ success: boolean; data?: JiraKeyDiagnostic; error?: string }> {
+  try {
+    const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
+    const fields = ['summary', 'issuetype', 'status', 'parent', 'customfield_10014', 'customfield_10008'].join(',');
+    const response = await jiraFetch(
+      connection.jiraBaseUrl,
+      `/rest/api/3/issue/${encodeURIComponent(key.trim())}?fields=${encodeURIComponent(fields)}`,
+      authHeader,
+      { method: 'GET' }
+    );
+    if (response.status === 404) return { success: false, error: `${key} not found in Jira` };
+    if (!response.ok) return { success: false, error: 'Jira returned ' + response.status };
+    const issue = await response.json() as JiraIssue;
+    const f = issue.fields;
+
+    function extractKey(field: string | { key?: string } | undefined): string | undefined {
+      if (!field) return undefined;
+      if (typeof field === 'string') return field || undefined;
+      return (field as { key?: string }).key || undefined;
+    }
+
+    const cf10014 = extractKey(f.customfield_10014);
+    const cf10008 = extractKey(f.customfield_10008);
+    const resolvedParentKey = f.parent?.key ?? cf10014 ?? cf10008;
+
+    return {
+      success: true,
+      data: {
+        key: issue.key,
+        summary: f.summary,
+        typeName: f.issuetype.name,
+        statusName: f.status.name,
+        statusCategory: f.status.statusCategory?.key ?? '',
+        parentKey: f.parent?.key,
+        cf10014,
+        cf10008,
+        resolvedParentKey,
+      },
+    };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 export interface JiraIssueType {
   id: string;
   name: string;
