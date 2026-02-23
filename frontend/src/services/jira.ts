@@ -125,15 +125,36 @@ function mapStatusCategory(categoryKey: string): 'todo' | 'in_progress' | 'done'
   return 'todo';
 }
 
-function getStoryPoints(fields: JiraIssueFields, customField?: string): number | undefined {
-  // If the user configured a specific custom field, try it first
-  if (customField) {
-    const val = fields[customField];
+function getStoryPoints(fields: JiraIssueFields, discoveredSpField?: string): number | undefined {
+  // Try the instance-specific field discovered via /rest/api/3/field first
+  if (discoveredSpField) {
+    const val = fields[discoveredSpField];
     if (typeof val === 'number' && val > 0) return val;
   }
   // customfield_10020 can be sprint objects (array) or story points (number) depending on instance
   const cf10020 = typeof fields.customfield_10020 === 'number' ? fields.customfield_10020 : undefined;
   return fields.customfield_10016 || fields.customfield_10028 || cf10020 || fields.customfield_10026 || undefined;
+}
+
+/** Calls /rest/api/3/field to find the custom field ID whose name is
+ *  "Story Points" or "Story point estimate" on this specific Jira instance.
+ *  Returns undefined when the field cannot be determined (non-fatal). */
+async function discoverStoryPointsField(
+  baseUrl: string,
+  authHeader: string
+): Promise<string | undefined> {
+  try {
+    const resp = await jiraFetch(baseUrl, '/rest/api/3/field', authHeader, { method: 'GET' });
+    if (!resp.ok) return undefined;
+    const fields = await resp.json() as Array<{ id: string; name: string; custom: boolean }>;
+    const match = fields.find(f =>
+      f.custom &&
+      /^story\s*point(s| estimate)?$/i.test(f.name.trim())
+    );
+    return match?.id;
+  } catch {
+    return undefined;
+  }
 }
 
 function getSprint(fields: JiraIssueFields): JiraSprintObject | undefined {
@@ -475,7 +496,9 @@ export async function fetchJiraIssues(
     const jql = buildJQL(connection, settings);
     if (!jql) { result.errors.push('No issue types selected'); return result; }
 
-    const customSpField = settings.storyPointsCustomField?.trim() || undefined;
+    // Auto-discover the story points custom field for this Jira instance (non-fatal)
+    onProgress?.('Detecting story points field…');
+    const customSpField = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader);
     const jiraFields = buildJiraFields(customSpField);
 
     const workItems: JiraWorkItem[] = [];

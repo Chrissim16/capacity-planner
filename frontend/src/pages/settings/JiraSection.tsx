@@ -511,20 +511,6 @@ export function JiraSection() {
               </div>
             </div>
 
-            <div>
-              <label className="text-sm font-medium">Story Points Custom Field <span className="font-normal text-muted-foreground">(optional)</span></label>
-              <p className="text-xs text-muted-foreground mb-2">
-                Leave blank to auto-detect. If story points are not showing, enter the exact Jira custom field ID.
-                To find it: open any issue in Jira → press <kbd className="px-1 py-0.5 text-xs border rounded">F12</kbd> → Network tab → look at the issue API response for fields starting with <code className="text-xs bg-slate-100 dark:bg-slate-800 px-1 rounded">customfield_</code> that contain your story point value.
-              </p>
-              <Input
-                type="text"
-                placeholder="e.g. customfield_10034"
-                value={jiraSettings.storyPointsCustomField ?? ''}
-                onChange={(e) => updateJiraSettings({ storyPointsCustomField: e.target.value.trim() || undefined })}
-                className="font-mono text-sm max-w-xs"
-              />
-            </div>
 
             <label className="flex items-center gap-2 cursor-pointer">
               <input
