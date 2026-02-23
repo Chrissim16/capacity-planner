@@ -51,7 +51,6 @@ const defaultSettings: Settings = {
 };
 
 const defaultJiraSettings = {
-  storyPointsToDays: 0.5,
   defaultVelocity: 30,
   syncFrequency: 'manual' as const,
   autoMapByName: true,
@@ -68,6 +67,7 @@ const defaultJiraSettings = {
   statusFilterStories: 'active_only' as const,
   statusFilterTasks: 'active_only' as const,
   statusFilterBugs: 'active_only' as const,
+  defaultConfidenceLevel: 'medium' as const,
 };
 
 const defaultAppState: AppState = {

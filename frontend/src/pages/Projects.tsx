@@ -18,6 +18,7 @@ import { deleteProject, duplicateProject, archiveProject, unarchiveProject } fro
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
 import { getCurrentQuarter } from '../utils/calendar';
+import { computeRollup } from '../utils/confidence';
 import type { Project, JiraWorkItem } from '../types';
 
 export function Projects() {
@@ -27,6 +28,7 @@ export function Projects() {
   const teamMembers = state.teamMembers;
   const jiraWorkItems = state.jiraWorkItems ?? [];
   const jiraConnections = state.jiraConnections ?? [];
+  const jiraSettings = state.jiraSettings;
   const activeJiraBaseUrl = jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
   const { showToast } = useToast();
 
@@ -341,6 +343,22 @@ export function Projects() {
 
             const jiraItems = collectJiraItemsForProject(project);
 
+            // Rollup totals for the epic (sum of all leaf-level story point days)
+            const epicRollup = (() => {
+              if (jiraItems.length === 0) return null;
+              const rollupMap = computeRollup(
+                jiraItems,
+                jiraSettings.defaultConfidenceLevel ?? 'medium'
+              );
+              // Find the epic root (the item whose jiraKey === project.jiraSourceKey)
+              const epicKey = project.jiraSourceKey;
+              if (epicKey && rollupMap.has(epicKey)) return rollupMap.get(epicKey)!;
+              // Fallback: aggregate all root rollups
+              let raw = 0; let forecasted = 0; let count = 0;
+              for (const [, r] of rollupMap) { raw += r.rawDays; forecasted += r.forecastedDays; count += r.itemCount; }
+              return count > 0 ? { rawDays: Math.round(raw * 10) / 10, forecastedDays: Math.round(forecasted * 10) / 10, itemCount: count } : null;
+            })();
+
             // Feature count: use planner phases when populated, otherwise fall back
             // to Jira feature-type items (epics auto-created from Jira may have phases
             // from Jira features rather than hand-crafted planner phases).
@@ -412,6 +430,17 @@ export function Projects() {
                           <Users size={12} />
                           {displayMemberCount} member{displayMemberCount !== 1 ? 's' : ''}
                         </span>
+                        {epicRollup && epicRollup.itemCount > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="text-slate-500 dark:text-slate-400">
+                              {epicRollup.rawDays}d raw
+                            </span>
+                            <span className="font-semibold text-blue-600 dark:text-blue-400">
+                              → {epicRollup.forecastedDays}d forecasted
+                            </span>
+                          </>
+                        )}
                         {dateRange && (
                           <>
                             <span>•</span>
@@ -566,6 +595,7 @@ export function Projects() {
                           items={jiraItems}
                           jiraBaseUrl={activeJiraBaseUrl}
                           readOnly
+                          defaultConfidenceLevel={jiraSettings.defaultConfidenceLevel ?? 'medium'}
                         />
                       </div>
                     )}

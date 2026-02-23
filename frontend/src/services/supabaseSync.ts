@@ -61,7 +61,6 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 const DEFAULT_JIRA_SETTINGS: JiraSettings = {
-  storyPointsToDays: 0.5,
   defaultVelocity: 30,
   syncFrequency: 'manual',
   autoMapByName: true,
@@ -76,6 +75,7 @@ const DEFAULT_JIRA_SETTINGS: JiraSettings = {
   statusFilterStories: 'active_only',
   statusFilterTasks: 'active_only',
   statusFilterBugs: 'active_only',
+  defaultConfidenceLevel: 'medium',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

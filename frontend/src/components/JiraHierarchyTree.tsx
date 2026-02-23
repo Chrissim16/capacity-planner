@@ -15,7 +15,8 @@ import { clsx } from 'clsx';
 import { Badge } from './ui/Badge';
 import { Select } from './ui/Select';
 import { updateJiraWorkItemMapping } from '../stores/actions';
-import type { JiraWorkItem, JiraItemType } from '../types';
+import type { JiraWorkItem, JiraItemType, ConfidenceLevel } from '../types';
+import { computeRollup, getRawDays, getForecastedDays, type RollupResult } from '../utils/confidence';
 
 // ─── shared colour maps (re-exported so other files don't duplicate them) ────
 
@@ -65,6 +66,8 @@ export interface JiraHierarchyTreeProps {
   readOnly?: boolean;
   /** Max nesting depth to show initially (default unlimited) */
   defaultCollapsedDepth?: number;
+  /** Default confidence level from JiraSettings — used for rollup and display */
+  defaultConfidenceLevel?: ConfidenceLevel;
   // Edit-mode props (Jira page)
   projectOptions?: { value: string; label: string }[];
   getPhaseOptions?: (pid: string | undefined) => { value: string; label: string }[];
@@ -83,6 +86,7 @@ export function JiraHierarchyTree({
   jiraBaseUrl,
   readOnly = false,
   defaultCollapsedDepth,
+  defaultConfidenceLevel = 'medium',
   projectOptions = [],
   getPhaseOptions = () => [],
   memberOptions = [],
@@ -107,6 +111,11 @@ export function JiraHierarchyTree({
 
   const { roots, childrenOf } = useMemo(() => buildHierarchy(items), [items]);
 
+  const rollupMap = useMemo(
+    () => computeRollup(items, defaultConfidenceLevel),
+    [items, defaultConfidenceLevel]
+  );
+
   const toggle = (key: string) =>
     setCollapsed(prev => {
       const next = new Set(prev);
@@ -121,6 +130,7 @@ export function JiraHierarchyTree({
   const renderNode = (item: JiraWorkItem, depth: number) => {
     const children = sortByType(childrenOf.get(item.jiraKey) ?? []);
     const isCollapsed = collapsed.has(item.jiraKey);
+    const rollup = rollupMap.get(item.jiraKey);
 
     return (
       <div key={item.id}>
@@ -140,6 +150,8 @@ export function JiraHierarchyTree({
           getPhaseOptions={getPhaseOptions}
           memberOptions={memberOptions}
           alwaysShowControls={alwaysShowControls}
+          rollup={rollup}
+          defaultConfidenceLevel={defaultConfidenceLevel}
         />
         {children.length > 0 && !isCollapsed && (
           <div>
@@ -159,6 +171,19 @@ export function JiraHierarchyTree({
 
 // ─── tree row ────────────────────────────────────────────────────────────────
 
+const CONFIDENCE_OPTIONS = [
+  { value: '', label: 'Default confidence' },
+  { value: 'high',   label: 'High (+5%)' },
+  { value: 'medium', label: 'Medium (+15%)' },
+  { value: 'low',    label: 'Low (+25%)' },
+];
+
+const CONFIDENCE_BADGE: Record<ConfidenceLevel, string> = {
+  high:   'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+  low:    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+};
+
 interface TreeRowProps {
   item: JiraWorkItem;
   depth: number;
@@ -175,16 +200,20 @@ interface TreeRowProps {
   getPhaseOptions: (pid: string | undefined) => { value: string; label: string }[];
   memberOptions: { value: string; label: string }[];
   alwaysShowControls: boolean;
+  rollup?: RollupResult;
+  defaultConfidenceLevel: ConfidenceLevel;
 }
 
 function TreeRow({
   item, depth, children, isCollapsed, onToggleCollapse,
   jiraBaseUrl, readOnly, isSelected, onToggleSelect,
   isEditing, onEdit, projectOptions, getPhaseOptions, memberOptions, alwaysShowControls,
+  rollup, defaultConfidenceLevel,
 }: TreeRowProps) {
   const isMapped = !!item.mappedProjectId;
   const showControls = !readOnly && (alwaysShowControls || isEditing);
   const hasChildren = children.length > 0;
+  const isLeaf = !hasChildren;
 
   const handleMapProject = (v: string) =>
     updateJiraWorkItemMapping(item.id, { mappedProjectId: v || undefined, mappedPhaseId: undefined });
@@ -192,6 +221,8 @@ function TreeRow({
     updateJiraWorkItemMapping(item.id, { mappedPhaseId: v || undefined });
   const handleMapMember = (v: string) =>
     updateJiraWorkItemMapping(item.id, { mappedMemberId: v || undefined });
+  const handleConfidence = (v: string) =>
+    updateJiraWorkItemMapping(item.id, { confidenceLevel: (v as ConfidenceLevel) || null });
 
   return (
     <div
@@ -252,9 +283,42 @@ function TreeRow({
           >
             {item.status}
           </Badge>
-          {item.storyPoints != null && (
-            <span className="text-[10px] text-slate-400">{item.storyPoints} SP</span>
+
+          {/* Leaf items: show raw days and forecasted days */}
+          {isLeaf && item.storyPoints != null && (() => {
+            const confidence = item.confidenceLevel ?? defaultConfidenceLevel;
+            const raw = item.storyPoints;
+            const forecasted = getForecastedDays(raw, confidence);
+            return (
+              <>
+                <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                  {raw}d raw
+                </span>
+                <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                  → {forecasted}d forecasted
+                </span>
+                {item.confidenceLevel && (
+                  <Badge className={clsx('text-[10px]', CONFIDENCE_BADGE[item.confidenceLevel])}>
+                    {item.confidenceLevel}
+                  </Badge>
+                )}
+              </>
+            );
+          })()}
+
+          {/* Parent items: show rolled-up totals */}
+          {!isLeaf && rollup && rollup.itemCount > 0 && (
+            <>
+              <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                {rollup.rawDays}d raw
+              </span>
+              <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                → {rollup.forecastedDays}d forecasted
+              </span>
+              <span className="text-[10px] text-slate-400">({rollup.itemCount} items)</span>
+            </>
           )}
+
           {hasChildren && (
             <span className="text-[10px] text-slate-400">
               {children.length} child{children.length !== 1 ? 'ren' : ''}
@@ -317,6 +381,15 @@ function TreeRow({
               options={memberOptions}
               className="text-xs w-36"
             />
+            {/* Confidence override — only meaningful on leaf items that carry days */}
+            {isLeaf && item.storyPoints != null && (
+              <Select
+                value={item.confidenceLevel ?? ''}
+                onChange={e => handleConfidence(e.target.value)}
+                options={CONFIDENCE_OPTIONS}
+                className="text-xs w-40"
+              />
+            )}
           </div>
         )}
       </div>

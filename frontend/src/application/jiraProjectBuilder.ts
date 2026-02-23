@@ -17,6 +17,7 @@ import type {
   Sprint,
   JiraSettings,
 } from '../types';
+import { getRawDays, getForecastedDays } from '../utils/confidence';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -332,7 +333,7 @@ export function buildAssignmentsFromJira(
   const projectMap = new Map<string, Project>(projects.map(p => [p.id, { ...p, phases: p.phases.map(ph => ({ ...ph, assignments: [...ph.assignments] })) }]));
 
   let assignmentsCreated = 0;
-  const storyPointsToDays = jiraSettings.storyPointsToDays || 0.5;
+  const defaultConfidence = jiraSettings.defaultConfidenceLevel ?? 'medium';
 
   for (const item of workItems) {
     // Must have assignee, sprint, and a phase to attach to
@@ -349,10 +350,10 @@ export function buildAssignmentsFromJira(
     const quarter = sprintNameToQuarter(item.sprintName, sprints);
     if (!quarter) continue;
 
-    // Convert story points → days; use per-connection fallback for items without story points
-    const days = item.storyPoints
-      ? Math.round(item.storyPoints * storyPointsToDays * 10) / 10
-      : defaultDaysPerItem;
+    // Story points are raw days; apply confidence buffer to get forecasted days
+    const rawDays = getRawDays(item, defaultDaysPerItem);
+    const confidence = item.confidenceLevel ?? defaultConfidence;
+    const days = getForecastedDays(rawDays, confidence);
     if (days <= 0) continue;
 
     // Find phase

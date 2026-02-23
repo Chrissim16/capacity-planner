@@ -810,7 +810,7 @@ export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]
 
 export function updateJiraWorkItemMapping(
   workItemId: string,
-  mapping: { mappedProjectId?: string; mappedPhaseId?: string; mappedMemberId?: string }
+  mapping: { mappedProjectId?: string; mappedPhaseId?: string; mappedMemberId?: string; confidenceLevel?: 'high' | 'medium' | 'low' | null }
 ): void {
   const state = useAppStore.getState();
   const jiraWorkItems = state.getCurrentState().jiraWorkItems.map(item =>

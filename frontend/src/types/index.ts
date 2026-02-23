@@ -376,6 +376,8 @@ export interface JiraWorkItem {
   /** Set to true when the item was not returned by the last sync query (e.g. type disabled or moved to Done).
    *  The item is kept in the store to preserve its local mappings. Cleared as soon as a sync finds it again. */
   staleFromJira?: boolean;
+  /** Per-item confidence override. Falls back to JiraSettings.defaultConfidenceLevel when absent. */
+  confidenceLevel?: 'high' | 'medium' | 'low';
 }
 
 /**
@@ -387,8 +389,9 @@ export interface JiraWorkItem {
  */
 export type JiraStatusFilter = 'all' | 'exclude_done' | 'active_only' | 'todo_only';
 
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+
 export interface JiraSettings {
-  storyPointsToDays: number;
   defaultVelocity: number;
   syncFrequency: 'manual' | 'hourly' | 'daily';
   autoMapByName: boolean;
@@ -404,6 +407,9 @@ export interface JiraSettings {
   statusFilterStories: JiraStatusFilter;
   statusFilterTasks: JiraStatusFilter;
   statusFilterBugs: JiraStatusFilter;
+  /** Default confidence level applied to all items unless overridden per-item.
+   *  High = +5%, Medium = +15%, Low = +25% buffer on raw days. */
+  defaultConfidenceLevel: ConfidenceLevel;
 }
 
 export interface JiraSyncResult {

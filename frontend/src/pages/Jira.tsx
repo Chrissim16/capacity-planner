@@ -36,7 +36,7 @@ const TYPE_COUNT_COLORS: Record<JiraItemType, string> = {
 
 export function Jira() {
   const state = useCurrentState();
-  const { jiraWorkItems, jiraConnections, projects } = state;
+  const { jiraWorkItems, jiraConnections, projects, jiraSettings } = state;
   const setView = useAppStore(s => s.setCurrentView);
 
   const [expandedEpics, setExpandedEpics] = useState<Set<string>>(new Set());
@@ -284,6 +284,7 @@ export function Jira() {
                       jiraBaseUrl={activeBaseUrl}
                       readOnly
                       defaultCollapsedDepth={2}
+                      defaultConfidenceLevel={jiraSettings.defaultConfidenceLevel ?? 'medium'}
                     />
                   </div>
                 )}

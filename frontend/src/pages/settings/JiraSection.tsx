@@ -492,13 +492,21 @@ export function JiraSection() {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm font-medium">Story Points to Days</label>
-                <p className="text-xs text-muted-foreground mb-2">1 story point = X days of work</p>
-                <Input
-                  type="number" step="0.1" min="0.1" max="5"
-                  value={jiraSettings.storyPointsToDays}
-                  onChange={(e) => updateJiraSettings({ storyPointsToDays: parseFloat(e.target.value) || 0.5 })}
-                />
+                <label className="text-sm font-medium">Default Confidence Level</label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Buffer applied to raw days when building forecasted estimates.
+                  High +5% · Medium +15% · Low +25%.
+                  Can be overridden per story in the Jira hierarchy.
+                </p>
+                <select
+                  className="w-full border rounded px-3 py-2 text-sm bg-white dark:bg-slate-900 dark:border-slate-700"
+                  value={jiraSettings.defaultConfidenceLevel ?? 'medium'}
+                  onChange={(e) => updateJiraSettings({ defaultConfidenceLevel: e.target.value as 'high' | 'medium' | 'low' })}
+                >
+                  <option value="high">High (+5%)</option>
+                  <option value="medium">Medium (+15%)</option>
+                  <option value="low">Low (+25%)</option>
+                </select>
               </div>
               <div>
                 <label className="text-sm font-medium">Default Velocity</label>
