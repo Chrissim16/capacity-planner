@@ -278,17 +278,61 @@ export function Jira() {
                 {unlinkedItems.length} item{unlinkedItems.length !== 1 ? 's' : ''} with no epic parent
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                These items exist in Jira but have no epic above them. They may be standalone stories or tasks.
-                Click "Auto-link now" above to attempt matching, or view them in the Epics tab.
+                These items exist in Jira but are not connected to any synced epic.
+                The table below shows what parent key is stored — if it doesn't match
+                the epic key above, re-sync to pull the latest parent data.
               </p>
             </div>
           </div>
-          <div className="border-t border-amber-100 dark:border-amber-800/30 px-4 py-3">
-            <JiraHierarchyTree
-              items={unlinkedItems}
-              jiraBaseUrl={activeBaseUrl}
-              readOnly
-            />
+
+          {/* Diagnostic table — shows stored parentKey so we can spot mismatches */}
+          <div className="border-t border-amber-100 dark:border-amber-800/30 px-4 py-3 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-slate-400 dark:text-slate-500 border-b border-amber-100 dark:border-amber-800/30">
+                  <th className="pb-1.5 pr-4 font-medium">Key</th>
+                  <th className="pb-1.5 pr-4 font-medium">Type</th>
+                  <th className="pb-1.5 pr-4 font-medium">Summary</th>
+                  <th className="pb-1.5 font-medium">Stored parentKey</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-amber-50 dark:divide-amber-900/20">
+                {unlinkedItems.map(item => (
+                  <tr key={item.id} className="hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
+                    <td className="py-1.5 pr-4">
+                      <a
+                        href={`${activeBaseUrl}/browse/${item.jiraKey}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-blue-500 hover:underline flex items-center gap-0.5"
+                      >
+                        {item.jiraKey}<ExternalLink size={9} />
+                      </a>
+                    </td>
+                    <td className="py-1.5 pr-4">
+                      <span className={`px-1.5 py-0.5 rounded font-semibold ${TYPE_COUNT_COLORS[item.type]}`}>
+                        {item.type}
+                      </span>
+                    </td>
+                    <td className="py-1.5 pr-4 text-slate-600 dark:text-slate-300 max-w-xs truncate">
+                      {item.summary}
+                    </td>
+                    <td className="py-1.5">
+                      {item.parentKey ? (
+                        <span className="font-mono text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                          {item.parentKey}
+                          <span className="ml-1.5 text-amber-500 dark:text-amber-500 font-sans font-normal">
+                            (epic not synced?)
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">none — Epic Link field empty in Jira</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
       )}

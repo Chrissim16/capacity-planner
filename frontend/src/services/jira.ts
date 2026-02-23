@@ -47,7 +47,11 @@ interface JiraIssueFields {
   created: string;
   updated: string;
   duedate?: string;
-  customfield_10014?: string;  // Epic Link (classic projects — stores parent epic key)
+  // Epic Link — classic/company-managed projects
+  // API v2: plain string key. API v3: sometimes object {key,id,self,...} or plain string.
+  // customfield_10008 is an alternate Epic Link field used on some Jira instances.
+  customfield_10014?: string | { key?: string; id?: string };
+  customfield_10008?: string | { key?: string; id?: string };
   customfield_10015?: string;  // Start date (Jira Cloud)
   customfield_10016?: number;  // Story points (classic projects)
   customfield_10020?: JiraSprintObject[] | number; // Sprint (Jira Cloud) — also used for SP in some instances
@@ -251,6 +255,8 @@ const JIRA_FIELDS = [
   'customfield_10015',
   // Epic Link — classic/company-managed projects store the parent epic key here
   'customfield_10014',
+  // Alternative Epic Link field used on some Jira instances
+  'customfield_10008',
 ].join(',');
 
 export async function fetchJiraIssues(
@@ -308,9 +314,29 @@ export async function fetchJiraIssues(
   }
 }
 
+/**
+ * Extract an epic key from any of the Epic Link custom fields Jira uses.
+ * - API v3 may return a plain string key OR an object {key, id, self, ...}
+ * - customfield_10014 is the standard Epic Link; 10008 is used on some instances.
+ */
+function extractEpicLinkKey(
+  field: string | { key?: string; id?: string } | undefined
+): string | undefined {
+  if (!field) return undefined;
+  if (typeof field === 'string') return field || undefined;
+  return field.key || undefined;
+}
+
 function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWorkItem {
   const f = issue.fields;
   const sprint = getSprint(f);
+
+  // Resolve parent key: try direct parent (next-gen), then both Epic Link fields (classic)
+  const epicLinkKey =
+    extractEpicLinkKey(f.customfield_10014) ??
+    extractEpicLinkKey(f.customfield_10008);
+  const parentKey = f.parent?.key ?? epicLinkKey;
+
   return {
     id: 'jira-' + issue.id, connectionId, jiraKey: issue.key, jiraId: issue.id, summary: f.summary,
     description: typeof f.description === 'string' ? f.description : undefined,
@@ -322,9 +348,7 @@ function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWor
     remainingEstimate: convertSecondsToHours(f.timeestimate),
     assigneeEmail: f.assignee?.emailAddress, assigneeName: f.assignee?.displayName,
     reporterEmail: f.reporter?.emailAddress, reporterName: f.reporter?.displayName,
-    // parent.key covers next-gen/team-managed projects; customfield_10014 covers
-    // classic/company-managed projects where the Epic Link field is used instead.
-    parentKey: f.parent?.key ?? f.customfield_10014, parentId: f.parent?.id,
+    parentKey, parentId: f.parent?.id,
     sprintId: sprint?.id?.toString(), sprintName: sprint?.name,
     labels: f.labels || [], components: f.components?.map(c => c.name) || [],
     created: f.created, updated: f.updated,
