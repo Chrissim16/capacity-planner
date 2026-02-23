@@ -9,7 +9,6 @@ import {
   Sun,
   GitBranch,
   RefreshCw,
-  Link2,
   Loader2,
   CheckCircle2,
   WifiOff,
@@ -64,9 +63,8 @@ const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string; s
   { view: 'timeline', icon: Calendar, label: 'Timeline', shortcut: '2' },
   { view: 'projects', icon: FolderKanban, label: 'Epics', shortcut: '3' },
   { view: 'team', icon: Users, label: 'Team', shortcut: '4' },
-  { view: 'jira', icon: Link2, label: 'Jira', shortcut: '5' },
-  { view: 'scenarios', icon: Layers, label: 'Scenarios', shortcut: '6' },
-  { view: 'settings', icon: Settings, label: 'Settings', shortcut: '7' },
+  { view: 'scenarios', icon: Layers, label: 'Scenarios', shortcut: '5' },
+  { view: 'settings', icon: Settings, label: 'Settings', shortcut: '6' },
 ];
 
 function SyncIndicator() {

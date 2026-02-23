@@ -4,7 +4,6 @@ import { Dashboard } from './pages/Dashboard';
 import { Timeline } from './pages/Timeline';
 import { Projects } from './pages/Projects';
 import { Team } from './pages/Team';
-import { Jira } from './pages/Jira';
 import { Scenarios } from './pages/Scenarios';
 import { Settings } from './pages/Settings';
 import { ToastProvider } from './components/ui/Toast';
@@ -21,7 +20,7 @@ const pages: Record<ViewType, React.ComponentType> = {
   timeline: Timeline,
   projects: Projects,
   team: Team,
-  jira: Jira,
+  jira: Projects,
   scenarios: Scenarios,
   settings: Settings,
 };
@@ -73,9 +72,9 @@ function App() {
       const target = e.target as HTMLElement;
       const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-      // Number keys 1-7: navigate views
-      if (e.key >= '1' && e.key <= '7' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping) {
-        const views: ViewType[] = ['dashboard', 'timeline', 'projects', 'team', 'jira', 'scenarios', 'settings'];
+      // Number keys 1-6: navigate views
+      if (e.key >= '1' && e.key <= '6' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping) {
+        const views: ViewType[] = ['dashboard', 'timeline', 'projects', 'team', 'scenarios', 'settings'];
         const index = parseInt(e.key) - 1;
         if (views[index]) setCurrentView(views[index]);
       }

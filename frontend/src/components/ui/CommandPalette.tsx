@@ -86,7 +86,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
         type: 'jira',
         label: w.summary,
         sublabel: `${w.jiraKey} · ${w.typeName}`,
-        view: 'jira',
+        view: 'projects',
         payload: { highlightId: w.id },
       }));
 

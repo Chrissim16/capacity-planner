@@ -3,6 +3,7 @@ import {
   Plus, Search, Edit2, Trash2, Copy, ExternalLink, UserPlus,
   ChevronDown, ChevronRight, FolderKanban, Filter,
   Archive, ArchiveRestore, StickyNote, Calendar, MoreHorizontal,
+  RefreshCw, Zap, AlertCircle, CheckCircle2, Settings, Link2,
 } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { JiraHierarchyTree } from '../components/JiraHierarchyTree';
@@ -15,11 +16,12 @@ import { ProjectForm } from '../components/forms/ProjectForm';
 import { AssignmentModal } from '../components/forms/AssignmentModal';
 import { useCurrentState, useAppStore } from '../stores/appStore';
 import { deleteProject, duplicateProject, archiveProject, unarchiveProject } from '../stores/actions';
+import { autoLinkNow } from '../application/jiraSync';
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
 import { getCurrentQuarter } from '../utils/calendar';
 import { computeRollup } from '../utils/confidence';
-import type { Project, JiraWorkItem } from '../types';
+import type { Project, JiraWorkItem, JiraItemType } from '../types';
 
 export function Projects() {
   const state = useCurrentState();
@@ -29,8 +31,10 @@ export function Projects() {
   const jiraWorkItems = state.jiraWorkItems ?? [];
   const jiraConnections = state.jiraConnections ?? [];
   const jiraSettings = state.jiraSettings;
-  const activeJiraBaseUrl = jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
+  const activeConnection = jiraConnections.find(c => c.isActive);
+  const activeJiraBaseUrl = activeConnection?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
   const { showToast } = useToast();
+  const setView = useAppStore(s => s.setCurrentView);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -38,16 +42,19 @@ export function Projects() {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
 
+  // Jira sync section state
+  const [showJiraSection, setShowJiraSection] = useState(false);
+  const [autoLinkMsg, setAutoLinkMsg] = useState<Record<string, string>>({});
+  const [autoLinking, setAutoLinking] = useState<string | null>(null);
+
   const currentQuarter = getCurrentQuarter();
 
-  // N shortcut → open "Add epic" form
   useEffect(() => {
     const handler = () => { setEditingProject(null); setIsFormOpen(true); };
     window.addEventListener('keyboard:new', handler);
     return () => window.removeEventListener('keyboard:new', handler);
   }, []);
 
-  // Command palette highlight → expand the matching project
   useEffect(() => {
     const handler = (e: Event) => {
       const { id, view } = (e as CustomEvent).detail;
@@ -61,14 +68,12 @@ export function Projects() {
     return () => window.removeEventListener('search:highlight', handler);
   }, []);
 
-  // Assignment modal state
   const [isAssignmentOpen, setIsAssignmentOpen] = useState(false);
   const [assignmentContext, setAssignmentContext] = useState<{
     projectId?: string;
     phaseId?: string;
   }>({});
 
-  // Filters
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('__open__');
   const [priorityFilter, setPriorityFilter] = useState('');
@@ -86,19 +91,16 @@ export function Projects() {
     return 'default';
   };
 
-  // Index Jira epics by key for fast status lookup
   const jiraEpicByKey = useMemo(() =>
     new Map(jiraWorkItems.filter(i => i.type === 'epic').map(i => [i.jiraKey, i]))
   , [jiraWorkItems]);
 
-  // Filter projects
   const filteredProjects = useMemo(() => projects.filter(project => {
     if (!showArchived && project.archived) return false;
     if (showArchived && !project.archived) return false;
     if (search && !project.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (statusFilter === '__open__') {
       if (project.status === 'Completed' || project.status === 'Cancelled') return false;
-      // Also hide if the linked Jira epic is closed
       const linkedEpic = project.jiraSourceKey ? jiraEpicByKey.get(project.jiraSourceKey) : undefined;
       if (linkedEpic?.statusCategory === 'done') return false;
     }
@@ -109,6 +111,44 @@ export function Projects() {
   }), [projects, showArchived, search, statusFilter, priorityFilter, systemFilter, jiraEpicByKey]);
 
   const archivedCount = useMemo(() => projects.filter(p => p.archived).length, [projects]);
+
+  // ── Jira sync helpers ────────────────────────────────────────────────────
+
+  const jiraStats = useMemo(() => {
+    const counts: Partial<Record<JiraItemType, number>> = {};
+    let linked = 0;
+    for (const item of jiraWorkItems) {
+      counts[item.type] = (counts[item.type] ?? 0) + 1;
+      if (item.mappedProjectId) linked++;
+    }
+    return { total: jiraWorkItems.length, linked, unlinked: jiraWorkItems.length - linked, counts };
+  }, [jiraWorkItems]);
+
+  const unlinkedOrphanItems = useMemo(() => {
+    const epicKeys = new Set(jiraWorkItems.filter(i => i.type === 'epic').map(i => i.jiraKey));
+    const subtreeIds = new Set<string>();
+    const queue = [...epicKeys];
+    const visited = new Set<string>();
+    while (queue.length) {
+      const k = queue.shift()!;
+      if (visited.has(k)) continue;
+      visited.add(k);
+      for (const item of jiraWorkItems) {
+        if (item.parentKey === k) { subtreeIds.add(item.id); queue.push(item.jiraKey); }
+      }
+    }
+    jiraWorkItems.filter(i => i.type === 'epic').forEach(e => subtreeIds.add(e.id));
+    return jiraWorkItems.filter(i => !subtreeIds.has(i.id));
+  }, [jiraWorkItems]);
+
+  const handleAutoLink = async (connectionId: string) => {
+    setAutoLinking(connectionId);
+    const result = autoLinkNow(connectionId, jiraSettings);
+    setAutoLinkMsg(prev => ({ ...prev, [connectionId]: result.message }));
+    setAutoLinking(null);
+  };
+
+  // ── Project helpers ──────────────────────────────────────────────────────
 
   const handleEdit = (project: Project) => {
     setEditingProject(project);
@@ -211,19 +251,9 @@ export function Projects() {
     ...systems.map(s => ({ value: s.id, label: s.name })),
   ];
 
-  /**
-   * Collect all Jira work items that belong to a project, via two routes:
-   *   1. jiraSourceKey subtree — items whose ancestor is the epic key
-   *      (set when autoCreateProjects builds the project from Jira).
-   *   2. mappedProjectId — items manually mapped to this project in the
-   *      Jira tab (no jiraSourceKey required on the project).
-   * Using both means manually-mapped AND auto-created items both appear
-   * in the Epics tab, and the hierarchy tree renders the full depth.
-   */
   const collectJiraItemsForProject = (project: Project): JiraWorkItem[] => {
     const included = new Set<string>();
 
-    // Route 1: breadth-first walk of the Jira subtree
     if (project.jiraSourceKey) {
       const queue = [project.jiraSourceKey];
       const visited = new Set<string>();
@@ -240,7 +270,6 @@ export function Projects() {
       }
     }
 
-    // Route 2: items explicitly mapped to this project in the Jira tab
     for (const item of jiraWorkItems) {
       if (item.mappedProjectId === project.id) {
         included.add(item.id);
@@ -282,6 +311,131 @@ export function Projects() {
           </Button>
         </div>
       </div>
+
+      {/* ── Jira Sync Strip ───────────────────────────────────────────────── */}
+      {jiraWorkItems.length > 0 ? (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          {/* Always-visible summary row */}
+          <button
+            onClick={() => setShowJiraSection(v => !v)}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
+          >
+            <Link2 size={15} className="text-blue-500 shrink-0" />
+            <span className="text-sm text-slate-700 dark:text-slate-300">
+              <span className="font-semibold">{jiraStats.total}</span> Jira items synced
+            </span>
+            {activeConnection?.lastSyncAt && (
+              <span className="text-xs text-slate-400 dark:text-slate-500">
+                · Last sync {new Date(activeConnection.lastSyncAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            {unlinkedOrphanItems.length > 0 && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium">
+                {unlinkedOrphanItems.length} orphaned
+              </span>
+            )}
+            <span className="flex-1" />
+            <ChevronDown size={14} className={`text-slate-400 transition-transform ${showJiraSection ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Expandable detail */}
+          {showJiraSection && (
+            <div className="border-t border-slate-100 dark:border-slate-800 px-4 py-3 space-y-3">
+              {/* Type counts */}
+              <div className="flex flex-wrap gap-2">
+                {(Object.entries(jiraStats.counts) as [JiraItemType, number][])
+                  .sort(([a], [b]) => {
+                    const order: JiraItemType[] = ['epic', 'feature', 'story', 'task', 'bug'];
+                    return order.indexOf(a) - order.indexOf(b);
+                  })
+                  .map(([type, count]) => (
+                    <span key={type} className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 capitalize">
+                      {type}: <span className="font-bold">{count}</span>
+                    </span>
+                  ))}
+              </div>
+
+              {/* Auto-link per connection */}
+              {jiraConnections.filter(c => c.isActive).map(conn => (
+                <div key={conn.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
+                  conn.autoCreateProjects
+                    ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300'
+                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300'
+                }`}>
+                  {conn.autoCreateProjects
+                    ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
+                    : <AlertCircle size={14} className="text-amber-500 shrink-0" />}
+                  <span className="flex-1">
+                    {conn.autoCreateProjects
+                      ? `Auto-import active for ${conn.name}`
+                      : `Auto-import off for ${conn.name}`}
+                  </span>
+                  {autoLinkMsg[conn.id] && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{autoLinkMsg[conn.id]}</span>
+                  )}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleAutoLink(conn.id)}
+                    disabled={autoLinking === conn.id}
+                  >
+                    {autoLinking === conn.id
+                      ? <><RefreshCw size={12} className="animate-spin mr-1" />Linking…</>
+                      : <><Zap size={12} className="mr-1" />Auto-link</>}
+                  </Button>
+                </div>
+              ))}
+
+              {/* Orphaned items */}
+              {unlinkedOrphanItems.length > 0 && (
+                <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 px-3 py-2">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <AlertCircle size={13} className="text-amber-500" />
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                      {unlinkedOrphanItems.length} item{unlinkedOrphanItems.length !== 1 ? 's' : ''} with no epic parent
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {unlinkedOrphanItems.slice(0, 10).map(item => (
+                      <a
+                        key={item.id}
+                        href={`${activeJiraBaseUrl}/browse/${item.jiraKey}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 font-mono hover:underline"
+                      >
+                        {item.jiraKey}
+                      </a>
+                    ))}
+                    {unlinkedOrphanItems.length > 10 && (
+                      <span className="text-xs text-amber-500 py-0.5">+{unlinkedOrphanItems.length - 10} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Settings link */}
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => setView('settings')}
+                  className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-500 transition-colors"
+                >
+                  <Settings size={12} />
+                  Manage connections
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : jiraConnections.length > 0 ? (
+        <button
+          onClick={() => setView('settings')}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-sm text-slate-500 dark:text-slate-400 hover:border-blue-300 hover:text-blue-500 transition-colors"
+        >
+          <Link2 size={15} />
+          No Jira items synced yet — go to Settings to run your first sync
+        </button>
+      ) : null}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4">
@@ -327,7 +481,6 @@ export function Projects() {
           {filteredProjects.map(project => {
             const isExpanded = expandedProjects.has(project.id);
 
-            // — US-048 summary data —
             const uniqueMembers = new Map<string, number>();
             project.phases.forEach(ph => {
               ph.assignments.forEach(a => {
@@ -337,30 +490,22 @@ export function Projects() {
 
             const jiraItems = collectJiraItemsForProject(project);
 
-            // Rollup totals for the epic (sum of all leaf-level story point days)
             const epicRollup = (() => {
               if (jiraItems.length === 0) return null;
               const rollupMap = computeRollup(
                 jiraItems,
                 jiraSettings.defaultConfidenceLevel ?? 'medium'
               );
-              // Find the epic root (the item whose jiraKey === project.jiraSourceKey)
               const epicKey = project.jiraSourceKey;
               if (epicKey && rollupMap.has(epicKey)) return rollupMap.get(epicKey)!;
-              // Fallback: aggregate all root rollups
               let raw = 0; let forecasted = 0; let count = 0;
               for (const [, r] of rollupMap) { raw += r.rawDays; forecasted += r.forecastedDays; count += r.itemCount; }
               return count > 0 ? { rawDays: Math.round(raw * 10) / 10, forecastedDays: Math.round(forecasted * 10) / 10, itemCount: count } : null;
             })();
 
-            // Feature count: use planner phases when populated, otherwise fall back
-            // to Jira feature-type items (epics auto-created from Jira may have phases
-            // from Jira features rather than hand-crafted planner phases).
             const jiraFeatureCount = jiraItems.filter(i => i.type === 'feature').length;
             const displayFeatureCount = project.phases.length > 0 ? project.phases.length : jiraFeatureCount;
 
-            // Member count: planner assignments take precedence; fall back to unique
-            // Jira assignees so the counter isn't stuck at 0 for auto-imported epics.
             const jiraAssigneeNames = new Set(jiraItems.map(i => i.assigneeName).filter(Boolean));
             const displayMemberCount = uniqueMembers.size > 0 ? uniqueMembers.size : jiraAssigneeNames.size;
             const jiraByStatus = jiraItems.reduce<Record<string, number>>((acc, item) => {
@@ -383,7 +528,6 @@ export function Projects() {
                       {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                     </button>
                     <div className="flex-1 min-w-0">
-                      {/* Line 1: Name + Jira key */}
                       <div className="flex items-center gap-3">
                         <h3 className="font-semibold text-slate-900 dark:text-white truncate">
                           {project.name}
@@ -402,7 +546,6 @@ export function Projects() {
                           </a>
                         )}
                       </div>
-                      {/* Line 2: Key stats */}
                       <div className="flex items-center gap-3 mt-1 text-sm text-slate-500 dark:text-slate-400">
                         <span>{displayFeatureCount} feature{displayFeatureCount !== 1 ? 's' : ''}</span>
                         <span className="text-slate-300 dark:text-slate-600">|</span>
@@ -423,7 +566,6 @@ export function Projects() {
                     <Badge variant={getStatusVariant(project.status)}>{project.status}</Badge>
                     <Badge variant={getPriorityVariant(project.priority)}>{project.priority}</Badge>
 
-                    {/* Primary action */}
                     <button
                       onClick={() => openAssignment(project.id)}
                       className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -432,7 +574,6 @@ export function Projects() {
                       <UserPlus size={16} />
                     </button>
 
-                    {/* Overflow menu */}
                     <div className="relative group">
                       <button
                         className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -470,10 +611,8 @@ export function Projects() {
                 {isExpanded && (
                   <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30">
 
-                    {/* Summary row — only rendered when there's metadata to show */}
                     {(project.description || project.notes || dateRange || uniqueMembers.size > 0) && (
                       <div className="px-5 py-3 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-200 dark:border-slate-700">
-                        {/* Description / Notes / Date */}
                         <div className="flex-1 min-w-[180px] space-y-1.5">
                           {project.description && (
                             <p className="text-sm text-slate-600 dark:text-slate-300">{project.description}</p>
@@ -492,7 +631,6 @@ export function Projects() {
                           )}
                         </div>
 
-                        {/* Team allocation summary */}
                         {uniqueMembers.size > 0 && (
                           <div className="shrink-0">
                             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
@@ -515,7 +653,6 @@ export function Projects() {
                           </div>
                         )}
 
-                        {/* Jira stats */}
                         {jiraItems.length > 0 && (
                           <div className="shrink-0">
                             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
@@ -534,7 +671,6 @@ export function Projects() {
                       </div>
                     )}
 
-                    {/* Jira hierarchy */}
                     {jiraItems.length > 0 && (
                       <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700">
                         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
@@ -549,7 +685,6 @@ export function Projects() {
                       </div>
                     )}
 
-                    {/* Feature list */}
                     {project.phases.length === 0 ? (
                       <div className="px-5 py-3 text-sm text-slate-400 italic">No features defined</div>
                     ) : (
