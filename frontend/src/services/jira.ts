@@ -462,38 +462,61 @@ export async function fetchJiraIssues(
     if (!jql) { result.errors.push('No issue types selected'); return result; }
 
     const workItems: JiraWorkItem[] = [];
-    let startAt = 0;
     const maxResults = 100;
-    let total = Infinity;
+    // GET /rest/api/3/search/jql uses cursor-based pagination (nextPageToken).
+    // It does NOT reliably return `total`, so offset-based pagination (startAt)
+    // exits after the first page. We use nextPageToken and fall back to startAt
+    // only when the response includes a `total` but no token (older Jira instances).
+    let nextPageToken: string | undefined;
+    let startAt = 0;
+    let knownTotal: number | undefined;
+    let page = 0;
 
-    while (startAt < total) {
-      const page = Math.floor(startAt / maxResults) + 1;
-      const pagesEstimate = total === Infinity ? '?' : Math.ceil(total / maxResults);
+    do {
+      page++;
+      const pagesEstimate = knownTotal != null ? Math.ceil(knownTotal / maxResults) : '?';
       onProgress?.(`Fetching page ${page} of ${pagesEstimate}…`);
 
-      const path = '/rest/api/3/search/jql'
+      let path = '/rest/api/3/search/jql'
         + '?jql=' + encodeURIComponent(jql)
-        + '&startAt=' + startAt
         + '&maxResults=' + maxResults
         + '&fields=' + encodeURIComponent(JIRA_FIELDS);
+
+      if (nextPageToken) {
+        path += '&nextPageToken=' + encodeURIComponent(nextPageToken);
+      } else if (startAt > 0) {
+        // Fallback: offset pagination for instances that return `total` but no token
+        path += '&startAt=' + startAt;
+      }
 
       const response = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
       if (!response.ok) { result.errors.push('Failed: ' + response.statusText); return result; }
 
-      const data = await response.json() as { startAt: number; maxResults: number; total: number; issues: JiraIssue[] };
+      const data = await response.json() as {
+        startAt?: number;
+        maxResults?: number;
+        total?: number;
+        nextPageToken?: string;
+        issues: JiraIssue[];
+      };
 
-      // Jira may return 0 issues on the last page — guard against infinite loop
       if (!data.issues || data.issues.length === 0) break;
 
       for (const issue of data.issues) {
         workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
       }
 
-      total = data.total ?? workItems.length;
+      if (data.total != null) knownTotal = data.total;
+      nextPageToken = data.nextPageToken;
+
+      // Fallback offset advance — only used when there is no nextPageToken
       startAt += data.issues.length;
 
-      onProgress?.(`Fetched ${workItems.length} of ${total} items…`);
-    }
+      onProgress?.(`Fetched ${workItems.length}${knownTotal != null ? ' of ' + knownTotal : ''} items…`);
+
+      // Safety valve: stop when nextPageToken is absent and we have all known items
+      if (!nextPageToken && knownTotal != null && workItems.length >= knownTotal) break;
+    } while (nextPageToken || (knownTotal != null && workItems.length < knownTotal));
 
     const fetchedKeys = new Set(workItems.map(i => i.jiraKey));
     const CHUNK = 50;

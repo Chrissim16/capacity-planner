@@ -873,10 +873,18 @@ export function JiraSection() {
                 <span className="w-2 h-2 rounded-full bg-blue-500" />
                 <strong>{pendingDiff.toUpdate.length}</strong> existing items to update
               </div>
-              <div className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm ${pendingDiff.toRemove.length > 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
-                <span className={`w-2 h-2 rounded-full ${pendingDiff.toRemove.length > 0 ? 'bg-red-500' : 'bg-slate-400'}`} />
-                <strong>{pendingDiff.toRemove.length}</strong> items no longer in Jira
-              </div>
+              {pendingDiff.toRemove.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm">
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <strong>{pendingDiff.toRemove.length}</strong> items no longer in Jira
+                </div>
+              )}
+              {pendingDiff.toKeepStale.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <strong>{pendingDiff.toKeepStale.length}</strong> mapped items kept (not in current query)
+                </div>
+              )}
               {pendingDiff.mappingsToPreserve > 0 && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg text-sm">
                   <span className="w-2 h-2 rounded-full bg-purple-500" />
@@ -884,6 +892,32 @@ export function JiraSection() {
                 </div>
               )}
             </div>
+
+            {/* Stale mapped items — kept, not deleted */}
+            {pendingDiff.toKeepStale.length > 0 && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                <p className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-1">
+                  Mapped items not returned by current sync query — kept safe:
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                  These items have project/phase mappings so they will <strong>not</strong> be deleted. They may have changed type, moved to Done, or their type is currently disabled in sync settings. Re-enable their type (e.g. Tasks) or check their status in Jira to bring them back into active sync.
+                </p>
+                <ul className="space-y-1">
+                  {pendingDiff.toKeepStale.slice(0, 10).map((item) => (
+                    <li key={item.id} className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+                      <span className="font-mono text-xs bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">{item.jiraKey}</span>
+                      <span className="truncate">{item.summary}</span>
+                      <span className="text-xs text-amber-500 dark:text-amber-400 shrink-0">⚠ mapped · stale</span>
+                    </li>
+                  ))}
+                  {pendingDiff.toKeepStale.length > 10 && (
+                    <li className="text-xs text-amber-500">… and {pendingDiff.toKeepStale.length - 10} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {/* Truly removed items — no mappings, gone from Jira */}
             {pendingDiff.toRemove.length > 0 && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
                 <p className="text-sm font-semibold text-red-700 dark:text-red-300 mb-2">Items that will be removed:</p>
@@ -892,7 +926,6 @@ export function JiraSection() {
                     <li key={item.id} className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
                       <span className="font-mono text-xs bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded">{item.jiraKey}</span>
                       <span className="truncate">{item.summary}</span>
-                      {item.mappedProjectId && <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0">⚠ mapped</span>}
                     </li>
                   ))}
                   {pendingDiff.toRemove.length > 10 && (
@@ -901,6 +934,7 @@ export function JiraSection() {
                 </ul>
               </div>
             )}
+
             {pendingDiff.toAdd.length > 0 && (
               <div>
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">New items (first 5):</p>

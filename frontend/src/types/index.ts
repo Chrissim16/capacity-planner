@@ -373,6 +373,9 @@ export interface JiraWorkItem {
   mappedProjectId?: string;
   mappedPhaseId?: string;
   mappedMemberId?: string;
+  /** Set to true when the item was not returned by the last sync query (e.g. type disabled or moved to Done).
+   *  The item is kept in the store to preserve its local mappings. Cleared as soon as a sync finds it again. */
+  staleFromJira?: boolean;
 }
 
 /**
@@ -423,7 +426,11 @@ export interface JiraSyncDiff {
   connectionId: string;
   toAdd: JiraWorkItem[];
   toUpdate: JiraWorkItem[];
+  /** Items no longer in Jira AND have no local mappings — will be deleted. */
   toRemove: JiraWorkItem[];
+  /** Items no longer returned by the current sync query BUT have local mappings (project/phase/member).
+   *  These are kept in the store and marked stale rather than deleted. */
+  toKeepStale: JiraWorkItem[];
   mappingsToPreserve: number;
   fetchedItems: JiraWorkItem[]; // full list, ready to apply after user confirms
 }

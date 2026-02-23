@@ -690,12 +690,18 @@ export function computeSyncDiff(
 
   const toAdd = newItems.filter(i => !existingByJiraId.has(i.jiraId));
   const toUpdate = newItems.filter(i => existingByJiraId.has(i.jiraId));
-  const toRemove = existingConnectionItems.filter(i => !newJiraIds.has(i.jiraId));
+
+  // Items no longer returned by Jira — split by whether they have local mappings
+  const notFound = existingConnectionItems.filter(i => !newJiraIds.has(i.jiraId));
+  const isMapped = (i: JiraWorkItem) => !!(i.mappedProjectId || i.mappedPhaseId || i.mappedMemberId);
+  const toRemove = notFound.filter(i => !isMapped(i));
+  const toKeepStale = notFound.filter(isMapped);
+
   const mappingsToPreserve = existingConnectionItems.filter(
-    i => newJiraIds.has(i.jiraId) && (i.mappedProjectId || i.mappedPhaseId || i.mappedMemberId)
+    i => newJiraIds.has(i.jiraId) && isMapped(i)
   ).length;
 
-  return { connectionId, toAdd, toUpdate, toRemove, mappingsToPreserve, fetchedItems: newItems };
+  return { connectionId, toAdd, toUpdate, toRemove, toKeepStale, mappingsToPreserve, fetchedItems: newItems };
 }
 
 /**
@@ -750,9 +756,24 @@ export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]
   });
   
   const newJiraIds = new Set(newItems.map(item => item.jiraId));
-  const removedItems = existingConnectionItems.filter(item => !newJiraIds.has(item.jiraId));
-  
-  state.updateData({ jiraWorkItems: [...otherConnectionItems, ...mergedItems] });
+  const notFoundItems = existingConnectionItems.filter(item => !newJiraIds.has(item.jiraId));
+
+  // Items with local mappings are kept as stale rather than deleted — prevents losing
+  // mapping work when a type is temporarily disabled or an item moves to Done.
+  const isMapped = (i: JiraWorkItem) => !!(i.mappedProjectId || i.mappedPhaseId || i.mappedMemberId);
+  const staleItems = notFoundItems.filter(isMapped).map(item => ({ ...item, staleFromJira: true }));
+  const removedItems = notFoundItems.filter(i => !isMapped(i));
+
+  // Clear the stale flag for any previously-stale items that came back in this sync
+  const mergedWithStaleClear = mergedItems.map(item => {
+    if (item.staleFromJira) {
+      const { staleFromJira: _, ...rest } = item;
+      return rest;
+    }
+    return item;
+  });
+
+  state.updateData({ jiraWorkItems: [...otherConnectionItems, ...mergedWithStaleClear, ...staleItems] });
   
   return {
     success: true,
