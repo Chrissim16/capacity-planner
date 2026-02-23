@@ -476,82 +476,78 @@ export function Projects() {
                   </div>
                 </div>
 
-                {/* Expanded Section — US-048 enhanced card */}
+                {/* Expanded Section */}
                 {isExpanded && (
                   <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30">
 
-                    {/* Summary row */}
-                    <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border-b border-slate-200 dark:border-slate-700">
-                      {/* Description / Notes */}
-                      <div className="lg:col-span-2 space-y-2">
-                        {project.description && (
-                          <p className="text-sm text-slate-600 dark:text-slate-300">{project.description}</p>
-                        )}
-                        {project.notes && (
-                          <div className="flex gap-1.5 p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                            <StickyNote size={13} className="text-amber-500 shrink-0 mt-0.5" />
-                            <p className="text-xs text-amber-800 dark:text-amber-300 whitespace-pre-wrap">{project.notes}</p>
-                          </div>
-                        )}
-                        {dateRange && (
-                          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                            <Calendar size={12} />
-                            {dateRange}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Team summary */}
-                      <div>
-                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-                          Team ({uniqueMembers.size})
-                        </p>
-                        {uniqueMembers.size === 0 ? (
-                          <p className="text-xs text-slate-400">No assignments yet</p>
-                        ) : (
-                          <div className="space-y-0.5">
-                            {Array.from(uniqueMembers.entries()).map(([memberId, days]) => {
-                              const cap = calculateCapacity(memberId, currentQuarter, state);
-                              return (
-                                <div key={memberId} className="flex justify-between items-center text-xs">
-                                  <span className="text-slate-700 dark:text-slate-300 truncate">
-                                    {getMemberName(memberId)}
-                                  </span>
-                                  <span className={`ml-2 shrink-0 font-medium ${
-                                    cap.status === 'overallocated' ? 'text-red-500' :
-                                    cap.status === 'warning' ? 'text-amber-500' : 'text-slate-500'
-                                  }`}>
-                                    {days}d
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Jira stats */}
-                      {jiraItems.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-                            Jira ({jiraItems.length})
-                          </p>
-                          <div className="space-y-0.5">
-                            {Object.entries(jiraByStatus).map(([cat, count]) => (
-                              <div key={cat} className="flex justify-between text-xs">
-                                <span className="text-slate-600 dark:text-slate-400">{cat}</span>
-                                <span className="font-medium text-slate-700 dark:text-slate-300">{count}</span>
-                              </div>
-                            ))}
-                          </div>
+                    {/* Summary row — only rendered when there's metadata to show */}
+                    {(project.description || project.notes || dateRange || uniqueMembers.size > 0) && (
+                      <div className="px-5 py-3 flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-200 dark:border-slate-700">
+                        {/* Description / Notes / Date */}
+                        <div className="flex-1 min-w-[180px] space-y-1.5">
+                          {project.description && (
+                            <p className="text-sm text-slate-600 dark:text-slate-300">{project.description}</p>
+                          )}
+                          {dateRange && (
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                              <Calendar size={11} />
+                              {dateRange}
+                            </div>
+                          )}
+                          {project.notes && (
+                            <div className="flex gap-1.5 p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                              <StickyNote size={12} className="text-amber-500 shrink-0 mt-0.5" />
+                              <p className="text-xs text-amber-800 dark:text-amber-300 whitespace-pre-wrap">{project.notes}</p>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
 
-                    {/* Jira hierarchy — US-043 */}
+                        {/* Team allocation summary */}
+                        {uniqueMembers.size > 0 && (
+                          <div className="shrink-0">
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+                              Team ({uniqueMembers.size})
+                            </p>
+                            <div className="space-y-0.5">
+                              {Array.from(uniqueMembers.entries()).map(([memberId, days]) => {
+                                const cap = calculateCapacity(memberId, currentQuarter, state);
+                                return (
+                                  <div key={memberId} className="flex items-center gap-3 text-sm">
+                                    <span className="text-slate-700 dark:text-slate-300">{getMemberName(memberId)}</span>
+                                    <span className={`font-semibold ${
+                                      cap.status === 'overallocated' ? 'text-red-500' :
+                                      cap.status === 'warning' ? 'text-amber-500' : 'text-slate-500'
+                                    }`}>{days}d</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Jira stats */}
+                        {jiraItems.length > 0 && (
+                          <div className="shrink-0">
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+                              Jira ({jiraItems.length})
+                            </p>
+                            <div className="space-y-0.5">
+                              {Object.entries(jiraByStatus).map(([cat, count]) => (
+                                <div key={cat} className="flex items-center gap-3 text-sm">
+                                  <span className="text-slate-600 dark:text-slate-400">{cat}</span>
+                                  <span className="font-semibold text-slate-700 dark:text-slate-300">{count}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Jira hierarchy */}
                     {jiraItems.length > 0 && (
-                      <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+                      <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
                           Jira Items ({jiraItems.length})
                         </p>
                         <JiraHierarchyTree
@@ -564,34 +560,37 @@ export function Projects() {
 
                     {/* Feature list */}
                     {project.phases.length === 0 ? (
-                      <div className="px-12 py-4 text-sm text-slate-400">No features defined</div>
+                      <div className="px-5 py-3 text-sm text-slate-400 italic">No features defined</div>
                     ) : (
-                      <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                      <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
                         {project.phases.map(phase => {
                           const phaseDate = formatDateRange(phase.startDate, phase.endDate);
                           return (
-                            <div key={phase.id} className="px-12 py-3">
+                            <div key={phase.id} className="px-5 py-2.5 pl-8">
                               <div className="flex items-start justify-between gap-4">
-                                <div className="min-w-0">
-                                  <p className="font-medium text-slate-700 dark:text-slate-200">
-                                    {phase.name}
-                                  </p>
-                                  <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                                      {phase.startQuarter} – {phase.endQuarter}
+                                <div className="min-w-0 flex items-start gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-2" />
+                                  <div>
+                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                      {phase.name}
                                     </p>
-                                    {phaseDate && (
-                                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                                        <Calendar size={10} />
-                                        {phaseDate}
+                                    <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                                        {phase.startQuarter}{phase.endQuarter !== phase.startQuarter ? ` – ${phase.endQuarter}` : ''}
                                       </span>
+                                      {phaseDate && (
+                                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                                          <Calendar size={10} />
+                                          {phaseDate}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {phase.notes && (
+                                      <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 italic">
+                                        {phase.notes}
+                                      </p>
                                     )}
                                   </div>
-                                  {phase.notes && (
-                                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 italic">
-                                      {phase.notes}
-                                    </p>
-                                  )}
                                 </div>
                                 <div className="flex items-center gap-4 shrink-0">
                                   {phase.assignments.length > 0 ? (

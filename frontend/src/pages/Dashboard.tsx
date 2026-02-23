@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Users, FolderKanban, AlertTriangle, TrendingUp, CalendarOff } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Users, FolderKanban, AlertTriangle, TrendingUp, CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useAppStore } from '../stores/appStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -14,12 +14,17 @@ export function Dashboard() {
   const state = useCurrentState();
   const setCurrentView = useAppStore(s => s.setCurrentView);
   const currentQuarter = getCurrentQuarter();
-  const quarters = useMemo(() => generateQuarters(4), []);
+  const quarters = useMemo(() => generateQuarters(8), []);
+  const currentQuarterIndex = quarters.indexOf(currentQuarter);
+  const [selectedQuarterIndex, setSelectedQuarterIndex] = useState(
+    currentQuarterIndex >= 0 ? currentQuarterIndex : 0
+  );
+  const selectedQuarter = quarters[selectedQuarterIndex] ?? currentQuarter;
 
   // Calculate team utilization summary
   const utilizationSummary = useMemo(
-    () => getTeamUtilizationSummary(currentQuarter, state),
-    [currentQuarter, state]
+    () => getTeamUtilizationSummary(selectedQuarter, state),
+    [selectedQuarter, state]
   );
 
   // Get warnings
@@ -38,9 +43,9 @@ export function Dashboard() {
   const memberCapacities = useMemo(() => {
     return state.teamMembers.map(member => ({
       member,
-      capacity: calculateCapacity(member.id, currentQuarter, state),
+      capacity: calculateCapacity(member.id, selectedQuarter, state),
     }));
-  }, [state, currentQuarter]);
+  }, [state, selectedQuarter]);
 
   const isEmpty = state.teamMembers.length === 0 && state.projects.length === 0;
 
@@ -51,10 +56,45 @@ export function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
           <p className="text-slate-500 dark:text-slate-400">
-            Capacity overview for {currentQuarter}
+            Capacity overview for {selectedQuarter}
+            {selectedQuarter !== currentQuarter && (
+              <span className="ml-2 text-xs text-blue-500">(current: {currentQuarter})</span>
+            )}
           </p>
         </div>
-        <Badge variant="primary">{currentQuarter}</Badge>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setSelectedQuarterIndex(i => Math.max(0, i - 1))}
+            disabled={selectedQuarterIndex === 0}
+            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <div className="flex gap-1">
+            {quarters.map((q, idx) => (
+              <button
+                key={q}
+                onClick={() => setSelectedQuarterIndex(idx)}
+                className={`px-2.5 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  idx === selectedQuarterIndex
+                    ? 'bg-blue-600 text-white'
+                    : q === currentQuarter
+                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setSelectedQuarterIndex(i => Math.min(quarters.length - 1, i + 1))}
+            disabled={selectedQuarterIndex === quarters.length - 1}
+            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
       </div>
 
       {/* Getting Started — shown only when the app has no data yet */}
@@ -134,7 +174,7 @@ export function Dashboard() {
         {/* Team Capacity */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Team Capacity - {currentQuarter}</CardTitle>
+            <CardTitle>Team Capacity — {selectedQuarter}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {memberCapacities.length === 0 ? (
@@ -157,7 +197,7 @@ export function Dashboard() {
                       {timeOffDays > 0 && (
                         <span
                           className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded shrink-0"
-                          title={`${timeOffDays}d of PTO in ${currentQuarter}`}
+                          title={`${timeOffDays}d of PTO in ${selectedQuarter}`}
                         >
                           <CalendarOff size={9} />
                           {timeOffDays}d
@@ -214,7 +254,7 @@ export function Dashboard() {
                       {w.member.name} is overallocated
                     </p>
                     <p className="text-xs text-red-600 dark:text-red-400">
-                      {w.usedDays}d / {w.totalDays}d in {w.quarter}
+                      {w.usedDays}d / {w.totalDays}d in {selectedQuarter}
                     </p>
                   </div>
                 ))}
@@ -224,7 +264,7 @@ export function Dashboard() {
                       {w.member.name} at {w.usedPercent}%
                     </p>
                     <p className="text-xs text-amber-600 dark:text-amber-400">
-                      High utilization in {w.quarter}
+                      High utilization in {selectedQuarter}
                     </p>
                   </div>
                 ))}

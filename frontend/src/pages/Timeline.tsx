@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown, Eye, EyeOff, User, FolderKanban, Calendar, Zap, Filter, CalendarOff } from 'lucide-react';
+import { ChevronRight, ChevronDown, Eye, EyeOff, User, FolderKanban, Calendar, Zap, Filter, CalendarOff } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -22,9 +22,16 @@ export function Timeline() {
   
   const [viewMode, setViewMode] = useState<TimelineView>('projects');
   const [granularity, setGranularity] = useState<TimelineGranularity>('quarter');
-  const [startQuarterIndex, setStartQuarterIndex] = useState(0);
-  const [quartersToShow, setQuartersToShow] = useState(4);
   const [showCompleted, setShowCompleted] = useState(false);
+
+  // Date-range filter: from/to quarter indices within state.quarters
+  const defaultFromIdx = Math.max(0, quarters.indexOf(getCurrentQuarter()));
+  const [fromIdx, setFromIdx] = useState(defaultFromIdx);
+  const [toIdx, setToIdx] = useState(Math.min(quarters.length - 1, defaultFromIdx + 3));
+
+  // Derived values (keep legacy names so downstream code stays unchanged)
+  const startQuarterIndex = fromIdx;
+  const quartersToShow = Math.max(1, toIdx - fromIdx + 1);
   const [assignContext, setAssignContext] = useState<{ projectId?: string; phaseId?: string }>({});
   const [isAssignOpen, setIsAssignOpen] = useState(false);
 
@@ -70,17 +77,11 @@ export function Timeline() {
     });
   }, [projects, showCompleted]);
 
-  // Navigation
-  const canGoBack = startQuarterIndex > 0;
-  const canGoForward = startQuarterIndex + quartersToShow < quarters.length;
-  
-  const goBack = () => {
-    if (canGoBack) setStartQuarterIndex(i => Math.max(0, i - 1));
-  };
-  
-  const goForward = () => {
-    if (canGoForward) setStartQuarterIndex(i => i + 1);
-  };
+  // Quarter select options for the From / To dropdowns
+  const fromOptions = quarters.map((q, i) => ({ value: String(i), label: q }));
+  const toOptions = quarters
+    .map((q, i) => ({ value: String(i), label: q }))
+    .filter((_, i) => i >= fromIdx);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -101,12 +102,6 @@ export function Timeline() {
     }
   };
 
-  const quarterCountOptions = [
-    { value: '3', label: '3 quarters' },
-    { value: '4', label: '4 quarters' },
-    { value: '6', label: '6 quarters' },
-    { value: '8', label: '8 quarters' },
-  ];
 
   return (
     <div className="space-y-6">
@@ -194,12 +189,26 @@ export function Timeline() {
               {showCompleted ? 'Hide Completed' : 'Show Completed'}
             </Button>
           )}
-          
-          <Select
-            value={String(quartersToShow)}
-            onChange={(e) => setQuartersToShow(parseInt(e.target.value))}
-            options={quarterCountOptions}
-          />
+
+          {/* Date-range filter */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">From</span>
+            <Select
+              value={String(fromIdx)}
+              onChange={(e) => {
+                const next = parseInt(e.target.value);
+                setFromIdx(next);
+                if (toIdx < next) setToIdx(next);
+              }}
+              options={fromOptions}
+            />
+            <span className="text-xs text-slate-500 dark:text-slate-400">to</span>
+            <Select
+              value={String(toIdx)}
+              onChange={(e) => setToIdx(parseInt(e.target.value))}
+              options={toOptions}
+            />
+          </div>
         </div>
       </div>
 
@@ -209,26 +218,10 @@ export function Timeline() {
           {/* Quarter Navigation Header */}
           <div className="flex items-center border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
             {/* Left column - empty header */}
-            <div className="w-64 shrink-0 px-4 py-3 flex items-center justify-between border-r border-slate-200 dark:border-slate-700">
+            <div className="w-80 shrink-0 px-4 py-3 flex items-center border-r border-slate-200 dark:border-slate-700">
               <span className="font-medium text-slate-700 dark:text-slate-200">
                 {viewMode === 'projects' ? 'Project' : 'Team Member'}
               </span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={goBack}
-                  disabled={!canGoBack}
-                  className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={goForward}
-                  disabled={!canGoForward}
-                  className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
             </div>
             
             {/* Quarter / Sprint / Dates Headers */}
@@ -490,7 +483,7 @@ function DateView({ projects, months, getPriorityColor, getStatusColor, onAssign
         return (
           <div key={project.id} className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
             {/* Project label */}
-            <div className={`w-64 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
+            <div className={`w-80 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
               <div className="font-medium text-slate-900 dark:text-white truncate text-sm" title={project.name}>
                 {project.name}
               </div>
@@ -603,7 +596,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
       <div>
         {/* Epic / project summary row */}
         <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
-          <div className={`w-64 shrink-0 px-3 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
+          <div className={`w-80 shrink-0 px-3 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
             <div className="flex items-center gap-1.5">
               {hasPhases && (
                 <button
@@ -681,7 +674,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
 
           return (
             <div key={phase.id} className="flex border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors">
-              <div className="w-64 shrink-0 pl-8 pr-3 py-2.5 border-r border-slate-100 dark:border-slate-800">
+              <div className="w-80 shrink-0 pl-8 pr-3 py-2.5 border-r border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
                   <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate" title={phase.name}>
@@ -766,7 +759,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
     <div>
       {/* Epic / project summary row */}
       <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
-        <div className={`w-64 shrink-0 px-3 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
+        <div className={`w-80 shrink-0 px-3 py-3 border-r border-slate-100 dark:border-slate-800 border-l-4 ${getPriorityColor(project.priority)}`}>
           <div className="flex items-center gap-1.5">
             {hasPhases && (
               <button
@@ -836,7 +829,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
         });
         return (
           <div key={phase.id} className="flex border-t border-dashed border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
-            <div className="w-64 shrink-0 pl-10 pr-3 py-2 border-r border-slate-100 dark:border-slate-800">
+            <div className="w-80 shrink-0 pl-10 pr-3 py-2 border-r border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-1.5">
                 <div className="w-1 h-1 rounded-full bg-blue-400 shrink-0" />
                 <span className="text-xs text-slate-700 dark:text-slate-300 truncate" title={phase.name}>
@@ -896,7 +889,7 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
     return (
       <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
         {/* Member Info */}
-        <div className="w-64 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800">
+        <div className="w-80 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800">
           <div className="font-medium text-slate-900 dark:text-white truncate" title={member.name}>
             {member.name}
           </div>
@@ -994,7 +987,7 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
   return (
     <div className="flex hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
       {/* Member Info */}
-      <div className="w-64 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800">
+      <div className="w-80 shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800">
         <div className="font-medium text-slate-900 dark:text-white truncate" title={member.name}>
           {member.name}
         </div>
