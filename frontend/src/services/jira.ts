@@ -195,6 +195,10 @@ export interface JiraKeyDiagnostic {
   cf10008?: string;
   /** resolved parentKey that our sync would store */
   resolvedParentKey?: string;
+  /** whether the item is matched by the current sync JQL */
+  matchedByJql?: boolean;
+  /** total number of items the current JQL returns (to check for 5000 cap) */
+  jqlTotal?: number;
 }
 
 /**
@@ -204,11 +208,14 @@ export interface JiraKeyDiagnostic {
  */
 export async function diagnoseJiraKey(
   connection: JiraConnection,
-  key: string
+  key: string,
+  settings?: JiraSettings
 ): Promise<{ success: boolean; data?: JiraKeyDiagnostic; error?: string }> {
   try {
     const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
     const fields = ['summary', 'issuetype', 'status', 'parent', 'customfield_10014', 'customfield_10008'].join(',');
+
+    // Fetch the single issue
     const response = await jiraFetch(
       connection.jiraBaseUrl,
       `/rest/api/3/issue/${encodeURIComponent(key.trim())}?fields=${encodeURIComponent(fields)}`,
@@ -230,6 +237,36 @@ export async function diagnoseJiraKey(
     const cf10008 = extractKey(f.customfield_10008);
     const resolvedParentKey = f.parent?.key ?? cf10014 ?? cf10008;
 
+    // Also test whether this key is matched by the current sync JQL, and get total count
+    let matchedByJql: boolean | undefined;
+    let jqlTotal: number | undefined;
+    if (settings) {
+      try {
+        const syncJql = buildJQL(connection, settings);
+        if (syncJql) {
+          // Check if this specific key is returned by the full JQL
+          const jqlWithKey = `(${syncJql.replace(/ ORDER BY.*$/, '')}) AND key = "${key.trim()}"`;
+          const matchPath = '/rest/api/3/search/jql'
+            + '?jql=' + encodeURIComponent(jqlWithKey)
+            + '&maxResults=1&fields=summary';
+          const matchResp = await jiraFetch(connection.jiraBaseUrl, matchPath, authHeader, { method: 'GET' });
+          if (matchResp.ok) {
+            const matchData = await matchResp.json() as { total: number };
+            matchedByJql = matchData.total > 0;
+          }
+          // Get total count of items the JQL would return (1 result to get total)
+          const countPath = '/rest/api/3/search/jql'
+            + '?jql=' + encodeURIComponent(syncJql.replace(/ ORDER BY.*$/, ''))
+            + '&maxResults=1&fields=summary';
+          const countResp = await jiraFetch(connection.jiraBaseUrl, countPath, authHeader, { method: 'GET' });
+          if (countResp.ok) {
+            const countData = await countResp.json() as { total: number };
+            jqlTotal = countData.total;
+          }
+        }
+      } catch { /* non-fatal */ }
+    }
+
     return {
       success: true,
       data: {
@@ -242,6 +279,8 @@ export async function diagnoseJiraKey(
         cf10014,
         cf10008,
         resolvedParentKey,
+        matchedByJql,
+        jqlTotal,
       },
     };
   } catch (error) {

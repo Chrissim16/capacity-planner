@@ -163,7 +163,7 @@ export function JiraSection() {
     setKeyLookupLoading(true);
     setKeyLookupResult(null);
     setKeyLookupError(null);
-    const result = await diagnoseJiraKey(conn, key);
+    const result = await diagnoseJiraKey(conn, key, jiraSettings);
     setKeyLookupLoading(false);
     if (result.success && result.data) {
       setKeyLookupResult(result.data);
@@ -633,6 +633,30 @@ export function JiraSection() {
                                 : <span className="text-red-500 italic">none — would be unlinked</span>}
                             </td>
                           </tr>
+                          {d.matchedByJql !== undefined && (
+                            <tr className={d.matchedByJql ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}>
+                              <td className="px-4 py-2.5 font-semibold">Matched by current JQL?</td>
+                              <td className="px-4 py-2.5">
+                                {d.matchedByJql
+                                  ? <span className="flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-medium"><CheckCircle size={12} /> Yes — Jira's API returns this item with the current filters</span>
+                                  : <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium"><AlertCircle size={12} /> No — the current sync query does NOT return this item</span>
+                                }
+                              </td>
+                            </tr>
+                          )}
+                          {d.jqlTotal !== undefined && (
+                            <tr className={d.jqlTotal >= 5000 ? 'bg-amber-50 dark:bg-amber-900/20' : ''}>
+                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Total items in JQL scope</td>
+                              <td className="px-4 py-2.5">
+                                <span className={`font-mono font-semibold ${d.jqlTotal >= 5000 ? 'text-amber-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                                  {d.jqlTotal.toLocaleString()}
+                                </span>
+                                {d.jqlTotal >= 5000 && (
+                                  <span className="text-xs text-amber-600 ml-2">⚠ at or above Jira's 5,000-item limit — older items will be cut off</span>
+                                )}
+                              </td>
+                            </tr>
+                          )}
                           <tr className={!localItem ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}>
                             <td className="px-4 py-2.5 font-semibold">In local sync store?</td>
                             <td className="px-4 py-2.5">
