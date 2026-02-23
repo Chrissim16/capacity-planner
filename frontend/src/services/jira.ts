@@ -304,38 +304,15 @@ export async function fetchJiraIssues(
       onProgress?.(`Fetched ${workItems.length} of ${total} items…`);
     }
 
-    // Helper: fetch issues by an arbitrary JQL with no status filter, add any
-    // new ones to workItems. Returns the keys that were actually added.
-    const fetchAndMerge = async (jql: string, chunkSize: number): Promise<void> => {
-      let s = 0;
-      let tot = Infinity;
-      while (s < tot) {
-        const path = '/rest/api/3/search/jql'
-          + '?jql=' + encodeURIComponent(jql)
-          + '&startAt=' + s
-          + '&maxResults=' + chunkSize
-          + '&fields=' + encodeURIComponent(JIRA_FIELDS);
-        try {
-          const resp = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
-          if (!resp.ok) break;
-          const data = await resp.json() as { total: number; issues: JiraIssue[] };
-          if (!data.issues || data.issues.length === 0) break;
-          tot = data.total ?? data.issues.length;
-          for (const issue of data.issues) {
-            if (!fetchedKeys.has(issue.key)) {
-              workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
-              fetchedKeys.add(issue.key);
-            }
-          }
-          s += data.issues.length;
-        } catch { break; }
-      }
-    };
-
     const fetchedKeys = new Set(workItems.map(i => i.jiraKey));
     const CHUNK = 50;
 
-    // ── Second pass: fetch missing parent epics (e.g. Done epics filtered out) ──
+    // ── Second pass: fetch missing parent epics ───────────────────────────────
+    // A parent epic may not appear in the main results if its status was filtered
+    // out (e.g. "Exclude Done"), yet its children are still active.  We always
+    // fetch the structural parents so the hierarchy tree connects correctly.
+    // This is intentionally exempt from status filtering — it only fetches the
+    // exact keys that child items already reference as their parent.
     const missingParentKeys = [
       ...new Set(
         workItems
@@ -346,36 +323,26 @@ export async function fetchJiraIssues(
     if (missingParentKeys.length > 0) {
       onProgress?.(`Fetching ${missingParentKeys.length} missing parent epic(s)…`);
       for (let o = 0; o < missingParentKeys.length; o += CHUNK) {
-        const keys = missingParentKeys.slice(o, o + CHUNK).map(k => `"${k}"`).join(', ');
-        await fetchAndMerge(`key IN (${keys})`, CHUNK);
-      }
-    }
-
-    // ── Third pass: fetch all children of synced epics & features regardless
-    //    of status (catches Done stories under active features, etc.) ──────────
-    const parentCandidateKeys = workItems
-      .filter(i => i.type === 'epic' || i.type === 'feature')
-      .map(i => i.jiraKey);
-
-    if (parentCandidateKeys.length > 0) {
-      onProgress?.(`Fetching children of ${parentCandidateKeys.length} epic(s)/feature(s)…`);
-      for (let o = 0; o < parentCandidateKeys.length; o += CHUNK) {
-        const keys = parentCandidateKeys.slice(o, o + CHUNK).map(k => `"${k}"`).join(', ');
-        // "parent IN (...)" covers next-gen & classic hierarchy children
-        await fetchAndMerge(`parent IN (${keys})`, 100);
-      }
-      // Also cover classic Epic Link children (stories linked to epics via customfield_10014)
-      const epicKeys = workItems
-        .filter(i => i.type === 'epic')
-        .map(i => i.jiraKey);
-      if (epicKeys.length > 0) {
-        for (let o = 0; o < epicKeys.length; o += CHUNK) {
-          const keys = epicKeys.slice(o, o + CHUNK).map(k => `"${k}"`).join(', ');
-          await fetchAndMerge(
-            `project = "${connection.jiraProjectKey}" AND "Epic Link" IN (${keys})`,
-            100
-          );
-        }
+        const keyList = missingParentKeys
+          .slice(o, o + CHUNK)
+          .map(k => `"${k}"`)
+          .join(', ');
+        const path = '/rest/api/3/search/jql'
+          + '?jql=' + encodeURIComponent(`key IN (${keyList})`)
+          + '&maxResults=' + CHUNK
+          + '&fields=' + encodeURIComponent(JIRA_FIELDS);
+        try {
+          const resp = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
+          if (resp.ok) {
+            const data = await resp.json() as { issues: JiraIssue[] };
+            for (const issue of (data.issues ?? [])) {
+              if (!fetchedKeys.has(issue.key)) {
+                workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
+                fetchedKeys.add(issue.key);
+              }
+            }
+          }
+        } catch { /* non-fatal */ }
       }
     }
 
