@@ -201,10 +201,14 @@ export interface JiraKeyDiagnostic {
   jqlTotal?: number;
   /** the exact JQL used for the match test — paste into Jira to verify */
   jqlUsed?: string;
+  /** bare key-only lookup: key = "X" with no other filters */
+  matchedByKeyOnly?: boolean;
   /** whether the project clause alone (no type/status filter) returns this key */
   matchedByProjectOnly?: boolean;
   /** whether the type clause matches */
   matchedByProjectAndType?: boolean;
+  /** raw HTTP status codes for each test call */
+  testStatuses?: { keyOnly: number; projectOnly: number; projectAndType: number; fullJql: number };
 }
 
 /**
@@ -247,8 +251,20 @@ export async function diagnoseJiraKey(
     let matchedByJql: boolean | undefined;
     let jqlTotal: number | undefined;
     let jqlUsed: string | undefined;
+    let matchedByKeyOnly: boolean | undefined;
     let matchedByProjectOnly: boolean | undefined;
     let matchedByProjectAndType: boolean | undefined;
+    let testStatuses: JiraKeyDiagnostic['testStatuses'] | undefined;
+
+    const searchOne = async (jql: string): Promise<{ ok: boolean; total: number; status: number }> => {
+      const path = '/rest/api/3/search/jql?jql='
+        + encodeURIComponent(jql)
+        + '&maxResults=1&fields=summary';
+      const r = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
+      if (!r.ok) return { ok: false, total: 0, status: r.status };
+      const data = await r.json() as { total?: number };
+      return { ok: true, total: data.total ?? 0, status: r.status };
+    };
 
     if (settings) {
       try {
@@ -257,35 +273,27 @@ export async function diagnoseJiraKey(
           const jqlBase = syncJql.replace(/ ORDER BY.*$/i, '');
           jqlUsed = `(${jqlBase}) AND key = "${key.trim()}"`;
 
-          // Test 1: full sync JQL + this key
-          const t1Path = '/rest/api/3/search/jql?jql='
-            + encodeURIComponent(jqlUsed)
-            + '&maxResults=1&fields=summary';
-          const t1 = await jiraFetch(connection.jiraBaseUrl, t1Path, authHeader, { method: 'GET' });
-          if (t1.ok) matchedByJql = ((await t1.json() as { total: number }).total ?? 0) > 0;
+          // Test 0: bare key only — no project/type/status filter
+          const r0 = await searchOne(`key = "${key.trim()}"`);
+          matchedByKeyOnly = r0.total > 0;
 
-          // Test 2: project clause only (confirms the key is accessible via this connection's project)
-          const jqlProjectOnly = `project = "${connection.jiraProjectKey}" AND key = "${key.trim()}"`;
-          const t2Path = '/rest/api/3/search/jql?jql='
-            + encodeURIComponent(jqlProjectOnly)
-            + '&maxResults=1&fields=summary';
-          const t2 = await jiraFetch(connection.jiraBaseUrl, t2Path, authHeader, { method: 'GET' });
-          if (t2.ok) matchedByProjectOnly = ((await t2.json() as { total: number }).total ?? 0) > 0;
+          // Test 1: project + key only
+          const r1 = await searchOne(`project = "${connection.jiraProjectKey}" AND key = "${key.trim()}"`);
+          matchedByProjectOnly = r1.total > 0;
 
-          // Test 3: project + issuetype (no status filter)
-          const jqlTypeOnly = `project = "${connection.jiraProjectKey}" AND issuetype = "${issue.fields.issuetype.name}" AND key = "${key.trim()}"`;
-          const t3Path = '/rest/api/3/search/jql?jql='
-            + encodeURIComponent(jqlTypeOnly)
-            + '&maxResults=1&fields=summary';
-          const t3 = await jiraFetch(connection.jiraBaseUrl, t3Path, authHeader, { method: 'GET' });
-          if (t3.ok) matchedByProjectAndType = ((await t3.json() as { total: number }).total ?? 0) > 0;
+          // Test 2: project + issuetype + key (no status filter)
+          const r2 = await searchOne(`project = "${connection.jiraProjectKey}" AND issuetype = "${issue.fields.issuetype.name}" AND key = "${key.trim()}"`);
+          matchedByProjectAndType = r2.total > 0;
 
-          // Total count
-          const countPath = '/rest/api/3/search/jql?jql='
-            + encodeURIComponent(jqlBase)
-            + '&maxResults=1&fields=summary';
-          const tc = await jiraFetch(connection.jiraBaseUrl, countPath, authHeader, { method: 'GET' });
-          if (tc.ok) jqlTotal = (await tc.json() as { total: number }).total;
+          // Test 3: full sync JQL + key
+          const r3 = await searchOne(jqlUsed);
+          matchedByJql = r3.total > 0;
+
+          testStatuses = { keyOnly: r0.status, projectOnly: r1.status, projectAndType: r2.status, fullJql: r3.status };
+
+          // Total count (no key filter)
+          const rc = await searchOne(jqlBase);
+          jqlTotal = rc.total;
         }
       } catch { /* non-fatal */ }
     }
@@ -305,8 +313,10 @@ export async function diagnoseJiraKey(
         matchedByJql,
         jqlTotal,
         jqlUsed,
+        matchedByKeyOnly,
         matchedByProjectOnly,
         matchedByProjectAndType,
+        testStatuses,
       },
     };
   } catch (error) {

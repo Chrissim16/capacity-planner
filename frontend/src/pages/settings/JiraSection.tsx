@@ -633,9 +633,26 @@ export function JiraSection() {
                                 : <span className="text-red-500 italic">none — would be unlinked</span>}
                             </td>
                           </tr>
+                          {d.matchedByKeyOnly !== undefined && (
+                            <tr className={d.matchedByKeyOnly ? '' : 'bg-red-50 dark:bg-red-900/20'}>
+                              <td className="px-4 py-2.5 font-medium text-muted-foreground">
+                                Test 0: bare key
+                                {d.testStatuses && <span className="ml-1 text-slate-400">HTTP {d.testStatuses.keyOnly}</span>}
+                              </td>
+                              <td className="px-4 py-2.5 text-xs">
+                                <code className="bg-muted px-1 rounded">{`key = "${d.key}"`}</code>
+                                {' → '}
+                                {d.matchedByKeyOnly
+                                  ? <span className="text-green-600">✓ found — API token can see this issue</span>
+                                  : <span className="text-red-600 font-semibold">✗ NOT FOUND — API token cannot see this issue at all (security level or permissions)</span>}
+                              </td>
+                            </tr>
+                          )}
                           {d.matchedByProjectOnly !== undefined && (
                             <tr className={d.matchedByProjectOnly ? '' : 'bg-red-50 dark:bg-red-900/20'}>
-                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Test 1: project only</td>
+                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Test 1: project only
+                                {d.testStatuses && <span className="ml-1 text-slate-400">HTTP {d.testStatuses.projectOnly}</span>}
+                              </td>
                               <td className="px-4 py-2.5 text-xs">
                                 <code className="bg-muted px-1 rounded">{`project = "${d.key.split('-')[0]}" AND key = "${d.key}"`}</code>
                                 {' → '}
@@ -647,7 +664,9 @@ export function JiraSection() {
                           )}
                           {d.matchedByProjectAndType !== undefined && (
                             <tr className={d.matchedByProjectAndType ? '' : 'bg-red-50 dark:bg-red-900/20'}>
-                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Test 2: project + type</td>
+                              <td className="px-4 py-2.5 font-medium text-muted-foreground">Test 2: project + type
+                                {d.testStatuses && <span className="ml-1 text-slate-400">HTTP {d.testStatuses.projectAndType}</span>}
+                              </td>
                               <td className="px-4 py-2.5 text-xs">
                                 <code className="bg-muted px-1 rounded">{`... AND issuetype = "${d.typeName}"`}</code>
                                 {' → '}
@@ -659,7 +678,9 @@ export function JiraSection() {
                           )}
                           {d.matchedByJql !== undefined && (
                             <tr className={d.matchedByJql ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}>
-                              <td className="px-4 py-2.5 font-semibold">Test 3: full sync JQL</td>
+                              <td className="px-4 py-2.5 font-semibold">Test 3: full sync JQL
+                                {d.testStatuses && <span className="ml-1 font-normal text-slate-400">HTTP {d.testStatuses.fullJql}</span>}
+                              </td>
                               <td className="px-4 py-2.5">
                                 {d.matchedByJql
                                   ? <span className="flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-medium"><CheckCircle size={12} /> Matched — item IS in scope</span>
