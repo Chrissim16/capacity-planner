@@ -304,6 +304,47 @@ export async function fetchJiraIssues(
       onProgress?.(`Fetched ${workItems.length} of ${total} items…`);
     }
 
+    // ── Second pass: fetch any referenced parent epics that weren't returned
+    //    by the main JQL (e.g. epics in "Done" status filtered out above).
+    const fetchedKeys = new Set(workItems.map(i => i.jiraKey));
+    const missingParentKeys = [
+      ...new Set(
+        workItems
+          .map(i => i.parentKey)
+          .filter((k): k is string => !!k && !fetchedKeys.has(k))
+      ),
+    ];
+
+    if (missingParentKeys.length > 0) {
+      onProgress?.(`Fetching ${missingParentKeys.length} referenced parent epic(s)…`);
+      // Batch into chunks of 50 keys to stay within URL length limits
+      const CHUNK = 50;
+      for (let offset = 0; offset < missingParentKeys.length; offset += CHUNK) {
+        const chunk = missingParentKeys.slice(offset, offset + CHUNK);
+        const keyList = chunk.map(k => `"${k}"`).join(', ');
+        const parentJql = `key IN (${keyList})`;
+        const parentPath = '/rest/api/3/search/jql'
+          + '?jql=' + encodeURIComponent(parentJql)
+          + '&maxResults=' + CHUNK
+          + '&fields=' + encodeURIComponent(JIRA_FIELDS);
+
+        try {
+          const parentResp = await jiraFetch(connection.jiraBaseUrl, parentPath, authHeader, { method: 'GET' });
+          if (parentResp.ok) {
+            const parentData = await parentResp.json() as { issues: JiraIssue[] };
+            for (const issue of (parentData.issues ?? [])) {
+              if (!fetchedKeys.has(issue.key)) {
+                workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
+                fetchedKeys.add(issue.key);
+              }
+            }
+          }
+        } catch {
+          // non-fatal — hierarchy will degrade gracefully
+        }
+      }
+    }
+
     result.success = true;
     result.itemsSynced = workItems.length;
     result.items = workItems;
