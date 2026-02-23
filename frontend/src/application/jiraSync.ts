@@ -13,7 +13,6 @@ import {
   syncJiraWorkItems,
   setJiraConnectionSyncStatus,
   syncTeamMembersFromJira,
-  updateJiraConnection,
 } from '../stores/actions';
 import { buildProjectsFromJira, buildAssignmentsFromJira } from './jiraProjectBuilder';
 import { useAppStore } from '../stores/appStore';
@@ -42,11 +41,6 @@ export async function fetchSyncPreview(
     const result = await fetchJiraIssues(connection, settings, onProgress);
 
     if (result.success && result.items && result.items.length > 0) {
-      // Persist the discovered story points field ID so future syncs skip the lookup
-      if (result.discoveredStoryPointsFieldId) {
-        updateJiraConnection(connection.id, { storyPointsFieldId: result.discoveredStoryPointsFieldId });
-      }
-
       const initialDiff = computeSyncDiff(connection.id, result.items);
 
       // Refresh stale items (mapped items no longer in the main JQL) so their
@@ -55,8 +49,7 @@ export async function fetchSyncPreview(
       if (initialDiff.toKeepStale.length > 0) {
         onProgress?.(`Refreshing ${initialDiff.toKeepStale.length} stale item(s)…`);
         const staleKeys = initialDiff.toKeepStale.map(i => i.jiraKey);
-        const knownSpField = result.discoveredStoryPointsFieldId ?? connection.storyPointsFieldId;
-        const refreshed = await refreshItemStatuses(connection, staleKeys, knownSpField);
+        const refreshed = await refreshItemStatuses(connection, staleKeys);
         if (refreshed.length > 0) {
           // Merge refreshed items into the fetched list so they become normal updates
           const refreshedIds = new Set(refreshed.map(i => i.jiraId));

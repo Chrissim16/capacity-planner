@@ -125,36 +125,23 @@ function mapStatusCategory(categoryKey: string): 'todo' | 'in_progress' | 'done'
   return 'todo';
 }
 
-function getStoryPoints(fields: JiraIssueFields, discoveredSpField?: string): number | undefined {
-  // Try the instance-specific field discovered via /rest/api/3/field first
-  if (discoveredSpField) {
-    const val = fields[discoveredSpField];
-    if (typeof val === 'number' && val > 0) return val;
-  }
-  // customfield_10020 can be sprint objects (array) or story points (number) depending on instance
+/**
+ * Extracts story points from Jira issue fields.
+ * Jira Cloud stores story points in one of a small set of well-known custom fields
+ * that are consistent across instances — no runtime discovery needed.
+ *   customfield_10016 — Story Points (classic/company-managed)
+ *   customfield_10028 — Story point estimate (next-gen/team-managed)
+ *   customfield_10026 — Story Points (older Cloud instances)
+ *   customfield_10020 — Sprint field, but doubles as SP in a small number of instances
+ */
+function getStoryPoints(fields: JiraIssueFields): number | undefined {
+  // customfield_10020 is normally a sprint array; only treat it as SP when it's a number
   const cf10020 = typeof fields.customfield_10020 === 'number' ? fields.customfield_10020 : undefined;
-  return fields.customfield_10016 || fields.customfield_10028 || cf10020 || fields.customfield_10026 || undefined;
-}
-
-/** Calls /rest/api/3/field to find the custom field ID whose name is
- *  "Story Points" or "Story point estimate" on this specific Jira instance.
- *  Returns undefined when the field cannot be determined (non-fatal). */
-async function discoverStoryPointsField(
-  baseUrl: string,
-  authHeader: string
-): Promise<string | undefined> {
-  try {
-    const resp = await jiraFetch(baseUrl, '/rest/api/3/field', authHeader, { method: 'GET' });
-    if (!resp.ok) return undefined;
-    const fields = await resp.json() as Array<{ id: string; name: string; custom: boolean }>;
-    const match = fields.find(f =>
-      f.custom &&
-      /^story\s*point(s| estimate)?$/i.test(f.name.trim())
-    );
-    return match?.id;
-  } catch {
-    return undefined;
-  }
+  return (fields.customfield_10016 as number | undefined)
+    || (fields.customfield_10028 as number | undefined)
+    || cf10020
+    || (fields.customfield_10026 as number | undefined)
+    || undefined;
 }
 
 function getSprint(fields: JiraIssueFields): JiraSprintObject | undefined {
@@ -274,15 +261,10 @@ export async function diagnoseJiraKey(
       }
     }
 
-    // Discover which field Jira labels as "Story Points" on this instance
-    const discoveredSpField = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader);
-
-    // Resolve story points using the same logic as the sync engine
-    const storyPoints = getStoryPoints(f, discoveredSpField);
+    // Resolve story points from the well-known standard fields
+    const storyPoints = getStoryPoints(f);
     const storyPointsFieldId = storyPoints != null
-      ? (discoveredSpField && typeof f[discoveredSpField] === 'number' && (f[discoveredSpField] as number) > 0
-          ? discoveredSpField
-          : f.customfield_10016 ? 'customfield_10016'
+      ? (f.customfield_10016 ? 'customfield_10016'
           : f.customfield_10028 ? 'customfield_10028'
           : f.customfield_10026 ? 'customfield_10026'
           : typeof f.customfield_10020 === 'number' ? 'customfield_10020'
@@ -509,12 +491,7 @@ const BASE_JIRA_FIELDS = [
   'customfield_10008',
 ];
 
-function buildJiraFields(customSpField?: string): string {
-  if (customSpField && !BASE_JIRA_FIELDS.includes(customSpField)) {
-    return [...BASE_JIRA_FIELDS, customSpField].join(',');
-  }
-  return BASE_JIRA_FIELDS.join(',');
-}
+const JIRA_FIELDS = BASE_JIRA_FIELDS.join(',');
 
 export async function fetchJiraIssues(
   connection: JiraConnection,
@@ -527,14 +504,7 @@ export async function fetchJiraIssues(
     const jql = buildJQL(connection, settings);
     if (!jql) { result.errors.push('No issue types selected'); return result; }
 
-    // Use the cached field ID if already known; otherwise discover and cache it.
-    let customSpField = connection.storyPointsFieldId;
-    if (!customSpField) {
-      onProgress?.('Detecting story points field…');
-      customSpField = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader);
-      if (customSpField) result.discoveredStoryPointsFieldId = customSpField;
-    }
-    const jiraFields = buildJiraFields(customSpField);
+    const jiraFields = JIRA_FIELDS;
 
     const workItems: JiraWorkItem[] = [];
     const maxResults = 100;
@@ -578,7 +548,7 @@ export async function fetchJiraIssues(
       if (!data.issues || data.issues.length === 0) break;
 
       for (const issue of data.issues) {
-        workItems.push(mapJiraIssueToWorkItem(issue, connection.id, customSpField));
+        workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
       }
 
       if (data.total != null) knownTotal = data.total;
@@ -626,7 +596,7 @@ export async function fetchJiraIssues(
             const data = await resp.json() as { issues: JiraIssue[] };
             for (const issue of (data.issues ?? [])) {
               if (!fetchedKeys.has(issue.key)) {
-                workItems.push(mapJiraIssueToWorkItem(issue, connection.id, customSpField));
+                workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
                 fetchedKeys.add(issue.key);
               }
             }
@@ -652,12 +622,10 @@ export async function fetchJiraIssues(
  */
 export async function refreshItemStatuses(
   connection: JiraConnection,
-  jiraKeys: string[],
-  customSpField?: string
+  jiraKeys: string[]
 ): Promise<JiraWorkItem[]> {
   if (jiraKeys.length === 0) return [];
   const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
-  const fields = buildJiraFields(customSpField);
   const CHUNK = 50;
   const refreshed: JiraWorkItem[] = [];
 
@@ -666,13 +634,13 @@ export async function refreshItemStatuses(
     const path = '/rest/api/3/search/jql'
       + '?jql=' + encodeURIComponent(`key IN (${keyList})`)
       + '&maxResults=' + CHUNK
-      + '&fields=' + encodeURIComponent(fields);
+      + '&fields=' + encodeURIComponent(JIRA_FIELDS);
     try {
       const resp = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
       if (resp.ok) {
         const data = await resp.json() as { issues: JiraIssue[] };
         for (const issue of (data.issues ?? [])) {
-          refreshed.push(mapJiraIssueToWorkItem(issue, connection.id, customSpField));
+          refreshed.push(mapJiraIssueToWorkItem(issue, connection.id));
         }
       }
     } catch { /* non-fatal */ }
@@ -693,7 +661,7 @@ function extractEpicLinkKey(
   return field.key || undefined;
 }
 
-function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string, customSpField?: string): JiraWorkItem {
+function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWorkItem {
   const f = issue.fields;
   const sprint = getSprint(f);
 
@@ -708,7 +676,7 @@ function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string, customSp
     description: typeof f.description === 'string' ? f.description : undefined,
     type: mapJiraTypeToItemType(f.issuetype.name), typeName: f.issuetype.name,
     status: f.status.name, statusCategory: mapStatusCategory(f.status.statusCategory.key),
-    priority: f.priority?.name, storyPoints: getStoryPoints(f, customSpField),
+    priority: f.priority?.name, storyPoints: getStoryPoints(f),
     originalEstimate: convertSecondsToHours(f.timeoriginalestimate),
     timeSpent: convertSecondsToHours(f.timespent),
     remainingEstimate: convertSecondsToHours(f.timeestimate),

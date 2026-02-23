@@ -338,10 +338,6 @@ export interface JiraConnection {
   autoCreateAssignments: boolean;      // auto-create Assignments from sprint+SP on sync
   defaultDaysPerItem: number;          // fallback effort when story points absent (days)
   jqlFilter?: string;                  // additional JQL clause appended to every sync query
-  /** Custom field ID for story points on this Jira instance (e.g. "customfield_10016").
-   *  Populated automatically on first sync via /rest/api/3/field discovery.
-   *  Stored so subsequent syncs don't need to repeat the lookup. */
-  storyPointsFieldId?: string;
 }
 
 export interface JiraWorkItem {
@@ -429,9 +425,6 @@ export interface JiraSyncResult {
   errors: string[];
   timestamp: string;
   items?: JiraWorkItem[]; // Fetched items (before merging)
-  /** Set when the story points field was discovered for the first time on this sync.
-   *  The caller should persist this back onto the JiraConnection. */
-  discoveredStoryPointsFieldId?: string;
 }
 
 // US-007: diff preview before a sync is applied

@@ -220,15 +220,6 @@ export function JiraSection() {
                               Last sync: {new Date(conn.lastSyncAt).toLocaleString()}
                             </div>
                           )}
-                          {conn.storyPointsFieldId ? (
-                            <div className="text-xs text-green-600 dark:text-green-400 font-mono">
-                              SP field: {conn.storyPointsFieldId}
-                            </div>
-                          ) : (
-                            <div className="text-xs text-amber-500">
-                              SP field: not yet discovered — run a sync
-                            </div>
-                          )}
                         </div>
                         {conn.lastSyncStatus === 'success' && <Badge variant="success">Connected</Badge>}
                         {conn.lastSyncStatus === 'error' && <Badge variant="danger">Error</Badge>}
