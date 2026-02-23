@@ -46,6 +46,7 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
   const [autoCreateProjects, setAutoCreateProjects] = useState(connection?.autoCreateProjects ?? true);
   const [autoCreateAssignments, setAutoCreateAssignments] = useState(connection?.autoCreateAssignments ?? true);
   const [defaultDaysPerItem, setDefaultDaysPerItem] = useState(connection?.defaultDaysPerItem ?? 1);
+  const [jqlFilter, setJqlFilter] = useState(connection?.jqlFilter || '');
   const [importBehaviourOpen, setImportBehaviourOpen] = useState(false);
 
   useEffect(() => {
@@ -110,6 +111,7 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
       autoCreateProjects,
       autoCreateAssignments,
       defaultDaysPerItem,
+      jqlFilter: jqlFilter.trim() || undefined,
     });
     setIsSaving(false);
   };
@@ -259,6 +261,23 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
                 />
                 <span className="text-sm text-slate-500">days per item</span>
               </div>
+            </div>
+
+            {/* Additional JQL filter */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+                Additional JQL filter <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={jqlFilter}
+                onChange={e => setJqlFilter(e.target.value)}
+                placeholder='e.g. sprint in openSprints() OR updatedDate >= -90d'
+                className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 font-mono"
+              />
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Appended to every sync query with AND. Use this to narrow scope and avoid Jira's 5,000-item limit — e.g. limit to recent updates or open sprints.
+              </p>
             </div>
           </div>
         )}

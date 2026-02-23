@@ -337,6 +337,7 @@ export interface JiraConnection {
   autoCreateProjects: boolean;         // auto-create Projects/Phases on sync
   autoCreateAssignments: boolean;      // auto-create Assignments from sprint+SP on sync
   defaultDaysPerItem: number;          // fallback effort when story points absent (days)
+  jqlFilter?: string;                  // additional JQL clause appended to every sync query
 }
 
 export interface JiraWorkItem {

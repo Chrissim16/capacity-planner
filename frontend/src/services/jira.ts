@@ -224,7 +224,9 @@ export function buildJQL(connection: JiraConnection, settings: JiraSettings): st
     // All enabled types share the same filter — simple flat query
     const [filter, types] = [...groups.entries()][0];
     const typeList = types.join(', ');
-    return `${project} AND issuetype IN (${typeList})${statusClause(filter)} ORDER BY created DESC`;
+    const extra = connection.jqlFilter?.trim();
+    const base = `${project} AND issuetype IN (${typeList})${statusClause(filter)} ORDER BY created DESC`;
+    return extra ? `${project} AND issuetype IN (${typeList})${statusClause(filter)} AND (${extra}) ORDER BY created DESC` : base;
   }
 
   // Types have different filters — build a compound OR inside parentheses
@@ -235,7 +237,9 @@ export function buildJQL(connection: JiraConnection, settings: JiraSettings): st
     return `(${typeExpr}${statusClause(filter)})`;
   });
 
-  return `${project} AND (${clauses.join(' OR ')}) ORDER BY created DESC`;
+  const base = `${project} AND (${clauses.join(' OR ')}) ORDER BY created DESC`;
+  const extra = connection.jqlFilter?.trim();
+  return extra ? `${project} AND (${clauses.join(' OR ')}) AND (${extra}) ORDER BY created DESC` : base;
 }
 
 // Fetch only the fields we actually use — drastically reduces response size
