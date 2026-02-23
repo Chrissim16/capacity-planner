@@ -68,7 +68,7 @@ export function Projects() {
 
   // Filters
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('__open__');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [systemFilter, setSystemFilter] = useState('');
 
