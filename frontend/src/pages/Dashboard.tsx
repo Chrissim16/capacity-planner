@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Users, FolderKanban, AlertTriangle, TrendingUp, CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, FolderKanban, AlertTriangle, TrendingUp, CalendarOff } from 'lucide-react';
+import { Select } from '../components/ui/Select';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useAppStore } from '../stores/appStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -62,39 +63,14 @@ export function Dashboard() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setSelectedQuarterIndex(i => Math.max(0, i - 1))}
-            disabled={selectedQuarterIndex === 0}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <div className="flex gap-1">
-            {quarters.map((q, idx) => (
-              <button
-                key={q}
-                onClick={() => setSelectedQuarterIndex(idx)}
-                className={`px-2.5 py-1 rounded-lg text-sm font-medium transition-colors ${
-                  idx === selectedQuarterIndex
-                    ? 'bg-blue-600 text-white'
-                    : q === currentQuarter
-                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => setSelectedQuarterIndex(i => Math.min(quarters.length - 1, i + 1))}
-            disabled={selectedQuarterIndex === quarters.length - 1}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
+        <Select
+          value={String(selectedQuarterIndex)}
+          onChange={e => setSelectedQuarterIndex(parseInt(e.target.value))}
+          options={quarters.map((q, i) => ({
+            value: String(i),
+            label: q === currentQuarter ? `${q} (current)` : q,
+          }))}
+        />
       </div>
 
       {/* Getting Started — shown only when the app has no data yet */}
