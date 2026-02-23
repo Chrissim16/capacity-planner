@@ -247,7 +247,9 @@ export async function diagnoseJiraKey(
     const cf10008 = extractKey(f.customfield_10008);
     const resolvedParentKey = f.parent?.key ?? cf10014 ?? cf10008;
 
-    // Run incremental JQL tests to pinpoint which clause is blocking the item
+    // Run incremental JQL tests using POST to /rest/api/3/search to avoid any
+    // GET proxy/caching issues. POST sends JQL in the request body which is
+    // more reliable than URL-encoded query strings through the Vercel proxy.
     let matchedByJql: boolean | undefined;
     let jqlTotal: number | undefined;
     let jqlUsed: string | undefined;
@@ -257,10 +259,16 @@ export async function diagnoseJiraKey(
     let testStatuses: JiraKeyDiagnostic['testStatuses'] | undefined;
 
     const searchOne = async (jql: string): Promise<{ ok: boolean; total: number; status: number }> => {
-      const path = '/rest/api/3/search/jql?jql='
-        + encodeURIComponent(jql)
-        + '&maxResults=1&fields=summary';
-      const r = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
+      const r = await jiraFetch(
+        connection.jiraBaseUrl,
+        '/rest/api/3/search',
+        authHeader,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jql, maxResults: 1, fields: ['summary'] }),
+        }
+      );
       if (!r.ok) return { ok: false, total: 0, status: r.status };
       const data = await r.json() as { total?: number };
       return { ok: true, total: data.total ?? 0, status: r.status };
@@ -273,25 +281,20 @@ export async function diagnoseJiraKey(
           const jqlBase = syncJql.replace(/ ORDER BY.*$/i, '');
           jqlUsed = `(${jqlBase}) AND key = "${key.trim()}"`;
 
-          // Test 0: bare key only — no project/type/status filter
           const r0 = await searchOne(`key = "${key.trim()}"`);
           matchedByKeyOnly = r0.total > 0;
 
-          // Test 1: project + key only
           const r1 = await searchOne(`project = "${connection.jiraProjectKey}" AND key = "${key.trim()}"`);
           matchedByProjectOnly = r1.total > 0;
 
-          // Test 2: project + issuetype + key (no status filter)
           const r2 = await searchOne(`project = "${connection.jiraProjectKey}" AND issuetype = "${issue.fields.issuetype.name}" AND key = "${key.trim()}"`);
           matchedByProjectAndType = r2.total > 0;
 
-          // Test 3: full sync JQL + key
           const r3 = await searchOne(jqlUsed);
           matchedByJql = r3.total > 0;
 
           testStatuses = { keyOnly: r0.status, projectOnly: r1.status, projectAndType: r2.status, fullJql: r3.status };
 
-          // Total count (no key filter)
           const rc = await searchOne(jqlBase);
           jqlTotal = rc.total;
         }
