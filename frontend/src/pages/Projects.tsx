@@ -684,73 +684,83 @@ export function Projects() {
                       </div>
                     )}
 
-                    {project.phases.length === 0 ? (
-                      <div className="px-5 py-3 text-sm text-slate-400 italic">No features defined</div>
-                    ) : (
-                      <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                        {project.phases.map(phase => {
-                          const phaseDate = formatDateRange(phase.startDate, phase.endDate);
-                          return (
-                            <div key={phase.id} className="px-5 py-2.5 pl-8">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="min-w-0 flex items-start gap-2">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-2" />
-                                  <div>
-                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                      {phase.name}
-                                    </p>
-                                    <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
-                                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                                        {phase.startQuarter}{phase.endQuarter !== phase.startQuarter ? ` – ${phase.endQuarter}` : ''}
-                                      </span>
-                                      {phaseDate && (
-                                        <span className="text-xs text-slate-400 flex items-center gap-1">
-                                          <Calendar size={10} />
-                                          {phaseDate}
+                    {/* Only show manual phases when the project has no Jira items.
+                        When Jira items are present the hierarchy tree above already shows the full
+                        feature/story structure — showing the phase list too is redundant. */}
+                    {jiraItems.length === 0 && (
+                      project.phases.length === 0 ? (
+                        <div className="px-5 py-3 text-sm text-slate-400 italic">No features defined</div>
+                      ) : (
+                        <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                          {project.phases.map(phase => {
+                            const phaseDate = formatDateRange(phase.startDate, phase.endDate);
+                            // Look up assignments from the flat store first, fall back to phase.assignments
+                            const phaseAssignments = state.assignments.filter(
+                              a => a.projectId === project.id && a.phaseId === phase.id
+                            );
+                            const displayAssignments = phaseAssignments.length > 0 ? phaseAssignments : (phase.assignments ?? []);
+                            return (
+                              <div key={phase.id} className="px-5 py-2.5 pl-8">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="min-w-0 flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-2" />
+                                    <div>
+                                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                        {phase.name}
+                                      </p>
+                                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                                          {phase.startQuarter}{phase.endQuarter !== phase.startQuarter ? ` – ${phase.endQuarter}` : ''}
                                         </span>
+                                        {phaseDate && (
+                                          <span className="text-xs text-slate-400 flex items-center gap-1">
+                                            <Calendar size={10} />
+                                            {phaseDate}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {phase.notes && (
+                                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 italic">
+                                          {phase.notes}
+                                        </p>
                                       )}
                                     </div>
-                                    {phase.notes && (
-                                      <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 italic">
-                                        {phase.notes}
-                                      </p>
+                                  </div>
+                                  <div className="flex items-center gap-4 shrink-0">
+                                    {displayAssignments.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1.5 max-w-xs justify-end">
+                                        {displayAssignments.slice(0, 5).map((a, i) => (
+                                          <span
+                                            key={i}
+                                            className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm font-medium rounded-md"
+                                          >
+                                            {getMemberName(a.memberId)}
+                                            <span className="ml-1 text-xs text-blue-500 dark:text-blue-400 font-normal">{a.days}d</span>
+                                          </span>
+                                        ))}
+                                        {displayAssignments.length > 5 && (
+                                          <span className="px-2 py-1 text-slate-500 text-xs">
+                                            +{displayAssignments.length - 5} more
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-sm text-slate-400 italic">No assignments</span>
                                     )}
+                                    <button
+                                      onClick={() => openAssignment(project.id, phase.id)}
+                                      className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-white dark:hover:bg-slate-700 rounded transition-colors"
+                                      title="Assign to this feature"
+                                    >
+                                      <UserPlus size={14} />
+                                    </button>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4 shrink-0">
-                                  {phase.assignments.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1.5 max-w-xs justify-end">
-                                      {phase.assignments.slice(0, 5).map((a, i) => (
-                                        <span
-                                          key={i}
-                                          className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm font-medium rounded-md"
-                                        >
-                                          {getMemberName(a.memberId)}
-                                          <span className="ml-1 text-xs text-blue-500 dark:text-blue-400 font-normal">{a.days}d</span>
-                                        </span>
-                                      ))}
-                                      {phase.assignments.length > 5 && (
-                                        <span className="px-2 py-1 text-slate-500 text-xs">
-                                          +{phase.assignments.length - 5} more
-                                        </span>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-slate-400 italic">No assignments</span>
-                                  )}
-                                  <button
-                                    onClick={() => openAssignment(project.id, phase.id)}
-                                    className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-white dark:hover:bg-slate-700 rounded transition-colors"
-                                    title="Assign to this feature"
-                                  >
-                                    <UserPlus size={14} />
-                                  </button>
-                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )
                     )}
                   </div>
                 )}

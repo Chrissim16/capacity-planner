@@ -6,7 +6,7 @@
  *  - readOnly: type/key/status/SP/summary only (Projects page, Timeline)
  *  - edit:     adds selection checkbox, mapped indicator, and override dropdowns (Jira page)
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   ChevronDown, ChevronRight, ExternalLink,
   CheckCircle2, AlertCircle, Edit2, X, User,
@@ -361,16 +361,39 @@ function DaysCell({ item, defaultConfidenceLevel, onConfidence, confidenceSettin
   confidenceSettings?: Settings['confidenceLevels'];
 }) {
   const [open, setOpen] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const btnRef = useRef<HTMLButtonElement>(null);
   const confidence = item.confidenceLevel ?? defaultConfidenceLevel;
   const raw = item.storyPoints!;
   const forecasted = getForecastedDays(raw, confidence, confidenceSettings);
 
+  // Position dropdown using fixed coords so it's never clipped by overflow:hidden ancestors.
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    setDropdownStyle({
+      position: 'fixed',
+      top: rect.bottom + 4,
+      left: rect.left,
+      zIndex: 9999,
+    });
+  }, [open]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handle = () => setOpen(false);
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [open]);
+
   return (
-    <span className="inline-flex items-center gap-1.5 relative">
+    <span className="inline-flex items-center gap-1.5">
       <span className="text-xs text-slate-500 dark:text-slate-400">{raw}d</span>
       <span className="text-xs text-slate-400 dark:text-slate-500">→</span>
       <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{forecasted}d</span>
       <button
+        ref={btnRef}
         onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
         className={clsx(
           'text-xs font-medium rounded-full px-1.5 py-0.5 leading-tight cursor-pointer border',
@@ -381,7 +404,11 @@ function DaysCell({ item, defaultConfidenceLevel, onConfidence, confidenceSettin
         {confidence.charAt(0).toUpperCase() + confidence.slice(1)}
       </button>
       {open && (
-        <span className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-[140px]">
+        <span
+          style={dropdownStyle}
+          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[160px]"
+          onMouseDown={e => e.stopPropagation()}
+        >
           {(['', 'high', 'medium', 'low'] as const).map(v => (
             <button
               key={v}
