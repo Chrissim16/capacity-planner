@@ -1,0 +1,142 @@
+import { useEffect, useMemo, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
+import { isSupabaseConfigured, supabase } from '../services/supabase';
+
+export type AppRole = 'system_admin' | 'it_manager' | 'team_lead' | 'stakeholder';
+
+export type AppAction =
+  | 'view_all'
+  | 'edit_assignments'
+  | 'edit_projects'
+  | 'edit_team_members'
+  | 'manage_settings'
+  | 'manage_users'
+  | 'view_audit_log';
+
+type PermissionMatrix = Record<AppRole, AppAction[]>;
+
+const PERMISSIONS: PermissionMatrix = {
+  system_admin: [
+    'view_all',
+    'edit_assignments',
+    'edit_projects',
+    'edit_team_members',
+    'manage_settings',
+    'manage_users',
+    'view_audit_log',
+  ],
+  it_manager: [
+    'view_all',
+    'edit_assignments',
+    'edit_projects',
+    'edit_team_members',
+    'manage_settings',
+  ],
+  team_lead: [
+    'view_all',
+    'edit_assignments',
+    'edit_projects',
+    'edit_team_members',
+  ],
+  stakeholder: ['view_all'],
+};
+
+interface CurrentUserState {
+  user: User | null;
+  role: AppRole | null;
+  loading: boolean;
+}
+
+async function fetchUserRole(userId: string): Promise<AppRole> {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[Auth] Failed to fetch role, defaulting to team_lead:', error.message);
+    return 'team_lead';
+  }
+
+  const role = data?.role as AppRole | undefined;
+  return role ?? 'team_lead';
+}
+
+export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) => boolean } {
+  const [state, setState] = useState<CurrentUserState>({
+    user: null,
+    role: null,
+    loading: true,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // In local-only mode, keep existing no-auth behaviour.
+    if (!isSupabaseConfigured()) {
+      setState({
+        user: null,
+        role: 'system_admin',
+        loading: false,
+      });
+      return;
+    }
+
+    const hydrate = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        if (!cancelled) {
+          setState({ user: null, role: null, loading: false });
+        }
+        return;
+      }
+
+      const sessionUser = data.session?.user ?? null;
+      if (!sessionUser) {
+        if (!cancelled) {
+          setState({ user: null, role: null, loading: false });
+        }
+        return;
+      }
+
+      const role = await fetchUserRole(sessionUser.id);
+      if (!cancelled) {
+        setState({ user: sessionUser, role, loading: false });
+      }
+    };
+
+    hydrate();
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const sessionUser = session?.user ?? null;
+      if (!sessionUser) {
+        if (!cancelled) {
+          setState({ user: null, role: null, loading: false });
+        }
+        return;
+      }
+
+      const role = await fetchUserRole(sessionUser.id);
+      if (!cancelled) {
+        setState({ user: sessionUser, role, loading: false });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.subscription.unsubscribe();
+    };
+  }, []);
+
+  const can = useMemo(
+    () => (action: AppAction): boolean => {
+      if (!state.role) return false;
+      return PERMISSIONS[state.role].includes(action);
+    },
+    [state.role]
+  );
+
+  return { ...state, can };
+}
+

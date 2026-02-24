@@ -96,8 +96,8 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
             projectId: project.id,
             projectName: project.name,
             colorIdx: colorIdx % PROJECT_COLORS.length,
-            startQuarter: phase.startQuarter,
-            endQuarter: phase.endQuarter,
+            startQuarter: phase.startQuarter ?? '',
+            endQuarter: phase.endQuarter ?? '',
           });
           colorIdx++;
         }

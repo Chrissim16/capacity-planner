@@ -1,8 +1,8 @@
 import { useMemo, useState, useCallback } from 'react';
-import { Users, FolderKanban, AlertTriangle, TrendingUp, CalendarOff, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { EmptyState } from '../components/ui/EmptyState';
+import { Users, FolderKanban, AlertTriangle, TrendingUp, CalendarOff, X, ChevronLeft, ChevronRight, CheckCircle2, Circle, Link2, Zap, Globe } from 'lucide-react';
 import { useAppStore, useCurrentState } from '../stores/appStore';
 import { Card, CardContent } from '../components/ui/Card';
+import { PageHeader } from '../components/layout/PageHeader';
 import { calculateCapacity, getWarnings, getTeamUtilizationSummary } from '../utils/capacity';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 import type { CapacityResult, CapacityBreakdownItem } from '../types';
@@ -71,28 +71,13 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Capacity Overview</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Team utilization across quarters
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Capacity Overview"
+        subtitle={`VS Finance · ${currentQuarter} · Mileway BV`}
+      />
 
-      {/* Empty state */}
-      {isEmpty && (
-        <div className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-          <EmptyState
-            icon={TrendingUp}
-            title="Welcome to the Capacity Planner"
-            description="Get started by adding your team members and epics. Once you have data, the capacity heatmap will appear here."
-            action={{ label: 'Add team members', onClick: () => setCurrentView('team') }}
-            secondaryAction={{ label: 'Add an epic', onClick: () => setCurrentView('projects') }}
-          />
-        </div>
-      )}
+      {/* Onboarding checklist */}
+      {isEmpty && <OnboardingChecklist state={state} navigate={setCurrentView} />}
 
       {/* Compact Stats Strip */}
       {!isEmpty && (
@@ -163,7 +148,7 @@ export function Dashboard() {
                     {visibleQuarters.map(q => (
                       <th key={q} className={`text-center py-3 px-2 font-medium text-sm min-w-[90px] ${q === currentQuarter ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
                         {q}
-                        {q === currentQuarter && <span className="block text-[10px] font-normal text-blue-400 dark:text-blue-500">current</span>}
+                        {q === currentQuarter && <span className="block text-xs font-normal text-blue-400 dark:text-blue-500">current</span>}
                       </th>
                     ))}
                   </tr>
@@ -202,7 +187,7 @@ export function Dashboard() {
                               {timeOffDays > 0 && (
                                 <div className="flex items-center justify-center gap-0.5 mt-0.5 text-amber-500 dark:text-amber-400">
                                   <CalendarOff size={9} />
-                                  <span className="text-[10px] font-medium">{timeOffDays}d</span>
+                                  <span className="text-xs font-medium">{timeOffDays}d</span>
                                 </div>
                               )}
                             </button>
@@ -345,6 +330,114 @@ function CapacityBadge({ capacity }: { capacity: CapacityResult }) {
   );
 }
 
+// ─── Onboarding Checklist ────────────────────────────────────────────────────
+
+function OnboardingChecklist({ state, navigate }: {
+  state: ReturnType<typeof useCurrentState>;
+  navigate: (view: 'team' | 'projects' | 'settings') => void;
+}) {
+  const steps = [
+    {
+      done: state.teamMembers.length > 0,
+      label: 'Add team members',
+      detail: state.teamMembers.length > 0
+        ? `${state.teamMembers.length} member${state.teamMembers.length !== 1 ? 's' : ''} added`
+        : 'Define who is available for project work',
+      icon: Users,
+      onClick: () => navigate('team'),
+    },
+    {
+      done: state.projects.length > 0,
+      label: 'Create your first epic',
+      detail: state.projects.length > 0
+        ? `${state.projects.length} epic${state.projects.length !== 1 ? 's' : ''} created`
+        : 'Epics group features and stories into deliverables',
+      icon: FolderKanban,
+      onClick: () => navigate('projects'),
+    },
+    {
+      done: state.jiraConnections.length > 0,
+      label: 'Connect to Jira',
+      detail: state.jiraConnections.length > 0
+        ? `${state.jiraConnections.length} connection${state.jiraConnections.length !== 1 ? 's' : ''} configured`
+        : 'Optional — sync epics and stories from Jira',
+      icon: Link2,
+      onClick: () => navigate('settings'),
+    },
+    {
+      done: state.sprints.length > 0,
+      label: 'Set up sprints',
+      detail: state.sprints.length > 0
+        ? `${state.sprints.length} sprint${state.sprints.length !== 1 ? 's' : ''} generated`
+        : 'Auto-generate sprints for the year',
+      icon: Zap,
+      onClick: () => navigate('settings'),
+    },
+    {
+      done: state.countries.length > 0 && state.publicHolidays.length > 0,
+      label: 'Add countries & holidays',
+      detail: state.countries.length > 0
+        ? `${state.countries.length} countr${state.countries.length !== 1 ? 'ies' : 'y'}, ${state.publicHolidays.length} holidays`
+        : 'Import public holidays so capacity reflects time off',
+      icon: Globe,
+      onClick: () => navigate('settings'),
+    },
+  ];
+
+  const completed = steps.filter(s => s.done).length;
+
+  return (
+    <Card>
+      <CardContent className="py-10 px-8">
+        <div className="max-w-lg mx-auto">
+          <div className="text-center mb-8">
+            <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="w-7 h-7 text-blue-500" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              Welcome to the Capacity Planner
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Complete these steps to get your capacity heatmap up and running.
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+              {completed} of {steps.length} complete
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            {steps.map((step, i) => {
+              const StepIcon = step.icon;
+              return (
+                <button
+                  key={i}
+                  onClick={step.onClick}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 group"
+                >
+                  {step.done
+                    ? <CheckCircle2 size={20} className="text-green-500 shrink-0" />
+                    : <Circle size={20} className="text-slate-300 dark:text-slate-600 shrink-0" />
+                  }
+                  <StepIcon size={16} className="text-slate-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${step.done ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}>
+                      {step.label}
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
+                      {step.detail}
+                    </p>
+                  </div>
+                  <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function BreakdownCard({ item }: { item: CapacityBreakdownItem }) {
   if (item.type === 'bau') {
     return (
@@ -362,6 +455,18 @@ function BreakdownCard({ item }: { item: CapacityBreakdownItem }) {
           Time Off
         </div>
         <div className="text-lg font-bold text-amber-700 dark:text-amber-300">{item.days}d</div>
+      </div>
+    );
+  }
+  if (item.type === 'jira') {
+    return (
+      <div className="rounded-lg p-3 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800">
+        <div className="text-xs text-indigo-600 dark:text-indigo-400 mb-1 truncate flex items-center gap-1" title={`${item.jiraKey}: ${item.jiraSummary}`}>
+          <Zap size={11} />
+          {item.jiraKey}
+          {item.jiraSummary && <span className="text-indigo-400 dark:text-indigo-500 truncate"> {item.jiraSummary}</span>}
+        </div>
+        <div className="text-lg font-bold text-indigo-700 dark:text-indigo-300">{item.days}d</div>
       </div>
     );
   }

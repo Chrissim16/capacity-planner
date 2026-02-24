@@ -125,23 +125,108 @@ function mapStatusCategory(categoryKey: string): 'todo' | 'in_progress' | 'done'
   return 'todo';
 }
 
+// ── Story-points field discovery ──────────────────────────────────────────────
+// Jira Cloud stores story points in instance-specific custom fields. We use a
+// two-phase approach:
+//   1. Call /rest/api/3/field and match by name (e.g. "Story Points")
+//   2. If that fails, fetch a single issue with fields=*all and pick the first
+//      numeric customfield_ that isn't in our known-other-purpose list.
+// The result is cached per session.
+
+const WELL_KNOWN_SP_FIELDS = new Set([
+  'customfield_10016', 'customfield_10028', 'customfield_10026',
+]);
+const NON_SP_FIELDS = new Set([
+  'customfield_10020', // Sprint
+  'customfield_10014', // Epic Link
+  'customfield_10008', // Alt Epic Link
+  'customfield_10015', // Start date
+]);
+
+let _discoveredSpFieldId: string | null | undefined;
+
+async function discoverStoryPointsField(
+  baseUrl: string,
+  authHeader: string,
+  probeJql?: string,
+): Promise<string | null> {
+  if (_discoveredSpFieldId !== undefined) return _discoveredSpFieldId;
+
+  // Phase 1: metadata-based discovery via /rest/api/3/field
+  try {
+    const response = await jiraFetch(baseUrl, '/rest/api/3/field', authHeader, { method: 'GET' });
+    if (response.ok) {
+      const fields = await response.json() as { id: string; name: string; custom: boolean; schema?: { type?: string; custom?: string } }[];
+      // Prefer exact "Story Points" match, then "Story point estimate", then any match
+      const byName = fields.filter(f => /story\s*point/i.test(f.name));
+      const best =
+        byName.find(f => f.name.toLowerCase() === 'story points') ??
+        byName.find(f => /estimate/i.test(f.name)) ??
+        byName[0];
+      if (best) {
+        console.log(`[SP discovery] Found field by name: ${best.id} "${best.name}"`);
+        _discoveredSpFieldId = best.id;
+        return _discoveredSpFieldId;
+      }
+    }
+  } catch { /* continue to phase 2 */ }
+
+  // Phase 2: empirical probe — fetch one issue with all fields and look for
+  // a numeric customfield that isn't in our "other purpose" list.
+  if (probeJql) {
+    try {
+      const probePath = '/rest/api/3/search/jql'
+        + '?jql=' + encodeURIComponent(probeJql)
+        + '&maxResults=1&fields=*all';
+      const resp = await jiraFetch(baseUrl, probePath, authHeader, { method: 'GET' });
+      if (resp.ok) {
+        const data = await resp.json() as { issues: { fields: Record<string, unknown> }[] };
+        const issue = data.issues?.[0];
+        if (issue) {
+          for (const [k, v] of Object.entries(issue.fields)) {
+            if (
+              k.startsWith('customfield_') &&
+              typeof v === 'number' &&
+              !WELL_KNOWN_SP_FIELDS.has(k) &&
+              !NON_SP_FIELDS.has(k)
+            ) {
+              console.log(`[SP discovery] Found field by probe: ${k} = ${v}`);
+              _discoveredSpFieldId = k;
+              return _discoveredSpFieldId;
+            }
+          }
+        }
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  console.log('[SP discovery] No story-points field found');
+  _discoveredSpFieldId = null;
+  return null;
+}
+
+/** Reset the cached discovery (useful for tests / reconnection). */
+export function resetStoryPointsFieldCache(): void {
+  _discoveredSpFieldId = undefined;
+}
+
 /**
  * Extracts story points from Jira issue fields.
- * Jira Cloud stores story points in one of a small set of well-known custom fields
- * that are consistent across instances — no runtime discovery needed.
- *   customfield_10016 — Story Points (classic/company-managed)
- *   customfield_10028 — Story point estimate (next-gen/team-managed)
- *   customfield_10026 — Story Points (older Cloud instances)
- *   customfield_10020 — Sprint field, but doubles as SP in a small number of instances
+ * Checks well-known custom field IDs first, then falls back to a dynamically
+ * discovered field (resolved by discoverStoryPointsField during sync).
  */
-function getStoryPoints(fields: JiraIssueFields): number | undefined {
-  // customfield_10020 is normally a sprint array; only treat it as SP when it's a number
+function getStoryPoints(fields: JiraIssueFields, discoveredFieldId?: string | null): number | undefined {
   const cf10020 = typeof fields.customfield_10020 === 'number' ? fields.customfield_10020 : undefined;
-  return (fields.customfield_10016 as number | undefined)
-    || (fields.customfield_10028 as number | undefined)
-    || cf10020
-    || (fields.customfield_10026 as number | undefined)
-    || undefined;
+  const wellKnown = (fields.customfield_10016 as number | undefined)
+    ?? (fields.customfield_10028 as number | undefined)
+    ?? cf10020
+    ?? (fields.customfield_10026 as number | undefined);
+  if (wellKnown != null) return wellKnown;
+  if (discoveredFieldId) {
+    const val = fields[discoveredFieldId];
+    if (typeof val === 'number') return val;
+  }
+  return undefined;
 }
 
 function getSprint(fields: JiraIssueFields): JiraSprintObject | undefined {
@@ -256,19 +341,20 @@ export async function diagnoseJiraKey(
     // Collect all numeric customfields — helps identify the story points field
     const numericCustomFields: Record<string, number> = {};
     for (const [k, v] of Object.entries(f)) {
-      if (k.startsWith('customfield_') && typeof v === 'number' && v > 0) {
+      if (k.startsWith('customfield_') && typeof v === 'number') {
         numericCustomFields[k] = v as number;
       }
     }
 
-    // Resolve story points from the well-known standard fields
-    const storyPoints = getStoryPoints(f);
+    // Discover + resolve story points
+    const spFieldId = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader);
+    const storyPoints = getStoryPoints(f, spFieldId);
     const storyPointsFieldId = storyPoints != null
-      ? (f.customfield_10016 ? 'customfield_10016'
-          : f.customfield_10028 ? 'customfield_10028'
-          : f.customfield_10026 ? 'customfield_10026'
+      ? (f.customfield_10016 != null ? 'customfield_10016'
+          : f.customfield_10028 != null ? 'customfield_10028'
+          : f.customfield_10026 != null ? 'customfield_10026'
           : typeof f.customfield_10020 === 'number' ? 'customfield_10020'
-          : undefined)
+          : spFieldId ?? undefined)
       : undefined;
 
     function extractKey(field: string | { key?: string } | undefined): string | undefined {
@@ -504,7 +590,12 @@ export async function fetchJiraIssues(
     const jql = buildJQL(connection, settings);
     if (!jql) { result.errors.push('No issue types selected'); return result; }
 
-    const jiraFields = JIRA_FIELDS;
+    // Discover the story-points field for this instance (cached per session)
+    onProgress?.('Discovering story-points field…');
+    const spFieldId = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader, jql);
+    const jiraFields = spFieldId && !BASE_JIRA_FIELDS.includes(spFieldId)
+      ? [...BASE_JIRA_FIELDS, spFieldId].join(',')
+      : JIRA_FIELDS;
 
     const workItems: JiraWorkItem[] = [];
     const maxResults = 100;
@@ -548,7 +639,7 @@ export async function fetchJiraIssues(
       if (!data.issues || data.issues.length === 0) break;
 
       for (const issue of data.issues) {
-        workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
+        workItems.push(mapJiraIssueToWorkItem(issue, connection.id, spFieldId));
       }
 
       if (data.total != null) knownTotal = data.total;
@@ -596,7 +687,7 @@ export async function fetchJiraIssues(
             const data = await resp.json() as { issues: JiraIssue[] };
             for (const issue of (data.issues ?? [])) {
               if (!fetchedKeys.has(issue.key)) {
-                workItems.push(mapJiraIssueToWorkItem(issue, connection.id));
+                workItems.push(mapJiraIssueToWorkItem(issue, connection.id, spFieldId));
                 fetchedKeys.add(issue.key);
               }
             }
@@ -626,6 +717,10 @@ export async function refreshItemStatuses(
 ): Promise<JiraWorkItem[]> {
   if (jiraKeys.length === 0) return [];
   const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
+  const spFieldId = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader);
+  const fields = spFieldId && !BASE_JIRA_FIELDS.includes(spFieldId)
+    ? [...BASE_JIRA_FIELDS, spFieldId].join(',')
+    : JIRA_FIELDS;
   const CHUNK = 50;
   const refreshed: JiraWorkItem[] = [];
 
@@ -634,13 +729,13 @@ export async function refreshItemStatuses(
     const path = '/rest/api/3/search/jql'
       + '?jql=' + encodeURIComponent(`key IN (${keyList})`)
       + '&maxResults=' + CHUNK
-      + '&fields=' + encodeURIComponent(JIRA_FIELDS);
+      + '&fields=' + encodeURIComponent(fields);
     try {
       const resp = await jiraFetch(connection.jiraBaseUrl, path, authHeader, { method: 'GET' });
       if (resp.ok) {
         const data = await resp.json() as { issues: JiraIssue[] };
         for (const issue of (data.issues ?? [])) {
-          refreshed.push(mapJiraIssueToWorkItem(issue, connection.id));
+          refreshed.push(mapJiraIssueToWorkItem(issue, connection.id, spFieldId));
         }
       }
     } catch { /* non-fatal */ }
@@ -661,7 +756,7 @@ function extractEpicLinkKey(
   return field.key || undefined;
 }
 
-function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWorkItem {
+function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string, discoveredSpFieldId?: string | null): JiraWorkItem {
   const f = issue.fields;
   const sprint = getSprint(f);
 
@@ -676,7 +771,7 @@ function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string): JiraWor
     description: typeof f.description === 'string' ? f.description : undefined,
     type: mapJiraTypeToItemType(f.issuetype.name), typeName: f.issuetype.name,
     status: f.status.name, statusCategory: mapStatusCategory(f.status.statusCategory.key),
-    priority: f.priority?.name, storyPoints: getStoryPoints(f),
+    priority: f.priority?.name, storyPoints: getStoryPoints(f, discoveredSpFieldId),
     originalEstimate: convertSecondsToHours(f.timeoriginalestimate),
     timeSpent: convertSecondsToHours(f.timespent),
     remainingEstimate: convertSecondsToHours(f.timeestimate),

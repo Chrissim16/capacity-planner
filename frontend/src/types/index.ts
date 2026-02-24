@@ -84,6 +84,8 @@ export type ProjectPriority = 'High' | 'Medium' | 'Low';
 export type ProjectStatus = 'Planning' | 'Active' | 'On Hold' | 'Completed' | 'Cancelled';
 
 export interface Assignment {
+  projectId?: string;    // Top-level linkage (flattened model)
+  phaseId?: string;      // Top-level linkage (flattened model)
   memberId: string;
   quarter: string;       // "Q1 2026" format - always set (for aggregation)
   days: number;
@@ -109,13 +111,13 @@ export interface Sprint {
 export interface Phase {
   id: string;
   name: string;
-  startQuarter: string;
-  endQuarter: string;
+  startQuarter?: string;     // Deprecated: kept for backward compatibility
+  endQuarter?: string;       // Deprecated: kept for backward compatibility
   startDate?: string;       // ISO date "2026-03-01" — optional, for date-range planning
   endDate?: string;         // ISO date "2026-06-30"
   requiredSkillIds: string[];
   predecessorPhaseId: string | null;
-  assignments: Assignment[];
+  assignments: Assignment[]; // Deprecated store location; source of truth is AppState.assignments
   notes?: string;           // Free-text planning notes
   jiraSourceKey?: string;   // Jira key of the Feature/Epic this phase was created from
 }
@@ -174,6 +176,7 @@ export interface AppState {
   processTeams: ProcessTeam[];
   teamMembers: TeamMember[];
   projects: Project[];
+  assignments: Assignment[]; // Flattened assignment store (projectId + phaseId linkage)
   timeOff: TimeOff[];
   quarters: string[];
   sprints: Sprint[];
@@ -192,13 +195,15 @@ export interface AppState {
 export type CapacityStatus = 'normal' | 'warning' | 'overallocated';
 
 export interface CapacityBreakdownItem {
-  type: 'bau' | 'timeoff' | 'project';
+  type: 'bau' | 'timeoff' | 'project' | 'jira';
   days: number;
   reason?: string;
   projectId?: string;
   projectName?: string;
   phaseId?: string;
   phaseName?: string;
+  jiraKey?: string;
+  jiraSummary?: string;
 }
 
 export interface CapacityResult {

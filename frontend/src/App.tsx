@@ -13,6 +13,9 @@ import { CommandPalette } from './components/ui/CommandPalette';
 import type { CommandPayload } from './components/ui/CommandPalette';
 import { useAppStore, useCurrentView, useSettings, useIsInitializing, useSyncStatus } from './stores/appStore';
 import type { ViewType } from './types';
+import { Login } from './pages/Login';
+import { useCurrentUser } from './hooks/useCurrentUser';
+import { isSupabaseConfigured } from './services/supabase';
 
 // Page components map
 const pages: Record<ViewType, React.ComponentType> = {
@@ -37,19 +40,22 @@ function App() {
   const initializeFromSupabase = useAppStore((s) => s.initializeFromSupabase);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const { user, loading: authLoading } = useCurrentUser();
 
   // US-001 / US-002: Load data from Supabase on first mount
   useEffect(() => {
+    if (isSupabaseConfigured() && !user) return;
     initializeFromSupabase();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initializeFromSupabase, user]);
 
   // Apply dark mode
   useEffect(() => {
     if (settings.darkMode) {
       document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
     }
   }, [settings.darkMode]);
 
@@ -101,8 +107,13 @@ function App() {
   }, [setCurrentView, currentView]);
 
   // US-002: Show full-screen loading screen while fetching from Supabase
-  if (isInitializing) {
+  if (authLoading || isInitializing) {
     return <LoadingScreen />;
+  }
+
+  // Enforce authentication when Supabase is enabled.
+  if (isSupabaseConfigured() && !user) {
+    return <Login />;
   }
 
   const CurrentPage = pages[currentView] || Dashboard;

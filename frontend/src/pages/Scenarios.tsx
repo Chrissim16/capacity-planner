@@ -7,8 +7,10 @@ import { clsx } from 'clsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ScenarioDiffModal } from '../components/ScenarioDiffModal';
+import { PageHeader } from '../components/layout/PageHeader';
 import { useAppStore, useCurrentState as useCurrentStateForCreate } from '../stores/appStore';
 import {
   createScenario, duplicateScenario, deleteScenario, switchScenario, updateScenario,
@@ -221,25 +223,20 @@ export function Scenarios() {
     if (renamingId && renameValue.trim()) updateScenario(renamingId, { name: renameValue.trim() });
     setRenamingId(null);
   };
+  const cancelRename = () => setRenamingId(null);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Layers size={24} className="text-blue-600" />
-            Scenarios
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Create what-if plans without affecting your Jira baseline.
-          </p>
-        </div>
-        <Button onClick={() => { setDuplicateSource(null); setShowCreate(true); }}>
-          <Plus size={16} className="mr-1" />
-          New Scenario
-        </Button>
-      </div>
+      <PageHeader
+        title="Scenarios"
+        subtitle="What-if planning workspace"
+        actions={
+          <Button onClick={() => { setDuplicateSource(null); setShowCreate(true); }}>
+            <Plus size={16} className="mr-1" />
+            New Scenario
+          </Button>
+        }
+      />
 
       {/* What is isolated info box */}
       <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
@@ -317,17 +314,12 @@ export function Scenarios() {
 
       {/* Empty state */}
       {scenarios.length === 0 && (
-        <div className="text-center py-16 text-slate-400 dark:text-slate-500">
-          <Layers size={48} className="mx-auto mb-4 opacity-40" />
-          <p className="text-lg font-medium text-slate-600 dark:text-slate-400">No scenarios yet</p>
-          <p className="text-sm mt-1">
-            Create a scenario to safely plan "what-if" changes without affecting your Jira baseline.
-          </p>
-          <Button className="mt-4" onClick={() => { setDuplicateSource(null); setShowCreate(true); }}>
-            <Plus size={16} className="mr-1" />
-            Create your first scenario
-          </Button>
-        </div>
+        <EmptyState
+          icon={Layers}
+          title="No scenarios yet"
+          description="Create a scenario to safely plan &ldquo;what-if&rdquo; changes without affecting your Jira baseline."
+          action={{ label: 'Create your first scenario', onClick: () => { setDuplicateSource(null); setShowCreate(true); } }}
+        />
       )}
 
       {/* Scenario cards */}
@@ -353,8 +345,8 @@ export function Scenarios() {
                         <input
                           value={renameValue}
                           onChange={e => setRenameValue(e.target.value)}
-                          onBlur={commitRename}
-                          onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setRenamingId(null); }}
+                          onBlur={cancelRename}
+                          onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') cancelRename(); }}
                           className="text-base font-semibold bg-white dark:bg-slate-700 border border-blue-400 rounded px-1.5 py-0.5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                           autoFocus
                         />

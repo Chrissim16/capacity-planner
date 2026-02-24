@@ -9,14 +9,51 @@ import type {
   CapacityBreakdownItem,
   CapacityStatus,
   Warnings,
+  Sprint,
+  Assignment,
 } from '../types';
 import { 
   getWorkdaysInQuarter, 
   getHolidaysByCountry, 
   isQuarterInRange,
+  parseQuarter,
   getCurrentQuarter,
   getWorkdaysInDateRangeForQuarter,
 } from './calendar';
+import { getForecastedDays } from './confidence';
+
+/** Map a Jira sprint name to a quarter string ("Q1 2026") using configured sprints. */
+export function sprintNameToQuarter(sprintName: string | undefined, sprints: Sprint[]): string | null {
+  if (!sprintName) return null;
+  const lower = sprintName.toLowerCase();
+  const match = sprints.find(s => lower.includes(s.name.toLowerCase()));
+  return match ? match.quarter : null;
+}
+
+function phaseOverlapsQuarter(phase: { startDate?: string; endDate?: string; startQuarter?: string; endQuarter?: string }, quarter: string): boolean {
+  if (phase.startDate && phase.endDate) {
+    const q = parseQuarter(quarter);
+    if (!q) return false;
+    const start = new Date(phase.startDate);
+    const end = new Date(phase.endDate);
+    return start <= q.end && end >= q.start;
+  }
+  if (phase.startQuarter && phase.endQuarter) {
+    return isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter);
+  }
+  return false;
+}
+
+function getPhaseAssignments(
+  state: AppState,
+  projectId: string,
+  phase: { id: string; assignments: Assignment[] }
+): Assignment[] {
+  if (state.assignments && state.assignments.length > 0) {
+    return state.assignments.filter(a => a.projectId === projectId && a.phaseId === phase.id);
+  }
+  return phase.assignments;
+}
 
 /**
  * Calculate capacity for a team member in a specific quarter
@@ -70,17 +107,22 @@ export function calculateCapacity(
     breakdown.push({ type: 'timeoff', days: totalTimeOffDays });
   }
 
-  // Project assignments (in days)
+  // Project assignments (in days) — only count manual assignments
+  const hasJiraSyncedAssignment = new Set<string>();
   state.projects.forEach(project => {
     if (project.status === 'Completed') return;
     
     project.phases.forEach(phase => {
-      if (isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter)) {
-        const assignment = phase.assignments.find(
+      if (phaseOverlapsQuarter(phase, quarter)) {
+        const phaseAssignments = getPhaseAssignments(state, project.id, phase);
+        const matchingAssignments = phaseAssignments.filter(
           a => a.memberId === memberId && a.quarter === quarter
         );
-        if (assignment) {
-          const assignDays = assignment.days || 0;
+        if (matchingAssignments.length > 0) {
+          if (matchingAssignments.some(a => a.jiraSynced)) {
+            hasJiraSyncedAssignment.add(`${project.id}:${phase.id}`);
+          }
+          const assignDays = matchingAssignments.reduce((sum, a) => sum + (a.days || 0), 0);
           usedDays += assignDays;
           breakdown.push({
             type: 'project',
@@ -94,6 +136,59 @@ export function calculateCapacity(
       }
     });
   });
+
+  // Jira work items — direct capacity link
+  // Items with story points assigned to this member count against their capacity,
+  // skipping items already covered by a jiraSynced assignment (to avoid double-counting).
+  if (member.email && state.jiraWorkItems.length > 0) {
+    const memberEmail = member.email.toLowerCase();
+    const defaultConfidence = state.jiraSettings?.defaultConfidenceLevel ?? 'medium';
+
+    // Build set of Jira item IDs that are already covered by jiraSynced assignments
+    // by checking which items are mapped to phases that have jiraSynced assignments for this member+quarter
+    const coveredByAssignment = new Set<string>();
+    for (const item of state.jiraWorkItems) {
+      if (
+        item.mappedProjectId &&
+        item.mappedPhaseId &&
+        hasJiraSyncedAssignment.has(`${item.mappedProjectId}:${item.mappedPhaseId}`)
+      ) {
+        coveredByAssignment.add(item.jiraKey);
+      }
+    }
+
+    let jiraDays = 0;
+    const jiraItems: { key: string; summary: string; days: number }[] = [];
+
+    for (const item of state.jiraWorkItems) {
+      if (coveredByAssignment.has(item.jiraKey)) continue;
+      if (item.statusCategory === 'done') continue;
+      if (item.storyPoints == null) continue;
+      if (!item.assigneeEmail || item.assigneeEmail.toLowerCase() !== memberEmail) continue;
+
+      const itemQuarter = sprintNameToQuarter(item.sprintName, state.sprints);
+      if (itemQuarter !== quarter) continue;
+
+      const confidence = item.confidenceLevel ?? defaultConfidence;
+      const days = getForecastedDays(item.storyPoints, confidence);
+      if (days <= 0) continue;
+
+      jiraDays += days;
+      jiraItems.push({ key: item.jiraKey, summary: item.summary, days });
+    }
+
+    if (jiraDays > 0) {
+      usedDays += jiraDays;
+      for (const ji of jiraItems) {
+        breakdown.push({
+          type: 'jira',
+          days: ji.days,
+          jiraKey: ji.key,
+          jiraSummary: ji.summary,
+        });
+      }
+    }
+  }
 
   const availableDaysRaw = totalWorkdays - usedDays; // Can be negative
   const availableDays = Math.max(0, availableDaysRaw);
@@ -133,8 +228,9 @@ export function getMemberProjectCount(
     if (project.status === 'Completed') return;
     
     project.phases.forEach(phase => {
-      if (isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter)) {
-        const hasAssignment = phase.assignments.some(
+      if (phaseOverlapsQuarter(phase, quarter)) {
+        const phaseAssignments = getPhaseAssignments(state, project.id, phase);
+        const hasAssignment = phaseAssignments.some(
           a => a.memberId === memberId && a.quarter === quarter
         );
         if (hasAssignment) {
@@ -224,7 +320,8 @@ export function getWarnings(state: AppState): Warnings {
     
     project.phases.forEach(phase => {
       if (phase.requiredSkillIds && phase.requiredSkillIds.length > 0) {
-        phase.assignments.forEach(assignment => {
+        const phaseAssignments = getPhaseAssignments(state, project.id, phase);
+        phaseAssignments.forEach(assignment => {
           const member = state.teamMembers.find(m => m.id === assignment.memberId);
           if (!member) return;
           
@@ -316,7 +413,8 @@ export function getProjectAllocationSummary(
   const byMember: Record<string, number> = {};
 
   project.phases.forEach(phase => {
-    phase.assignments.forEach(assignment => {
+    const phaseAssignments = getPhaseAssignments(state, project.id, phase);
+    phaseAssignments.forEach(assignment => {
       totalDays += assignment.days;
       
       byQuarter[assignment.quarter] = 

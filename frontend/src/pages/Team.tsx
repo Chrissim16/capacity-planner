@@ -8,6 +8,7 @@ import { Modal } from '../components/ui/Modal';
 import { TeamMemberForm } from '../components/forms/TeamMemberForm';
 import { TimeOffForm } from '../components/forms/TimeOffForm';
 import { MemberCalendarModal } from '../components/ui/MemberCalendarModal';
+import { PageHeader } from '../components/layout/PageHeader';
 import { useCurrentState, useAppStore } from '../stores/appStore';
 import { deleteTeamMember } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
@@ -159,19 +160,16 @@ export function Team() {
           </span>
         </div>
       )}
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Team</h1>
-          <p className="text-slate-500 dark:text-slate-400">
-            {filteredMembers.length} team member{filteredMembers.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-        <Button onClick={() => setIsMemberFormOpen(true)}>
-          <Plus size={16} />
-          Add Member
-        </Button>
-      </div>
+      <PageHeader
+        title="Team"
+        subtitle={`${filteredMembers.length} members · ${countries.length} countries · VS Finance`}
+        actions={
+          <Button onClick={() => setIsMemberFormOpen(true)}>
+            <Plus size={16} />
+            Add Member
+          </Button>
+        }
+      />
 
       {/* Enrichment banner — shown when Jira-imported members are missing role/country */}
       {needsEnrichmentMembers.length > 0 && (

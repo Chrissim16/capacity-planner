@@ -6,6 +6,22 @@
 import { useAppStore } from './appStore';
 import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint } from '../types';
 
+function flattenProjectAssignments(projects: Project[]): Assignment[] {
+  const flattened: Assignment[] = [];
+  for (const project of projects) {
+    for (const phase of project.phases) {
+      for (const assignment of phase.assignments ?? []) {
+        flattened.push({
+          ...assignment,
+          projectId: project.id,
+          phaseId: phase.id,
+        });
+      }
+    }
+  }
+  return flattened;
+}
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // ID GENERATION
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -859,21 +875,12 @@ export function createScenario(name: string, description?: string): Scenario {
     isBaseline: false,
     projects: JSON.parse(JSON.stringify(currentState.projects)),
     teamMembers: JSON.parse(JSON.stringify(currentState.teamMembers)),
-    assignments: [], // Will be populated from project phases
+    assignments: currentState.assignments?.length
+      ? JSON.parse(JSON.stringify(currentState.assignments))
+      : flattenProjectAssignments(currentState.projects),
     timeOff: copiedTimeOff,
     jiraWorkItems: JSON.parse(JSON.stringify(currentState.jiraWorkItems)),
   };
-  
-  // Extract assignments from project phases
-  currentState.projects.forEach(project => {
-    project.phases.forEach(phase => {
-      phase.assignments.forEach(assignment => {
-        newScenario.assignments.push({
-          ...assignment,
-        });
-      });
-    });
-  });
   
   const scenarios = [...currentState.scenarios, newScenario];
   state.updateData({ scenarios, activeScenarioId: newScenario.id });

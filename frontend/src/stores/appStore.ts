@@ -83,6 +83,7 @@ const defaultAppState: AppState = {
   processTeams: [],
   teamMembers: [],
   projects: [],
+  assignments: [],
   timeOff: [],
   quarters: generateQuarters(8),
   sprints: [],
@@ -93,6 +94,34 @@ const defaultAppState: AppState = {
   activeScenarioId: null,
 };
 
+function flattenAssignmentsFromProjects(projects: AppState['projects']): AppState['assignments'] {
+  const flattened: AppState['assignments'] = [];
+  for (const project of projects) {
+    for (const phase of project.phases) {
+      for (const assignment of phase.assignments ?? []) {
+        flattened.push({
+          ...assignment,
+          projectId: project.id,
+          phaseId: phase.id,
+        });
+      }
+    }
+  }
+  return flattened;
+}
+
+function quarterToIsoRange(quarter: string): { startDate: string; endDate: string } | null {
+  const match = quarter.match(/^Q([1-4])\s+(\d{4})$/);
+  if (!match) return null;
+  const q = Number(match[1]);
+  const year = Number(match[2]);
+  const startMonth = (q - 1) * 3;
+  const start = new Date(Date.UTC(year, startMonth, 1));
+  const end = new Date(Date.UTC(year, startMonth + 3, 0));
+  const toIso = (d: Date) => d.toISOString().slice(0, 10);
+  return { startDate: toIso(start), endDate: toIso(end) };
+}
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // UI STATE
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -100,7 +129,6 @@ const defaultAppState: AppState = {
 interface UIState {
   currentView: ViewType;
   currentSettingsSection: string;
-  isWhatIfMode: boolean;
   teamViewMode: TeamViewMode;
   projectViewMode: ProjectViewMode;
   timelineViewMode: TimelineViewMode;
@@ -112,7 +140,6 @@ interface UIState {
 const defaultUIState: UIState = {
   currentView: 'dashboard',
   currentSettingsSection: 'general',
-  isWhatIfMode: false,
   teamViewMode: 'current',
   projectViewMode: 'list',
   timelineViewMode: 'quarter',
@@ -125,6 +152,56 @@ const defaultUIState: UIState = {
 // LOAD EXISTING DATA FROM ORIGINAL APP
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
+function migrate(data: Partial<AppState>, fromVersion: number): AppState {
+  const d = { ...data } as Partial<AppState> & Record<string, unknown>;
+
+  if (fromVersion < 10) {
+    if (!Array.isArray(d.processTeams)) d.processTeams = [];
+    if (!Array.isArray(d.squads)) d.squads = [];
+  }
+
+  const migratedProjects = Array.isArray(d.projects)
+    ? (d.projects as AppState['projects']).map((project) => ({
+        ...project,
+        phases: (project.phases ?? []).map((phase) => {
+          const next = { ...phase };
+          if ((!next.startDate || !next.endDate) && next.startQuarter && next.endQuarter) {
+            const startRange = quarterToIsoRange(next.startQuarter);
+            const endRange = quarterToIsoRange(next.endQuarter);
+            if (startRange && endRange) {
+              if (!next.startDate) next.startDate = startRange.startDate;
+              if (!next.endDate) next.endDate = endRange.endDate;
+            }
+          }
+          return next;
+        }),
+      }))
+    : [];
+
+  return {
+    ...defaultAppState,
+    ...d,
+    projects: migratedProjects,
+    settings: {
+      ...defaultSettings,
+      ...((d.settings as Partial<Settings>) ?? {}),
+    },
+    jiraSettings: {
+      ...defaultJiraSettings,
+      ...((d.jiraSettings as typeof defaultJiraSettings) ?? {}),
+    },
+    quarters: Array.isArray(d.quarters) && d.quarters.length > 0 ? d.quarters : generateQuarters(8),
+    sprints: Array.isArray(d.sprints) ? d.sprints : [],
+    jiraConnections: Array.isArray(d.jiraConnections) ? d.jiraConnections : [],
+    jiraWorkItems: Array.isArray(d.jiraWorkItems) ? d.jiraWorkItems : [],
+    scenarios: Array.isArray(d.scenarios) ? d.scenarios : [],
+    assignments: Array.isArray(d.assignments)
+      ? (d.assignments as AppState['assignments'])
+      : flattenAssignmentsFromProjects(migratedProjects),
+    activeScenarioId: (d.activeScenarioId as string | null | undefined) ?? null,
+  };
+}
+
 function loadExistingData(): AppState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -134,31 +211,7 @@ function loadExistingData(): AppState {
       // So we need to check the structure
       if (parsed && parsed.teamMembers) {
         console.log('[Store] Loaded existing data from localStorage');
-        // Merge settings with defaults to handle new fields added in updates
-        const mergedSettings: Settings = {
-          ...defaultSettings,
-          ...(parsed.settings || {}),
-        };
-        // Merge jiraSettings with defaults
-        const mergedJiraSettings = {
-          ...defaultJiraSettings,
-          ...(parsed.jiraSettings || {}),
-        };
-        return {
-          ...defaultAppState,
-          ...parsed,
-          // Merge settings properly so new fields have defaults
-          settings: mergedSettings,
-          // Ensure quarters are regenerated if missing
-          quarters: parsed.quarters?.length ? parsed.quarters : generateQuarters(8),
-          // Ensure new arrays exist
-          sprints: parsed.sprints || [],
-          jiraConnections: parsed.jiraConnections || [],
-          jiraWorkItems: parsed.jiraWorkItems || [],
-          jiraSettings: mergedJiraSettings,
-          scenarios: parsed.scenarios || [],
-          activeScenarioId: parsed.activeScenarioId ?? null,
-        };
+        return migrate(parsed, parsed.version ?? 0);
       }
     }
   } catch (e) {
@@ -174,7 +227,6 @@ function loadExistingData(): AppState {
 interface AppStore {
   // Data state
   data: AppState;
-  whatIfData: AppState | null;
   isLoading: boolean;
   isInitializing: boolean;  // True during first Supabase load (US-002)
   error: string | null;
@@ -197,10 +249,6 @@ interface AppStore {
   initializeFromSupabase: () => Promise<void>;
   retrySyncToSupabase: () => Promise<void>;
 
-  // What-If mode
-  enterWhatIfMode: () => void;
-  exitWhatIfMode: (save: boolean) => void;
-
   // UI actions
   setCurrentView: (view: ViewType) => void;
   setSettingsSection: (section: string) => void;
@@ -212,7 +260,7 @@ interface AppStore {
   setProjectSort: (sort: SortConfig) => void;
   toggleDarkMode: () => void;
 
-  // Helper to get current state (respects what-if mode and scenarios)
+  // Helper to get current state (respects scenarios)
   getCurrentState: () => AppState;
 
   // Sync with localStorage (for compatibility with original app)
@@ -249,6 +297,9 @@ const customStorage = {
             ...defaultAppState,
             ...parsed,
             settings: mergedSettings,
+            assignments: Array.isArray(parsed.assignments)
+              ? parsed.assignments
+              : flattenAssignmentsFromProjects(parsed.projects || []),
           },
           ui: defaultUIState,
         },
@@ -288,7 +339,6 @@ export const useAppStore = create<AppStore>()(
     (set, get) => ({
       // Initial state - load from existing localStorage
       data: loadExistingData(),
-      whatIfData: null,
       isLoading: false,
       isInitializing: isSupabaseConfigured(), // true until Supabase load completes
       error: null,
@@ -323,6 +373,9 @@ export const useAppStore = create<AppStore>()(
               jiraConnections: cloudData.jiraConnections || [],
               jiraWorkItems: cloudData.jiraWorkItems || [],
               scenarios: cloudData.scenarios || [],
+              assignments: cloudData.assignments?.length
+                ? cloudData.assignments
+                : flattenAssignmentsFromProjects(cloudData.projects || []),
               activeScenarioId: cloudData.activeScenarioId ?? null,
             };
             set({ data: hydratedData });
@@ -357,108 +410,75 @@ export const useAppStore = create<AppStore>()(
 
       updateData: (updates) => {
         const state = get();
-        if (state.ui.isWhatIfMode && state.whatIfData) {
-          set({
-            whatIfData: {
-              ...state.whatIfData,
-              ...updates,
-              lastModified: new Date().toISOString(),
-            },
-          });
-        } else {
-          const data = state.data;
-          const scenarioFields = ['projects', 'teamMembers', 'timeOff', 'jiraWorkItems'] as const;
-          const hasScenarioFieldUpdates = scenarioFields.some(field => field in updates);
-          
-          // If a scenario is active and we're updating scenario-specific fields,
-          // update the scenario instead of the baseline
-          if (data.activeScenarioId && hasScenarioFieldUpdates) {
-            const scenarioIndex = data.scenarios.findIndex(s => s.id === data.activeScenarioId);
-            if (scenarioIndex !== -1) {
-              const updatedScenario = {
-                ...data.scenarios[scenarioIndex],
-                updatedAt: new Date().toISOString(),
-              };
-              
-              // Apply scenario-specific updates to the scenario
-              for (const field of scenarioFields) {
-                if (field in updates) {
-                  (updatedScenario as Record<string, unknown>)[field] = updates[field as keyof typeof updates];
-                }
+        const data = state.data;
+        const normalizedUpdates: Partial<AppState> =
+          updates.projects && !updates.assignments
+            ? {
+                ...updates,
+                assignments: flattenAssignmentsFromProjects(updates.projects),
               }
-              
-              // Build baseline updates (non-scenario fields only)
-              const baselineUpdates: Partial<AppState> = {};
-              for (const key in updates) {
-                if (!scenarioFields.includes(key as typeof scenarioFields[number])) {
-                  (baselineUpdates as Record<string, unknown>)[key] = updates[key as keyof typeof updates];
-                }
+            : updates;
+        const scenarioFields = ['projects', 'teamMembers', 'assignments', 'timeOff', 'jiraWorkItems'] as const;
+        const hasScenarioFieldUpdates = scenarioFields.some(field => field in normalizedUpdates);
+        
+        // If a scenario is active and we're updating scenario-specific fields,
+        // update the scenario instead of the baseline
+        if (data.activeScenarioId && hasScenarioFieldUpdates) {
+          const scenarioIndex = data.scenarios.findIndex(s => s.id === data.activeScenarioId);
+          if (scenarioIndex !== -1) {
+            const updatedScenario = {
+              ...data.scenarios[scenarioIndex],
+              updatedAt: new Date().toISOString(),
+            };
+            
+            // Apply scenario-specific updates to the scenario
+            for (const field of scenarioFields) {
+              if (field in normalizedUpdates) {
+                (updatedScenario as Record<string, unknown>)[field] = normalizedUpdates[field as keyof typeof normalizedUpdates];
               }
-              
-              const updatedScenarios = [...data.scenarios];
-              updatedScenarios[scenarioIndex] = updatedScenario;
-              
-              const newData = {
-                ...data,
-                ...baselineUpdates,
-                scenarios: updatedScenarios,
-                lastModified: new Date().toISOString(),
-              };
-              set({ data: newData });
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-              scheduleSyncToSupabase(newData, (status, error) =>
-                get().setSyncStatus(status as SyncStatus, error)
-              );
-              return;
             }
+            
+            // Build baseline updates (non-scenario fields only)
+            const baselineUpdates: Partial<AppState> = {};
+            for (const key in normalizedUpdates) {
+              if (!scenarioFields.includes(key as typeof scenarioFields[number])) {
+                (baselineUpdates as Record<string, unknown>)[key] = normalizedUpdates[key as keyof typeof normalizedUpdates];
+              }
+            }
+            
+            const updatedScenarios = [...data.scenarios];
+            updatedScenarios[scenarioIndex] = updatedScenario;
+            
+            const newData = {
+              ...data,
+              ...baselineUpdates,
+              scenarios: updatedScenarios,
+              lastModified: new Date().toISOString(),
+            };
+            set({ data: newData });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+            scheduleSyncToSupabase(newData, (status, error) =>
+              get().setSyncStatus(status as SyncStatus, error)
+            );
+            return;
           }
-
-          // No active scenario or no scenario-specific updates - update baseline normally
-          const newData = {
-            ...data,
-            ...updates,
-            lastModified: new Date().toISOString(),
-          };
-          set({ data: newData });
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-          scheduleSyncToSupabase(newData, (status, error) =>
-            get().setSyncStatus(status as SyncStatus, error)
-          );
         }
+
+        // No active scenario or no scenario-specific updates - update baseline normally
+        const newData = {
+          ...data,
+          ...normalizedUpdates,
+          lastModified: new Date().toISOString(),
+        };
+        set({ data: newData });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        scheduleSyncToSupabase(newData, (status, error) =>
+          get().setSyncStatus(status as SyncStatus, error)
+        );
       },
       
       setLoading: (isLoading) => set({ isLoading }),
       setError: (error) => set({ error }),
-      
-      // What-If mode
-      enterWhatIfMode: () => {
-        const state = get();
-        set({
-          whatIfData: JSON.parse(JSON.stringify(state.data)),
-          ui: { ...state.ui, isWhatIfMode: true },
-        });
-      },
-      
-      exitWhatIfMode: (save) => {
-        const state = get();
-        if (save && state.whatIfData) {
-          const newData = state.whatIfData;
-          set({
-            data: newData,
-            whatIfData: null,
-            ui: { ...state.ui, isWhatIfMode: false },
-          });
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-          scheduleSyncToSupabase(newData, (status, error) =>
-            get().setSyncStatus(status as SyncStatus, error)
-          );
-        } else {
-          set({
-            whatIfData: null,
-            ui: { ...state.ui, isWhatIfMode: false },
-          });
-        }
-      },
       
       // UI actions
       setCurrentView: (view) =>
@@ -526,19 +546,21 @@ export const useAppStore = create<AppStore>()(
       // Helper - returns current state respecting active scenario
       getCurrentState: () => {
         const state = get();
-        const data = state.ui.isWhatIfMode && state.whatIfData
-          ? state.whatIfData
-          : state.data;
+        const data = state.data;
         
         // If a scenario is active, merge scenario data with baseline
         if (data.activeScenarioId) {
           const activeScenario = data.scenarios.find(s => s.id === data.activeScenarioId);
           if (activeScenario) {
+            const scenarioAssignments = activeScenario.assignments?.length
+              ? activeScenario.assignments
+              : flattenAssignmentsFromProjects(activeScenario.projects);
             return {
               ...data,
               // Override with scenario-specific data
               projects: activeScenario.projects,
               teamMembers: activeScenario.teamMembers,
+              assignments: scenarioAssignments,
               timeOff: activeScenario.timeOff,
               jiraWorkItems: activeScenario.jiraWorkItems,
             };
@@ -576,7 +598,6 @@ export const useAppStore = create<AppStore>()(
 
 // Selectors that return primitives — safe as-is with React 19 useSyncExternalStore
 export const useCurrentView = () => useAppStore((state) => state.ui.currentView);
-export const useIsWhatIfMode = () => useAppStore((state) => state.ui.isWhatIfMode);
 export const useIsLoading = () => useAppStore((state) => state.isLoading);
 export const useIsInitializing = () => useAppStore((state) => state.isInitializing);
 export const useError = () => useAppStore((state) => state.error);

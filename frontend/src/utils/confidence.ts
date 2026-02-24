@@ -30,7 +30,7 @@ export function getForecastedDays(rawDays: number, level: ConfidenceLevel): numb
  * Story points field is used directly as days (1 SP = 1 day).
  * Falls back to defaultDaysPerItem when no story points are set.
  */
-export function getRawDays(item: JiraWorkItem, defaultDaysPerItem = 1): number {
+export function getRawDays(item: JiraWorkItem, defaultDaysPerItem = 0): number {
   return item.storyPoints ?? defaultDaysPerItem;
 }
 
@@ -50,7 +50,7 @@ export interface RollupResult {
 export function computeRollup(
   items: JiraWorkItem[],
   defaultConfidence: ConfidenceLevel,
-  defaultDaysPerItem = 1
+  defaultDaysPerItem = 0
 ): Map<string, RollupResult> {
   const byKey = new Map(items.map(i => [i.jiraKey, i]));
   const childrenOf = new Map<string, JiraWorkItem[]>();

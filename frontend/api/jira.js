@@ -1,15 +1,29 @@
 const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'DELETE'];
+const ALLOWED_JIRA_HOSTS = ['atlassian.net'];
+const ALLOWED_ORIGIN = process.env.FRONTEND_URL || 'https://capacity-planner-mw.vercel.app';
+
+function isAllowedJiraUrl(urlString) {
+  try {
+    const parsed = new URL(urlString);
+    if (parsed.protocol !== 'https:') return false;
+    return ALLOWED_JIRA_HOSTS.some((host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`));
+  } catch {
+    return false;
+  }
+}
 
 export default async function handler(req, res) {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
     res.setHeader('Access-Control-Allow-Methods', ALLOWED_METHODS.join(', '));
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Jira-Base-Url');
+    res.setHeader('Vary', 'Origin');
     return res.status(200).end();
   }
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.setHeader('Vary', 'Origin');
 
   if (!ALLOWED_METHODS.includes(req.method || '')) {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -19,8 +33,8 @@ export default async function handler(req, res) {
     const jiraBaseUrl = req.headers['x-jira-base-url'];
     const jiraPath = req.query.path;
 
-    if (!jiraBaseUrl) {
-      return res.status(400).json({ error: 'Missing X-Jira-Base-Url header' });
+    if (!jiraBaseUrl || !isAllowedJiraUrl(String(jiraBaseUrl))) {
+      return res.status(400).json({ error: 'Invalid or missing Jira base URL' });
     }
     if (!jiraPath) {
       return res.status(400).json({ error: 'Missing path query parameter' });

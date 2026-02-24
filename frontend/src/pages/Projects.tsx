@@ -12,6 +12,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
+import { PageHeader } from '../components/layout/PageHeader';
 import { ProjectForm } from '../components/forms/ProjectForm';
 import { AssignmentModal } from '../components/forms/AssignmentModal';
 import { useCurrentState, useAppStore } from '../stores/appStore';
@@ -281,36 +282,32 @@ export function Projects() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Epics</h1>
-          <p className="text-slate-500 dark:text-slate-400">
-            {filteredProjects.length} epic{filteredProjects.length !== 1 ? 's' : ''}
-            {showArchived && ' (archived)'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {archivedCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowArchived(v => !v)}
-            >
-              {showArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
-              {showArchived ? 'Hide archived' : `Archived (${archivedCount})`}
+      <PageHeader
+        title="Epics"
+        subtitle="Change projects and initiatives"
+        actions={
+          <div className="flex items-center gap-2">
+            {archivedCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowArchived(v => !v)}
+              >
+                {showArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+                {showArchived ? 'Hide archived' : `Archived (${archivedCount})`}
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => setIsAssignmentOpen(true)}>
+              <UserPlus size={16} />
+              Assign Team
             </Button>
-          )}
-          <Button variant="secondary" onClick={() => setIsAssignmentOpen(true)}>
-            <UserPlus size={16} />
-            Assign Team
-          </Button>
-          <Button onClick={() => { setEditingProject(null); setIsFormOpen(true); }}>
-            <Plus size={16} />
-            New Epic
-          </Button>
-        </div>
-      </div>
+            <Button onClick={() => { setEditingProject(null); setIsFormOpen(true); }}>
+              <Plus size={16} />
+              New Epic
+            </Button>
+          </div>
+        }
+      />
 
       {/* ── Jira Sync Strip ───────────────────────────────────────────────── */}
       {jiraWorkItems.length > 0 ? (

@@ -18,6 +18,7 @@ import type {
   JiraSettings,
 } from '../types';
 import { getRawDays, getForecastedDays } from '../utils/confidence';
+import { sprintNameToQuarter } from '../utils/capacity';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -25,14 +26,6 @@ import { getRawDays, getForecastedDays } from '../utils/confidence';
 
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-/** Return a "Q1 2026" string for the given sprint name by scanning app sprints. */
-function sprintNameToQuarter(sprintName: string | undefined, sprints: Sprint[]): string | null {
-  if (!sprintName) return null;
-  const lower = sprintName.toLowerCase();
-  const match = sprints.find(s => lower.includes(s.name.toLowerCase()));
-  return match ? match.quarter : null;
 }
 
 /** Derive a quarter from a date string (YYYY-MM-DD). */
@@ -316,7 +309,7 @@ export function buildAssignmentsFromJira(
   projects: Project[],
   sprints: Sprint[],
   jiraSettings: JiraSettings,
-  defaultDaysPerItem = 1
+  defaultDaysPerItem = 0
 ): AssignmentBuildResult {
   const memberByEmail = new Map(
     teamMembers

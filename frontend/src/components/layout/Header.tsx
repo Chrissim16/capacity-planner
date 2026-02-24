@@ -59,7 +59,7 @@ function useScenarioDiff(scenarioId: string | null) {
 }
 
 const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string; shortcut: string }[] = [
-  { view: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', shortcut: '1' },
+  { view: 'dashboard', icon: LayoutDashboard, label: 'Capacity', shortcut: '1' },
   { view: 'timeline', icon: Calendar, label: 'Timeline', shortcut: '2' },
   { view: 'projects', icon: FolderKanban, label: 'Epics', shortcut: '3' },
   { view: 'team', icon: Users, label: 'Team', shortcut: '4' },

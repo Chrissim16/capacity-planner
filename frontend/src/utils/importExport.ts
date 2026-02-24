@@ -135,7 +135,7 @@ export async function exportToExcel(state: AppState, filename = 'capacity-planne
   state.projects.forEach(p => {
     p.phases.forEach(ph => {
       phasesData.push([
-        p.id, ph.id, ph.name, ph.startQuarter, ph.endQuarter,
+        p.id, ph.id, ph.name, ph.startQuarter ?? '', ph.endQuarter ?? '',
         (ph.requiredSkillIds || []).join(';'),
         ph.startDate || '', ph.endDate || '', ph.notes || '',
       ]);

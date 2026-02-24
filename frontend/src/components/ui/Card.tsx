@@ -12,9 +12,9 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={clsx(
-          'rounded-xl border bg-white dark:bg-slate-800',
-          variant === 'default' && 'border-slate-200 dark:border-slate-700 shadow-sm',
-          variant === 'outlined' && 'border-slate-300 dark:border-slate-600',
+          'rounded-card border bg-white dark:bg-[#132133]',
+          variant === 'default' && 'border-mw-grey-light dark:border-[#1E3550] shadow-sm',
+          variant === 'outlined' && 'border-mw-grey dark:border-[#2A4A6B]',
           className
         )}
         {...props}
@@ -31,7 +31,7 @@ export const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEleme
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={clsx('px-5 py-4 border-b border-slate-200 dark:border-slate-700', className)}
+      className={clsx('px-5 py-4 border-b border-mw-grey-light dark:border-[#1E3550]', className)}
       {...props}
     />
   )
@@ -43,7 +43,7 @@ export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadi
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={clsx('text-lg font-semibold text-slate-900 dark:text-slate-100', className)}
+      className={clsx('text-lg font-semibold text-mw-dark dark:text-white', className)}
       {...props}
     />
   )

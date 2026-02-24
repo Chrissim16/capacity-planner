@@ -5,12 +5,13 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { ProgressBar } from '../components/ui/ProgressBar';
+import { PageHeader } from '../components/layout/PageHeader';
 import { AssignmentModal } from '../components/forms/AssignmentModal';
 import { useAppStore, useCurrentState } from '../stores/appStore';
 import { calculateCapacity } from '../utils/capacity';
-import { isQuarterInRange, getCurrentQuarter, getWorkWeeksInQuarter, getWorkdaysInDateRangeForQuarter } from '../utils/calendar';
+import { isQuarterInRange, getCurrentQuarter, getWorkdaysInQuarter, getWorkdaysInDateRangeForQuarter } from '../utils/calendar';
 import { generateSprints, getSprintsForQuarter, formatDateRange, getWorkdaysInSprint } from '../utils/sprints';
-import type { Project, TeamMember, Sprint } from '../types';
+import type { Project, TeamMember, Sprint, PublicHoliday } from '../types';
 
 type TimelineView = 'projects' | 'team';
 type TimelineGranularity = 'quarter' | 'sprint' | 'dates';
@@ -61,6 +62,11 @@ export function Timeline() {
   // Generate all sprints
   const allSprints = useMemo(() => generateSprints(settings, 2), [settings]);
   
+  const defaultCountryHolidays = useMemo(
+    () => publicHolidays.filter(h => h.countryId === settings.defaultCountryId),
+    [publicHolidays, settings.defaultCountryId]
+  );
+
   // Get visible quarters
   const visibleQuarters = quarters.slice(startQuarterIndex, startQuarterIndex + quartersToShow);
 
@@ -121,18 +127,11 @@ export function Timeline() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Timeline</h1>
-          <p className="text-slate-500 dark:text-slate-400">
-            {viewMode === 'projects' 
-              ? `${filteredProjects.length} projects` 
-              : `${teamMembers.length} team members`}
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
+      <PageHeader
+        title="Timeline"
+        subtitle="Q1–Q4 2026 · VS Finance · Mileway BV"
+        actions={
+          <div className="flex items-center gap-3">
           {/* View Toggle */}
           <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
             <button
@@ -225,8 +224,9 @@ export function Timeline() {
               options={toOptions}
             />
           </div>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Timeline */}
       <Card>
@@ -271,8 +271,7 @@ export function Timeline() {
             ) : granularity === 'quarter' ? (
               // Quarter headers — show working day count per quarter
               visibleQuarters.map(quarter => {
-                const workWeeks = getWorkWeeksInQuarter(quarter, []);
-                const workDays = Math.round(workWeeks * 5);
+                const workDays = getWorkdaysInQuarter(quarter, defaultCountryHolidays);
                 return (
                   <div
                     key={quarter}
@@ -361,6 +360,7 @@ export function Timeline() {
                     getStatusColor={getStatusColor}
                     onAssign={openAssign}
                     teamMembers={teamMembers}
+                    publicHolidays={defaultCountryHolidays}
                   />
                 ))
               )}
@@ -496,8 +496,8 @@ function DateView({ projects, months, getPriorityColor, getStatusColor, onAssign
         let projEnd = project.endDate;
         if (!projStart && !projEnd && project.phases.length > 0) {
           const allQuarters = project.phases.flatMap(ph => {
-            const r = quarterToDateRange(ph.startQuarter);
-            const r2 = quarterToDateRange(ph.endQuarter);
+            const r = quarterToDateRange(ph.startQuarter ?? 'Q1 2026');
+            const r2 = quarterToDateRange(ph.endQuarter ?? 'Q1 2026');
             return [r.start, r2.end];
           });
           projStart = allQuarters.sort()[0];
@@ -557,8 +557,8 @@ function DateView({ projects, months, getPriorityColor, getStatusColor, onAssign
 
               {/* Phase bars below project bar */}
               {project.phases.map((phase, pIdx) => {
-                const phStart = phase.startDate ?? quarterToDateRange(phase.startQuarter).start;
-                const phEnd = phase.endDate ?? quarterToDateRange(phase.endQuarter).end;
+                const phStart = phase.startDate ?? quarterToDateRange(phase.startQuarter ?? 'Q1 2026').start;
+                const phEnd = phase.endDate ?? quarterToDateRange(phase.endQuarter ?? 'Q1 2026').end;
                 const phStyle = getBarStyle(phStart, phEnd);
                 if (!phStyle) return null;
                 const top = `${50 + 26 + pIdx * 18}%`;
@@ -599,9 +599,10 @@ interface ProjectRowProps {
   getStatusColor: (status: string) => string;
   onAssign?: (projectId: string, phaseId?: string) => void;
   teamMembers: TeamMember[];
+  publicHolidays: PublicHoliday[];
 }
 
-function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor, onAssign, teamMembers }: ProjectRowProps) {
+function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor, onAssign, teamMembers, publicHolidays }: ProjectRowProps) {
   const getMemberName = (id: string) => teamMembers.find(m => m.id === id)?.name ?? 'Unknown';
   // US-044: collapse/expand feature sub-rows
   const [expanded, setExpanded] = useState(false);
@@ -611,7 +612,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
   if (granularity === 'quarter') {
     const quarterData = quarters.map(quarter => {
       const activePhases = project.phases.filter(phase =>
-        isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter)
+        isQuarterInRange(quarter, phase.startQuarter ?? quarter, phase.endQuarter ?? quarter)
       );
       const totalDays = activePhases.reduce((sum, phase) =>
         sum + phase.assignments.reduce((asum, a) => a.quarter === quarter ? asum + a.days : asum, 0), 0
@@ -686,7 +687,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
         {/* Feature sub-rows — shown when expanded */}
         {expanded && project.phases.map(phase => {
           const phaseQuarterData = quarters.map(quarter => {
-            const isActive = isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter);
+            const isActive = isQuarterInRange(quarter, phase.startQuarter ?? quarter, phase.endQuarter ?? quarter);
             const quarterAssignments = isActive
               ? phase.assignments.filter(a => a.quarter === quarter)
               : [];
@@ -710,7 +711,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                 </div>
                 <div className="flex items-center gap-2 mt-1 pl-3.5 flex-wrap">
                   <span className="text-xs text-slate-400 dark:text-slate-500">
-                    {phase.startQuarter}{phase.endQuarter !== phase.startQuarter ? ` – ${phase.endQuarter}` : ''}
+                    {phase.startQuarter ?? 'No quarter'}{phase.endQuarter && phase.endQuarter !== phase.startQuarter ? ` – ${phase.endQuarter}` : ''}
                   </span>
                   {allAssignees.length > 0 && (
                     <span className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate">
@@ -764,21 +765,22 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
   // ── Sprint view ──────────────────────────────────────────────────────────────
   const sprintCells = quarters.flatMap(quarter => {
     const sprintsInQ = getSprintsForQuarter(quarter, sprints);
+    const activeSprintCount = sprintsInQ.filter(s => !s.isByeWeek).length || 1;
     return sprintsInQ.map(sprint => {
       const activePhases = project.phases.filter(phase =>
-        isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter)
+        isQuarterInRange(quarter, phase.startQuarter ?? quarter, phase.endQuarter ?? quarter)
       );
       const sprintDays = activePhases.reduce((sum, phase) =>
         sum + phase.assignments.reduce((asum, a) => {
           if (a.sprint === `${sprint.name} ${sprint.year}`) return asum + a.days;
-          if (a.quarter === quarter && !a.sprint) {
-            const sprintCount = sprintsInQ.length || 1;
-            return asum + (a.days / sprintCount);
+          if (a.quarter === quarter && !a.sprint && !sprint.isByeWeek) {
+            return asum + (a.days / activeSprintCount);
           }
           return asum;
         }, 0), 0
       );
-      return { sprint, activePhases, sprintDays };
+      const sprintWorkdays = sprint.isByeWeek ? 0 : getWorkdaysInSprint(sprint, publicHolidays);
+      return { sprint, activePhases, sprintDays, sprintWorkdays };
     });
   });
 
@@ -807,7 +809,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
           </div>
         </div>
 
-        {sprintCells.map(({ sprint, activePhases, sprintDays }) => (
+        {sprintCells.map(({ sprint, activePhases, sprintDays, sprintWorkdays }) => (
           <div
             key={sprint.id}
             className={`flex-1 min-w-[120px] px-2 py-3 border-l border-slate-100 dark:border-slate-800 ${
@@ -823,7 +825,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                 <div className="h-2 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden group-hover:ring-2 group-hover:ring-blue-400 transition-all">
                   <div
                     className="h-full bg-blue-500 dark:bg-blue-500 rounded-full"
-                    style={{ width: `${Math.min(100, (sprintDays / 15) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (sprintDays / Math.max(sprintWorkdays, 1)) * 100)}%` }}
                   />
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 text-center">
@@ -839,19 +841,20 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
       {expanded && project.phases.map(phase => {
         const phaseSprintCells = quarters.flatMap(quarter => {
           const sprintsInQ = getSprintsForQuarter(quarter, sprints);
+          const activeSprintCount = sprintsInQ.filter(s => !s.isByeWeek).length || 1;
           return sprintsInQ.map(sprint => {
-            const isActive = isQuarterInRange(quarter, phase.startQuarter, phase.endQuarter);
+            const isActive = isQuarterInRange(quarter, phase.startQuarter ?? quarter, phase.endQuarter ?? quarter);
             const days = isActive
               ? phase.assignments.reduce((sum, a) => {
                   if (a.sprint === `${sprint.name} ${sprint.year}`) return sum + a.days;
-                  if (a.quarter === quarter && !a.sprint) {
-                    const sc = sprintsInQ.length || 1;
-                    return sum + (a.days / sc);
+                  if (a.quarter === quarter && !a.sprint && !sprint.isByeWeek) {
+                    return sum + (a.days / activeSprintCount);
                   }
                   return sum;
                 }, 0)
               : 0;
-            return { sprint, isActive, days };
+            const sprintWorkdays = sprint.isByeWeek ? 0 : getWorkdaysInSprint(sprint, publicHolidays);
+            return { sprint, isActive, days, sprintWorkdays };
           });
         });
         return (
@@ -867,7 +870,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                 {phase.startQuarter} – {phase.endQuarter}
               </div>
             </div>
-            {phaseSprintCells.map(({ sprint, isActive, days }) => (
+            {phaseSprintCells.map(({ sprint, isActive, days, sprintWorkdays }) => (
               <div
                 key={sprint.id}
                 className={`flex-1 min-w-[120px] px-2 py-2 border-l border-slate-100 dark:border-slate-800 ${
@@ -883,7 +886,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                     <div className="h-1.5 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-blue-400 dark:bg-blue-500 rounded-full"
-                        style={{ width: `${Math.min(100, (days / 15) * 100)}%` }}
+                        style={{ width: `${Math.min(100, (days / Math.max(sprintWorkdays, 1)) * 100)}%` }}
                       />
                     </div>
                     <div className="text-[9px] text-slate-400 text-center">{days.toFixed(1)}d</div>
@@ -981,9 +984,13 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
   const sprintCells = quarters.flatMap(quarter => {
     const sprintsInQ = getSprintsForQuarter(quarter, sprints);
     const quarterCapacity = calculateCapacity(member.id, quarter, state);
-    const sprintWorkdays = Math.round(quarterCapacity.totalWorkdays / (sprintsInQ.length || 1));
+    const activeSprintCount = sprintsInQ.filter(s => !s.isByeWeek).length || 1;
+    const memberHolidays = state.publicHolidays.filter(
+      h => h.countryId === (member.countryId || state.settings.defaultCountryId)
+    );
     
     return sprintsInQ.map(sprint => {
+      const sprintWorkdays = sprint.isByeWeek ? 0 : getWorkdaysInSprint(sprint, memberHolidays);
       // Calculate sprint-specific allocation from assignments
       let sprintDays = 0;
       state.projects.forEach(project => {
@@ -992,16 +999,18 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
             if (a.memberId !== member.id) return;
             if (a.sprint === `${sprint.name} ${sprint.year}`) {
               sprintDays += a.days;
-            } else if (a.quarter === quarter && !a.sprint) {
+            } else if (a.quarter === quarter && !a.sprint && !sprint.isByeWeek) {
               // Distribute quarter assignment across sprints
-              sprintDays += a.days / (sprintsInQ.length || 1);
+              sprintDays += a.days / activeSprintCount;
             }
           });
         });
       });
       
-      // Add BAU (distributed across sprints)
-      const bauPerSprint = (quarterCapacity.breakdown.find(b => b.type === 'bau')?.days || 0) / (sprintsInQ.length || 1);
+      // Add BAU (distributed across active sprints, excludes bye weeks)
+      const bauPerSprint = sprint.isByeWeek
+        ? 0
+        : (quarterCapacity.breakdown.find(b => b.type === 'bau')?.days || 0) / activeSprintCount;
       sprintDays += bauPerSprint;
       
       const usedPercent = sprintWorkdays > 0 ? Math.round((sprintDays / sprintWorkdays) * 100) : 0;

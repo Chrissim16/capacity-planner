@@ -9,7 +9,13 @@ import type { QuarterRange, PublicHoliday } from '../types';
  * Parse a quarter string (e.g., "Q1 2026") to a date range
  */
 export function parseQuarter(quarterStr: string): QuarterRange | null {
-  const match = quarterStr.match(/Q(\d)\s+(\d{4})/);
+  // Accept both "Q1 2026" and "2026-Q1"
+  const normalized = quarterStr.trim();
+  let match = normalized.match(/^Q([1-4])\s+(\d{4})$/);
+  if (!match) {
+    const alt = normalized.match(/^(\d{4})-Q([1-4])$/);
+    if (alt) match = [normalized, alt[2], alt[1]];
+  }
   if (!match) return null;
   
   const q = parseInt(match[1]);

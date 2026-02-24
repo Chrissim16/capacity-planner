@@ -38,6 +38,7 @@ import type {
   ProcessTeam,
   Settings,
   JiraSettings,
+  Assignment,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
 
@@ -78,6 +79,22 @@ const DEFAULT_JIRA_SETTINGS: JiraSettings = {
   defaultConfidenceLevel: 'medium',
 };
 
+function flattenAssignmentsFromProjects(projects: Project[]): Assignment[] {
+  const flattened: Assignment[] = [];
+  for (const project of projects) {
+    for (const phase of project.phases) {
+      for (const assignment of phase.assignments ?? []) {
+        flattened.push({
+          ...assignment,
+          projectId: project.id,
+          phaseId: phase.id,
+        });
+      }
+    }
+  }
+  return flattened;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LOAD
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,7 +114,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       rolesRes, countriesRes, holidaysRes, skillsRes, systemsRes,
       squadsRes, processTeamsRes,
       teamMembersRes, projectsRes, timeOffRes, settingsRes,
-      sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes,
+      sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes, assignmentsRes,
     ] = await Promise.all([
       supabase.from('roles').select('*').order('name'),
       supabase.from('countries').select('*').order('name'),
@@ -114,6 +131,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       supabase.from('jira_connections').select('*').order('created_at'),
       supabase.from('jira_work_items').select('*'),
       supabase.from('scenarios').select('*').order('created_at'),
+      supabase.from('assignments').select('*'),
     ]);
 
     // Log any table errors but continue with empty arrays — partial data is
@@ -123,7 +141,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       rolesRes, countriesRes, holidaysRes, skillsRes, systemsRes,
       squadsRes, processTeamsRes,
       teamMembersRes, projectsRes, timeOffRes, settingsRes,
-      sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes,
+      sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes, assignmentsRes,
     ];
     const errorCount = allResults.filter(r => r.error).length;
 
@@ -303,6 +321,16 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       jiraWorkItems: Array.isArray(s.jira_work_items) ? s.jira_work_items : [],
     }));
 
+    const assignments: Assignment[] = (assignmentsRes.data ?? []).map(a => ({
+      projectId: a.project_id,
+      phaseId: a.phase_id,
+      memberId: a.member_id,
+      quarter: a.quarter,
+      days: Number(a.days ?? 0),
+      sprint: a.sprint ?? undefined,
+      jiraSynced: a.jira_synced ?? undefined,
+    }));
+
     // Settings are stored as key-value pairs in the settings table
     const settingsMap = Object.fromEntries(
       (settingsRes.data ?? []).map((r: { key: string; value: unknown }) => [r.key, r.value])
@@ -324,6 +352,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       countries.length > 0 ||
       teamMembers.length > 0 ||
       projects.length > 0 ||
+      assignments.length > 0 ||
       (settingsRes.data ?? []).length > 0;
 
     if (!hasAnyData) {
@@ -351,6 +380,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       processTeams,
       teamMembers,
       projects,
+      assignments: assignments.length > 0 ? assignments : flattenAssignmentsFromProjects(projects),
       timeOff,
       quarters: generateQuarters(8),
       sprints,
@@ -394,6 +424,7 @@ export async function saveToSupabase(state: AppState): Promise<void> {
     ['process_teams',    syncProcessTeams(state.processTeams)],
     ['team_members',     syncTeamMembers(state.teamMembers)],
     ['projects',         syncProjects(state.projects)],
+    ['assignments',      syncAssignments(state.assignments.length > 0 ? state.assignments : flattenAssignmentsFromProjects(state.projects))],
     ['time_off',         syncTimeOff(state.timeOff)],
     ['sprints',          syncSprints(state.sprints)],
     ['jira_connections', syncJiraConnections(state.jiraConnections)],
@@ -550,6 +581,35 @@ async function syncProjects(projects: Project[]): Promise<void> {
       synced_from_jira: p.syncedFromJira ?? false,
     })
   );
+}
+
+async function syncAssignments(assignments: Assignment[]): Promise<void> {
+  try {
+    await upsertAndPrune(
+      'assignments',
+      assignments.map((a, idx) => ({
+        id: `${a.projectId ?? 'project'}:${a.phaseId ?? 'phase'}:${a.memberId}:${a.quarter}:${a.sprint ?? 'quarter'}:${idx}`,
+        ...a,
+      })),
+      a => ({
+        id: a.id,
+        project_id: a.projectId ?? null,
+        phase_id: a.phaseId ?? null,
+        member_id: a.memberId,
+        quarter: a.quarter,
+        days: a.days,
+        sprint: a.sprint ?? null,
+        jira_synced: a.jiraSynced ?? false,
+      })
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('relation "assignments" does not exist')) {
+      console.warn('[Sync] assignments table missing — run migration to enable flattened assignments.');
+      return;
+    }
+    throw err;
+  }
 }
 
 async function syncTimeOff(timeOff: TimeOff[]): Promise<void> {
@@ -772,6 +832,7 @@ type SyncCallback = (status: 'saving' | 'saved' | 'error', error?: string) => vo
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingState: AppState | null = null;
+let isSaving = false;
 
 /**
  * Schedule a debounced save to Supabase.
@@ -787,6 +848,13 @@ export function scheduleSyncToSupabase(state: AppState, onStatus: SyncCallback):
 
   syncTimer = setTimeout(async () => {
     if (!pendingState) return;
+    if (isSaving) {
+      // A save is already in-flight; keep the latest pending state and try again.
+      scheduleSyncToSupabase(pendingState, onStatus);
+      return;
+    }
+
+    isSaving = true;
     const stateToSave = pendingState;
     pendingState = null;
 
@@ -797,6 +865,8 @@ export function scheduleSyncToSupabase(state: AppState, onStatus: SyncCallback):
       const msg = err instanceof Error ? err.message : String(err);
       console.error('[Sync] Save failed:', msg);
       onStatus('error', msg);
+    } finally {
+      isSaving = false;
     }
   }, 1500);
 }

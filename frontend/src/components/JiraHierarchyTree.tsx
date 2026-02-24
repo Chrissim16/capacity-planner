@@ -271,38 +271,14 @@ function TreeRow({
             {item.status}
           </Badge>
 
-          {/* Leaf items: days + confidence */}
-          {isLeaf && item.storyPoints != null && (() => {
-            const confidence = item.confidenceLevel ?? defaultConfidenceLevel;
-            const raw = item.storyPoints;
-            const forecasted = getForecastedDays(raw, confidence);
-            return (
-              <>
-                <span className="text-xs text-slate-500 dark:text-slate-400">{raw}d</span>
-                <select
-                  value={item.confidenceLevel ?? ''}
-                  onChange={e => handleConfidence(e.target.value)}
-                  onClick={e => e.stopPropagation()}
-                  className="text-xs rounded px-1 py-0.5 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
-                  title="Confidence level"
-                >
-                  <option value="">Default ({defaultConfidenceLevel})</option>
-                  <option value="high">High (+5%)</option>
-                  <option value="medium">Medium (+15%)</option>
-                  <option value="low">Low (+25%)</option>
-                </select>
-                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                  → {forecasted}d
-                </span>
-              </>
-            );
-          })()}
+          {/* Leaf items: compact days display */}
+          {isLeaf && item.storyPoints != null && <DaysCell item={item} defaultConfidenceLevel={defaultConfidenceLevel} onConfidence={handleConfidence} />}
 
           {/* Parent items: rolled-up totals */}
           {!isLeaf && rollup && rollup.itemCount > 0 && (
             <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-              {rollup.forecastedDays}d forecasted
-              <span className="font-normal text-slate-400 ml-1">({rollup.itemCount} items)</span>
+              {rollup.forecastedDays}d
+              <span className="font-normal text-slate-400 ml-1">· {rollup.itemCount} items</span>
             </span>
           )}
         </div>
@@ -356,5 +332,59 @@ function TreeRow({
         </button>
       )}
     </div>
+  );
+}
+
+// ─── Compact days + confidence cell ──────────────────────────────────────────
+
+const CONF_LABELS: Record<string, string> = { high: 'High', medium: 'Med', low: 'Low' };
+const CONF_COLORS: Record<string, string> = {
+  high: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  medium: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  low: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+};
+
+function DaysCell({ item, defaultConfidenceLevel, onConfidence }: {
+  item: JiraWorkItem;
+  defaultConfidenceLevel: ConfidenceLevel;
+  onConfidence: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const confidence = item.confidenceLevel ?? defaultConfidenceLevel;
+  const raw = item.storyPoints!;
+  const forecasted = getForecastedDays(raw, confidence);
+
+  return (
+    <span className="inline-flex items-center gap-1.5 relative">
+      <span className="text-xs text-slate-500 dark:text-slate-400">{raw}d</span>
+      <span className="text-xs text-slate-400 dark:text-slate-500">→</span>
+      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{forecasted}d</span>
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+        className={clsx(
+          'text-xs font-medium rounded-full px-1.5 py-0.5 leading-tight cursor-pointer border',
+          CONF_COLORS[confidence],
+        )}
+        title={`Confidence: ${confidence}`}
+      >
+        {CONF_LABELS[confidence]}
+      </button>
+      {open && (
+        <span className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-[140px]">
+          {(['', 'high', 'medium', 'low'] as const).map(v => (
+            <button
+              key={v}
+              onClick={e => { e.stopPropagation(); onConfidence(v); setOpen(false); }}
+              className={clsx(
+                'w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors',
+                (v === '' ? !item.confidenceLevel : item.confidenceLevel === v) && 'font-semibold text-blue-600 dark:text-blue-400',
+              )}
+            >
+              {v === '' ? `Default (${defaultConfidenceLevel})` : `${v.charAt(0).toUpperCase() + v.slice(1)} (+${v === 'high' ? 5 : v === 'medium' ? 15 : 25}%)`}
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
   );
 }
