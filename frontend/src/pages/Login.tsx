@@ -2,6 +2,21 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { isSupabaseConfigured, supabase } from '../services/supabase';
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,25 +43,36 @@ export function Login() {
       }
 
       if (isSignUpMode) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-        });
+        const { error: signUpError } = await withTimeout(
+          supabase.auth.signUp({
+            email: email.trim(),
+            password,
+          }),
+          10000,
+          'Sign-up'
+        );
         if (signUpError) {
           setError(signUpError.message);
           return;
         }
         setInfo('Account created. Check your email for verification if required.');
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
+        const { error: signInError } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          }),
+          10000,
+          'Sign-in'
+        );
         if (signInError) {
           setError(signInError.message);
           return;
         }
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Authentication failed';
+      setError(msg);
     } finally {
       setIsSubmitting(false);
     }

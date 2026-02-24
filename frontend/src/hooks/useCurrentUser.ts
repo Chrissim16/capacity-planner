@@ -63,11 +63,20 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 async function fetchUserRole(userId: string): Promise<AppRole> {
-  const { data, error } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId)
-    .maybeSingle();
+  let data: { role?: AppRole } | null = null;
+  let error: { message?: string } | null = null;
+  try {
+    const res: { data: { role?: AppRole } | null; error: { message?: string } | null } = await withTimeout(
+      (async () => supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle())(),
+      5000,
+      'Role lookup'
+    );
+    data = res.data;
+    error = res.error;
+  } catch (err) {
+    console.warn('[Auth] Role lookup timeout/failure, defaulting to team_lead:', err);
+    return 'team_lead';
+  }
 
   if (error) {
     console.warn('[Auth] Failed to fetch role, defaulting to team_lead:', error.message);
@@ -123,6 +132,10 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
         return;
       }
 
+      if (!cancelled) {
+        // Never block signed-in state on role lookup.
+        setState({ user: sessionUser, role: 'team_lead', loading: false });
+      }
       const role = await fetchUserRole(sessionUser.id);
       if (!cancelled) {
         setState({ user: sessionUser, role, loading: false });
@@ -140,6 +153,10 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
         return;
       }
 
+      // Set session immediately so UI can proceed.
+      if (!cancelled) {
+        setState({ user: sessionUser, role: 'team_lead', loading: false });
+      }
       const role = await fetchUserRole(sessionUser.id);
       if (!cancelled) {
         setState({ user: sessionUser, role, loading: false });
