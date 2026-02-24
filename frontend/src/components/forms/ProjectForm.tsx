@@ -7,7 +7,7 @@ import { Trash2, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
 import { addProject, updateProject, generateId } from '../../stores/actions';
 import { getCurrentQuarter } from '../../utils/calendar';
-import type { Project, Phase, ProjectPriority, ProjectStatus } from '../../types';
+import type { Project, Phase, ProjectPriority, ProjectStatus, ConfidenceLevel } from '../../types';
 
 interface ProjectFormProps {
   isOpen: boolean;
@@ -29,12 +29,19 @@ const statusOptions = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
-function makeBlankPhase(n: number, currentQuarter: string): Phase {
+const confidenceOptions = [
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+];
+
+function makeBlankPhase(n: number, currentQuarter: string, defaultConfidenceLevel: ConfidenceLevel): Phase {
   return {
     id: generateId('phase'),
     name: `Feature ${n}`,
     startQuarter: currentQuarter,
     endQuarter: currentQuarter,
+    confidenceLevel: defaultConfidenceLevel,
     requiredSkillIds: [],
     predecessorPhaseId: null,
     assignments: [],
@@ -45,6 +52,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
   const state = useCurrentState();
   const systems = state.systems;
   const quarters = state.quarters;
+  const defaultConfidenceLevel = state.settings.confidenceLevels.defaultLevel;
 
   const currentQuarter = getCurrentQuarter();
 
@@ -72,7 +80,10 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       setNotes(project.notes || '');
       setStartDate(project.startDate || '');
       setEndDate(project.endDate || '');
-      setPhases(project.phases || []);
+      setPhases((project.phases || []).map((phase) => ({
+        ...phase,
+        confidenceLevel: phase.confidenceLevel ?? defaultConfidenceLevel,
+      })));
     } else {
       setName('');
       setPriority('Medium');
@@ -83,7 +94,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       setNotes('');
       setStartDate('');
       setEndDate('');
-      setPhases([makeBlankPhase(1, currentQuarter)]);
+      setPhases([makeBlankPhase(1, currentQuarter, defaultConfidenceLevel)]);
     }
     setExpandedPhases(new Set());
     setErrors({});
@@ -99,7 +110,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
   };
 
   const handleAddPhase = () => {
-    const newPhase = makeBlankPhase(phases.length + 1, currentQuarter);
+    const newPhase = makeBlankPhase(phases.length + 1, currentQuarter, defaultConfidenceLevel);
     setPhases(prev => [...prev, newPhase]);
   };
 
@@ -358,7 +369,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
                   {/* Expanded phase details: dates + notes */}
                   {isPhaseExpanded && (
                     <div className="px-10 pb-3 space-y-3 border-t border-slate-200 dark:border-slate-700 pt-3">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-3 gap-3">
                         <Input
                           id={`phase-start-${index}`}
                           label="Start date (optional)"
@@ -373,6 +384,13 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
                           value={phase.endDate || ''}
                           min={phase.startDate || undefined}
                           onChange={(e) => handlePhaseChange(index, 'endDate', e.target.value)}
+                        />
+                        <Select
+                          id={`phase-confidence-${index}`}
+                          label="Confidence"
+                          value={phase.confidenceLevel ?? defaultConfidenceLevel}
+                          onChange={(e) => handlePhaseChange(index, 'confidenceLevel', e.target.value)}
+                          options={confidenceOptions}
                         />
                       </div>
                       <div>

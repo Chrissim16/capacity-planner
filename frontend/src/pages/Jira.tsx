@@ -285,6 +285,7 @@ export function Jira() {
                       readOnly
                       defaultCollapsedDepth={2}
                       defaultConfidenceLevel={jiraSettings.defaultConfidenceLevel ?? 'medium'}
+                      confidenceSettings={state.settings.confidenceLevels}
                     />
                   </div>
                 )}

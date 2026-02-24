@@ -4,7 +4,7 @@
  */
 
 import { useAppStore } from './appStore';
-import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint } from '../types';
+import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint, Settings } from '../types';
 
 function flattenProjectAssignments(projects: Project[]): Assignment[] {
   const flattened: Assignment[] = [];
@@ -357,7 +357,7 @@ export function removeTimeOff(id: string): void {
 // SETTINGS ACTIONS
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-export function updateSettings(updates: Record<string, unknown>): void {
+export function updateSettings(updates: Partial<Settings>): void {
   const state = useAppStore.getState();
   state.updateData({
     settings: { ...state.getCurrentState().settings, ...updates },

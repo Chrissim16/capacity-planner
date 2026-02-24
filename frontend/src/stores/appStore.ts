@@ -42,6 +42,12 @@ const defaultSettings: Settings = {
   quartersToShow: 4,
   defaultCountryId: 'country-nl',
   darkMode: false,
+  confidenceLevels: {
+    high: 5,
+    medium: 15,
+    low: 25,
+    defaultLevel: 'medium',
+  },
   sprintDurationWeeks: 3,
   sprintStartDate: '2026-01-05',
   sprintsToShow: 6,
@@ -49,6 +55,17 @@ const defaultSettings: Settings = {
   byeWeeksAfter: [8, 12],
   holidayWeeksAtEnd: 2,
 };
+
+function mergeSettingsWithDefaults(settings?: Partial<Settings>): Settings {
+  return {
+    ...defaultSettings,
+    ...(settings ?? {}),
+    confidenceLevels: {
+      ...defaultSettings.confidenceLevels,
+      ...(settings?.confidenceLevels ?? {}),
+    },
+  };
+}
 
 const defaultJiraSettings = {
   defaultVelocity: 30,
@@ -122,6 +139,21 @@ function quarterToIsoRange(quarter: string): { startDate: string; endDate: strin
   return { startDate: toIso(start), endDate: toIso(end) };
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // UI STATE
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -182,10 +214,7 @@ function migrate(data: Partial<AppState>, fromVersion: number): AppState {
     ...defaultAppState,
     ...d,
     projects: migratedProjects,
-    settings: {
-      ...defaultSettings,
-      ...((d.settings as Partial<Settings>) ?? {}),
-    },
+    settings: mergeSettingsWithDefaults((d.settings as Partial<Settings>) ?? {}),
     jiraSettings: {
       ...defaultJiraSettings,
       ...((d.jiraSettings as typeof defaultJiraSettings) ?? {}),
@@ -285,10 +314,7 @@ const customStorage = {
       }
       
       // Merge settings with defaults to handle new fields
-      const mergedSettings = {
-        ...defaultSettings,
-        ...(parsed.settings || {}),
-      };
+      const mergedSettings = mergeSettingsWithDefaults(parsed.settings || {});
       
       // Convert old format to new format with merged settings
       const converted = {
@@ -358,10 +384,10 @@ export const useAppStore = create<AppStore>()(
 
         set({ isInitializing: true });
         try {
-          const cloudData = await loadFromSupabase();
+          const cloudData = await withTimeout(loadFromSupabase(), 15000, 'Supabase initial load');
           if (cloudData) {
             // Merge with defaults to handle any new fields added since last save
-            const mergedSettings: Settings = { ...defaultSettings, ...(cloudData.settings || {}) };
+            const mergedSettings = mergeSettingsWithDefaults(cloudData.settings);
             const mergedJiraSettings = { ...defaultJiraSettings, ...(cloudData.jiraSettings || {}) };
             const hydratedData: AppState = {
               ...defaultAppState,
@@ -389,7 +415,8 @@ export const useAppStore = create<AppStore>()(
           }
         } catch (err) {
           console.error('[Store] Supabase init failed:', err);
-          set({ isInitializing: false, syncStatus: 'error', syncError: 'Could not connect to database' });
+          const msg = err instanceof Error ? err.message : 'Could not connect to database';
+          set({ isInitializing: false, syncStatus: 'error', syncError: msg });
         }
       },
 

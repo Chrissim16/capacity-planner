@@ -1,28 +1,39 @@
-import type { ConfidenceLevel, JiraWorkItem } from '../types';
+import type { ConfidenceLevel, JiraWorkItem, Settings } from '../types';
 
-/** Percentage buffer added to raw days for each confidence level. */
-const CONFIDENCE_BUFFER: Record<ConfidenceLevel, number> = {
-  high:   0.05,
-  medium: 0.15,
-  low:    0.25,
+type ConfidenceSettings = Settings['confidenceLevels'];
+
+const DEFAULT_CONFIDENCE_LEVELS: ConfidenceSettings = {
+  high: 5,
+  medium: 15,
+  low: 25,
+  defaultLevel: 'medium',
 };
 
-export const CONFIDENCE_LABELS: Record<ConfidenceLevel, string> = {
-  high:   'High (+5%)',
-  medium: 'Medium (+15%)',
-  low:    'Low (+25%)',
-};
+function getConfidenceSettings(settings?: ConfidenceSettings): ConfidenceSettings {
+  return {
+    ...DEFAULT_CONFIDENCE_LEVELS,
+    ...(settings ?? {}),
+  };
+}
 
-export function getConfidenceBuffer(level: ConfidenceLevel): number {
-  return CONFIDENCE_BUFFER[level];
+export function getConfidenceLabel(level: ConfidenceLevel, settings?: ConfidenceSettings): string {
+  const configured = getConfidenceSettings(settings);
+  const pct = configured[level];
+  const title = level.charAt(0).toUpperCase() + level.slice(1);
+  return `${title} (+${pct}%)`;
+}
+
+export function getConfidenceBuffer(level: ConfidenceLevel, settings?: ConfidenceSettings): number {
+  const configured = getConfidenceSettings(settings);
+  return configured[level] / 100;
 }
 
 /**
  * Returns forecasted days for a raw days estimate at the given confidence level.
  * forecastedDays = rawDays × (1 + buffer)
  */
-export function getForecastedDays(rawDays: number, level: ConfidenceLevel): number {
-  return Math.round(rawDays * (1 + CONFIDENCE_BUFFER[level]) * 10) / 10;
+export function getForecastedDays(rawDays: number, level: ConfidenceLevel, settings?: ConfidenceSettings): number {
+  return Math.ceil(rawDays * (1 + getConfidenceBuffer(level, settings)));
 }
 
 /**
@@ -50,6 +61,7 @@ export interface RollupResult {
 export function computeRollup(
   items: JiraWorkItem[],
   defaultConfidence: ConfidenceLevel,
+  confidenceSettings?: ConfidenceSettings,
   defaultDaysPerItem = 0
 ): Map<string, RollupResult> {
   const byKey = new Map(items.map(i => [i.jiraKey, i]));
@@ -76,7 +88,7 @@ export function computeRollup(
       const level = item?.confidenceLevel ?? defaultConfidence;
       const result: RollupResult = {
         rawDays: raw,
-        forecastedDays: getForecastedDays(raw, level),
+        forecastedDays: getForecastedDays(raw, level, confidenceSettings),
         itemCount: item ? 1 : 0,
       };
       rollupCache.set(key, result);
@@ -93,9 +105,6 @@ export function computeRollup(
       forecastedDays += r.forecastedDays;
       itemCount += r.itemCount;
     }
-    rawDays = Math.round(rawDays * 10) / 10;
-    forecastedDays = Math.round(forecastedDays * 10) / 10;
-
     const result: RollupResult = { rawDays, forecastedDays, itemCount };
     rollupCache.set(key, result);
     return result;

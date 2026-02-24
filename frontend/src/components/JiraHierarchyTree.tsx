@@ -15,8 +15,8 @@ import { clsx } from 'clsx';
 import { Badge } from './ui/Badge';
 import { Select } from './ui/Select';
 import { updateJiraWorkItemMapping } from '../stores/actions';
-import type { JiraWorkItem, JiraItemType, ConfidenceLevel } from '../types';
-import { computeRollup, getForecastedDays, type RollupResult } from '../utils/confidence';
+import type { JiraWorkItem, JiraItemType, ConfidenceLevel, Settings } from '../types';
+import { computeRollup, getForecastedDays, getConfidenceLabel, type RollupResult } from '../utils/confidence';
 
 // ─── shared colour maps (re-exported so other files don't duplicate them) ────
 
@@ -68,6 +68,7 @@ export interface JiraHierarchyTreeProps {
   defaultCollapsedDepth?: number;
   /** Default confidence level from JiraSettings — used for rollup and display */
   defaultConfidenceLevel?: ConfidenceLevel;
+  confidenceSettings?: Settings['confidenceLevels'];
   // Edit-mode props (Jira page)
   projectOptions?: { value: string; label: string }[];
   getPhaseOptions?: (pid: string | undefined) => { value: string; label: string }[];
@@ -87,6 +88,7 @@ export function JiraHierarchyTree({
   readOnly = false,
   defaultCollapsedDepth,
   defaultConfidenceLevel = 'medium',
+  confidenceSettings,
   projectOptions = [],
   getPhaseOptions = () => [],
   memberOptions = [],
@@ -112,8 +114,8 @@ export function JiraHierarchyTree({
   const { roots, childrenOf } = useMemo(() => buildHierarchy(items), [items]);
 
   const rollupMap = useMemo(
-    () => computeRollup(items, defaultConfidenceLevel),
-    [items, defaultConfidenceLevel]
+    () => computeRollup(items, defaultConfidenceLevel, confidenceSettings),
+    [items, defaultConfidenceLevel, confidenceSettings]
   );
 
   const toggle = (key: string) =>
@@ -152,6 +154,7 @@ export function JiraHierarchyTree({
           alwaysShowControls={alwaysShowControls}
           rollup={rollup}
           defaultConfidenceLevel={defaultConfidenceLevel}
+          confidenceSettings={confidenceSettings}
         />
         {children.length > 0 && !isCollapsed && (
           <div>
@@ -189,13 +192,14 @@ interface TreeRowProps {
   alwaysShowControls: boolean;
   rollup?: RollupResult;
   defaultConfidenceLevel: ConfidenceLevel;
+  confidenceSettings?: Settings['confidenceLevels'];
 }
 
 function TreeRow({
   item, depth, children, isCollapsed, onToggleCollapse,
   jiraBaseUrl, readOnly, isSelected, onToggleSelect,
   isEditing, onEdit, projectOptions, getPhaseOptions, memberOptions, alwaysShowControls,
-  rollup, defaultConfidenceLevel,
+  rollup, defaultConfidenceLevel, confidenceSettings,
 }: TreeRowProps) {
   const isMapped = !!item.mappedProjectId;
   const showControls = !readOnly && (alwaysShowControls || isEditing);
@@ -272,7 +276,14 @@ function TreeRow({
           </Badge>
 
           {/* Leaf items: compact days display */}
-          {isLeaf && item.storyPoints != null && <DaysCell item={item} defaultConfidenceLevel={defaultConfidenceLevel} onConfidence={handleConfidence} />}
+          {isLeaf && item.storyPoints != null && (
+            <DaysCell
+              item={item}
+              defaultConfidenceLevel={defaultConfidenceLevel}
+              onConfidence={handleConfidence}
+              confidenceSettings={confidenceSettings}
+            />
+          )}
 
           {/* Parent items: rolled-up totals */}
           {!isLeaf && rollup && rollup.itemCount > 0 && (
@@ -337,22 +348,22 @@ function TreeRow({
 
 // ─── Compact days + confidence cell ──────────────────────────────────────────
 
-const CONF_LABELS: Record<string, string> = { high: 'High', medium: 'Med', low: 'Low' };
 const CONF_COLORS: Record<string, string> = {
   high: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   medium: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
   low: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
 };
 
-function DaysCell({ item, defaultConfidenceLevel, onConfidence }: {
+function DaysCell({ item, defaultConfidenceLevel, onConfidence, confidenceSettings }: {
   item: JiraWorkItem;
   defaultConfidenceLevel: ConfidenceLevel;
   onConfidence: (v: string) => void;
+  confidenceSettings?: Settings['confidenceLevels'];
 }) {
   const [open, setOpen] = useState(false);
   const confidence = item.confidenceLevel ?? defaultConfidenceLevel;
   const raw = item.storyPoints!;
-  const forecasted = getForecastedDays(raw, confidence);
+  const forecasted = getForecastedDays(raw, confidence, confidenceSettings);
 
   return (
     <span className="inline-flex items-center gap-1.5 relative">
@@ -367,7 +378,7 @@ function DaysCell({ item, defaultConfidenceLevel, onConfidence }: {
         )}
         title={`Confidence: ${confidence}`}
       >
-        {CONF_LABELS[confidence]}
+        {confidence.charAt(0).toUpperCase() + confidence.slice(1)}
       </button>
       {open && (
         <span className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-[140px]">
@@ -380,7 +391,7 @@ function DaysCell({ item, defaultConfidenceLevel, onConfidence }: {
                 (v === '' ? !item.confidenceLevel : item.confidenceLevel === v) && 'font-semibold text-blue-600 dark:text-blue-400',
               )}
             >
-              {v === '' ? `Default (${defaultConfidenceLevel})` : `${v.charAt(0).toUpperCase() + v.slice(1)} (+${v === 'high' ? 5 : v === 'medium' ? 15 : 25}%)`}
+              {v === '' ? `Default (${defaultConfidenceLevel})` : getConfidenceLabel(v, confidenceSettings)}
             </button>
           ))}
         </span>

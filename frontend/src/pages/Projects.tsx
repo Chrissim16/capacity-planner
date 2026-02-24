@@ -491,7 +491,8 @@ export function Projects() {
               if (jiraItems.length === 0) return null;
               const rollupMap = computeRollup(
                 jiraItems,
-                jiraSettings.defaultConfidenceLevel ?? 'medium'
+                jiraSettings.defaultConfidenceLevel ?? 'medium',
+                state.settings.confidenceLevels
               );
               const epicKey = project.jiraSourceKey;
               if (epicKey && rollupMap.has(epicKey)) return rollupMap.get(epicKey)!;
@@ -678,6 +679,7 @@ export function Projects() {
                           jiraBaseUrl={activeJiraBaseUrl}
                           readOnly
                           defaultConfidenceLevel={jiraSettings.defaultConfidenceLevel ?? 'medium'}
+                          confidenceSettings={state.settings.confidenceLevels}
                         />
                       </div>
                     )}

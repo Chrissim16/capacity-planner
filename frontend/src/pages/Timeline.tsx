@@ -11,10 +11,15 @@ import { useAppStore, useCurrentState } from '../stores/appStore';
 import { calculateCapacity } from '../utils/capacity';
 import { isQuarterInRange, getCurrentQuarter, getWorkdaysInQuarter, getWorkdaysInDateRangeForQuarter } from '../utils/calendar';
 import { generateSprints, getSprintsForQuarter, formatDateRange, getWorkdaysInSprint } from '../utils/sprints';
-import type { Project, TeamMember, Sprint, PublicHoliday } from '../types';
+import type { Project, TeamMember, Sprint, PublicHoliday, Phase, Settings } from '../types';
 
 type TimelineView = 'projects' | 'team';
 type TimelineGranularity = 'quarter' | 'sprint' | 'dates';
+
+function getPhaseConfidence(phase: Phase, confidenceLevels: Settings['confidenceLevels']) {
+  const level = phase.confidenceLevel ?? confidenceLevels.defaultLevel;
+  return { level, percent: confidenceLevels[level] };
+}
 
 export function Timeline() {
   const state = useCurrentState();
@@ -361,6 +366,7 @@ export function Timeline() {
                     onAssign={openAssign}
                     teamMembers={teamMembers}
                     publicHolidays={defaultCountryHolidays}
+                    confidenceLevels={settings.confidenceLevels}
                   />
                 ))
               )}
@@ -600,9 +606,10 @@ interface ProjectRowProps {
   onAssign?: (projectId: string, phaseId?: string) => void;
   teamMembers: TeamMember[];
   publicHolidays: PublicHoliday[];
+  confidenceLevels: Settings['confidenceLevels'];
 }
 
-function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor, onAssign, teamMembers, publicHolidays }: ProjectRowProps) {
+function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor, onAssign, teamMembers, publicHolidays, confidenceLevels }: ProjectRowProps) {
   const getMemberName = (id: string) => teamMembers.find(m => m.id === id)?.name ?? 'Unknown';
   // US-044: collapse/expand feature sub-rows
   const [expanded, setExpanded] = useState(false);
@@ -686,6 +693,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
 
         {/* Feature sub-rows — shown when expanded */}
         {expanded && project.phases.map(phase => {
+          const phaseConfidence = getPhaseConfidence(phase, confidenceLevels);
           const phaseQuarterData = quarters.map(quarter => {
             const isActive = isQuarterInRange(quarter, phase.startQuarter ?? quarter, phase.endQuarter ?? quarter);
             const quarterAssignments = isActive
@@ -707,6 +715,12 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
                   <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate" title={phase.name}>
                     {phase.name}
+                  </span>
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 uppercase"
+                    title={`Confidence: ${phaseConfidence.level} (+${phaseConfidence.percent}%)`}
+                  >
+                    {phaseConfidence.level}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mt-1 pl-3.5 flex-wrap">
@@ -839,6 +853,7 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
 
       {/* Feature sub-rows in sprint view */}
       {expanded && project.phases.map(phase => {
+        const phaseConfidence = getPhaseConfidence(phase, confidenceLevels);
         const phaseSprintCells = quarters.flatMap(quarter => {
           const sprintsInQ = getSprintsForQuarter(quarter, sprints);
           const activeSprintCount = sprintsInQ.filter(s => !s.isByeWeek).length || 1;
@@ -864,6 +879,12 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                 <div className="w-1 h-1 rounded-full bg-blue-400 shrink-0" />
                 <span className="text-xs text-slate-700 dark:text-slate-300 truncate" title={phase.name}>
                   {phase.name}
+                </span>
+                <span
+                  className="text-[9px] px-1 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 uppercase"
+                  title={`Confidence: ${phaseConfidence.level} (+${phaseConfidence.percent}%)`}
+                >
+                  {phaseConfidence.level}
                 </span>
               </div>
               <div className="text-xs text-slate-400 mt-0.5 pl-2.5">

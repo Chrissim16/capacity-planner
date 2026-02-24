@@ -122,7 +122,11 @@ export function calculateCapacity(
           if (matchingAssignments.some(a => a.jiraSynced)) {
             hasJiraSyncedAssignment.add(`${project.id}:${phase.id}`);
           }
-          const assignDays = matchingAssignments.reduce((sum, a) => sum + (a.days || 0), 0);
+          const phaseConfidence = phase.confidenceLevel ?? state.settings.confidenceLevels.defaultLevel;
+          const assignDays = matchingAssignments.reduce(
+            (sum, a) => sum + getForecastedDays(a.days || 0, phaseConfidence, state.settings.confidenceLevels),
+            0
+          );
           usedDays += assignDays;
           breakdown.push({
             type: 'project',
@@ -170,7 +174,7 @@ export function calculateCapacity(
       if (itemQuarter !== quarter) continue;
 
       const confidence = item.confidenceLevel ?? defaultConfidence;
-      const days = getForecastedDays(item.storyPoints, confidence);
+      const days = getForecastedDays(item.storyPoints, confidence, state.settings.confidenceLevels);
       if (days <= 0) continue;
 
       jiraDays += days;

@@ -53,6 +53,12 @@ const DEFAULT_SETTINGS: Settings = {
   quartersToShow: 4,
   defaultCountryId: 'country-nl',
   darkMode: false,
+  confidenceLevels: {
+    high: 5,
+    medium: 15,
+    low: 25,
+    defaultLevel: 'medium',
+  },
   sprintDurationWeeks: 3,
   sprintStartDate: '2026-01-05',
   sprintsToShow: 6,
@@ -335,9 +341,14 @@ export async function loadFromSupabase(): Promise<AppState | null> {
     const settingsMap = Object.fromEntries(
       (settingsRes.data ?? []).map((r: { key: string; value: unknown }) => [r.key, r.value])
     );
+    const storedSettings = (settingsMap.settings as Partial<Settings>) ?? {};
     const settings: Settings = {
       ...DEFAULT_SETTINGS,
-      ...((settingsMap.settings as Partial<Settings>) ?? {}),
+      ...storedSettings,
+      confidenceLevels: {
+        ...DEFAULT_SETTINGS.confidenceLevels,
+        ...(storedSettings.confidenceLevels ?? {}),
+      },
     };
     const jiraSettings: JiraSettings = {
       ...DEFAULT_JIRA_SETTINGS,
@@ -604,7 +615,12 @@ async function syncAssignments(assignments: Assignment[]): Promise<void> {
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('relation "assignments" does not exist')) {
+    if (
+      msg.includes('relation "assignments" does not exist') ||
+      msg.includes('could not find the table public.assignments') ||
+      msg.includes("Could not find the table 'public.assignments'") ||
+      msg.includes('assignments table missing')
+    ) {
       console.warn('[Sync] assignments table missing — run migration to enable flattened assignments.');
       return;
     }

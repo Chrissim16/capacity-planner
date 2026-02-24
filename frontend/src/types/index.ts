@@ -115,6 +115,7 @@ export interface Phase {
   endQuarter?: string;       // Deprecated: kept for backward compatibility
   startDate?: string;       // ISO date "2026-03-01" — optional, for date-range planning
   endDate?: string;         // ISO date "2026-06-30"
+  confidenceLevel?: ConfidenceLevel; // Optional phase-level confidence override
   requiredSkillIds: string[];
   predecessorPhaseId: string | null;
   assignments: Assignment[]; // Deprecated store location; source of truth is AppState.assignments
@@ -150,6 +151,12 @@ export interface Settings {
   quartersToShow: number;
   defaultCountryId: string;
   darkMode: boolean;
+  confidenceLevels: {
+    high: number;
+    medium: number;
+    low: number;
+    defaultLevel: ConfidenceLevel;
+  };
   // Sprint configuration
   sprintDurationWeeks: number;
   sprintStartDate: string;
