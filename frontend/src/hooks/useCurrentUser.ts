@@ -47,6 +47,21 @@ interface CurrentUserState {
   loading: boolean;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 async function fetchUserRole(userId: string): Promise<AppRole> {
   const { data, error } = await supabase
     .from('user_roles')
@@ -84,7 +99,15 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
     }
 
     const hydrate = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      let data: Awaited<ReturnType<typeof supabase.auth.getSession>>['data'] | null = null;
+      let error: Awaited<ReturnType<typeof supabase.auth.getSession>>['error'] | null = null;
+      try {
+        const res = await withTimeout(supabase.auth.getSession(), 8000, 'Auth session check');
+        data = res.data;
+        error = res.error;
+      } catch (err) {
+        console.warn('[Auth] Session check timeout/failure:', err);
+      }
       if (error) {
         if (!cancelled) {
           setState({ user: null, role: null, loading: false });
@@ -92,7 +115,7 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
         return;
       }
 
-      const sessionUser = data.session?.user ?? null;
+      const sessionUser = data?.session?.user ?? null;
       if (!sessionUser) {
         if (!cancelled) {
           setState({ user: null, role: null, loading: false });

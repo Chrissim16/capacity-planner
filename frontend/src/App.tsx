@@ -106,14 +106,19 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setCurrentView, currentView]);
 
-  // US-002: Show full-screen loading screen while fetching from Supabase
-  if (authLoading || isInitializing) {
+  // Wait only for auth check first.
+  if (authLoading) {
     return <LoadingScreen />;
   }
 
   // Enforce authentication when Supabase is enabled.
   if (isSupabaseConfigured() && !user) {
     return <Login />;
+  }
+
+  // US-002: Show full-screen loading screen while fetching from Supabase
+  if (isInitializing) {
+    return <LoadingScreen />;
   }
 
   const CurrentPage = pages[currentView] || Dashboard;
