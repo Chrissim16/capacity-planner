@@ -231,6 +231,23 @@ function migrate(data: Partial<AppState>, fromVersion: number): AppState {
   };
 }
 
+/** Returns true when localStorage already contains meaningful app data. */
+function hasCachedData(): boolean {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return false;
+    const parsed = JSON.parse(stored);
+    // Data may be stored at root level (original format) or under state.data (new format)
+    const data = parsed?.state?.data ?? parsed;
+    return (
+      (Array.isArray(data?.teamMembers) && data.teamMembers.length > 0) ||
+      (Array.isArray(data?.projects) && data.projects.length > 0)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function loadExistingData(): AppState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -366,7 +383,11 @@ export const useAppStore = create<AppStore>()(
       // Initial state - load from existing localStorage
       data: loadExistingData(),
       isLoading: false,
-      isInitializing: isSupabaseConfigured(), // true until Supabase load completes
+      // Only block the UI with the loading screen when Supabase is configured AND we
+      // have no cached data yet (first-ever visit). If localStorage already has team
+      // members or projects we let the app render immediately from cache and sync
+      // Supabase silently in the background — prevents the reload-on-tab-focus flicker.
+      isInitializing: isSupabaseConfigured() && !hasCachedData(), // true until Supabase load completes
       error: null,
       syncStatus: isSupabaseConfigured() ? 'idle' : 'offline',
       syncError: null,
@@ -382,7 +403,11 @@ export const useAppStore = create<AppStore>()(
           return;
         }
 
-        set({ isInitializing: true });
+        // Only show the full-screen loading spinner when there is nothing cached locally.
+        // If we already have data, sync silently in the background.
+        if (!hasCachedData()) {
+          set({ isInitializing: true });
+        }
         try {
           const cloudData = await withTimeout(loadFromSupabase(), 15000, 'Supabase initial load');
           if (cloudData) {
