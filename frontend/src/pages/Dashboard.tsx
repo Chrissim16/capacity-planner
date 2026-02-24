@@ -3,9 +3,11 @@ import { Users, FolderKanban, AlertTriangle, TrendingUp, CalendarOff, X, Chevron
 import { useAppStore, useCurrentState } from '../stores/appStore';
 import { Card, CardContent } from '../components/ui/Card';
 import { PageHeader } from '../components/layout/PageHeader';
-import { calculateCapacity, getWarnings, getTeamUtilizationSummary } from '../utils/capacity';
+import { calculateCapacity, getWarnings, getTeamUtilizationSummary, calculateBusinessCapacityForQuarter } from '../utils/capacity';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 import type { CapacityResult, CapacityBreakdownItem } from '../types';
+
+type PeopleFilter = 'it_only' | 'business_only' | 'both';
 
 export function Dashboard() {
   const state = useCurrentState();
@@ -24,6 +26,7 @@ export function Dashboard() {
   const canGoForward = startIndex + visibleCount < allQuarters.length;
 
   const [selectedCell, setSelectedCell] = useState<{ memberId: string; quarter: string } | null>(null);
+  const [peopleFilter, setPeopleFilter] = useState<PeopleFilter>('it_only');
 
   const warnings = useMemo(() => getWarnings(state), [state]);
   const totalWarnings =
@@ -46,6 +49,23 @@ export function Dashboard() {
       cells: visibleQuarters.map(q => ({
         quarter: q,
         capacity: calculateCapacity(member.id, q, state),
+      })),
+    }));
+  }, [state, visibleQuarters]);
+
+  const bizHeatmapData = useMemo(() => {
+    const activeContacts = state.businessContacts.filter(c => !c.archived);
+    return activeContacts.map(contact => ({
+      contact,
+      cells: visibleQuarters.map(q => ({
+        quarter: q,
+        cell: calculateBusinessCapacityForQuarter(
+          contact, q,
+          state.businessAssignments,
+          state.businessTimeOff,
+          state.publicHolidays,
+          state.projects
+        ),
       })),
     }));
   }, [state, visibleQuarters]);
@@ -119,7 +139,7 @@ export function Dashboard() {
       {!isEmpty && (
         <Card>
           <CardContent className="p-0">
-            {/* Quarter nav */}
+            {/* Quarter nav + people filter */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => setStartIndex(i => Math.max(0, i - 1))}
@@ -128,8 +148,19 @@ export function Dashboard() {
               >
                 <ChevronLeft size={18} className="text-slate-500" />
               </button>
-              <div className="flex items-center gap-1 text-sm font-medium text-slate-600 dark:text-slate-300">
-                {visibleQuarters[0]} — {visibleQuarters[visibleQuarters.length - 1]}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1 text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {visibleQuarters[0]} — {visibleQuarters[visibleQuarters.length - 1]}
+                </div>
+                <select
+                  value={peopleFilter}
+                  onChange={e => setPeopleFilter(e.target.value as PeopleFilter)}
+                  className="text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="it_only">IT team only</option>
+                  <option value="business_only">Business only</option>
+                  <option value="both">Both</option>
+                </select>
               </div>
               <button
                 onClick={() => setStartIndex(i => Math.min(allQuarters.length - visibleCount, i + 1))}
@@ -144,7 +175,9 @@ export function Dashboard() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800">
-                    <th className="text-left py-3 pl-5 pr-4 font-medium text-sm text-slate-500 dark:text-slate-400 w-52">Team Member</th>
+                    <th className="text-left py-3 pl-5 pr-4 font-medium text-sm text-slate-500 dark:text-slate-400 w-52">
+                      {peopleFilter === 'business_only' ? 'Business contact' : 'Team member'}
+                    </th>
                     {visibleQuarters.map(q => (
                       <th key={q} className={`text-center py-3 px-2 font-medium text-sm min-w-[90px] ${q === currentQuarter ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
                         {q}
@@ -154,7 +187,8 @@ export function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {heatmapData.map(({ member, cells }) => (
+                  {/* IT rows */}
+                  {peopleFilter !== 'business_only' && heatmapData.map(({ member, cells }) => (
                     <tr key={member.id} className="border-b border-slate-50 dark:border-slate-800/50 last:border-0">
                       <td className="py-2.5 pl-5 pr-4">
                         <div className="font-medium text-sm text-slate-900 dark:text-white truncate max-w-[180px]">{member.name}</div>
@@ -191,6 +225,51 @@ export function Dashboard() {
                                 </div>
                               )}
                             </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+
+                  {/* Divider row between IT and Business */}
+                  {peopleFilter === 'both' && bizHeatmapData.length > 0 && (
+                    <tr>
+                      <td colSpan={visibleQuarters.length + 1} className="py-1 pl-5 bg-slate-50 dark:bg-slate-800/50 border-t-2 border-slate-200 dark:border-slate-700">
+                        <span className="text-xs font-bold tracking-wider uppercase text-slate-400 dark:text-slate-500">Business</span>
+                        <span className="ml-2 text-xs text-slate-400 italic">(informational only — does not affect IT capacity)</span>
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Business rows */}
+                  {peopleFilter !== 'it_only' && bizHeatmapData.map(({ contact, cells }) => (
+                    <tr key={contact.id} className="border-b border-slate-50 dark:border-slate-800/50 last:border-0">
+                      <td className="py-2.5 pl-5 pr-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-normal text-sm text-slate-600 dark:text-slate-400 truncate max-w-[150px]">{contact.name}</span>
+                          <span className="shrink-0 text-[10px] font-bold tracking-wide uppercase text-slate-400 dark:text-slate-500">BIZ</span>
+                        </div>
+                        <div className="text-xs text-slate-400 dark:text-slate-500 truncate">{contact.title ?? contact.department ?? ''}</div>
+                      </td>
+                      {cells.map(({ quarter, cell }) => {
+                        const pct = cell.usedPercent;
+                        const isOver = pct >= 100;
+                        const isWarn = pct >= 90 && !isOver;
+                        const cellBg = isOver
+                          ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
+                          : isWarn
+                          ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
+                          : pct > 0
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                          : 'bg-slate-50 dark:bg-slate-800/50 text-slate-300 dark:text-slate-600';
+                        return (
+                          <td key={quarter} className="py-2.5 px-1.5 text-center">
+                            <div
+                              title={cell.breakdownByProject.map(b => `${b.projectName}${b.phaseName ? ` / ${b.phaseName}` : ''}: ${b.days.toFixed(1)}d`).join('\n')}
+                              className={`w-full rounded-lg py-2 px-1 text-xs font-semibold ${cellBg}`}
+                            >
+                              {pct > 0 ? `${pct}%` : '—'}
+                            </div>
                           </td>
                         );
                       })}

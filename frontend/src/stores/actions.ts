@@ -4,7 +4,7 @@
  */
 
 import { useAppStore } from './appStore';
-import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint, Settings } from '../types';
+import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint, Settings, BusinessContact, BusinessTimeOff, BusinessAssignment } from '../types';
 
 function flattenProjectAssignments(projects: Project[]): Assignment[] {
   const flattened: Assignment[] = [];
@@ -973,4 +973,90 @@ export function refreshScenarioFromJira(scenarioId: string): void {
     s.id === scenarioId ? updatedScenario : s
   );
   state.updateData({ scenarios });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUSINESS CONTACT ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function addBusinessContact(data: Omit<BusinessContact, 'id'>): BusinessContact {
+  const state = useAppStore.getState();
+  const contact: BusinessContact = { ...data, id: generateId('biz-contact') };
+  state.updateData({
+    businessContacts: [...state.getCurrentState().businessContacts, contact],
+  });
+  return contact;
+}
+
+export function updateBusinessContact(id: string, updates: Partial<BusinessContact>): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    businessContacts: state.getCurrentState().businessContacts.map(c =>
+      c.id === id ? { ...c, ...updates } : c
+    ),
+  });
+}
+
+export function deleteBusinessContact(id: string): void {
+  const state = useAppStore.getState();
+  const cs = state.getCurrentState();
+  state.updateData({
+    businessContacts: cs.businessContacts.filter(c => c.id !== id),
+    businessTimeOff: cs.businessTimeOff.filter(t => t.contactId !== id),
+    businessAssignments: cs.businessAssignments.filter(a => a.contactId !== id),
+  });
+}
+
+// ─── BUSINESS TIME OFF ────────────────────────────────────────────────────────
+
+export function addBusinessTimeOff(data: Omit<BusinessTimeOff, 'id'>): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    businessTimeOff: [
+      ...state.getCurrentState().businessTimeOff,
+      { ...data, id: generateId('biz-to') },
+    ],
+  });
+}
+
+export function removeBusinessTimeOff(id: string): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    businessTimeOff: state.getCurrentState().businessTimeOff.filter(t => t.id !== id),
+  });
+}
+
+// ─── BUSINESS ASSIGNMENTS ─────────────────────────────────────────────────────
+
+export function upsertBusinessAssignment(
+  data: Omit<BusinessAssignment, 'id'> & { id?: string }
+): void {
+  const state = useAppStore.getState();
+  const existing = state.getCurrentState().businessAssignments;
+
+  // One per (contactId, phaseId) OR (contactId, projectId, quarter) when phaseId absent
+  const duplicate = existing.find(a =>
+    a.contactId === data.contactId &&
+    (data.phaseId
+      ? a.phaseId === data.phaseId
+      : a.projectId === data.projectId && a.quarter === data.quarter && !a.phaseId)
+  );
+
+  const record: BusinessAssignment = {
+    ...data,
+    id: data.id ?? duplicate?.id ?? generateId('biz-assign'),
+  };
+
+  state.updateData({
+    businessAssignments: duplicate
+      ? existing.map(a => (a.id === duplicate.id ? record : a))
+      : [...existing, record],
+  });
+}
+
+export function removeBusinessAssignment(id: string): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    businessAssignments: state.getCurrentState().businessAssignments.filter(a => a.id !== id),
+  });
 }

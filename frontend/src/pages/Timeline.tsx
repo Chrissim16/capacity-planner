@@ -367,6 +367,8 @@ export function Timeline() {
                     teamMembers={teamMembers}
                     publicHolidays={defaultCountryHolidays}
                     confidenceLevels={settings.confidenceLevels}
+                    businessContacts={state.businessContacts}
+                    businessAssignments={state.businessAssignments}
                   />
                 ))
               )}
@@ -607,9 +609,11 @@ interface ProjectRowProps {
   teamMembers: TeamMember[];
   publicHolidays: PublicHoliday[];
   confidenceLevels: Settings['confidenceLevels'];
+  businessContacts?: import('../types').BusinessContact[];
+  businessAssignments?: import('../types').BusinessAssignment[];
 }
 
-function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor, onAssign, teamMembers, publicHolidays, confidenceLevels }: ProjectRowProps) {
+function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, getPriorityColor, getStatusColor, onAssign, teamMembers, publicHolidays, confidenceLevels, businessContacts = [], businessAssignments = [] }: ProjectRowProps) {
   const getMemberName = (id: string) => teamMembers.find(m => m.id === id)?.name ?? 'Unknown';
   // US-044: collapse/expand feature sub-rows
   const [expanded, setExpanded] = useState(false);
@@ -733,6 +737,28 @@ function ProjectRow({ project, quarters, sprints, granularity, currentQuarter, g
                     </span>
                   )}
                 </div>
+                {/* Business commitments for this phase */}
+                {(() => {
+                  const phaseBizAssignments = businessAssignments.filter(a => a.phaseId === phase.id);
+                  if (phaseBizAssignments.length === 0) return null;
+                  return (
+                    <div className="mt-1 pl-3.5 flex flex-wrap gap-1">
+                      {phaseBizAssignments.map(a => {
+                        const contact = businessContacts.find(c => c.id === a.contactId);
+                        return (
+                          <span
+                            key={a.id}
+                            title={a.notes ?? `${contact?.name ?? 'BIZ'}: ${a.days}d`}
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800"
+                          >
+                            <span className="font-semibold">{a.days}d</span>
+                            <span className="truncate max-w-[80px]">{contact?.name ?? 'BIZ'}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
               {phaseQuarterData.map(({ quarter, isActive, quarterAssignments, days }) => (
                 <div

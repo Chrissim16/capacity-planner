@@ -170,6 +170,47 @@ export interface Settings {
 // APPLICATION STATE
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BUSINESS CONTACTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface BusinessContact {
+  id: string;
+  name: string;
+  title?: string;
+  department?: string;
+  email?: string;
+  /** References Country.id — drives public holiday calendar, same pattern as TeamMember.countryId */
+  countryId: string;
+  workingDaysPerWeek?: number;  // default: 5
+  workingHoursPerDay?: number;  // default: 8
+  notes?: string;
+  archived?: boolean;
+  /** Which projects this contact is associated with — used to filter dropdown in phase forms */
+  projectIds?: string[];
+}
+
+export interface BusinessTimeOff {
+  id: string;
+  contactId: string;
+  startDate: string;  // ISO date "YYYY-MM-DD"
+  endDate: string;    // ISO date "YYYY-MM-DD"
+  type: 'holiday' | 'other';
+  notes?: string;
+}
+
+export interface BusinessAssignment {
+  id: string;
+  contactId: string;
+  projectId: string;
+  /** Primary model: commitment to a specific phase */
+  phaseId?: string;
+  /** Derived from phase.startDate at save time; required when phaseId is absent */
+  quarter?: string;   // "Q2 2026" format
+  days: number;
+  notes?: string;
+}
+
 export interface AppState {
   version: number;
   lastModified: string;
@@ -193,6 +234,10 @@ export interface AppState {
   // Scenario support
   scenarios: Scenario[];
   activeScenarioId: string | null; // null = viewing Jira Baseline
+  // Business contact capacity
+  businessContacts: BusinessContact[];
+  businessTimeOff: BusinessTimeOff[];
+  businessAssignments: BusinessAssignment[];
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

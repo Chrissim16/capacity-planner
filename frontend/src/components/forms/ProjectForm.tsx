@@ -3,11 +3,11 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { Trash2, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Trash2, Plus, ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
-import { addProject, updateProject, generateId } from '../../stores/actions';
-import { getCurrentQuarter } from '../../utils/calendar';
-import type { Project, Phase, ProjectPriority, ProjectStatus, ConfidenceLevel } from '../../types';
+import { addProject, updateProject, generateId, upsertBusinessAssignment, removeBusinessAssignment } from '../../stores/actions';
+import { getCurrentQuarter, getPhaseRange } from '../../utils/calendar';
+import type { Project, Phase, ProjectPriority, ProjectStatus, ConfidenceLevel, BusinessAssignment } from '../../types';
 
 interface ProjectFormProps {
   isOpen: boolean;
@@ -53,6 +53,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
   const systems = state.systems;
   const quarters = state.quarters;
   const defaultConfidenceLevel = state.settings.confidenceLevels.defaultLevel;
+  const businessContacts = state.businessContacts;
 
   const currentQuarter = getCurrentQuarter();
 
@@ -69,6 +70,15 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [errors, setErrors]           = useState<Record<string, string>>({});
 
+  // Business commitments: keyed by phaseId
+  const [bizCommitments, setBizCommitments] = useState<Record<string, BusinessAssignment[]>>({});
+  const [addingBizFor, setAddingBizFor] = useState<string | null>(null);
+  const [bizContactId, setBizContactId] = useState('');
+  const [bizDays, setBizDays]           = useState('');
+  const [bizNotes, setBizNotes]         = useState('');
+  // Track which assignments were removed so we can delete them on save
+  const [removedBizIds, setRemovedBizIds] = useState<string[]>([]);
+
   useEffect(() => {
     if (project) {
       setName(project.name);
@@ -84,6 +94,14 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
         ...phase,
         confidenceLevel: phase.confidenceLevel ?? defaultConfidenceLevel,
       })));
+      // Load existing business commitments for this project's phases
+      const existing: Record<string, BusinessAssignment[]> = {};
+      for (const a of state.businessAssignments.filter(a => a.projectId === project.id)) {
+        if (a.phaseId) {
+          existing[a.phaseId] = [...(existing[a.phaseId] ?? []), a];
+        }
+      }
+      setBizCommitments(existing);
     } else {
       setName('');
       setPriority('Medium');
@@ -95,9 +113,12 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       setStartDate('');
       setEndDate('');
       setPhases([makeBlankPhase(1, currentQuarter, defaultConfidenceLevel)]);
+      setBizCommitments({});
     }
     setExpandedPhases(new Set());
     setErrors({});
+    setAddingBizFor(null);
+    setRemovedBizIds([]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project, isOpen]);
 
@@ -134,6 +155,40 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
     });
   };
 
+  // Business commitment helpers
+  const contactsForProject = businessContacts.filter(c =>
+    !c.projectIds?.length || c.projectIds.includes(project?.id ?? '__new__')
+  );
+
+  const handleAddBizCommitment = (phaseId: string) => {
+    const days = parseFloat(bizDays);
+    if (!bizContactId || isNaN(days) || days <= 0) return;
+    const newEntry: BusinessAssignment = {
+      id: generateId('biz-assign'),
+      contactId: bizContactId,
+      projectId: project?.id ?? '__pending__',
+      phaseId,
+      days,
+      notes: bizNotes.trim() || undefined,
+    };
+    setBizCommitments(prev => ({ ...prev, [phaseId]: [...(prev[phaseId] ?? []), newEntry] }));
+    setAddingBizFor(null);
+    setBizContactId('');
+    setBizDays('');
+    setBizNotes('');
+  };
+
+  const handleRemoveBizCommitment = (phaseId: string, id: string) => {
+    setBizCommitments(prev => ({
+      ...prev,
+      [phaseId]: (prev[phaseId] ?? []).filter(b => b.id !== id),
+    }));
+    // Only queue deletion for pre-existing (already saved) ids
+    if (!id.includes('__pending__')) {
+      setRemovedBizIds(prev => [...prev, id]);
+    }
+  };
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) newErrors.name = 'This field is mandatory';
@@ -161,10 +216,34 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       phases,
     };
 
+    let savedProjectId: string;
     if (project) {
       updateProject(project.id, projectData);
+      savedProjectId = project.id;
     } else {
-      addProject(projectData as Omit<Project, 'id'>);
+      const created = addProject(projectData as Omit<Project, 'id'>);
+      savedProjectId = created.id;
+    }
+
+    // Persist business commitments
+    for (const id of removedBizIds) {
+      removeBusinessAssignment(id);
+    }
+    for (const phaseId of Object.keys(bizCommitments)) {
+      for (const bc of bizCommitments[phaseId]) {
+        // Derive quarter from phase date range for storage
+        const phase = phases.find(p => p.id === phaseId);
+        let quarter = bc.quarter;
+        if (!quarter && phase) {
+          const range = getPhaseRange(phase);
+          if (range) {
+            const d = new Date(range.start + 'T00:00:00');
+            const q = Math.floor(d.getMonth() / 3) + 1;
+            quarter = `Q${q} ${d.getFullYear()}`;
+          }
+        }
+        upsertBusinessAssignment({ ...bc, projectId: savedProjectId, phaseId, quarter });
+      }
     }
 
     onClose();
@@ -404,6 +483,113 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
                           rows={2}
                           className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                         />
+                      </div>
+
+                      {/* Business commitment section */}
+                      <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                            <Users size={12} />
+                            Business commitment
+                          </label>
+                          {addingBizFor !== phase.id && (
+                            <button
+                              type="button"
+                              onClick={() => { setAddingBizFor(phase.id); setBizContactId(''); setBizDays(''); setBizNotes(''); }}
+                              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline"
+                            >
+                              + Add contact
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Existing commitments */}
+                        {(bizCommitments[phase.id] ?? []).map(bc => {
+                          const contact = businessContacts.find(c => c.id === bc.contactId);
+                          return (
+                            <div key={bc.id} className="flex items-center gap-2 py-1 text-xs">
+                              <span className="font-medium text-slate-700 dark:text-slate-300 min-w-0 truncate flex-1">
+                                {contact?.name ?? bc.contactId}
+                              </span>
+                              <span className="shrink-0 font-semibold text-slate-600 dark:text-slate-400">{bc.days}d</span>
+                              {bc.notes && <span className="shrink-0 text-slate-400 truncate max-w-[120px]">{bc.notes}</span>}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveBizCommitment(phase.id, bc.id)}
+                                className="shrink-0 text-slate-300 hover:text-red-500 transition-colors ml-1"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          );
+                        })}
+
+                        {/* Inline add form */}
+                        {addingBizFor === phase.id && (
+                          <div className="mt-2 space-y-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-xs text-slate-500 mb-1">Contact</label>
+                                <select
+                                  value={bizContactId}
+                                  onChange={e => setBizContactId(e.target.value)}
+                                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">Select contact…</option>
+                                  {contactsForProject.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}{c.title ? ` — ${c.title}` : ''}</option>
+                                  ))}
+                                </select>
+                                {contactsForProject.length === 0 && (
+                                  <p className="text-xs text-slate-400 mt-1">No business contacts. Add them in Settings → Reference Data.</p>
+                                )}
+                              </div>
+                              <div>
+                                <label className="block text-xs text-slate-500 mb-1">Days committed</label>
+                                <input
+                                  type="number"
+                                  min="0.5"
+                                  step="0.5"
+                                  value={bizDays}
+                                  onChange={e => setBizDays(e.target.value)}
+                                  placeholder="e.g. 5"
+                                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Notes (optional)</label>
+                              <input
+                                type="text"
+                                value={bizNotes}
+                                onChange={e => setBizNotes(e.target.value)}
+                                placeholder="e.g. UAT sign-off, data validation…"
+                                className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                              <button type="button" onClick={() => setAddingBizFor(null)} className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1">
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAddBizCommitment(phase.id)}
+                                disabled={!bizContactId || !bizDays}
+                                className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-40"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Totals summary */}
+                        {(bizCommitments[phase.id]?.length ?? 0) > 0 && (
+                          <p className="text-xs text-slate-400 mt-1.5">
+                            {(bizCommitments[phase.id] ?? []).reduce((s, b) => s + b.days, 0)}d total
+                            across {bizCommitments[phase.id].length} contact{bizCommitments[phase.id].length !== 1 ? 's' : ''}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}

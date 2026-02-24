@@ -11,6 +11,11 @@ import type {
   Warnings,
   Sprint,
   Assignment,
+  BusinessContact,
+  BusinessTimeOff,
+  BusinessAssignment,
+  Project,
+  PublicHoliday,
 } from '../types';
 import { 
   getWorkdaysInQuarter, 
@@ -19,8 +24,135 @@ import {
   parseQuarter,
   getCurrentQuarter,
   getWorkdaysInDateRangeForQuarter,
+  getWorkdaysInDateRange,
+  prorateDaysToWeek,
+  getPhaseRange,
 } from './calendar';
 import { getForecastedDays } from './confidence';
+
+// ─── BUSINESS CAPACITY ────────────────────────────────────────────────────────
+
+export interface BusinessCellData {
+  allocatedDays: number;
+  availableDays: number;
+  usedPercent: number;      // 0–100+ (informational only, does not drive IT alerts)
+  utilisationPct: number;   // same as usedPercent/100
+  isTimeOff: boolean;       // entire week is time-off
+  isPublicHoliday: boolean; // entire week is public holiday in contact's country
+  breakdownByProject: { projectId: string; projectName: string; phaseId?: string; phaseName?: string; days: number; notes?: string }[];
+}
+
+/**
+ * Compute a business contact's allocation and availability for a single calendar week.
+ * Does NOT affect IT capacity calculations.
+ */
+export function calculateBusinessCapacity(
+  contact: BusinessContact,
+  weekStart: string,
+  weekEnd: string,
+  businessAssignments: BusinessAssignment[],
+  businessTimeOff: BusinessTimeOff[],
+  publicHolidays: PublicHoliday[],
+  projects: Project[]
+): BusinessCellData {
+  const contactHolidays = getHolidaysByCountry(contact.countryId, publicHolidays);
+  const weekStartDate = new Date(weekStart + 'T00:00:00');
+  const weekEndDate   = new Date(weekEnd   + 'T00:00:00');
+
+  const workdays = getWorkdaysInDateRange(weekStart, weekEnd, contactHolidays);
+
+  const timeOffDays = businessTimeOff
+    .filter(t => t.contactId === contact.id)
+    .reduce((sum, t) =>
+      sum + getWorkdaysInDateRange(t.startDate, t.endDate, contactHolidays, weekStartDate, weekEndDate),
+    0);
+
+  const availableDays = Math.max(0, workdays - timeOffDays);
+
+  const breakdownByProject: BusinessCellData['breakdownByProject'] = [];
+  let allocated = 0;
+
+  for (const a of businessAssignments.filter(a => a.contactId === contact.id)) {
+    let rangeStart: string;
+    let rangeEnd: string;
+    let projectName = '';
+    let phaseName: string | undefined;
+    let resolvedPhaseId: string | undefined;
+
+    if (a.phaseId) {
+      let found = false;
+      for (const project of projects) {
+        const phase = project.phases.find(ph => ph.id === a.phaseId);
+        if (phase) {
+          const range = getPhaseRange(phase);
+          if (!range) continue;
+          rangeStart = range.start;
+          rangeEnd   = range.end;
+          projectName = project.name;
+          phaseName = phase.name;
+          resolvedPhaseId = phase.id;
+          found = true;
+          break;
+        }
+      }
+      if (!found) continue;
+    } else {
+      if (!a.quarter) continue;
+      const q = parseQuarter(a.quarter);
+      if (!q) continue;
+      rangeStart = q.start.toISOString().slice(0, 10);
+      rangeEnd   = q.end.toISOString().slice(0, 10);
+      const project = projects.find(p => p.id === a.projectId);
+      projectName = project?.name ?? a.projectId;
+    }
+
+    const days = prorateDaysToWeek(a.days, rangeStart!, rangeEnd!, weekStart, weekEnd, contactHolidays);
+    if (days === 0) continue;
+
+    allocated += days;
+    breakdownByProject.push({
+      projectId: a.projectId,
+      projectName,
+      phaseId: resolvedPhaseId,
+      phaseName,
+      days,
+      notes: a.notes,
+    });
+  }
+
+  const utilisationPct = availableDays > 0 ? allocated / availableDays : 0;
+  return {
+    allocatedDays: allocated,
+    availableDays,
+    usedPercent: Math.round(utilisationPct * 100),
+    utilisationPct,
+    isTimeOff: timeOffDays >= workdays && workdays > 0,
+    isPublicHoliday: workdays === 0,
+    breakdownByProject,
+  };
+}
+
+/**
+ * Quarter-level business capacity — aggregates all weeks in a quarter.
+ * Uses the existing quarterly workday calculation approach for compatibility
+ * with the heatmap table (which is quarter-based).
+ */
+export function calculateBusinessCapacityForQuarter(
+  contact: BusinessContact,
+  quarterStr: string,
+  businessAssignments: BusinessAssignment[],
+  businessTimeOff: BusinessTimeOff[],
+  publicHolidays: PublicHoliday[],
+  projects: Project[]
+): BusinessCellData {
+  const q = parseQuarter(quarterStr);
+  if (!q) {
+    return { allocatedDays: 0, availableDays: 0, usedPercent: 0, utilisationPct: 0, isTimeOff: false, isPublicHoliday: false, breakdownByProject: [] };
+  }
+  const weekStart = q.start.toISOString().slice(0, 10);
+  const weekEnd   = q.end.toISOString().slice(0, 10);
+  return calculateBusinessCapacity(contact, weekStart, weekEnd, businessAssignments, businessTimeOff, publicHolidays, projects);
+}
 
 /** Map a Jira sprint name to a quarter string ("Q1 2026") using configured sprints. */
 export function sprintNameToQuarter(sprintName: string | undefined, sprints: Sprint[]): string | null {

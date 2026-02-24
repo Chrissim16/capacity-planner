@@ -109,6 +109,9 @@ const defaultAppState: AppState = {
   jiraSettings: defaultJiraSettings,
   scenarios: [],
   activeScenarioId: null,
+  businessContacts: [],
+  businessTimeOff: [],
+  businessAssignments: [],
 };
 
 function flattenAssignmentsFromProjects(projects: AppState['projects']): AppState['assignments'] {
@@ -228,6 +231,9 @@ function migrate(data: Partial<AppState>, fromVersion: number): AppState {
       ? (d.assignments as AppState['assignments'])
       : flattenAssignmentsFromProjects(migratedProjects),
     activeScenarioId: (d.activeScenarioId as string | null | undefined) ?? null,
+    businessContacts: Array.isArray(d.businessContacts) ? (d.businessContacts as AppState['businessContacts']) : [],
+    businessTimeOff: Array.isArray(d.businessTimeOff) ? (d.businessTimeOff as AppState['businessTimeOff']) : [],
+    businessAssignments: Array.isArray(d.businessAssignments) ? (d.businessAssignments as AppState['businessAssignments']) : [],
   };
 }
 

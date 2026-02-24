@@ -3,7 +3,7 @@
  * Pure functions - no side effects, fully testable
  */
 
-import type { QuarterRange, PublicHoliday } from '../types';
+import type { QuarterRange, PublicHoliday, Phase } from '../types';
 
 /**
  * Parse a quarter string (e.g., "Q1 2026") to a date range
@@ -321,4 +321,56 @@ export function getWorkWeeksInQuarter(
 ): number {
   const workdays = getWorkdaysInQuarter(quarterStr, holidays);
   return workdays / 5;
+}
+
+/**
+ * Resolve the ISO date range for a phase.
+ * Prefers explicit startDate/endDate; falls back to startQuarter/endQuarter boundaries.
+ */
+export function getPhaseRange(phase: Phase): { start: string; end: string } | null {
+  if (phase.startDate && phase.endDate) {
+    return { start: phase.startDate, end: phase.endDate };
+  }
+  if (phase.startQuarter && phase.endQuarter) {
+    const s = parseQuarter(phase.startQuarter);
+    const e = parseQuarter(phase.endQuarter);
+    if (s && e) {
+      return {
+        start: s.start.toISOString().slice(0, 10),
+        end:   e.end.toISOString().slice(0, 10),
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Prorates committed days into a specific week window using workday-proportional distribution.
+ *
+ * fraction = workdays(weekStart..weekEnd ∩ rangeStart..rangeEnd)
+ *            / workdays(rangeStart..rangeEnd)
+ * result   = days × fraction
+ *
+ * Returns 0 when the week does not overlap the range or the range has zero workdays.
+ */
+export function prorateDaysToWeek(
+  days: number,
+  rangeStart: string,
+  rangeEnd: string,
+  weekStart: string,
+  weekEnd: string,
+  holidays: PublicHoliday[] = []
+): number {
+  const totalWorkdays = getWorkdaysInDateRange(rangeStart, rangeEnd, holidays);
+  if (totalWorkdays === 0) return 0;
+
+  const overlap = getWorkdaysInDateRange(
+    rangeStart,
+    rangeEnd,
+    holidays,
+    new Date(weekStart + 'T00:00:00'),
+    new Date(weekEnd   + 'T00:00:00')
+  );
+
+  return days * (overlap / totalWorkdays);
 }

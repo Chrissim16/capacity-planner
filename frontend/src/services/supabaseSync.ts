@@ -39,6 +39,9 @@ import type {
   Settings,
   JiraSettings,
   Assignment,
+  BusinessContact,
+  BusinessTimeOff,
+  BusinessAssignment,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
 
@@ -121,6 +124,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       squadsRes, processTeamsRes,
       teamMembersRes, projectsRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes, assignmentsRes,
+      bizContactsRes, bizTimeOffRes, bizAssignmentsRes,
     ] = await Promise.all([
       supabase.from('roles').select('*').order('name'),
       supabase.from('countries').select('*').order('name'),
@@ -138,6 +142,9 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       supabase.from('jira_work_items').select('*'),
       supabase.from('scenarios').select('*').order('created_at'),
       supabase.from('assignments').select('*'),
+      supabase.from('business_contacts').select('*').order('name'),
+      supabase.from('business_time_off').select('*'),
+      supabase.from('business_assignments').select('*'),
     ]);
 
     // Log any table errors but continue with empty arrays — partial data is
@@ -148,6 +155,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       squadsRes, processTeamsRes,
       teamMembersRes, projectsRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes, assignmentsRes,
+      bizContactsRes, bizTimeOffRes, bizAssignmentsRes,
     ];
     const errorCount = allResults.filter(r => r.error).length;
 
@@ -377,6 +385,40 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       `${jiraWorkItems.length} Jira items`
     );
 
+    // Business contacts
+    const businessContacts: BusinessContact[] = (bizContactsRes.data ?? []).map(c => ({
+      id: c.id,
+      name: c.name,
+      title: c.title ?? undefined,
+      department: c.department ?? undefined,
+      email: c.email ?? undefined,
+      countryId: c.country_id,
+      workingDaysPerWeek: c.working_days_per_week ?? 5,
+      workingHoursPerDay: c.working_hours_per_day ?? 8,
+      projectIds: Array.isArray(c.project_ids) ? c.project_ids : [],
+      notes: c.notes ?? undefined,
+      archived: c.archived ?? false,
+    }));
+
+    const businessTimeOff: BusinessTimeOff[] = (bizTimeOffRes.data ?? []).map(t => ({
+      id: t.id,
+      contactId: t.contact_id,
+      startDate: t.start_date,
+      endDate: t.end_date,
+      type: t.type as 'holiday' | 'other',
+      notes: t.notes ?? undefined,
+    }));
+
+    const businessAssignments: BusinessAssignment[] = (bizAssignmentsRes.data ?? []).map(a => ({
+      id: a.id,
+      contactId: a.contact_id,
+      projectId: a.project_id,
+      phaseId: a.phase_id ?? undefined,
+      quarter: a.quarter ?? undefined,
+      days: Number(a.days),
+      notes: a.notes ?? undefined,
+    }));
+
     return {
       version: 10,
       lastModified: new Date().toISOString(),
@@ -399,6 +441,9 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       jiraWorkItems,
       scenarios,
       activeScenarioId,
+      businessContacts,
+      businessTimeOff,
+      businessAssignments,
     };
   } catch (err) {
     console.error('[Sync] Unexpected error loading from Supabase:', err);
@@ -440,8 +485,11 @@ export async function saveToSupabase(state: AppState): Promise<void> {
     ['sprints',          syncSprints(state.sprints)],
     ['jira_connections', syncJiraConnections(state.jiraConnections)],
     ['jira_work_items',  syncJiraWorkItems(state.jiraWorkItems)],
-    ['scenarios',        syncScenarios(state.scenarios)],
-    ['settings',         syncSettings(state.settings, state.jiraSettings, state.activeScenarioId)],
+    ['scenarios',             syncScenarios(state.scenarios)],
+    ['settings',              syncSettings(state.settings, state.jiraSettings, state.activeScenarioId)],
+    ['business_contacts',     syncBusinessContacts(state.businessContacts ?? [])],
+    ['business_time_off',     syncBusinessTimeOff(state.businessTimeOff ?? [])],
+    ['business_assignments',  syncBusinessAssignments(state.businessAssignments ?? [])],
   ];
 
   const results = await Promise.allSettled(tasks.map(([, p]) => p));
@@ -779,6 +827,88 @@ async function syncSettings(
 // ─────────────────────────────────────────────────────────────────────────────
 // GENERIC UPSERT + PRUNE
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─── BUSINESS CONTACT SYNC ────────────────────────────────────────────────────
+
+async function syncBusinessContacts(contacts: BusinessContact[]): Promise<void> {
+  try {
+    await upsertAndPrune(
+      'business_contacts',
+      contacts,
+      c => ({
+        id: c.id,
+        name: c.name,
+        title: c.title ?? null,
+        department: c.department ?? null,
+        email: c.email ?? null,
+        country_id: c.countryId,
+        working_days_per_week: c.workingDaysPerWeek ?? 5,
+        working_hours_per_day: c.workingHoursPerDay ?? 8,
+        project_ids: c.projectIds ?? [],
+        notes: c.notes ?? null,
+        archived: c.archived ?? false,
+        updated_at: new Date().toISOString(),
+      })
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('business_contacts') && (msg.includes('not found') || msg.includes('does not exist') || msg.includes('relation'))) {
+      console.warn('[Sync] business_contacts table not found — run migration 011. Skipping.');
+      return;
+    }
+    throw err;
+  }
+}
+
+async function syncBusinessTimeOff(timeOff: BusinessTimeOff[]): Promise<void> {
+  try {
+    await upsertAndPrune(
+      'business_time_off',
+      timeOff,
+      t => ({
+        id: t.id,
+        contact_id: t.contactId,
+        start_date: t.startDate,
+        end_date: t.endDate,
+        type: t.type,
+        notes: t.notes ?? null,
+      })
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('business_time_off') && (msg.includes('not found') || msg.includes('does not exist') || msg.includes('relation'))) {
+      console.warn('[Sync] business_time_off table not found — run migration 011. Skipping.');
+      return;
+    }
+    throw err;
+  }
+}
+
+async function syncBusinessAssignments(assignments: BusinessAssignment[]): Promise<void> {
+  try {
+    await upsertAndPrune(
+      'business_assignments',
+      assignments,
+      a => ({
+        id: a.id,
+        contact_id: a.contactId,
+        project_id: a.projectId,
+        phase_id: a.phaseId ?? null,
+        quarter: a.quarter ?? null,
+        days: a.days,
+        notes: a.notes ?? null,
+        updated_at: new Date().toISOString(),
+      })
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('business_assignments') && (msg.includes('not found') || msg.includes('does not exist') || msg.includes('relation'))) {
+      console.warn('[Sync] business_assignments table not found — run migration 011. Skipping.');
+      return;
+    }
+    throw err;
+  }
+}
 
 type DeleteFn = (idsToRemove: string[]) => Promise<void>;
 
