@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Settings2, BookOpen, Link2 } from 'lucide-react';
 import { GeneralSection } from './settings/GeneralSection';
+import { ConfidenceSection } from './settings/ConfidenceSection';
 import { RolesSection } from './settings/RolesSection';
 import { SkillsSection } from './settings/SkillsSection';
 import { SystemsSection } from './settings/SystemsSection';
@@ -56,6 +57,7 @@ export function Settings() {
         {activeGroup === 'planning' && (
           <div className="space-y-6">
             <GeneralSection />
+            <ConfidenceSection />
             <SprintsSection />
             <DataSection />
           </div>
