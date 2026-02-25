@@ -761,6 +761,11 @@ export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]
         mappedProjectId: existing.mappedProjectId,
         mappedPhaseId: existing.mappedPhaseId,
         mappedMemberId: existing.mappedMemberId ?? autoMemberId,
+        // Preserve local overrides that are never returned by Jira
+        confidenceLevel: existing.confidenceLevel,
+        // Keep sprint dates from the new sync; only fall back to existing if new item has none
+        sprintStartDate: newItem.sprintStartDate ?? existing.sprintStartDate,
+        sprintEndDate:   newItem.sprintEndDate   ?? existing.sprintEndDate,
       };
     } else {
       itemsCreated++;

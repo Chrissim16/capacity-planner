@@ -78,15 +78,30 @@ function boundsForYear(year: number, sprints: Sprint[]): { start: Date; end: Dat
 }
 
 function itemDates(item: JiraWorkItem, sprints: Sprint[]): { start: Date | null; end: Date | null } {
+  // 1. Prefer explicit Jira start/due dates
   let start: Date | null = item.startDate ? new Date(item.startDate + 'T00:00:00') : null;
   let end:   Date | null = item.dueDate   ? new Date(item.dueDate   + 'T00:00:00') : null;
+
+  // 2. Fill gaps from sprint dates stored directly on the item (fetched from Jira sprint object)
+  if (!start && item.sprintStartDate) start = new Date(item.sprintStartDate + 'T00:00:00');
+  if (!end   && item.sprintEndDate)   end   = new Date(item.sprintEndDate   + 'T00:00:00');
+
+  // 3. Fall back to locally-generated sprint lookup by name number
   if ((!start || !end) && item.sprintName) {
-    const parsed = parseSprint(item.sprintName);
-    if (parsed) {
-      const sp = sprints.find(s => s.number === parsed.number && (!parsed.year || s.year === parsed.year));
-      if (sp) {
-        if (!start) start = new Date(sp.startDate + 'T00:00:00');
-        if (!end)   end   = new Date(sp.endDate   + 'T00:00:00');
+    // a) exact name match against generated sprints
+    const byName = sprints.find(s => s.name.toLowerCase() === item.sprintName!.toLowerCase());
+    if (byName) {
+      if (!start) start = new Date(byName.startDate + 'T00:00:00');
+      if (!end)   end   = new Date(byName.endDate   + 'T00:00:00');
+    } else {
+      // b) parse number from the sprint name and match by number
+      const parsed = parseSprint(item.sprintName);
+      if (parsed) {
+        const sp = sprints.find(s => s.number === parsed.number && (!parsed.year || s.year === parsed.year));
+        if (sp) {
+          if (!start) start = new Date(sp.startDate + 'T00:00:00');
+          if (!end)   end   = new Date(sp.endDate   + 'T00:00:00');
+        }
       }
     }
   }

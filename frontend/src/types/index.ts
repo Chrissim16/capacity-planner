@@ -445,6 +445,9 @@ export interface JiraWorkItem {
   parentId?: string;
   sprintId?: string;
   sprintName?: string;
+  /** Sprint start/end dates fetched directly from Jira's sprint object — used for Gantt bar positioning */
+  sprintStartDate?: string;  // YYYY-MM-DD
+  sprintEndDate?: string;    // YYYY-MM-DD
   labels: string[];
   components: string[];
   created: string;

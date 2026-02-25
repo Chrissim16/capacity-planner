@@ -779,6 +779,8 @@ function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string, discover
     reporterEmail: f.reporter?.emailAddress, reporterName: f.reporter?.displayName,
     parentKey, parentId: f.parent?.id,
     sprintId: sprint?.id?.toString(), sprintName: sprint?.name,
+    sprintStartDate: sprint?.startDate ? sprint.startDate.slice(0, 10) : undefined,
+    sprintEndDate:   sprint?.endDate   ? sprint.endDate.slice(0, 10)   : undefined,
     labels: f.labels || [], components: f.components?.map(c => c.name) || [],
     created: f.created, updated: f.updated,
     startDate: f.customfield_10015 ?? undefined,
