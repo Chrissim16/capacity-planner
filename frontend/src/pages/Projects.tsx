@@ -1130,7 +1130,8 @@ function EpicDaysCell({ item, defaultConfidenceLevel = 'medium', confidenceSetti
   const [dropStyle, setDropStyle] = useState<React.CSSProperties>({});
   const btnRef = useRef<HTMLButtonElement>(null);
   const confidence = item.confidenceLevel ?? defaultConfidenceLevel;
-  const raw = item.storyPoints!;
+  const hasPoints = item.storyPoints != null;
+  const raw = item.storyPoints ?? 0;
   const forecasted = getForecastedDays(raw, confidence, confidenceSettings);
 
   useEffect(() => {
@@ -1148,9 +1149,13 @@ function EpicDaysCell({ item, defaultConfidenceLevel = 'medium', confidenceSetti
 
   return (
     <span className="inline-flex items-center gap-1 flex-shrink-0">
-      <span className="text-[10px] text-slate-400 dark:text-slate-500">{raw}d</span>
-      <span className="text-[10px] text-slate-300 dark:text-slate-600">→</span>
-      <span className="text-[10px] font-semibold text-[#0089DD]">{forecasted}d</span>
+      {hasPoints && (
+        <>
+          <span className="text-[10px] text-slate-400 dark:text-slate-500">{raw}d</span>
+          <span className="text-[10px] text-slate-300 dark:text-slate-600">→</span>
+          <span className="text-[10px] font-semibold text-[#0089DD]">{forecasted}d</span>
+        </>
+      )}
       <button
         ref={btnRef}
         onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
@@ -1317,7 +1322,7 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
                   {feature.jiraKey}
                 </a>
               )}
-              {feature.storyPoints != null && <DaysCell item={feature} />}
+              <DaysCell item={feature} />
             </div>
             {/* IT Assignee */}
             <div className="flex items-center gap-1.5 px-2.5">
@@ -1353,7 +1358,7 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
                       {child.jiraKey}
                     </a>
                   )}
-                  {child.storyPoints != null && <DaysCell item={child} />}
+                  <DaysCell item={child} />
                 </div>
                 <div className="flex items-center gap-1.5 px-2.5">
                   <AvatarStack people={getItPeople(child)} variant="it" />
@@ -1386,7 +1391,7 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
                 {item.jiraKey}
               </a>
             )}
-            {item.storyPoints != null && <DaysCell item={item} />}
+              <DaysCell item={item} />
           </div>
           <div className="flex items-center gap-1.5 px-2.5">
             <span className="text-[9px] font-bold tracking-wider uppercase px-1 py-0.5 rounded bg-[#E8F4FB] text-[#0089DD] border border-[#BAE0F7] flex-shrink-0">IT</span>
