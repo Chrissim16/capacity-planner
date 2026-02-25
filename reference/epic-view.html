@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epic View — Mileway BV</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4F3F0;
+    --surface: #FFFFFF;
+    --surface-2: #F8F7F5;
+    --border: #E8E6E1;
+    --border-strong: #D4D1CB;
+    --text-primary: #1A1916;
+    --text-secondary: #6B6860;
+    --text-muted: #A09D97;
+    --it-bg: #EEF4FF;
+    --it-border: #C2D8FF;
+    --it-text: #2558C9;
+    --biz-bg: #FFF3EE;
+    --biz-border: #FFD4BC;
+    --biz-text: #C24A1A;
+    --status-active: #1A9E6A;
+    --status-active-bg: #E6F7F1;
+    --status-backlog: #8B8680;
+    --status-backlog-bg: #F0EFED;
+    --status-progress: #C28A1A;
+    --status-progress-bg: #FFF8E6;
+    --phase-uat-bg: #F3EEFF;
+    --phase-uat-border: #D4BCFF;
+    --phase-uat-text: #6B2EC2;
+    --phase-hyper-bg: #EEFAF5;
+    --phase-hyper-border: #AAEBD0;
+    --phase-hyper-text: #1A7A52;
+    --warning: #D4380D;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.4;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .header-logo {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: var(--text-primary);
+  }
+
+  .header-logo span {
+    color: var(--it-text);
+  }
+
+  .header-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .header-breadcrumb strong {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .nav-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .nav-btn:hover { background: var(--surface-2); color: var(--text-primary); }
+  .nav-btn.active { background: var(--it-bg); color: var(--it-text); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-add {
+    padding: 6px 14px;
+    background: var(--it-text);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .btn-add:hover { opacity: 0.88; }
+
+  /* TOOLBAR */
+  .toolbar {
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .filter-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-pill:hover { border-color: var(--it-border); color: var(--it-text); }
+
+  .filter-pill svg { width: 12px; height: 12px; }
+
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+  }
+
+  .legend-dot.it { background: var(--it-text); }
+  .legend-dot.biz { background: var(--biz-text); }
+
+  /* COLUMN HEADERS */
+  .col-headers {
+    padding: 0 24px;
+    display: grid;
+    grid-template-columns: 1fr 180px 180px 140px 100px;
+    gap: 0;
+    margin-bottom: 4px;
+  }
+
+  .col-header {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 10px 6px;
+  }
+
+  .col-header.it { color: var(--it-text); opacity: 0.7; }
+  .col-header.biz { color: var(--biz-text); opacity: 0.7; }
+
+  /* EPIC CONTAINER */
+  .epic-list {
+    padding: 0 24px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* EPIC CARD */
+  .epic-card {
+    background: var(--surface);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+
+  .epic-card:hover { box-shadow: var(--shadow-md); }
+
+  /* EPIC ROW */
+  .epic-row {
+    display: grid;
+    grid-template-columns: 1fr 180px 180px 140px 100px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: background 0.15s;
+    gap: 0;
+  }
+
+  .epic-row:hover { background: #FAFAF8; }
+
+  .epic-title-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-right: 16px;
+  }
+
+  .expand-btn {
+    width: 20px; height: 20px;
+    border: none;
+    background: var(--surface-2);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+
+  .expand-btn:hover { background: var(--border); }
+
+  .expand-btn svg {
+    width: 10px; height: 10px;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
+  }
+
+  .expand-btn.open svg { transform: rotate(90deg); }
+
+  .epic-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+  }
+
+  .epic-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .jira-id {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .feat-count {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* ASSIGNEE CELL */
+  .assignee-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+  }
+
+  .track-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 2px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .track-badge.it {
+    background: var(--it-bg);
+    color: var(--it-text);
+    border: 1px solid var(--it-border);
+  }
+
+  .track-badge.biz {
+    background: var(--biz-bg);
+    color: var(--biz-text);
+    border: 1px solid var(--biz-border);
+  }
+
+  .avatar-stack {
+    display: flex;
+    align-items: center;
+  }
+
+  .avatar {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+    border: 2px solid white;
+    flex-shrink: 0;
+    margin-left: -6px;
+  }
+
+  .avatar:first-child { margin-left: 0; }
+
+  .avatar.it-av { background: var(--it-bg); color: var(--it-text); }
+  .avatar.biz-av { background: var(--biz-bg); color: var(--biz-text); }
+  .avatar.more { background: var(--surface-2); color: var(--text-secondary); font-size: 8px; }
+
+  .assignee-name {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .unassigned {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .warn-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #FFB800;
+    flex-shrink: 0;
+  }
+
+  /* SPRINT CELL */
+  .sprint-cell {
+    padding: 0 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .sprint-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .sprint-range {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* STATUS CELL */
+  .status-cell {
+    padding: 0 10px;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+
+  .status-badge.active { background: var(--status-active-bg); color: var(--status-active); }
+  .status-badge.backlog { background: var(--status-backlog-bg); color: var(--status-backlog); }
+  .status-badge.progress { background: var(--status-progress-bg); color: var(--status-progress); }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* FEATURES CONTAINER */
+  .features-container {
+    display: none;
+    background: var(--surface-2);
+  }
+
+  .features-container.open { display: block; }
+
+  /* FEATURE ROW */
+  .feature-block {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .feature-block:last-child { border-bottom: none; }
+
+  .feature-row {
+    display: grid;
+    grid-template-columns: 1fr 180px 180px 140px 100px;
+    align-items: center;
+    padding: 9px 16px 9px 40px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid transparent;
+  }
+
+  .feature-row:hover { background: #F5F4F1; }
+
+  .feature-title-cell {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding-right: 16px;
+  }
+
+  .type-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 2px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .type-label.feature { background: #E8F0FF; color: #2558C9; }
+  .type-label.story { background: #F0F0F0; color: #5A5754; }
+  .type-label.uat { background: var(--phase-uat-bg); color: var(--phase-uat-text); border: 1px solid var(--phase-uat-border); }
+  .type-label.hypercare { background: var(--phase-hyper-bg); color: var(--phase-hyper-text); border: 1px solid var(--phase-hyper-border); }
+  .type-label.phase { background: #FFF0E8; color: #9B3A0A; }
+
+  .feature-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  /* CHILDREN (Stories & Phases) */
+  .children-container {
+    display: none;
+    background: white;
+  }
+
+  .children-container.open { display: block; }
+
+  .child-row {
+    display: grid;
+    grid-template-columns: 1fr 180px 180px 140px 100px;
+    align-items: center;
+    padding: 7px 16px 7px 64px;
+    border-top: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+
+  .child-row:hover { background: #FAFAF8; }
+
+  .child-title-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-right: 16px;
+  }
+
+  .connector {
+    width: 16px; height: 16px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.3;
+  }
+
+  .child-name {
+    font-size: 12.5px;
+    color: var(--text-primary);
+    font-weight: 400;
+  }
+
+  /* PHASE DURATION */
+  .duration-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    background: #F5F0FF;
+    border: 1px solid #DDD0FF;
+    border-radius: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: #6B2EC2;
+    font-weight: 500;
+    margin-left: 6px;
+  }
+
+  .parallel-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
+    background: #F0F0F0;
+    border-radius: 3px;
+    font-size: 9.5px;
+    color: var(--text-muted);
+    margin-left: 4px;
+    font-weight: 500;
+  }
+
+  /* EMPTY STATE */
+  .empty-phase {
+    padding: 10px 16px 10px 64px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .add-phase-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .add-phase-btn:hover {
+    border-color: var(--phase-uat-border);
+    color: var(--phase-uat-text);
+    background: var(--phase-uat-bg);
+  }
+
+  /* EPIC FOOTER */
+  .epic-footer {
+    display: none;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+
+  .epic-footer.open { display: flex; }
+
+  .add-feature-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border: 1px dashed var(--it-border);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--it-text);
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    opacity: 0.7;
+  }
+
+  .add-feature-btn:hover { opacity: 1; background: var(--it-bg); }
+
+  /* DIVIDER LINE in tree */
+  .tree-line {
+    position: relative;
+  }
+
+  /* TOOLTIP */
+  .tooltip {
+    position: relative;
+  }
+
+  .tooltip-text {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text-primary);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 200;
+    pointer-events: none;
+  }
+
+  .tooltip:hover .tooltip-text { display: block; }
+
+  /* ANIMATIONS */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .features-container.open,
+  .children-container.open {
+    animation: fadeIn 0.15s ease;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="header-logo">VS<span>Finance</span></div>
+    <div class="header-breadcrumb">
+      <span>Mileway BV</span>
+      <span>›</span>
+      <strong>Epics</strong>
+    </div>
+  </div>
+
+  <div class="header-nav">
+    <button class="nav-btn active">Epics</button>
+    <button class="nav-btn">Timeline</button>
+    <button class="nav-btn">Team</button>
+    <button class="nav-btn">Sprints</button>
+  </div>
+
+  <div class="header-right">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot it"></div> IT</div>
+      <div class="legend-item"><div class="legend-dot biz"></div> Business</div>
+    </div>
+    <button class="btn-add">+ Add Epic</button>
+  </div>
+</header>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="filter-pill">
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 3h10M3 6h6M5 9h2"/></svg>
+      Filter
+    </div>
+    <div class="filter-pill">
+      Q1 2026
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5l3 3 3-3"/></svg>
+    </div>
+    <div class="filter-pill">
+      All Teams
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5l3 3 3-3"/></svg>
+    </div>
+  </div>
+</div>
+
+<!-- COLUMN HEADERS -->
+<div class="col-headers">
+  <div class="col-header">Epic / Feature / Item</div>
+  <div class="col-header it">IT Assignee</div>
+  <div class="col-header biz">Business Assignee</div>
+  <div class="col-header">Sprint</div>
+  <div class="col-header">Status</div>
+</div>
+
+<!-- EPIC LIST -->
+<div class="epic-list">
+
+  <!-- EPIC 1 -->
+  <div class="epic-card">
+    <div class="epic-row" onclick="toggleEpic(this)">
+      <div class="epic-title-cell">
+        <button class="expand-btn" tabindex="-1">
+          <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 3-4 3"/></svg>
+        </button>
+        <div>
+          <div class="epic-name">AR Improvement Initiative – Late Fees &amp; Penalty Interest</div>
+          <div class="epic-meta">
+            <span class="jira-id">ERP-1976</span>
+            <span class="feat-count">1 feature · 2 members</span>
+          </div>
+        </div>
+      </div>
+      <div class="assignee-cell">
+        <span class="track-badge it">IT</span>
+        <div class="avatar-stack">
+          <div class="avatar it-av tooltip">MC<span class="tooltip-text">Melvin Campbell</span></div>
+        </div>
+        <span class="assignee-name">Melvin Campbell</span>
+      </div>
+      <div class="assignee-cell">
+        <span class="track-badge biz">BIZ</span>
+        <div class="avatar-stack">
+          <div class="avatar biz-av tooltip">DC<span class="tooltip-text">David Caig</span></div>
+        </div>
+        <span class="assignee-name">David Caig</span>
+      </div>
+      <div class="sprint-cell">
+        <span class="sprint-tag">S1 – S4</span>
+        <span class="sprint-range">Q1 2026</span>
+      </div>
+      <div class="status-cell">
+        <span class="status-badge progress"><span class="status-dot"></span>In Progress</span>
+      </div>
+    </div>
+
+    <!-- FEATURES -->
+    <div class="features-container">
+
+      <!-- FEATURE -->
+      <div class="feature-block">
+        <div class="feature-row" onclick="toggleFeature(this)">
+          <div class="feature-title-cell">
+            <button class="expand-btn" tabindex="-1">
+              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 3-4 3"/></svg>
+            </button>
+            <span class="type-label feature">Feature</span>
+            <span class="feature-name">Late Fee &amp; Penalty Interest Ireland</span>
+            <span class="jira-id" style="margin-left:4px;">ERP-3676</span>
+          </div>
+          <div class="assignee-cell">
+            <div class="avatar-stack">
+              <div class="avatar it-av tooltip">MS<span class="tooltip-text">Manish Solanki</span></div>
+            </div>
+            <span class="assignee-name">Manish Solanki</span>
+          </div>
+          <div class="assignee-cell">
+            <div class="avatar-stack">
+              <div class="avatar biz-av tooltip">DC<span class="tooltip-text">David Caig</span></div>
+            </div>
+            <span class="assignee-name">David Caig</span>
+          </div>
+          <div class="sprint-cell">
+            <span class="sprint-tag">S2 – S3</span>
+          </div>
+          <div class="status-cell">
+            <span class="status-badge backlog"><span class="status-dot"></span>Backlog</span>
+          </div>
+        </div>
+
+        <!-- CHILDREN -->
+        <div class="children-container">
+          <!-- Story -->
+          <div class="child-row">
+            <div class="child-title-cell">
+              <svg class="connector" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 0v8h8"/></svg>
+              <span class="type-label story">Story</span>
+              <span class="child-name">Penalty Interest Ireland</span>
+              <span class="jira-id" style="margin-left:4px;">ERP-2763</span>
+            </div>
+            <div class="assignee-cell">
+              <div class="avatar-stack">
+                <div class="avatar it-av tooltip">MS<span class="tooltip-text">Manish Solanki</span></div>
+              </div>
+              <span class="assignee-name">Manish Solanki</span>
+            </div>
+            <div class="assignee-cell">
+              <span class="unassigned"><span class="warn-dot"></span>Unassigned</span>
+            </div>
+            <div class="sprint-cell">
+              <span class="sprint-tag">S2</span>
+            </div>
+            <div class="status-cell">
+              <span class="status-badge backlog"><span class="status-dot"></span>Backlog</span>
+            </div>
+          </div>
+
+          <!-- UAT Phase -->
+          <div class="child-row">
+            <div class="child-title-cell">
+              <svg class="connector" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 0v8h8"/></svg>
+              <span class="type-label uat">UAT</span>
+              <span class="child-name">User Acceptance Testing – IE</span>
+              <span class="duration-badge">5d</span>
+              <span class="parallel-badge">∥ parallel</span>
+            </div>
+            <div class="assignee-cell">
+              <div class="avatar-stack">
+                <div class="avatar it-av tooltip">MS<span class="tooltip-text">Manish Solanki</span></div>
+              </div>
+              <span class="assignee-name">Manish Solanki</span>
+            </div>
+            <div class="assignee-cell">
+              <div class="avatar-stack">
+                <div class="avatar biz-av tooltip">DC<span class="tooltip-text">David Caig</span></div>
+              </div>
+              <span class="assignee-name">David Caig</span>
+            </div>
+            <div class="sprint-cell">
+              <span class="sprint-tag">S3</span>
+            </div>
+            <div class="status-cell">
+              <span class="status-badge backlog"><span class="status-dot"></span>Planned</span>
+            </div>
+          </div>
+
+          <!-- Add phase -->
+          <div class="empty-phase">
+            <button class="add-phase-btn">+ Add phase</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="epic-footer">
+      <button class="add-feature-btn">+ Add feature</button>
+    </div>
+  </div>
+
+  <!-- EPIC 2 -->
+  <div class="epic-card">
+    <div class="epic-row" onclick="toggleEpic(this)">
+      <div class="epic-title-cell">
+        <button class="expand-btn" tabindex="-1">
+          <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 3-4 3"/></svg>
+        </button>
+        <div>
+          <div class="epic-name">API Implementation for Treasury</div>
+          <div class="epic-meta">
+            <span class="jira-id">ERP-3216</span>
+            <span class="feat-count">4 features · 2 members</span>
+          </div>
+        </div>
+      </div>
+      <div class="assignee-cell">
+        <span class="track-badge it">IT</span>
+        <div class="avatar-stack">
+          <div class="avatar it-av tooltip">DS<span class="tooltip-text">Dennis Simon</span></div>
+        </div>
+        <span class="assignee-name">Dennis Simon</span>
+      </div>
+      <div class="assignee-cell">
+        <span class="track-badge biz">BIZ</span>
+        <div class="unassigned"><span class="warn-dot"></span>Unassigned</div>
+      </div>
+      <div class="sprint-cell">
+        <span class="sprint-tag">S1 – S6</span>
+        <span class="sprint-range">Q1 2026</span>
+      </div>
+      <div class="status-cell">
+        <span class="status-badge active"><span class="status-dot"></span>Active</span>
+      </div>
+    </div>
+
+    <div class="features-container">
+      <div class="feature-block">
+        <div class="feature-row" onclick="toggleFeature(this)">
+          <div class="feature-title-cell">
+            <button class="expand-btn" tabindex="-1">
+              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 3-4 3"/></svg>
+            </button>
+            <span class="type-label feature">Feature</span>
+            <span class="feature-name">FIN | FIS | TMS Reporting APIs</span>
+            <span class="jira-id" style="margin-left:4px; background:#FFF3D6; color:#8B6400; padding:1px 4px; border-radius:3px;">HIGH</span>
+          </div>
+          <div class="assignee-cell">
+            <div class="avatar-stack">
+              <div class="avatar it-av tooltip">JB<span class="tooltip-text">James Bailey</span></div>
+              <div class="avatar it-av tooltip">CK<span class="tooltip-text">Cosmina Kiss</span></div>
+            </div>
+            <span class="assignee-name">Bailey, Kiss</span>
+          </div>
+          <div class="assignee-cell">
+            <span class="unassigned"><span class="warn-dot"></span>Unassigned</span>
+          </div>
+          <div class="sprint-cell">
+            <span class="sprint-tag">S1 – S2</span>
+          </div>
+          <div class="status-cell">
+            <span class="status-badge active"><span class="status-dot"></span>Active</span>
+          </div>
+        </div>
+        <div class="children-container">
+          <div class="child-row">
+            <div class="child-title-cell">
+              <svg class="connector" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 0v8h8"/></svg>
+              <span class="type-label story">Story</span>
+              <span class="child-name">Set up TMS API authentication &amp; credentials</span>
+            </div>
+            <div class="assignee-cell">
+              <div class="avatar-stack">
+                <div class="avatar it-av tooltip">JB<span class="tooltip-text">James Bailey</span></div>
+              </div>
+              <span class="assignee-name">James Bailey</span>
+            </div>
+            <div class="assignee-cell">
+              <span class="unassigned"><span class="warn-dot"></span>Unassigned</span>
+            </div>
+            <div class="sprint-cell"><span class="sprint-tag">S1</span></div>
+            <div class="status-cell">
+              <span class="status-badge progress"><span class="status-dot"></span>In Progress</span>
+            </div>
+          </div>
+          <div class="child-row">
+            <div class="child-title-cell">
+              <svg class="connector" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 0v8h8"/></svg>
+              <span class="type-label story">Story</span>
+              <span class="child-name">Implement report endpoint &amp; data mapping</span>
+            </div>
+            <div class="assignee-cell">
+              <div class="avatar-stack">
+                <div class="avatar it-av tooltip">CK<span class="tooltip-text">Cosmina Kiss</span></div>
+              </div>
+              <span class="assignee-name">Cosmina Kiss</span>
+            </div>
+            <div class="assignee-cell">
+              <span class="unassigned"><span class="warn-dot"></span>Unassigned</span>
+            </div>
+            <div class="sprint-cell"><span class="sprint-tag">S2</span></div>
+            <div class="status-cell">
+              <span class="status-badge backlog"><span class="status-dot"></span>Backlog</span>
+            </div>
+          </div>
+          <div class="child-row">
+            <div class="child-title-cell">
+              <svg class="connector" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 0v8h8"/></svg>
+              <span class="type-label uat">UAT</span>
+              <span class="child-name">TMS Reporting UAT</span>
+              <span class="duration-badge">3d</span>
+              <span class="parallel-badge">→ sequential</span>
+            </div>
+            <div class="assignee-cell">
+              <div class="avatar-stack">
+                <div class="avatar it-av tooltip">JB<span class="tooltip-text">James Bailey</span></div>
+              </div>
+              <span class="assignee-name">James Bailey</span>
+            </div>
+            <div class="assignee-cell">
+              <span class="unassigned"><span class="warn-dot"></span>Unassigned</span>
+            </div>
+            <div class="sprint-cell"><span class="sprint-tag">S3</span></div>
+            <div class="status-cell">
+              <span class="status-badge backlog"><span class="status-dot"></span>Planned</span>
+            </div>
+          </div>
+          <div class="empty-phase">
+            <button class="add-phase-btn">+ Add phase</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-block">
+        <div class="feature-row" onclick="toggleFeature(this)">
+          <div class="feature-title-cell">
+            <button class="expand-btn" tabindex="-1">
+              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 3-4 3"/></svg>
+            </button>
+            <span class="type-label feature">Feature</span>
+            <span class="feature-name">FIN | FIS | Payment Initiating APIs</span>
+            <span class="jira-id" style="margin-left:4px; background:#FFF3D6; color:#8B6400; padding:1px 4px; border-radius:3px;">HIGH</span>
+          </div>
+          <div class="assignee-cell">
+            <div class="avatar-stack">
+              <div class="avatar it-av tooltip">JD<span class="tooltip-text">James Davis</span></div>
+            </div>
+            <span class="assignee-name">James Davis</span>
+          </div>
+          <div class="assignee-cell">
+            <span class="unassigned"><span class="warn-dot"></span>Unassigned</span>
+          </div>
+          <div class="sprint-cell"><span class="sprint-tag">S2 – S4</span></div>
+          <div class="status-cell">
+            <span class="status-badge backlog"><span class="status-dot"></span>Backlog</span>
+          </div>
+        </div>
+        <div class="children-container">
+          <div class="empty-phase">
+            <button class="add-phase-btn">+ Add phase</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="epic-footer">
+      <button class="add-feature-btn">+ Add feature</button>
+    </div>
+  </div>
+
+  <!-- EPIC 3 – collapsed example -->
+  <div class="epic-card">
+    <div class="epic-row" onclick="toggleEpic(this)">
+      <div class="epic-title-cell">
+        <button class="expand-btn" tabindex="-1">
+          <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 3-4 3"/></svg>
+        </button>
+        <div>
+          <div class="epic-name">[Accounting Master Data] Refactor Yardi Segment Validation</div>
+          <div class="epic-meta">
+            <span class="jira-id">ERP-2901</span>
+            <span class="feat-count">1 feature · 3 members</span>
+          </div>
+        </div>
+      </div>
+      <div class="assignee-cell">
+        <span class="track-badge it">IT</span>
+        <div class="avatar-stack">
+          <div class="avatar it-av tooltip">HR<span class="tooltip-text">Hendre Remacle</span></div>
+        </div>
+        <span class="assignee-name">Hendre Remacle</span>
+      </div>
+      <div class="assignee-cell">
+        <span class="track-badge biz">BIZ</span>
+        <div class="avatar-stack">
+          <div class="avatar biz-av tooltip">AP<span class="tooltip-text">Arun Patil</span></div>
+          <div class="avatar biz-av tooltip">KU<span class="tooltip-text">Katerina Utrobina</span></div>
+        </div>
+        <span class="assignee-name">Patil +1</span>
+      </div>
+      <div class="sprint-cell">
+        <span class="sprint-tag">S3 – S5</span>
+        <span class="sprint-range">Q1 2026</span>
+      </div>
+      <div class="status-cell">
+        <span class="status-badge active"><span class="status-dot"></span>Active</span>
+      </div>
+    </div>
+    <div class="features-container">
+      <div class="feature-block">
+        <div class="feature-row" onclick="toggleFeature(this)">
+          <div class="feature-title-cell">
+            <button class="expand-btn" tabindex="-1">
+              <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 3-4 3"/></svg>
+            </button>
+            <span class="type-label feature">Feature</span>
+            <span class="feature-name">Yardi Segment Validation Rules</span>
+          </div>
+          <div class="assignee-cell">
+            <div class="avatar-stack">
+              <div class="avatar it-av tooltip">HR<span class="tooltip-text">Hendre Remacle</span></div>
+            </div>
+            <span class="assignee-name">Hendre Remacle</span>
+          </div>
+          <div class="assignee-cell">
+            <div class="avatar-stack">
+              <div class="avatar biz-av tooltip">AP<span class="tooltip-text">Arun Patil</span></div>
+              <div class="avatar biz-av tooltip">KU<span class="tooltip-text">Katerina Utrobina</span></div>
+            </div>
+            <span class="assignee-name">Patil, Utrobina</span>
+          </div>
+          <div class="sprint-cell"><span class="sprint-tag">S3 – S4</span></div>
+          <div class="status-cell">
+            <span class="status-badge active"><span class="status-dot"></span>Active</span>
+          </div>
+        </div>
+        <div class="children-container">
+          <div class="child-row">
+            <div class="child-title-cell">
+              <svg class="connector" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 0v8h8"/></svg>
+              <span class="type-label story">Story</span>
+              <span class="child-name">Audit existing segment rules in Yardi</span>
+            </div>
+            <div class="assignee-cell">
+              <div class="avatar-stack">
+                <div class="avatar it-av tooltip">HR<span class="tooltip-text">Hendre Remacle</span></div>
+              </div>
+              <span class="assignee-name">Hendre Remacle</span>
+            </div>
+            <div class="assignee-cell">
+              <div class="avatar-stack">
+                <div class="avatar biz-av tooltip">AP<span class="tooltip-text">Arun Patil</span></div>
+              </div>
+              <span class="assignee-name">Arun Patil</span>
+            </div>
+            <div class="sprint-cell"><span class="sprint-tag">S3</span></div>
+            <div class="status-cell"><span class="status-badge progress"><span class="status-dot"></span>In Progress</span></div>
+          </div>
+          <div class="child-row">
+            <div class="child-title-cell">
+              <svg class="connector" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 0v8h8"/></svg>
+              <span class="type-label hypercare">Hypercare</span>
+              <span class="child-name">Post-release monitoring</span>
+              <span class="duration-badge">5d</span>
+              <span class="parallel-badge">∥ parallel</span>
+            </div>
+            <div class="assignee-cell">
+              <div class="avatar-stack">
+                <div class="avatar it-av tooltip">HR<span class="tooltip-text">Hendre Remacle</span></div>
+              </div>
+              <span class="assignee-name">Hendre Remacle</span>
+            </div>
+            <div class="assignee-cell">
+              <div class="avatar-stack">
+                <div class="avatar biz-av tooltip">KU<span class="tooltip-text">Katerina Utrobina</span></div>
+              </div>
+              <span class="assignee-name">Katerina Utrobina</span>
+            </div>
+            <div class="sprint-cell"><span class="sprint-tag">S5</span></div>
+            <div class="status-cell"><span class="status-badge backlog"><span class="status-dot"></span>Planned</span></div>
+          </div>
+          <div class="empty-phase">
+            <button class="add-phase-btn">+ Add phase</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="epic-footer">
+      <button class="add-feature-btn">+ Add feature</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function toggleEpic(row) {
+    const card = row.closest('.epic-card');
+    const btn = row.querySelector('.expand-btn');
+    const features = card.querySelector('.features-container');
+    const footer = card.querySelector('.epic-footer');
+    const isOpen = features.classList.contains('open');
+    features.classList.toggle('open', !isOpen);
+    footer.classList.toggle('open', !isOpen);
+    btn.classList.toggle('open', !isOpen);
+  }
+
+  function toggleFeature(row) {
+    event.stopPropagation();
+    const block = row.closest('.feature-block');
+    const btn = row.querySelector('.expand-btn');
+    const children = block.querySelector('.children-container');
+    const isOpen = children.classList.contains('open');
+    children.classList.toggle('open', !isOpen);
+    btn.classList.toggle('open', !isOpen);
+  }
+
+  // Open first epic by default
+  document.querySelector('.epic-row').click();
+  // Open first feature by default
+  setTimeout(() => {
+    const firstFeature = document.querySelector('.feature-row');
+    if (firstFeature) firstFeature.click();
+  }, 50);
+</script>
+</body>
+</html>

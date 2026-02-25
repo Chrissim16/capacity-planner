@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Eye, EyeOff, User, FolderKanban, Calendar, Zap, Filter, CalendarOff, GripVertical } from 'lucide-react';
+import { ChevronRight, ChevronDown, Eye, EyeOff, User, FolderKanban, Calendar, Zap, Filter, CalendarOff, GripVertical, BarChart2 } from 'lucide-react';
+import { JiraGantt } from '../components/JiraGantt';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -13,7 +14,7 @@ import { isQuarterInRange, getCurrentQuarter, getWorkdaysInQuarter, getWorkdaysI
 import { generateSprints, getSprintsForQuarter, formatDateRange, getWorkdaysInSprint } from '../utils/sprints';
 import type { Project, TeamMember, Sprint, PublicHoliday, Phase, Settings } from '../types';
 
-type TimelineView = 'projects' | 'team';
+type TimelineView = 'projects' | 'team' | 'gantt';
 type TimelineGranularity = 'quarter' | 'sprint' | 'dates';
 
 function getPhaseConfidence(phase: Phase, confidenceLevels: Settings['confidenceLevels']) {
@@ -161,10 +162,21 @@ export function Timeline() {
               <User size={16} />
               Team
             </button>
+            <button
+              onClick={() => setViewMode('gantt')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'gantt'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <BarChart2 size={16} />
+              Gantt
+            </button>
           </div>
 
-          {/* Granularity Toggle */}
-          <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
+          {/* Granularity Toggle (hidden in Gantt mode) */}
+          {viewMode !== 'gantt' && <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
             <button
               onClick={() => setGranularity('quarter')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -198,8 +210,8 @@ export function Timeline() {
               <CalendarOff size={14} />
               Dates
             </button>
-          </div>
-          
+          </div>}
+
           {viewMode === 'projects' && (
             <Button
               variant="secondary"
@@ -210,8 +222,8 @@ export function Timeline() {
             </Button>
           )}
 
-          {/* Date-range filter */}
-          <div className="flex items-center gap-1.5">
+          {/* Date-range filter (hidden in Gantt mode) */}
+          {viewMode !== 'gantt' && <div className="flex items-center gap-1.5">
             <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">From</span>
             <Select
               value={String(fromIdx)}
@@ -228,13 +240,25 @@ export function Timeline() {
               onChange={(e) => setToIdx(parseInt(e.target.value))}
               options={toOptions}
             />
-          </div>
+          </div>}
           </div>
         }
       />
 
-      {/* Timeline */}
-      <Card>
+      {/* Gantt View */}
+      {viewMode === 'gantt' && (
+        <JiraGantt
+          items={state.jiraWorkItems ?? []}
+          bizAssignments={state.jiraItemBizAssignments ?? []}
+          businessContacts={state.businessContacts ?? []}
+          settings={settings}
+          quarters={quarters}
+          jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}
+        />
+      )}
+
+      {/* Timeline (Projects / Team views) */}
+      {viewMode !== 'gantt' && <Card>
         <CardContent className="p-0 overflow-x-auto" style={{ '--lw': `${labelWidth}px` } as React.CSSProperties}>
           {/* Quarter Navigation Header */}
           <div className="flex items-center border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
@@ -399,7 +423,7 @@ export function Timeline() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Inline Assignment Modal (US-016) */}
       <AssignmentModal

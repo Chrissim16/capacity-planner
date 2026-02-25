@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timeline — VS Finance / Mileway BV</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#F4F3F0; --surface:#FFFFFF; --surface-2:#F8F7F5;
+    --border:#E8E6E1; --border-strong:#D4D1CB;
+    --text-primary:#1A1916; --text-secondary:#6B6860; --text-muted:#A09D97;
+    --it-bg:#EEF4FF; --it-border:#C2D8FF; --it-text:#2558C9;
+    --biz-bg:#FFF3EE; --biz-border:#FFD4BC; --biz-text:#C24A1A;
+    --bar-feature:#A8C4F5; --bar-feature-border:#6090E0;
+    --bar-story:#D0CCC8;   --bar-story-border:#A09D97;
+    --bar-uat:#CDB0F5;     --bar-uat-border:#9B6EE2;
+    --bar-hypercare:#90D9B8; --bar-hypercare-border:#1A7A52;
+    --bar-epic-fill:rgba(168,196,245,.15); --bar-epic-border:#6090E0;
+    --status-active-bg:#E6F7F1; --status-active:#1A9E6A;
+    --status-progress-bg:#FFF8E6; --status-progress:#C28A1A;
+    --status-backlog-bg:#F0EFED; --status-backlog:#8B8680;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:0 8px 32px rgba(0,0,0,.12),0 2px 8px rgba(0,0,0,.06);
+    --row-height:44px; --subrow-height:36px; --label-width:300px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-primary);font-size:13px;line-height:1.4;min-height:100vh;overflow-x:hidden}
+
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:200;box-shadow:var(--shadow-sm)}
+  .header-left{display:flex;align-items:center;gap:16px}
+  .header-logo{font-size:15px;font-weight:600;letter-spacing:-.3px}
+  .header-logo span{color:var(--it-text)}
+  .header-breadcrumb{display:flex;align-items:center;gap:6px;color:var(--text-muted);font-size:12px}
+  .header-breadcrumb strong{color:var(--text-secondary);font-weight:500}
+  .header-nav{display:flex;align-items:center;gap:2px}
+  .nav-btn{padding:5px 12px;border-radius:6px;border:none;background:transparent;color:var(--text-secondary);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .15s}
+  .nav-btn:hover{background:var(--surface-2);color:var(--text-primary)}
+  .nav-btn.active{background:var(--it-bg);color:var(--it-text)}
+  .header-right{display:flex;align-items:center;gap:12px}
+  .legend{display:flex;align-items:center;gap:10px}
+  .legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);font-weight:500;letter-spacing:.3px;text-transform:uppercase}
+  .legend-dot{width:10px;height:10px;border-radius:2px}
+  .legend-dot.feature{background:var(--bar-feature);border:1px solid var(--bar-feature-border)}
+  .legend-dot.uat{background:var(--bar-uat);border:1px solid var(--bar-uat-border)}
+  .legend-dot.hypercare{background:var(--bar-hypercare);border:1px solid var(--bar-hypercare-border)}
+  .legend-dot.story{background:var(--bar-story);border:1px solid var(--bar-story-border)}
+
+  .toolbar{padding:10px 24px;display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg)}
+  .toolbar-left{display:flex;align-items:center;gap:8px}
+  .toolbar-right{display:flex;align-items:center;gap:8px}
+  .filter-pill{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);font-size:12px;color:var(--text-secondary);cursor:pointer;transition:all .15s}
+  .filter-pill:hover{border-color:var(--it-border);color:var(--it-text)}
+  .btn-ctrl{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);font-size:12px;font-weight:500;color:var(--text-secondary);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+  .btn-ctrl:hover{border-color:var(--it-border);color:var(--it-text);background:var(--it-bg)}
+  .quarter-nav{display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--surface);border:1px solid var(--border-strong);border-radius:7px}
+  .qnav-arrow{width:24px;height:24px;border:none;border-radius:5px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);transition:all .15s;flex-shrink:0}
+  .qnav-arrow:hover{background:var(--surface-2);color:var(--text-primary)}
+  .qnav-arrow:disabled{opacity:.3;cursor:default}
+  .qnav-label{font-size:12.5px;font-weight:600;color:var(--text-primary);min-width:72px;text-align:center;letter-spacing:-.2px}
+  .view-toggle{display:flex;align-items:center;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:7px;padding:3px;gap:2px}
+  .vt-btn{padding:4px 12px;border-radius:5px;border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;color:var(--text-secondary);transition:all .15s}
+  .vt-btn.active{background:var(--surface);color:var(--text-primary);box-shadow:var(--shadow-sm)}
+
+  .timeline-wrapper{display:flex;overflow:hidden;background:var(--surface);margin:0 24px 40px;border-radius:10px;border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+  .label-col{width:var(--label-width);flex-shrink:0;border-right:2px solid var(--border-strong);z-index:10;background:var(--surface)}
+  .label-col-header{height:64px;display:flex;align-items:flex-end;padding:0 16px 10px;border-bottom:1px solid var(--border);font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted)}
+  .gantt-area{flex:1;overflow-x:auto;position:relative}
+  .gantt-inner{min-width:600px;position:relative}
+
+  .time-headers{display:grid;border-bottom:1px solid var(--border);height:64px}
+  .time-headers.year-q{grid-template-columns:repeat(4,1fr)}
+  .time-headers.qtr-s{grid-template-columns:repeat(6,1fr)}
+  .time-cell{padding:10px 10px 6px;border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+  .time-cell:last-child{border-right:none}
+  .time-cell.current-cell{background:rgba(37,88,201,.03)}
+  .time-label{font-size:12.5px;font-weight:600;color:var(--text-primary);letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .time-label.current{color:var(--it-text)}
+  .time-sub{font-size:10px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;font-family:'DM Mono',monospace}
+
+  .time-grid{position:absolute;top:64px;left:0;right:0;bottom:0;pointer-events:none;z-index:1;display:grid}
+  .time-grid.year-q{grid-template-columns:repeat(4,1fr)}
+  .time-grid.qtr-s{grid-template-columns:repeat(6,1fr)}
+  .grid-line{border-right:1px dashed rgba(0,0,0,.06)}
+  .grid-line.strong{border-right:1px solid var(--border)}
+  .current-sprint-bg{position:absolute;top:64px;bottom:0;background:rgba(37,88,201,.04);pointer-events:none;z-index:0}
+  .today-line{position:absolute;top:0;bottom:0;width:2px;background:#E63946;z-index:8;pointer-events:none}
+  .today-label{position:absolute;top:4px;left:4px;font-size:9px;font-weight:700;color:#E63946;letter-spacing:.3px;text-transform:uppercase}
+
+  .label-row{height:var(--row-height);display:flex;align-items:center;padding:0 12px 0 14px;gap:8px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;user-select:none}
+  .label-row:hover{background:#FAFAF8}
+  .label-row.sub{height:var(--subrow-height);padding-left:32px;background:var(--surface-2)}
+  .label-row.sub:hover{background:#F3F2EF}
+  .label-row.sub.child{padding-left:48px}
+  .expand-btn{width:18px;height:18px;border:none;background:var(--surface-2);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+  .expand-btn:hover{background:var(--border)}
+  .expand-btn svg{width:9px;height:9px;color:var(--text-secondary);transition:transform .2s}
+  .expand-btn.open svg{transform:rotate(90deg)}
+  .row-name{font-size:13px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+  .label-row.sub .row-name{font-size:12px;font-weight:400}
+  .type-pill{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 5px;border-radius:3px;flex-shrink:0}
+  .type-pill.feature{background:var(--it-bg);color:var(--it-text)}
+  .type-pill.story{background:#F0EFED;color:#5A5754}
+  .type-pill.uat{background:#F3EEFF;color:#6B2EC2;border:1px solid #D4BCFF}
+  .type-pill.hypercare{background:#EEFAF5;color:#1A7A52;border:1px solid #AAEBD0}
+  .jira-id{font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted);flex-shrink:0}
+  .sub-rows{display:none}
+  .sub-rows.open{display:block;animation:fadeUp .15s ease}
+
+  .gantt-row{height:var(--row-height);position:relative;border-bottom:1px solid var(--border);display:flex;align-items:center;}
+  .gantt-row.sub{height:var(--subrow-height);background:var(--surface-2)}
+
+  /* ── BARS ── */
+  .bar{
+    position:absolute;
+    height:26px;border-radius:5px;
+    display:flex;align-items:center;
+    padding:0 5px;gap:3px;
+    cursor:pointer;z-index:5;
+    transition:filter .15s,transform .12s;
+    overflow:visible;
+  }
+  .gantt-row.sub .bar{height:20px;border-radius:4px}
+  .bar:hover{filter:brightness(.92);transform:translateY(-1px)}
+  .bar.feature-bar{background:var(--bar-feature);border:1px solid var(--bar-feature-border)}
+  .bar.story-bar{background:var(--bar-story);border:1px solid var(--bar-story-border)}
+  .bar.uat-bar{background:var(--bar-uat);border:1px solid var(--bar-uat-border)}
+  .bar.hypercare-bar{background:var(--bar-hypercare);border:1px solid var(--bar-hypercare-border)}
+  .bar.epic-bar{background:var(--bar-epic-fill);border:2px solid var(--bar-epic-border);height:30px;border-radius:6px}
+
+  /* Clipped edges lose their radius and border on the clipped side */
+  .bar.clip-left{
+    border-left:none !important;
+    border-top-left-radius:0 !important;
+    border-bottom-left-radius:0 !important;
+  }
+  .bar.clip-right{
+    border-right:none !important;
+    border-top-right-radius:0 !important;
+    border-bottom-right-radius:0 !important;
+  }
+
+  /*
+    Arrow indicators: small filled triangles rendered INSIDE the bar
+    at the clipped edge, pointing outward to signal continuation.
+    Inward placement means they are never clipped by parent overflow.
+  */
+
+  /* LEFT indicator: sits at left edge of bar, points left */
+  .bar.clip-left::before{
+    content:'';
+    position:absolute;
+    left:3px; top:50%;
+    transform:translateY(-50%);
+    width:0; height:0;
+    border-top:6px solid transparent;
+    border-bottom:6px solid transparent;
+    border-right:8px solid rgba(0,0,0,.22);
+    pointer-events:none;
+    z-index:7;
+  }
+
+  /* RIGHT indicator: sits at right edge of bar, points right */
+  .bar.clip-right::after{
+    content:'';
+    position:absolute;
+    right:3px; top:50%;
+    transform:translateY(-50%);
+    width:0; height:0;
+    border-top:6px solid transparent;
+    border-bottom:6px solid transparent;
+    border-left:8px solid rgba(0,0,0,.22);
+    pointer-events:none;
+    z-index:7;
+  }
+
+  /* Fully out of range: hide */
+  .bar.out-of-range{display:none}
+
+  .bar-avatars{display:flex;align-items:center}
+  .bar-avatar{width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.5);border:1.5px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;font-size:6.5px;font-weight:700;color:rgba(0,0,0,.5);margin-left:-4px;flex-shrink:0}
+  .bar-avatar:first-child{margin-left:0}
+  .bar-avatar.more{background:rgba(0,0,0,.1)}
+  .epic-bar .bar-avatar{background:rgba(37,88,201,.12);border-color:var(--bar-feature-border);color:var(--it-text)}
+
+  /* PANEL */
+  .panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.2);z-index:300;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(2px)}
+  .panel-overlay.open{opacity:1;pointer-events:all}
+  .slide-panel{position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--surface);box-shadow:var(--shadow-lg);z-index:301;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+  .slide-panel.open{transform:translateX(0)}
+  .panel-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0}
+  .panel-title-block{flex:1}
+  .panel-type-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .panel-title{font-size:15px;font-weight:600;letter-spacing:-.3px;color:var(--text-primary)}
+  .panel-close{width:28px;height:28px;border:none;background:var(--surface-2);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text-secondary);transition:background .15s}
+  .panel-close:hover{background:var(--border)}
+  .panel-body{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px}
+  .panel-section-label{font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px}
+  .panel-assignee-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .panel-track{padding:12px;border-radius:8px;border:1px solid var(--border)}
+  .panel-track.it{border-color:var(--it-border);background:#FAFCFF}
+  .panel-track.biz{border-color:var(--biz-border);background:#FFFAF8}
+  .panel-track-label{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
+  .panel-track.it .panel-track-label{color:var(--it-text)}
+  .panel-track.biz .panel-track-label{color:var(--biz-text)}
+  .panel-person{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .panel-person:last-child{margin-bottom:0}
+  .panel-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+  .panel-avatar.it{background:var(--it-bg);color:var(--it-text)}
+  .panel-avatar.biz{background:var(--biz-bg);color:var(--biz-text)}
+  .panel-person-name{font-size:12.5px;font-weight:500;color:var(--text-primary)}
+  .panel-person-role{font-size:11px;color:var(--text-muted)}
+  .panel-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .panel-meta-item{padding:10px 12px;background:var(--surface-2);border-radius:7px;border:1px solid var(--border)}
+  .panel-meta-key{font-size:10px;color:var(--text-muted);font-weight:600;letter-spacing:.3px;text-transform:uppercase;margin-bottom:4px}
+  .panel-meta-val{font-size:13px;font-weight:500;color:var(--text-primary)}
+  .panel-meta-val.mono{font-family:'DM Mono',monospace;font-size:12px}
+  .status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600}
+  .status-badge.active{background:var(--status-active-bg);color:var(--status-active)}
+  .status-badge.progress{background:var(--status-progress-bg);color:var(--status-progress)}
+  .status-badge.backlog,.status-badge.planned{background:var(--status-backlog-bg);color:var(--status-backlog)}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+  .panel-features-list{display:flex;flex-direction:column;gap:6px}
+  .panel-feature-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface-2);border-radius:7px;border:1px solid var(--border);gap:10px}
+  .panel-feature-name{font-size:12.5px;color:var(--text-primary);flex:1}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div class="header-logo">VS<span>Finance</span></div>
+    <div class="header-breadcrumb"><span>Mileway BV</span><span>›</span><strong>Timeline</strong></div>
+  </div>
+  <div class="header-nav">
+    <button class="nav-btn">Epics</button>
+    <button class="nav-btn active">Timeline</button>
+    <button class="nav-btn">Team</button>
+    <button class="nav-btn">Sprints</button>
+  </div>
+  <div class="header-right">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot feature"></div>Feature</div>
+      <div class="legend-item"><div class="legend-dot uat"></div>UAT</div>
+      <div class="legend-item"><div class="legend-dot hypercare"></div>Hypercare</div>
+      <div class="legend-item"><div class="legend-dot story"></div>Story</div>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="filter-pill">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 3h10M3 6h6M5 9h2"/></svg>
+      Filter
+    </div>
+    <div class="filter-pill">All Teams</div>
+    <button class="btn-ctrl" id="expandAllBtn" onclick="toggleExpandAll()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l4 4 4-4"/></svg>
+      Expand All
+    </button>
+  </div>
+  <div class="toolbar-right">
+    <div class="quarter-nav" id="quarterNav">
+      <button class="qnav-arrow" id="qnavPrev" onclick="shiftQuarter(-1)">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2L3 5l3 3"/></svg>
+      </button>
+      <span class="qnav-label" id="qnavLabel">Q1 2026</span>
+      <button class="qnav-arrow" id="qnavNext" onclick="shiftQuarter(1)">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 2l3 3-3 3"/></svg>
+      </button>
+    </div>
+    <div class="view-toggle">
+      <button class="vt-btn active" id="btnQtr" onclick="setView('quarter')">Quarter</button>
+      <button class="vt-btn" id="btnYear" onclick="setView('year')">Full Year</button>
+    </div>
+  </div>
+</div>
+
+<div class="timeline-wrapper">
+  <div class="label-col">
+    <div class="label-col-header">Epic / Item</div>
+    <div id="labelRows"></div>
+  </div>
+  <div class="gantt-area">
+    <div class="gantt-inner" id="ganttInner">
+      <div class="time-headers" id="timeHeaders"></div>
+      <div class="time-grid" id="timeGrid"></div>
+      <div class="current-sprint-bg" id="currentBg"></div>
+      <div class="today-line" id="todayLine"><div class="today-label">Today</div></div>
+      <div id="ganttRows"></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel-overlay" id="overlay" onclick="closePanel()"></div>
+<div class="slide-panel" id="slidePanel">
+  <div class="panel-header">
+    <div class="panel-title-block">
+      <div class="panel-type-row" id="panelTypeRow"></div>
+      <div class="panel-title" id="panelTitle"></div>
+    </div>
+    <button class="panel-close" onclick="closePanel()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l12 12M13 1L1 13"/></svg>
+    </button>
+  </div>
+  <div class="panel-body" id="panelBody"></div>
+</div>
+
+<script>
+const QUARTERS = [
+  { label:'Q1 2026', idx:0, sprints:[
+    {num:1, label:'S1', dates:'Jan 5–16'},{num:2, label:'S2', dates:'Jan 19–30'},
+    {num:3, label:'S3', dates:'Feb 2–13'},{num:4, label:'S4', dates:'Feb 16–27'},
+    {num:5, label:'S5', dates:'Mar 2–13'},{num:6, label:'S6', dates:'Mar 16–27'},
+  ]},
+  { label:'Q2 2026', idx:1, sprints:[
+    {num:7, label:'S7', dates:'Mar 30–Apr 10'},{num:8, label:'S8', dates:'Apr 13–24'},
+    {num:9, label:'S9', dates:'Apr 27–May 8'},{num:10, label:'S10', dates:'May 11–22'},
+    {num:11, label:'S11', dates:'May 25–Jun 5'},{num:12, label:'S12', dates:'Jun 8–19'},
+  ]},
+  { label:'Q3 2026', idx:2, sprints:[
+    {num:13, label:'S13', dates:'Jun 22–Jul 3'},{num:14, label:'S14', dates:'Jul 6–17'},
+    {num:15, label:'S15', dates:'Jul 20–31'},{num:16, label:'S16', dates:'Aug 3–14'},
+    {num:17, label:'S17', dates:'Aug 17–28'},{num:18, label:'S18', dates:'Sep 1–11'},
+  ]},
+  { label:'Q4 2026', idx:3, sprints:[
+    {num:19, label:'S19', dates:'Sep 14–25'},{num:20, label:'S20', dates:'Sep 28–Oct 9'},
+    {num:21, label:'S21', dates:'Oct 12–23'},{num:22, label:'S22', dates:'Oct 26–Nov 6'},
+    {num:23, label:'S23', dates:'Nov 9–20'},{num:24, label:'S24', dates:'Nov 23–Dec 4'},
+  ]},
+];
+
+const TODAY_POS = 1.5 / 24;
+
+const epics = [
+  { id:'ERP-1976', name:'AR Improvement – Late Fees & Penalty Interest', status:'progress',
+    sprint_start:.02, sprint_end:.20,
+    it_assignees:[{init:'MC',name:'Melvin Campbell',role:'ERP Lead'}],
+    biz_assignees:[{init:'DC',name:'David Caig',role:'Finance Manager'}],
+    features:[
+      { id:'ERP-3676', type:'feature', name:'Late Fee & Penalty Interest Ireland', status:'backlog',
+        sprint_start:.04, sprint_end:.16,
+        it_assignees:[{init:'MS',name:'Manish Solanki',role:'Developer'}],
+        biz_assignees:[{init:'DC',name:'David Caig',role:'Finance Manager'}],
+        children:[
+          {type:'story', name:'Penalty Interest Ireland', status:'backlog', sprint_start:.04, sprint_end:.09, it_assignees:[{init:'MS',name:'Manish Solanki',role:'Developer'}], biz_assignees:[]},
+          {type:'uat', name:'UAT – IE Late Fees', status:'planned', sprint_start:.11, sprint_end:.16, duration:'5d', it_assignees:[{init:'MS',name:'Manish Solanki',role:'Developer'}], biz_assignees:[{init:'DC',name:'David Caig',role:'Finance Manager'}]},
+        ]},
+    ]},
+  { id:'ERP-3216', name:'API Implementation for Treasury', status:'active',
+    sprint_start:.01, sprint_end:.48,
+    it_assignees:[{init:'DS',name:'Dennis Simon',role:'Manager ERP'},{init:'CK',name:'Cosmina Kiss',role:'TMS Specialist'}],
+    biz_assignees:[],
+    features:[
+      { id:'ERP-3600', type:'feature', name:'FIN | FIS | TMS Reporting APIs', status:'active',
+        sprint_start:.01, sprint_end:.18,
+        it_assignees:[{init:'JB',name:'James Bailey',role:'ERP Specialist'},{init:'CK',name:'Cosmina Kiss',role:'TMS Specialist'}], biz_assignees:[],
+        children:[
+          {type:'story', name:'TMS API auth & credentials', status:'progress', sprint_start:.01, sprint_end:.08, it_assignees:[{init:'JB',name:'James Bailey',role:'ERP Specialist'}], biz_assignees:[]},
+          {type:'story', name:'Report endpoint & data mapping', status:'backlog', sprint_start:.09, sprint_end:.15, it_assignees:[{init:'CK',name:'Cosmina Kiss',role:'TMS Specialist'}], biz_assignees:[]},
+          {type:'uat', name:'TMS Reporting UAT', status:'planned', sprint_start:.16, sprint_end:.18, duration:'3d', it_assignees:[{init:'JB',name:'James Bailey',role:'ERP Specialist'}], biz_assignees:[]},
+        ]},
+      { id:'ERP-3601', type:'feature', name:'FIN | FIS | Payment Initiating APIs', status:'backlog',
+        sprint_start:.16, sprint_end:.34,
+        it_assignees:[{init:'JD',name:'James Davis',role:'Developer'}], biz_assignees:[],
+        children:[
+          {type:'story', name:'Payment API spec & auth', status:'backlog', sprint_start:.16, sprint_end:.22, it_assignees:[{init:'JD',name:'James Davis',role:'Developer'}], biz_assignees:[]},
+          {type:'uat', name:'Payment API UAT', status:'planned', sprint_start:.30, sprint_end:.34, duration:'4d', it_assignees:[{init:'JD',name:'James Davis',role:'Developer'}], biz_assignees:[]},
+        ]},
+      { id:'ERP-3602', type:'feature', name:'FIN | FIS | API Connectivity (in & out)', status:'backlog',
+        sprint_start:.33, sprint_end:.48,
+        it_assignees:[{init:'HR',name:'Hendre Remacle',role:'ERP Specialist'}], biz_assignees:[],
+        children:[
+          {type:'story', name:'Connectivity & firewall rules', status:'backlog', sprint_start:.33, sprint_end:.42, it_assignees:[{init:'HR',name:'Hendre Remacle',role:'ERP Specialist'}], biz_assignees:[]},
+          {type:'hypercare', name:'Hypercare – API Connectivity', status:'planned', sprint_start:.44, sprint_end:.48, duration:'5d', it_assignees:[{init:'HR',name:'Hendre Remacle',role:'ERP Specialist'}], biz_assignees:[]},
+        ]},
+    ]},
+  { id:'ERP-2901', name:'[Accounting MD] Refactor Yardi Segment Validation', status:'active',
+    sprint_start:.14, sprint_end:.36,
+    it_assignees:[{init:'HR',name:'Hendre Remacle',role:'ERP Specialist'}],
+    biz_assignees:[{init:'AP',name:'Arun Patil',role:'Finance Analyst'},{init:'KU',name:'Katerina Utrobina',role:'ERP Specialist'}],
+    features:[
+      { id:'ERP-3676b', type:'feature', name:'Yardi Segment Validation Rules', status:'active',
+        sprint_start:.14, sprint_end:.28,
+        it_assignees:[{init:'HR',name:'Hendre Remacle',role:'ERP Specialist'}],
+        biz_assignees:[{init:'AP',name:'Arun Patil',role:'Finance Analyst'},{init:'KU',name:'Katerina Utrobina',role:'ERP Specialist'}],
+        children:[
+          {type:'story', name:'Audit segment rules in Yardi', status:'progress', sprint_start:.14, sprint_end:.20, it_assignees:[{init:'HR',name:'Hendre Remacle',role:'ERP Specialist'}], biz_assignees:[{init:'AP',name:'Arun Patil',role:'Finance Analyst'}]},
+          {type:'story', name:'Implement new validation logic', status:'backlog', sprint_start:.20, sprint_end:.26, it_assignees:[{init:'HR',name:'Hendre Remacle',role:'ERP Specialist'}], biz_assignees:[]},
+          {type:'hypercare', name:'Post-release monitoring', status:'planned', sprint_start:.30, sprint_end:.36, duration:'5d', it_assignees:[{init:'HR',name:'Hendre Remacle',role:'ERP Specialist'}], biz_assignees:[{init:'KU',name:'Katerina Utrobina',role:'ERP Specialist'}]},
+        ]},
+    ]},
+  { id:'ERP-3629', name:'Add Unit/Building Insurance Data in Yardi', status:'active',
+    sprint_start:.25, sprint_end:.60,
+    it_assignees:[{init:'MJ',name:'Madhusudan Jayaraman',role:'ERP Specialist'}],
+    biz_assignees:[{init:'JE',name:'Jelle Eitjes',role:'EPM Specialist'}],
+    features:[]},
+];
+
+// ── STATE ──
+const itemMap = {};
+const allEpicIdx = [];
+const allFeatKeys = [];
+let currentView = 'quarter';
+let currentQtrIdx = 0;
+let allExpanded = false;
+
+// ── HELPERS ──
+function typePill(t){const m={feature:'Feature',story:'Story',uat:'UAT',hypercare:'Hypercare',epic:'Epic'};return`<span class="type-pill ${t}">${m[t]||t}</span>`}
+function statusBadge(s){const m={active:'Active',progress:'In Progress',backlog:'Backlog',planned:'Planned'};return`<span class="status-badge ${s}"><span class="status-dot"></span>${m[s]||s}</span>`}
+function avatarBar(its,bizs){
+  const all=[...its.map(a=>({...a,cls:'it'})),...bizs.map(a=>({...a,cls:'biz'}))];
+  if(!all.length)return'';
+  const vis=all.slice(0,3),more=all.length-3;
+  let h='<div class="bar-avatars">';
+  vis.forEach(a=>{h+=`<div class="bar-avatar ${a.cls}" title="${a.name}">${a.init}</div>`});
+  if(more>0)h+=`<div class="bar-avatar more">+${more}</div>`;
+  return h+'</div>';
+}
+function barCls(t){return{feature:'feature-bar',story:'story-bar',uat:'uat-bar',hypercare:'hypercare-bar'}[t]||'feature-bar'}
+
+// Returns display position info for a bar given current view/quarter
+function barLayout(item){
+  const s = item.sprint_start;
+  const e = item.sprint_end;
+
+  if(currentView === 'year'){
+    return { left: s, width: e-s, clipLeft: false, clipRight: false, hidden: false };
+  }
+
+  // Quarter bounds in full-year fraction
+  const qS = currentQtrIdx / 4;
+  const qE = (currentQtrIdx + 1) / 4;
+
+  // Fully outside this quarter
+  if(e <= qS || s >= qE) return { hidden: true };
+
+  const clipLeft  = s < qS;
+  const clipRight = e > qE;
+  const dispStart = Math.max(s, qS);
+  const dispEnd   = Math.min(e, qE);
+
+  // Map to 0–1 within this quarter
+  const left  = (dispStart - qS) / (qE - qS);
+  const width = (dispEnd   - qS) / (qE - qS) - left;
+
+  return { left, width, clipLeft, clipRight, hidden: false };
+}
+
+function makeBar(item, isEpic){
+  const k   = item._key || item.id || '';
+  const cls = isEpic ? 'epic-bar' : barCls(item.type||'feature');
+  const lay = barLayout(item);
+
+  if(lay.hidden) return `<div class="bar ${cls} out-of-range" data-key="${k}"></div>`;
+
+  const l = (lay.left  * 100).toFixed(2) + '%';
+  const w = (lay.width * 100).toFixed(2) + '%';
+  const extra = (lay.clipLeft  ? ' clip-left'  : '')
+              + (lay.clipRight ? ' clip-right' : '');
+
+  return `<div class="bar ${cls}${extra}" data-key="${k}" style="left:${l};width:${w};"
+    onclick="openPanel(event,'${k}','${item.type||'epic'}')">${avatarBar(item.it_assignees||[],item.biz_assignees||[])}</div>`;
+}
+
+// ── TIME HEADERS ──
+function buildTimeHeaders(){
+  const th=document.getElementById('timeHeaders');
+  const tg=document.getElementById('timeGrid');
+  const cb=document.getElementById('currentBg');
+  const tl=document.getElementById('todayLine');
+  th.innerHTML=''; tg.innerHTML='';
+
+  if(currentView==='year'){
+    th.className='time-headers year-q';
+    tg.className='time-grid year-q';
+    QUARTERS.forEach((q,i)=>{
+      const isCur=i===0;
+      th.innerHTML+=`<div class="time-cell${isCur?' current-cell':''}">
+        <div class="time-label${isCur?' current':''}">${q.label}</div>
+        <div class="time-sub">${q.sprints[0].label}–${q.sprints[5].label}</div>
+      </div>`;
+      const l=document.createElement('div');l.className='grid-line strong';tg.appendChild(l);
+    });
+    cb.style.left='0%'; cb.style.width='25%';
+    tl.style.left=(TODAY_POS*100).toFixed(2)+'%'; tl.style.display='block';
+  } else {
+    const q=QUARTERS[currentQtrIdx];
+    th.className='time-headers qtr-s';
+    tg.className='time-grid qtr-s';
+    q.sprints.forEach((sp,i)=>{
+      const isCur=sp.num===2&&currentQtrIdx===0;
+      th.innerHTML+=`<div class="time-cell${isCur?' current-cell':''}">
+        <div class="time-label${isCur?' current':''}">${sp.label}</div>
+        <div class="time-sub">${sp.dates}</div>
+      </div>`;
+      const l=document.createElement('div');l.className='grid-line'+(i<5?'':' strong');tg.appendChild(l);
+    });
+    // Current sprint highlight (S2 = index 1 of Q1)
+    if(currentQtrIdx===0){
+      cb.style.left=(1/6*100).toFixed(2)+'%'; cb.style.width=(1/6*100).toFixed(2)+'%';
+      tl.style.left=(1.5/6*100).toFixed(2)+'%'; tl.style.display='block';
+    } else {
+      cb.style.width='0'; tl.style.display='none';
+    }
+  }
+
+  document.getElementById('qnavLabel').textContent=QUARTERS[currentQtrIdx].label;
+  document.getElementById('qnavPrev').disabled=currentQtrIdx===0;
+  document.getElementById('qnavNext').disabled=currentQtrIdx===3;
+  document.getElementById('quarterNav').style.display=currentView==='quarter'?'flex':'none';
+}
+
+// ── REPOSITION BARS ──
+function repositionBars(){
+  function update(item, isEpic){
+    const k=item._key||item.id||'';
+    const el=document.querySelector(`.bar[data-key="${CSS.escape(k)}"]`);
+    if(!el)return;
+    const lay=barLayout(item);
+    if(lay.hidden){ el.className=el.className.replace(/\s*(clip-left|clip-right|out-of-range)/g,''); el.classList.add('out-of-range'); return; }
+    el.classList.remove('out-of-range');
+    el.classList.toggle('clip-left',  !!lay.clipLeft);
+    el.classList.toggle('clip-right', !!lay.clipRight);
+    el.style.left  =(lay.left *100).toFixed(2)+'%';
+    el.style.width =(lay.width*100).toFixed(2)+'%';
+  }
+  epics.forEach(epic=>{
+    update(epic,true);
+    epic.features.forEach(feat=>{
+      update(feat,false);
+      (feat.children||[]).forEach(c=>update(c,false));
+    });
+  });
+}
+
+// ── BUILD DOM ──
+const labelRowsEl=document.getElementById('labelRows');
+const ganttRowsEl=document.getElementById('ganttRows');
+
+epics.forEach((epic,ei)=>{
+  epic._key=epic.id; itemMap[epic.id]=epic; allEpicIdx.push(ei);
+
+  const lRow=document.createElement('div'); lRow.className='label-row';
+  lRow.innerHTML=`<button class="expand-btn" id="ebtn-${ei}"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 3-4 3"/></svg></button><span class="row-name" title="${epic.name}">${epic.name}</span><span class="jira-id">${epic.id}</span>`;
+  lRow.querySelector('.expand-btn').addEventListener('click',e=>{e.stopPropagation();toggleEpic(ei)});
+  lRow.addEventListener('click',()=>openPanel(null,epic.id,'epic'));
+  labelRowsEl.appendChild(lRow);
+
+  const gRow=document.createElement('div'); gRow.className='gantt-row'; gRow.innerHTML=makeBar(epic,true); ganttRowsEl.appendChild(gRow);
+
+  const lSub=document.createElement('div'); lSub.className='sub-rows'; lSub.id=`lsub-${ei}`;
+  const gSub=document.createElement('div'); gSub.className='sub-rows'; gSub.id=`gsub-${ei}`;
+
+  epic.features.forEach((feat,fi)=>{
+    const fk=`${ei}-${fi}`; feat._key=feat.id||fk; itemMap[feat._key]=feat; allFeatKeys.push(fk);
+    const flRow=document.createElement('div'); flRow.className='label-row sub';
+    flRow.innerHTML=`<button class="expand-btn" id="fbtn-${fk}"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 3-4 3"/></svg></button>${typePill('feature')}<span class="row-name" title="${feat.name}">${feat.name}</span>`;
+    flRow.querySelector('.expand-btn').addEventListener('click',e=>{e.stopPropagation();toggleFeature(fk)});
+    flRow.addEventListener('click',()=>openPanel(null,feat._key,'feature'));
+    lSub.appendChild(flRow);
+
+    const fgRow=document.createElement('div'); fgRow.className='gantt-row sub'; fgRow.innerHTML=makeBar(feat,false); gSub.appendChild(fgRow);
+
+    const clSub=document.createElement('div'); clSub.className='sub-rows'; clSub.id=`clsub-${fk}`;
+    const cgSub=document.createElement('div'); cgSub.className='sub-rows'; cgSub.id=`cgsub-${fk}`;
+
+    (feat.children||[]).forEach((child,ci)=>{
+      const ck=`${fk}-${ci}`; child._key=ck; itemMap[ck]=child;
+      const clRow=document.createElement('div'); clRow.className='label-row sub child';
+      clRow.innerHTML=`${typePill(child.type)}<span class="row-name" title="${child.name}">${child.name}</span>`;
+      clRow.addEventListener('click',()=>openPanel(null,ck,child.type));
+      clSub.appendChild(clRow);
+      const cgRow=document.createElement('div'); cgRow.className='gantt-row sub'; cgRow.innerHTML=makeBar(child,false); cgSub.appendChild(cgRow);
+    });
+    lSub.appendChild(clSub); gSub.appendChild(cgSub);
+  });
+  labelRowsEl.appendChild(lSub); ganttRowsEl.appendChild(gSub);
+});
+
+function toggleEpic(i){['lsub','gsub'].forEach(p=>document.getElementById(`${p}-${i}`)?.classList.toggle('open'));document.getElementById(`ebtn-${i}`)?.classList.toggle('open')}
+function toggleFeature(fk){['clsub','cgsub'].forEach(p=>document.getElementById(`${p}-${fk}`)?.classList.toggle('open'));document.getElementById(`fbtn-${fk}`)?.classList.toggle('open')}
+
+function toggleExpandAll(){
+  allExpanded=!allExpanded;
+  allEpicIdx.forEach(i=>{['lsub','gsub'].forEach(p=>document.getElementById(`${p}-${i}`)?.classList.toggle('open',allExpanded));document.getElementById(`ebtn-${i}`)?.classList.toggle('open',allExpanded)});
+  allFeatKeys.forEach(fk=>{['clsub','cgsub'].forEach(p=>document.getElementById(`${p}-${fk}`)?.classList.toggle('open',allExpanded));document.getElementById(`fbtn-${fk}`)?.classList.toggle('open',allExpanded)});
+  document.getElementById('expandAllBtn').innerHTML=allExpanded
+    ?`<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l4-4 4 4"/></svg> Collapse All`
+    :`<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l4 4 4-4"/></svg> Expand All`;
+}
+
+function setView(v){
+  currentView=v;
+  document.getElementById('btnQtr').classList.toggle('active',v==='quarter');
+  document.getElementById('btnYear').classList.toggle('active',v==='year');
+  buildTimeHeaders(); repositionBars();
+}
+
+function shiftQuarter(dir){
+  const n=currentQtrIdx+dir;
+  if(n<0||n>3)return;
+  currentQtrIdx=n;
+  buildTimeHeaders(); repositionBars();
+}
+
+function openPanel(e,id,type){
+  if(e)e.stopPropagation();
+  const item=itemMap[id]; if(!item)return;
+  document.getElementById('panelTypeRow').innerHTML=`${typePill(type==='epic'?'feature':type)}${item.id&&!item.id.includes('-')?`<span class="jira-id">${item.id}</span>`:''}`;
+  document.getElementById('panelTitle').textContent=item.name;
+  const its=item.it_assignees||[],bizs=item.biz_assignees||[];
+  const sStart=Math.round(item.sprint_start*24+1),sEnd=Math.round(item.sprint_end*24);
+  const allSprints=QUARTERS.flatMap(q=>q.sprints);
+  const spS=allSprints.find(s=>s.num===sStart),spE=allSprints.find(s=>s.num===sEnd);
+  const dateRange=(spS&&spE)?`${spS.dates.split('–')[0].trim()} – ${spE.dates.split('–').pop().trim()}`:'';
+  let body=`<div><div class="panel-section-label">Assignees</div><div class="panel-assignee-row">
+    <div class="panel-track it"><div class="panel-track-label">IT</div>${its.length?its.map(p=>`<div class="panel-person"><div class="panel-avatar it">${p.init}</div><div><div class="panel-person-name">${p.name}</div><div class="panel-person-role">${p.role}</div></div></div>`).join(''):`<div style="font-size:11px;color:var(--text-muted)">Unassigned</div>`}</div>
+    <div class="panel-track biz"><div class="panel-track-label">Business</div>${bizs.length?bizs.map(p=>`<div class="panel-person"><div class="panel-avatar biz">${p.init}</div><div><div class="panel-person-name">${p.name}</div><div class="panel-person-role">${p.role}</div></div></div>`).join(''):`<div style="font-size:11px;color:var(--text-muted)">Unassigned</div>`}</div>
+  </div></div>
+  <div><div class="panel-section-label">Details</div><div class="panel-meta-grid">
+    <div class="panel-meta-item"><div class="panel-meta-key">Status</div><div class="panel-meta-val">${statusBadge(item.status||'backlog')}</div></div>
+    <div class="panel-meta-item"><div class="panel-meta-key">Sprints</div><div class="panel-meta-val mono">S${sStart} – S${sEnd}</div></div>
+    ${dateRange?`<div class="panel-meta-item" style="grid-column:span 2"><div class="panel-meta-key">Dates</div><div class="panel-meta-val mono" style="font-size:11px">${dateRange}</div></div>`:''}
+    ${item.duration?`<div class="panel-meta-item"><div class="panel-meta-key">Duration</div><div class="panel-meta-val mono">${item.duration}</div></div>`:''}
+    ${item.id&&!item.id.includes('-')?`<div class="panel-meta-item"><div class="panel-meta-key">Jira</div><div class="panel-meta-val mono">${item.id}</div></div>`:''}
+  </div></div>`;
+  if(type==='epic'&&item.features?.length){
+    body+=`<div><div class="panel-section-label">Features (${item.features.length})</div><div class="panel-features-list">${item.features.map(f=>`<div class="panel-feature-item">${typePill('feature')}<span class="panel-feature-name">${f.name}</span>${statusBadge(f.status)}</div>`).join('')}</div></div>`;
+  }
+  document.getElementById('panelBody').innerHTML=body;
+  document.getElementById('slidePanel').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+function closePanel(){document.getElementById('slidePanel').classList.remove('open');document.getElementById('overlay').classList.remove('open')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel()});
+
+buildTimeHeaders();
+toggleEpic(0);
+</script>
+</body>
+</html>

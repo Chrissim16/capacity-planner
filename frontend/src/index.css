@@ -51,3 +51,45 @@ body {
 *:focus-visible {
   @apply outline-2 outline-blue-500 outline-offset-2;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   GANTT BAR — Continuation arrows (clip-left / clip-right)
+   Rendered as CSS triangles via ::before / ::after INSIDE the bar.
+   Do NOT set overflow:hidden on gantt rows — these pseudo-elements must be visible.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.gantt-bar-clip-left {
+  border-left: none !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+.gantt-bar-clip-left::before {
+  content: '';
+  position: absolute;
+  left: 3px; top: 50%;
+  transform: translateY(-50%);
+  width: 0; height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 8px solid rgba(0,0,0,.22);
+  pointer-events: none;
+  z-index: 7;
+}
+
+.gantt-bar-clip-right {
+  border-right: none !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+.gantt-bar-clip-right::after {
+  content: '';
+  position: absolute;
+  right: 3px; top: 50%;
+  transform: translateY(-50%);
+  width: 0; height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 8px solid rgba(0,0,0,.22);
+  pointer-events: none;
+  z-index: 7;
+}
