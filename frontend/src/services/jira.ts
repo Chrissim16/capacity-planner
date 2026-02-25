@@ -54,7 +54,11 @@ interface JiraIssueFields {
   customfield_10008?: string | { key?: string; id?: string };
   customfield_10015?: string;  // Start date (Jira Cloud)
   customfield_10016?: number;  // Story points (classic projects)
-  customfield_10020?: JiraSprintObject[] | number; // Sprint (Jira Cloud) — also used for SP in some instances
+  // Sprint field — Jira returns this in two formats:
+  //  (a) Modern Cloud API v3: array of Sprint objects  {id, name, state, startDate, endDate}
+  //  (b) GreenHopper (company-managed / older):  array of serialised strings like
+  //      "com.atlassian.greenhopper.service.sprint.Sprint@abc[id=1,name=Sprint 1,state=ACTIVE,...]"
+  customfield_10020?: JiraSprintObject[] | string[] | string | number;
   customfield_10026?: number;  // Story points (some instances)
   customfield_10028?: number;  // Story points (newer Jira Cloud)
   timeoriginalestimate?: number;
@@ -229,14 +233,48 @@ function getStoryPoints(fields: JiraIssueFields, discoveredFieldId?: string | nu
   return undefined;
 }
 
+/**
+ * Parse a GreenHopper-serialised sprint string into a JiraSprintObject.
+ * Format: "com.atlassian.greenhopper.service.sprint.Sprint@abc[id=1,rapidViewId=2,state=ACTIVE,name=Sprint 1,startDate=2026-01-13T00:00:00.000Z,endDate=2026-01-27T00:00:00.000Z,...]"
+ */
+function parseGreenHopperSprint(raw: string): JiraSprintObject | null {
+  const bracketMatch = raw.match(/\[([^\]]+)\]/);
+  if (!bracketMatch) return null;
+  const kv: Record<string, string> = {};
+  // Split on commas that are NOT inside a date value (dates contain no commas, so simple split is fine)
+  bracketMatch[1].split(',').forEach(pair => {
+    const eq = pair.indexOf('=');
+    if (eq > 0) kv[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim();
+  });
+  const id = parseInt(kv['id'] ?? '', 10);
+  const name = kv['name'] ?? '';
+  if (isNaN(id) || !name) return null;
+  const startDate = kv['startDate'] && kv['startDate'] !== '<null>' ? kv['startDate'] : undefined;
+  const endDate   = kv['endDate']   && kv['endDate']   !== '<null>' ? kv['endDate']   : undefined;
+  return { id, name, state: (kv['state'] ?? '').toLowerCase(), startDate, endDate };
+}
+
 function getSprint(fields: JiraIssueFields): JiraSprintObject | undefined {
-  // customfield_10020 is the sprint field in Jira Cloud (array of sprint objects)
-  if (Array.isArray(fields.customfield_10020) && fields.customfield_10020.length > 0) {
-    // Return the active sprint if present, otherwise the last one
-    const active = fields.customfield_10020.find(s => s.state === 'active');
-    return active ?? fields.customfield_10020[fields.customfield_10020.length - 1];
-  }
-  return undefined;
+  const raw = fields.customfield_10020;
+  if (!raw || (Array.isArray(raw) && raw.length === 0)) return undefined;
+
+  // ── Normalise to an array of candidate values ─────────────────────────────
+  const candidates: (JiraSprintObject | string)[] = Array.isArray(raw) ? raw as (JiraSprintObject | string)[] : [raw as string];
+
+  // ── Parse each candidate into a JiraSprintObject ─────────────────────────
+  const sprints: JiraSprintObject[] = candidates
+    .map(c => {
+      if (typeof c === 'string') return parseGreenHopperSprint(c);
+      // Modern object format — verify it has at least an id
+      if (typeof c === 'object' && c !== null && 'id' in c) return c as JiraSprintObject;
+      return null;
+    })
+    .filter((s): s is JiraSprintObject => s !== null);
+
+  if (sprints.length === 0) return undefined;
+
+  // Prefer the active sprint; fall back to the last one
+  return sprints.find(s => s.state === 'active' || s.state === 'ACTIVE') ?? sprints[sprints.length - 1];
 }
 
 function convertSecondsToHours(seconds?: number): number | undefined {
