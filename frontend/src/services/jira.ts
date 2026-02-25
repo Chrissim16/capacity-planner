@@ -349,6 +349,10 @@ export interface JiraKeyDiagnostic {
   storyPointsFieldId?: string;
   /** all numeric customfields on this issue: {fieldId → value} — helps identify the right SP field */
   numericCustomFields?: Record<string, number>;
+  /** raw value of customfield_10020 truncated to 400 chars for display */
+  sprintRaw?: string;
+  /** parsed sprint object (null = parsing failed) */
+  sprintParsed?: { id: number; name: string; state: string; startDate?: string; endDate?: string } | null;
 }
 
 /**
@@ -470,6 +474,10 @@ export async function diagnoseJiraKey(
       }
     }
 
+    // Sprint diagnostic: show raw value and parsed result
+    const sprintRaw = f.customfield_10020;
+    const parsedSprint = getSprint(f);
+
     return {
       success: true,
       data: {
@@ -490,6 +498,11 @@ export async function diagnoseJiraKey(
         storyPoints,
         storyPointsFieldId,
         numericCustomFields: Object.keys(numericCustomFields).length > 0 ? numericCustomFields : undefined,
+        // Sprint diagnostics
+        sprintRaw: sprintRaw !== undefined ? JSON.stringify(sprintRaw).slice(0, 400) : 'null',
+        sprintParsed: parsedSprint
+          ? { id: parsedSprint.id, name: parsedSprint.name, state: parsedSprint.state, startDate: parsedSprint.startDate, endDate: parsedSprint.endDate }
+          : null,
       },
     };
   } catch (error) {
@@ -736,6 +749,56 @@ export async function fetchJiraIssues(
 
     result.success = true;
     result.itemsSynced = workItems.length;
+    // ── Agile API sprint date enrichment ─────────────────────────────────────
+    // Some Jira instances (company-managed) don't include start/endDate in the
+    // customfield_10020 sprint objects.  Fall back to the Agile REST API which
+    // always returns accurate sprint dates.  Only fetch sprint IDs that don't
+    // already have dates from the issue-level parsing.
+    const sprintIdsMissingDates = new Set<number>();
+    for (const item of workItems) {
+      if (item.sprintId && !item.sprintStartDate) {
+        const id = parseInt(item.sprintId, 10);
+        if (!isNaN(id)) sprintIdsMissingDates.add(id);
+      }
+    }
+
+    if (sprintIdsMissingDates.size > 0) {
+      onProgress?.(`Fetching sprint dates for ${sprintIdsMissingDates.size} sprint(s)…`);
+      const sprintDateMap = new Map<number, { startDate: string; endDate: string }>();
+
+      await Promise.all(
+        [...sprintIdsMissingDates].map(async (sprintId) => {
+          try {
+            const resp = await jiraFetch(
+              connection.jiraBaseUrl,
+              `/rest/agile/1.0/sprint/${sprintId}`,
+              authHeader,
+              { method: 'GET' }
+            );
+            if (!resp.ok) return;
+            const s = await resp.json() as { startDate?: string; endDate?: string; completeDate?: string };
+            const start = s.startDate?.slice(0, 10);
+            const end   = (s.completeDate ?? s.endDate)?.slice(0, 10);
+            if (start && end) sprintDateMap.set(sprintId, { startDate: start, endDate: end });
+          } catch {
+            // Non-critical — skip this sprint if Agile API is unavailable
+          }
+        })
+      );
+
+      // Back-fill dates onto items that were missing them
+      for (const item of workItems) {
+        if (item.sprintId && !item.sprintStartDate) {
+          const id = parseInt(item.sprintId, 10);
+          const dates = sprintDateMap.get(id);
+          if (dates) {
+            item.sprintStartDate = dates.startDate;
+            item.sprintEndDate   = dates.endDate;
+          }
+        }
+      }
+    }
+
     result.items = workItems;
     return result;
   } catch (error) {

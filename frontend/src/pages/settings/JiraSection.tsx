@@ -706,6 +706,20 @@ export function JiraSection() {
                               }
                             </td>
                           </tr>
+                          <tr className={d.sprintParsed ? 'bg-green-50 dark:bg-green-900/20' : 'bg-amber-50 dark:bg-amber-900/20'}>
+                            <td className="px-4 py-2.5 font-medium text-muted-foreground">Sprint field</td>
+                            <td className="px-4 py-2.5 text-xs font-mono">
+                              {d.sprintParsed
+                                ? <span className="text-green-700 dark:text-green-400 font-medium">
+                                    ✓ Parsed: "{d.sprintParsed.name}" ({d.sprintParsed.state})
+                                    {d.sprintParsed.startDate ? ` · ${d.sprintParsed.startDate?.slice(0,10)} → ${d.sprintParsed.endDate?.slice(0,10)}` : ' · no dates in sprint object'}
+                                  </span>
+                                : <span className="text-amber-700 dark:text-amber-400 font-medium">
+                                    Not parsed — raw: {d.sprintRaw}
+                                  </span>
+                              }
+                            </td>
+                          </tr>
                           <tr className={!localItem ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}>
                             <td className="px-4 py-2.5 font-semibold">In local sync store?</td>
                             <td className="px-4 py-2.5">
