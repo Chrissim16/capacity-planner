@@ -4,7 +4,7 @@
  */
 
 import { useAppStore } from './appStore';
-import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint, Settings, BusinessContact, BusinessTimeOff, BusinessAssignment } from '../types';
+import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint, Settings, BusinessContact, BusinessTimeOff, BusinessAssignment, JiraItemBizAssignment } from '../types';
 
 function flattenProjectAssignments(projects: Project[]): Assignment[] {
   const flattened: Assignment[] = [];
@@ -1058,5 +1058,38 @@ export function removeBusinessAssignment(id: string): void {
   const state = useAppStore.getState();
   state.updateData({
     businessAssignments: state.getCurrentState().businessAssignments.filter(a => a.id !== id),
+  });
+}
+
+// ─── JIRA ITEM BIZ ASSIGNMENTS ────────────────────────────────────────────────
+
+export function upsertJiraItemBizAssignment(
+  data: Omit<JiraItemBizAssignment, 'id'> & { id?: string }
+): void {
+  const state = useAppStore.getState();
+  const existing = state.getCurrentState().jiraItemBizAssignments;
+  const id = data.id ?? `jiba-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const record: JiraItemBizAssignment = { ...data, id };
+  // Prevent duplicate contact on the same jiraKey
+  const duplicate = existing.find(
+    a => a.jiraKey === record.jiraKey && a.contactId === record.contactId && a.id !== record.id
+  );
+  if (duplicate) {
+    state.updateData({
+      jiraItemBizAssignments: existing.map(a => (a.id === duplicate.id ? record : a)),
+    });
+    return;
+  }
+  state.updateData({
+    jiraItemBizAssignments: data.id
+      ? existing.map(a => (a.id === data.id ? record : a))
+      : [...existing, record],
+  });
+}
+
+export function removeJiraItemBizAssignment(id: string): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    jiraItemBizAssignments: state.getCurrentState().jiraItemBizAssignments.filter(a => a.id !== id),
   });
 }

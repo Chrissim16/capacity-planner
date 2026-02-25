@@ -7,7 +7,8 @@ import {
   Users, X,
 } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
-import { JiraHierarchyTree } from '../components/JiraHierarchyTree';
+import { AvatarStack } from '../components/ui/AvatarStack';
+import type { AvatarPerson } from '../components/ui/AvatarStack';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -17,13 +18,13 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { ProjectForm } from '../components/forms/ProjectForm';
 import { AssignmentModal } from '../components/forms/AssignmentModal';
 import { useCurrentState, useAppStore } from '../stores/appStore';
-import { deleteProject, duplicateProject, archiveProject, unarchiveProject, upsertBusinessAssignment, removeBusinessAssignment, generateId } from '../stores/actions';
+import { deleteProject, duplicateProject, archiveProject, unarchiveProject, upsertBusinessAssignment, removeBusinessAssignment, generateId, upsertJiraItemBizAssignment, removeJiraItemBizAssignment } from '../stores/actions';
 import { autoLinkNow } from '../application/jiraSync';
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
 import { getCurrentQuarter } from '../utils/calendar';
 import { computeRollup } from '../utils/confidence';
-import type { Project, JiraWorkItem, JiraItemType, BusinessAssignment } from '../types';
+import type { Project, JiraWorkItem, JiraItemType, BusinessAssignment, BusinessContact, JiraItemBizAssignment } from '../types';
 
 export function Projects() {
   const state = useCurrentState();
@@ -709,16 +710,13 @@ export function Projects() {
                     )}
 
                     {jiraItems.length > 0 && (
-                      <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700">
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-                          Jira Items ({jiraItems.length})
-                        </p>
-                        <JiraHierarchyTree
+                      <div className="border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
+                        <EpicGrid
                           items={jiraItems}
+                          epicKey={project.jiraSourceKey}
                           jiraBaseUrl={activeJiraBaseUrl}
-                          readOnly
-                          defaultConfidenceLevel={jiraSettings.defaultConfidenceLevel ?? 'medium'}
-                          confidenceSettings={state.settings.confidenceLevels}
+                          bizAssignments={state.jiraItemBizAssignments ?? []}
+                          businessContacts={state.businessContacts}
                         />
                       </div>
                     )}
@@ -1108,6 +1106,350 @@ function InlineBizPanel({
           </div>
         )}
       </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Epic Grid (5-column Jira hierarchy with IT + BIZ assignees) ────────── */
+
+const EPIC_GRID_COLS = '1fr 180px 180px 140px 100px';
+
+interface EpicGridProps {
+  items: JiraWorkItem[];
+  epicKey?: string;
+  jiraBaseUrl: string;
+  bizAssignments: JiraItemBizAssignment[];
+  businessContacts: BusinessContact[];
+}
+
+function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContacts }: EpicGridProps) {
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [openBizKey, setOpenBizKey] = useState<string | null>(null);
+  const [bizShowAdd, setBizShowAdd] = useState(false);
+  const [bizContactId, setBizContactId] = useState('');
+  const [bizNotes, setBizNotes] = useState('');
+
+  const toggleExpand = (key: string) =>
+    setExpandedKeys(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+
+  const toggleBiz = (key: string) => {
+    if (openBizKey === key) { setOpenBizKey(null); setBizShowAdd(false); }
+    else { setOpenBizKey(key); setBizShowAdd(false); setBizContactId(''); setBizNotes(''); }
+  };
+
+  const handleAddBiz = (jiraKey: string) => {
+    if (!bizContactId) return;
+    upsertJiraItemBizAssignment({ jiraKey, contactId: bizContactId, notes: bizNotes.trim() || undefined });
+    setBizShowAdd(false); setBizContactId(''); setBizNotes('');
+  };
+
+  const getItPeople = (item: JiraWorkItem): AvatarPerson[] =>
+    item.assigneeName ? [{ id: item.assigneeEmail ?? item.assigneeName, name: item.assigneeName }] : [];
+
+  const getBizPeople = (key: string): AvatarPerson[] =>
+    bizAssignments
+      .filter(a => a.jiraKey === key)
+      .flatMap(a => {
+        const c = businessContacts.find(bc => bc.id === a.contactId && !bc.archived);
+        return c ? [{ id: c.id, name: c.name } as AvatarPerson] : [];
+      });
+
+  const features = items.filter(i => i.type === 'feature' && (epicKey ? i.parentKey === epicKey : true));
+  const displayFeatures = features.length > 0 ? features : items.filter(i => i.type === 'feature');
+  const childrenOf = (key: string) => items.filter(i => i.parentKey === key && i.type !== 'feature');
+
+  const StatusBadge = ({ item }: { item: JiraWorkItem }) => {
+    const cat = item.statusCategory;
+    if (cat === 'done')        return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />{item.status}</span>;
+    if (cat === 'in_progress') return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-amber-50 text-amber-700 whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />{item.status}</span>;
+    return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-slate-100 text-slate-500 whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 flex-shrink-0" />{item.status}</span>;
+  };
+
+  const TypeChip = ({ type }: { type: string }) => {
+    const t = type.toUpperCase();
+    const cls: Record<string, string> = {
+      FEATURE: 'bg-[#E8F4FB] text-[#0089DD]',
+      STORY:   'bg-slate-100 text-slate-500',
+      BUG:     'bg-red-50 text-red-600',
+      TASK:    'bg-slate-100 text-slate-500',
+    };
+    return <span className={`text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded flex-shrink-0 ${cls[t] ?? 'bg-slate-100 text-slate-500'}`}>{t}</span>;
+  };
+
+  const SprintCell = ({ item }: { item: JiraWorkItem }) => (
+    <div className="px-2.5">
+      {item.sprintName
+        ? <span className="font-mono text-[10.5px] text-slate-600 dark:text-slate-300">{item.sprintName}</span>
+        : <span className="text-xs text-slate-300 dark:text-slate-600">—</span>}
+    </div>
+  );
+
+  const hdrBase = 'text-[10px] font-semibold uppercase tracking-widest pb-2 px-2.5';
+
+  const JiraBizPanelInline = ({ jiraKey }: { jiraKey: string }) => (
+    <JiraBizPanel
+      jiraKey={jiraKey}
+      allBizAssignments={bizAssignments}
+      businessContacts={businessContacts}
+      showAdd={bizShowAdd}
+      contactId={bizContactId}
+      notes={bizNotes}
+      onOpenAdd={() => { setBizShowAdd(true); setBizContactId(''); setBizNotes(''); }}
+      onCancelAdd={() => setBizShowAdd(false)}
+      onContactChange={setBizContactId}
+      onNotesChange={setBizNotes}
+      onAdd={() => handleAddBiz(jiraKey)}
+      onRemove={removeJiraItemBizAssignment}
+      onClose={() => { setOpenBizKey(null); setBizShowAdd(false); }}
+    />
+  );
+
+  const nonEpics = items.filter(i => i.type !== 'epic');
+
+  if (displayFeatures.length === 0 && nonEpics.length === 0) return null;
+
+  const renderRows = displayFeatures.length > 0 ? (
+    displayFeatures.map(feature => {
+      const children = childrenOf(feature.jiraKey);
+      const isExp = expandedKeys.has(feature.jiraKey);
+      return (
+        <div key={feature.id} className="border-t border-slate-100 dark:border-slate-700/60">
+          {/* Feature row */}
+          <div
+            style={{ display: 'grid', gridTemplateColumns: EPIC_GRID_COLS }}
+            className="items-center py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+            onClick={() => children.length > 0 && toggleExpand(feature.jiraKey)}
+          >
+            <div className="flex items-center gap-1.5 min-w-0 px-4 pr-4">
+              {children.length > 0 ? (
+                <button className="p-0.5 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 flex-shrink-0" onClick={e => { e.stopPropagation(); toggleExpand(feature.jiraKey); }}>
+                  {isExp ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                </button>
+              ) : <span className="w-[22px] flex-shrink-0" />}
+              <TypeChip type="feature" />
+              <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{feature.summary}</span>
+              {feature.jiraKey && jiraBaseUrl && (
+                <a href={`${jiraBaseUrl}/browse/${feature.jiraKey}`} target="_blank" rel="noopener noreferrer"
+                  className="font-mono text-[10px] text-slate-400 hover:text-[#0089DD] flex-shrink-0" onClick={e => e.stopPropagation()}>
+                  {feature.jiraKey}
+                </a>
+              )}
+              {feature.storyPoints != null && (
+                <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">{feature.storyPoints}d</span>
+              )}
+            </div>
+            {/* IT Assignee */}
+            <div className="flex items-center gap-1.5 px-2.5">
+              <span className="text-[9px] font-bold tracking-wider uppercase px-1 py-0.5 rounded bg-[#E8F4FB] text-[#0089DD] border border-[#BAE0F7] flex-shrink-0">IT</span>
+              <AvatarStack people={getItPeople(feature)} variant="it" />
+            </div>
+            {/* BIZ Assignee */}
+            <div className="flex items-center gap-1.5 px-2.5">
+              <span className="text-[9px] font-bold tracking-wider uppercase px-1 py-0.5 rounded bg-[#F5F3FF] text-[#7C3AED] border border-[#DDD6FE] flex-shrink-0">BIZ</span>
+              <AvatarStack people={getBizPeople(feature.jiraKey)} variant="biz" onClick={() => toggleBiz(feature.jiraKey)} />
+            </div>
+            <SprintCell item={feature} />
+            <div className="px-2.5"><StatusBadge item={feature} /></div>
+          </div>
+          {openBizKey === feature.jiraKey && <JiraBizPanelInline jiraKey={feature.jiraKey} />}
+
+          {/* Story rows */}
+          {isExp && children.map(child => (
+            <div key={child.id}>
+              <div
+                style={{ display: 'grid', gridTemplateColumns: EPIC_GRID_COLS }}
+                className="items-center py-2 bg-white dark:bg-slate-900/20 border-t border-slate-50 dark:border-slate-700/40 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
+              >
+                <div className="flex items-center gap-1.5 min-w-0 pr-4 pl-14">
+                  <svg className="w-4 h-4 text-slate-200 dark:text-slate-700 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 0v10h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <TypeChip type={child.typeName || child.type} />
+                  <span className="text-[12.5px] text-slate-700 dark:text-slate-300 truncate">{child.summary}</span>
+                  {child.jiraKey && jiraBaseUrl && (
+                    <a href={`${jiraBaseUrl}/browse/${child.jiraKey}`} target="_blank" rel="noopener noreferrer"
+                      className="font-mono text-[10px] text-slate-400 hover:text-[#0089DD] flex-shrink-0" onClick={e => e.stopPropagation()}>
+                      {child.jiraKey}
+                    </a>
+                  )}
+                  {child.storyPoints != null && (
+                    <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">{child.storyPoints}d</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5">
+                  <AvatarStack people={getItPeople(child)} variant="it" />
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5">
+                  <AvatarStack people={getBizPeople(child.jiraKey)} variant="biz" onClick={() => toggleBiz(child.jiraKey)} />
+                </div>
+                <SprintCell item={child} />
+                <div className="px-2.5"><StatusBadge item={child} /></div>
+              </div>
+              {openBizKey === child.jiraKey && <JiraBizPanelInline jiraKey={child.jiraKey} />}
+            </div>
+          ))}
+        </div>
+      );
+    })
+  ) : (
+    nonEpics.map(item => (
+      <div key={item.id}>
+        <div
+          style={{ display: 'grid', gridTemplateColumns: EPIC_GRID_COLS }}
+          className="items-center py-2 border-t border-slate-100 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+        >
+          <div className="flex items-center gap-1.5 min-w-0 px-4 pr-4">
+            <TypeChip type={item.typeName || item.type} />
+            <span className="text-sm text-slate-800 dark:text-slate-100 truncate">{item.summary}</span>
+            {item.jiraKey && jiraBaseUrl && (
+              <a href={`${jiraBaseUrl}/browse/${item.jiraKey}`} target="_blank" rel="noopener noreferrer"
+                className="font-mono text-[10px] text-slate-400 hover:text-[#0089DD] flex-shrink-0" onClick={e => e.stopPropagation()}>
+                {item.jiraKey}
+              </a>
+            )}
+            {item.storyPoints != null && (
+              <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">{item.storyPoints}d</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5">
+            <span className="text-[9px] font-bold tracking-wider uppercase px-1 py-0.5 rounded bg-[#E8F4FB] text-[#0089DD] border border-[#BAE0F7] flex-shrink-0">IT</span>
+            <AvatarStack people={getItPeople(item)} variant="it" />
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5">
+            <span className="text-[9px] font-bold tracking-wider uppercase px-1 py-0.5 rounded bg-[#F5F3FF] text-[#7C3AED] border border-[#DDD6FE] flex-shrink-0">BIZ</span>
+            <AvatarStack people={getBizPeople(item.jiraKey)} variant="biz" onClick={() => toggleBiz(item.jiraKey)} />
+          </div>
+          <SprintCell item={item} />
+          <div className="px-2.5"><StatusBadge item={item} /></div>
+        </div>
+        {openBizKey === item.jiraKey && <JiraBizPanelInline jiraKey={item.jiraKey} />}
+      </div>
+    ))
+  );
+
+  return (
+    <div className="min-w-[640px]">
+      {/* Column headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: EPIC_GRID_COLS }} className="px-4 pt-2.5 pb-1">
+        <div className={`${hdrBase} text-slate-400 dark:text-slate-500 pl-4`}>Feature / Item</div>
+        <div className={`${hdrBase} text-[#0089DD]/70`}>IT Assignee</div>
+        <div className={`${hdrBase} text-[#7C3AED]/70`}>Business Assignee</div>
+        <div className={`${hdrBase} text-slate-400 dark:text-slate-500`}>Sprint</div>
+        <div className={`${hdrBase} text-slate-400 dark:text-slate-500`}>Status</div>
+      </div>
+      {renderRows}
+    </div>
+  );
+}
+
+/* ─── Jira BIZ assignment panel ──────────────────────────────────────────── */
+
+interface JiraBizPanelProps {
+  jiraKey: string;
+  allBizAssignments: JiraItemBizAssignment[];
+  businessContacts: BusinessContact[];
+  showAdd: boolean;
+  contactId: string;
+  notes: string;
+  onOpenAdd: () => void;
+  onCancelAdd: () => void;
+  onContactChange: (v: string) => void;
+  onNotesChange: (v: string) => void;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onClose: () => void;
+}
+
+function JiraBizPanel({
+  jiraKey,
+  allBizAssignments,
+  businessContacts,
+  showAdd,
+  contactId,
+  notes,
+  onOpenAdd,
+  onCancelAdd,
+  onContactChange,
+  onNotesChange,
+  onAdd,
+  onRemove,
+  onClose,
+}: JiraBizPanelProps) {
+  const commitments = allBizAssignments.filter(a => a.jiraKey === jiraKey);
+  const contacts = businessContacts.filter(c => !c.archived);
+
+  return (
+    <div className="flex justify-end px-4 pb-2">
+      <div className="w-72 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 shadow-md">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100 dark:border-purple-800/50">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+            <Users size={11} />
+            BIZ · {jiraKey}
+          </span>
+          <div className="flex items-center gap-2">
+            {!showAdd && (
+              <button type="button" onClick={onOpenAdd}
+                className="text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 transition-colors">
+                + Add
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+              <X size={13} />
+            </button>
+          </div>
+        </div>
+        <div className="px-3 py-2 space-y-1.5">
+          {commitments.length === 0 && !showAdd && (
+            <p className="text-xs text-slate-400 dark:text-slate-500 py-1 italic">
+              {contacts.length === 0 ? 'Add business contacts in Settings → Reference Data first.' : 'No business contacts assigned yet.'}
+            </p>
+          )}
+          {commitments.map(c => {
+            const contact = businessContacts.find(bc => bc.id === c.contactId);
+            if (!contact) return null;
+            return (
+              <div key={c.id} className="flex items-center justify-between gap-2 group">
+                <span className="text-xs text-slate-700 dark:text-slate-300 truncate">{contact.name}</span>
+                {c.notes && <span className="text-[10px] text-slate-400 truncate italic">{c.notes}</span>}
+                <button onClick={() => onRemove(c.id)}
+                  className="text-red-400 hover:text-red-600 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <X size={12} />
+                </button>
+              </div>
+            );
+          })}
+          {showAdd && (
+            <div className="mt-1 pt-2 border-t border-purple-100 dark:border-purple-800/50 space-y-2">
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Contact</label>
+                <select value={contactId} onChange={e => onContactChange(e.target.value)}
+                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="">Select…</option>
+                  {contacts.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}{c.title ? ` — ${c.title}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Notes (optional)</label>
+                <input type="text" value={notes} onChange={e => onNotesChange(e.target.value)}
+                  placeholder="e.g. UAT sign-off…"
+                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={onCancelAdd}
+                  className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-2 py-1 transition-colors">
+                  Cancel
+                </button>
+                <button type="button" onClick={onAdd} disabled={!contactId}
+                  className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  Add
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

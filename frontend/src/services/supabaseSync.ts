@@ -42,6 +42,7 @@ import type {
   BusinessContact,
   BusinessTimeOff,
   BusinessAssignment,
+  JiraItemBizAssignment,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
 
@@ -124,7 +125,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       squadsRes, processTeamsRes,
       teamMembersRes, projectsRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes, assignmentsRes,
-      bizContactsRes, bizTimeOffRes, bizAssignmentsRes,
+      bizContactsRes, bizTimeOffRes, bizAssignmentsRes, bizJiraItemsRes,
     ] = await Promise.all([
       supabase.from('roles').select('*').order('name'),
       supabase.from('countries').select('*').order('name'),
@@ -145,6 +146,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       supabase.from('business_contacts').select('*').order('name'),
       supabase.from('business_time_off').select('*'),
       supabase.from('business_assignments').select('*'),
+      supabase.from('jira_item_biz_assignments').select('*'),
     ]);
 
     // Log any table errors but continue with empty arrays — partial data is
@@ -155,7 +157,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       squadsRes, processTeamsRes,
       teamMembersRes, projectsRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes, assignmentsRes,
-      bizContactsRes, bizTimeOffRes, bizAssignmentsRes,
+      bizContactsRes, bizTimeOffRes, bizAssignmentsRes, bizJiraItemsRes,
     ];
     const errorCount = allResults.filter(r => r.error).length;
 
@@ -419,6 +421,13 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       notes: a.notes ?? undefined,
     }));
 
+    const jiraItemBizAssignments: JiraItemBizAssignment[] = (bizJiraItemsRes.data ?? []).map(r => ({
+      id: r.id,
+      jiraKey: r.jira_key,
+      contactId: r.contact_id,
+      notes: r.notes ?? undefined,
+    }));
+
     return {
       version: 10,
       lastModified: new Date().toISOString(),
@@ -444,6 +453,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       businessContacts,
       businessTimeOff,
       businessAssignments,
+      jiraItemBizAssignments,
     };
   } catch (err) {
     console.error('[Sync] Unexpected error loading from Supabase:', err);
@@ -487,9 +497,10 @@ export async function saveToSupabase(state: AppState): Promise<void> {
     ['jira_work_items',  syncJiraWorkItems(state.jiraWorkItems)],
     ['scenarios',             syncScenarios(state.scenarios)],
     ['settings',              syncSettings(state.settings, state.jiraSettings, state.activeScenarioId)],
-    ['business_contacts',     syncBusinessContacts(state.businessContacts ?? [])],
-    ['business_time_off',     syncBusinessTimeOff(state.businessTimeOff ?? [])],
-    ['business_assignments',  syncBusinessAssignments(state.businessAssignments ?? [])],
+    ['business_contacts',          syncBusinessContacts(state.businessContacts ?? [])],
+    ['business_time_off',          syncBusinessTimeOff(state.businessTimeOff ?? [])],
+    ['business_assignments',       syncBusinessAssignments(state.businessAssignments ?? [])],
+    ['jira_item_biz_assignments',  syncJiraItemBizAssignments(state.jiraItemBizAssignments ?? [])],
   ];
 
   const results = await Promise.allSettled(tasks.map(([, p]) => p));
@@ -904,6 +915,28 @@ async function syncBusinessAssignments(assignments: BusinessAssignment[]): Promi
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('business_assignments') && (msg.includes('not found') || msg.includes('does not exist') || msg.includes('relation'))) {
       console.warn('[Sync] business_assignments table not found — run migration 011. Skipping.');
+      return;
+    }
+    throw err;
+  }
+}
+
+async function syncJiraItemBizAssignments(items: JiraItemBizAssignment[]): Promise<void> {
+  try {
+    await upsertAndPrune(
+      'jira_item_biz_assignments',
+      items,
+      a => ({
+        id: a.id,
+        jira_key: a.jiraKey,
+        contact_id: a.contactId,
+        notes: a.notes ?? null,
+      })
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('jira_item_biz_assignments') && (msg.includes('not found') || msg.includes('does not exist') || msg.includes('relation'))) {
+      console.warn('[Sync] jira_item_biz_assignments table not found — run migration 012. Skipping.');
       return;
     }
     throw err;

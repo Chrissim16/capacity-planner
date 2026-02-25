@@ -211,6 +211,15 @@ export interface BusinessAssignment {
   notes?: string;
 }
 
+/** Links a BusinessContact to a specific Jira work item (Epic, Feature, Story, etc.) */
+export interface JiraItemBizAssignment {
+  id: string;
+  /** Jira issue key, e.g. "ERP-1976" — must match JiraWorkItem.jiraKey */
+  jiraKey: string;
+  contactId: string;
+  notes?: string;
+}
+
 export interface AppState {
   version: number;
   lastModified: string;
@@ -238,6 +247,8 @@ export interface AppState {
   businessContacts: BusinessContact[];
   businessTimeOff: BusinessTimeOff[];
   businessAssignments: BusinessAssignment[];
+  /** BIZ contact assignments at the Jira-item level (Epic, Feature, Story) */
+  jiraItemBizAssignments: JiraItemBizAssignment[];
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
