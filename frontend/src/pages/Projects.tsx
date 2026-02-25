@@ -4,6 +4,7 @@ import {
   ChevronDown, ChevronRight, FolderKanban, Filter,
   Archive, ArchiveRestore, StickyNote, Calendar, MoreHorizontal,
   RefreshCw, Zap, AlertCircle, CheckCircle2, Settings, Link2,
+  Users, X,
 } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { JiraHierarchyTree } from '../components/JiraHierarchyTree';
@@ -16,13 +17,13 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { ProjectForm } from '../components/forms/ProjectForm';
 import { AssignmentModal } from '../components/forms/AssignmentModal';
 import { useCurrentState, useAppStore } from '../stores/appStore';
-import { deleteProject, duplicateProject, archiveProject, unarchiveProject } from '../stores/actions';
+import { deleteProject, duplicateProject, archiveProject, unarchiveProject, upsertBusinessAssignment, removeBusinessAssignment, generateId } from '../stores/actions';
 import { autoLinkNow } from '../application/jiraSync';
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
 import { getCurrentQuarter } from '../utils/calendar';
 import { computeRollup } from '../utils/confidence';
-import type { Project, JiraWorkItem, JiraItemType } from '../types';
+import type { Project, JiraWorkItem, JiraItemType, BusinessAssignment } from '../types';
 
 export function Projects() {
   const state = useCurrentState();
@@ -74,6 +75,44 @@ export function Projects() {
     projectId?: string;
     phaseId?: string;
   }>({});
+
+  // BIZ panel state (key = `${projectId}:${phaseId}`)
+  const [openBizKey, setOpenBizKey] = useState<string | null>(null);
+  const [bizShowAdd, setBizShowAdd] = useState(false);
+  const [bizContactId, setBizContactId] = useState('');
+  const [bizDays, setBizDays] = useState('');
+  const [bizNotes, setBizNotes] = useState('');
+
+  const toggleBizPanel = (projectId: string, phaseId: string) => {
+    const key = `${projectId}:${phaseId}`;
+    if (openBizKey === key) {
+      setOpenBizKey(null);
+      setBizShowAdd(false);
+    } else {
+      setOpenBizKey(key);
+      setBizShowAdd(false);
+      setBizContactId('');
+      setBizDays('');
+      setBizNotes('');
+    }
+  };
+
+  const handleAddBiz = (projectId: string, phaseId: string) => {
+    const days = parseFloat(bizDays);
+    if (!bizContactId || isNaN(days) || days <= 0) return;
+    upsertBusinessAssignment({
+      id: generateId('biz-assign'),
+      contactId: bizContactId,
+      projectId,
+      phaseId,
+      days,
+      notes: bizNotes.trim() || undefined,
+    });
+    setBizShowAdd(false);
+    setBizContactId('');
+    setBizDays('');
+    setBizNotes('');
+  };
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('__open__');
@@ -684,6 +723,64 @@ export function Projects() {
                       </div>
                     )}
 
+                    {/* Business commitments for Jira-synced epics: show local phases with BIZ chips */}
+                    {jiraItems.length > 0 && project.phases.length > 0 && (
+                      <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700/60">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                          <Users size={11} />
+                          Business commitments
+                        </p>
+                        <div className="space-y-1">
+                          {project.phases.map(phase => {
+                            const phaseCommitments = state.businessAssignments.filter(a => a.phaseId === phase.id);
+                            const bizKey = `${project.id}:${phase.id}`;
+                            const isBizOpen = openBizKey === bizKey;
+                            return (
+                              <div key={phase.id}>
+                                <div className="flex items-center justify-between gap-3 py-1">
+                                  <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{phase.name}</span>
+                                  <button
+                                    onClick={() => toggleBizPanel(project.id, phase.id)}
+                                    title={phaseCommitments.length > 0 ? `Business commitments: ${phaseCommitments.length} contact${phaseCommitments.length !== 1 ? 's' : ''}` : 'Assign business contact'}
+                                    className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                                      phaseCommitments.length > 0
+                                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 hover:bg-purple-200 dark:hover:bg-purple-900/50'
+                                        : 'border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-purple-300 dark:hover:border-purple-600 hover:text-purple-500 dark:hover:text-purple-400'
+                                    }`}
+                                  >
+                                    <Users size={11} />
+                                    {phaseCommitments.length > 0
+                                      ? `BIZ: ${phaseCommitments.length} · ${phaseCommitments.reduce((s, b) => s + b.days, 0)}d`
+                                      : '+ BIZ'}
+                                  </button>
+                                </div>
+                                {isBizOpen && (
+                                  <InlineBizPanel
+                                    projectId={project.id}
+                                    phaseId={phase.id}
+                                    commitments={phaseCommitments}
+                                    allContacts={state.businessContacts}
+                                    showAdd={bizShowAdd}
+                                    contactId={bizContactId}
+                                    days={bizDays}
+                                    notes={bizNotes}
+                                    onOpenAdd={() => { setBizShowAdd(true); setBizContactId(''); setBizDays(''); setBizNotes(''); }}
+                                    onCancelAdd={() => setBizShowAdd(false)}
+                                    onContactChange={setBizContactId}
+                                    onDaysChange={setBizDays}
+                                    onNotesChange={setBizNotes}
+                                    onAdd={() => handleAddBiz(project.id, phase.id)}
+                                    onRemove={(id) => removeBusinessAssignment(id)}
+                                    onClose={() => { setOpenBizKey(null); setBizShowAdd(false); }}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Only show manual phases when the project has no Jira items.
                         When Jira items are present the hierarchy tree above already shows the full
                         feature/story structure — showing the phase list too is redundant. */}
@@ -699,9 +796,12 @@ export function Projects() {
                               a => a.projectId === project.id && a.phaseId === phase.id
                             );
                             const displayAssignments = phaseAssignments.length > 0 ? phaseAssignments : (phase.assignments ?? []);
+                            const phaseCommitments = state.businessAssignments.filter(a => a.phaseId === phase.id);
+                            const bizKey = `${project.id}:${phase.id}`;
+                            const isBizOpen = openBizKey === bizKey;
                             return (
-                              <div key={phase.id} className="px-5 py-2.5 pl-8">
-                                <div className="flex items-start justify-between gap-4">
+                              <div key={phase.id} className="px-5 pl-8">
+                                <div className="flex items-start justify-between gap-4 py-2.5">
                                   <div className="min-w-0 flex items-start gap-2">
                                     <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-2" />
                                     <div>
@@ -726,7 +826,7 @@ export function Projects() {
                                       )}
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-4 shrink-0">
+                                  <div className="flex items-center gap-2 shrink-0">
                                     {displayAssignments.length > 0 ? (
                                       <div className="flex flex-wrap gap-1.5 max-w-xs justify-end">
                                         {displayAssignments.slice(0, 5).map((a, i) => (
@@ -747,15 +847,51 @@ export function Projects() {
                                     ) : (
                                       <span className="text-sm text-slate-400 italic">No assignments</span>
                                     )}
+                                    {/* BIZ chip */}
+                                    <button
+                                      onClick={() => toggleBizPanel(project.id, phase.id)}
+                                      title={phaseCommitments.length > 0 ? `Business commitments: ${phaseCommitments.length} contact${phaseCommitments.length !== 1 ? 's' : ''}` : 'Assign business contact'}
+                                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                                        phaseCommitments.length > 0
+                                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 hover:bg-purple-200 dark:hover:bg-purple-900/50'
+                                          : 'border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-purple-300 dark:hover:border-purple-600 hover:text-purple-500 dark:hover:text-purple-400'
+                                      }`}
+                                    >
+                                      <Users size={11} />
+                                      {phaseCommitments.length > 0
+                                        ? `BIZ: ${phaseCommitments.length} · ${phaseCommitments.reduce((s, b) => s + b.days, 0)}d`
+                                        : '+ BIZ'}
+                                    </button>
                                     <button
                                       onClick={() => openAssignment(project.id, phase.id)}
                                       className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-white dark:hover:bg-slate-700 rounded transition-colors"
-                                      title="Assign to this feature"
+                                      title="Assign team member"
                                     >
                                       <UserPlus size={14} />
                                     </button>
                                   </div>
                                 </div>
+                                {/* Inline BIZ panel */}
+                                {isBizOpen && (
+                                  <InlineBizPanel
+                                    projectId={project.id}
+                                    phaseId={phase.id}
+                                    commitments={phaseCommitments}
+                                    allContacts={state.businessContacts}
+                                    showAdd={bizShowAdd}
+                                    contactId={bizContactId}
+                                    days={bizDays}
+                                    notes={bizNotes}
+                                    onOpenAdd={() => { setBizShowAdd(true); setBizContactId(''); setBizDays(''); setBizNotes(''); }}
+                                    onCancelAdd={() => setBizShowAdd(false)}
+                                    onContactChange={setBizContactId}
+                                    onDaysChange={setBizDays}
+                                    onNotesChange={setBizNotes}
+                                    onAdd={() => handleAddBiz(project.id, phase.id)}
+                                    onRemove={(id) => removeBusinessAssignment(id)}
+                                    onClose={() => { setOpenBizKey(null); setBizShowAdd(false); }}
+                                  />
+                                )}
                               </div>
                             );
                           })}
@@ -810,6 +946,167 @@ export function Projects() {
           This will also remove all features and assignments. You can undo for 10 seconds after deletion.
         </p>
       </Modal>
+    </div>
+  );
+}
+
+/* ─── Inline BIZ panel ───────────────────────────────────────────────────── */
+
+interface InlineBizPanelProps {
+  projectId: string;
+  phaseId: string;
+  commitments: BusinessAssignment[];
+  allContacts: ReturnType<typeof useCurrentState>['businessContacts'];
+  showAdd: boolean;
+  contactId: string;
+  days: string;
+  notes: string;
+  onOpenAdd: () => void;
+  onCancelAdd: () => void;
+  onContactChange: (v: string) => void;
+  onDaysChange: (v: string) => void;
+  onNotesChange: (v: string) => void;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onClose: () => void;
+}
+
+function InlineBizPanel({
+  projectId: _projectId,
+  phaseId: _phaseId,
+  commitments,
+  allContacts,
+  showAdd,
+  contactId,
+  days,
+  notes,
+  onOpenAdd,
+  onCancelAdd,
+  onContactChange,
+  onDaysChange,
+  onNotesChange,
+  onAdd,
+  onRemove,
+  onClose,
+}: InlineBizPanelProps) {
+  const contacts = allContacts.filter(c => !c.archived);
+
+  return (
+    <div className="mb-2 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/10">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100 dark:border-purple-800/50">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+          <Users size={11} />
+          Business commitment
+        </span>
+        <div className="flex items-center gap-2">
+          {!showAdd && (
+            <button
+              type="button"
+              onClick={onOpenAdd}
+              className="text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 transition-colors"
+            >
+              + Add contact
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+            <X size={13} />
+          </button>
+        </div>
+      </div>
+
+      <div className="px-3 py-2 space-y-1.5">
+        {commitments.length === 0 && !showAdd && (
+          <p className="text-xs text-slate-400 dark:text-slate-500 py-1 italic">
+            {contacts.length === 0
+              ? 'No business contacts yet. Add them in Settings → Reference Data.'
+              : 'No contacts assigned. Click + Add contact to get started.'}
+          </p>
+        )}
+
+        {commitments.map(bc => {
+          const contact = allContacts.find(c => c.id === bc.contactId);
+          return (
+            <div key={bc.id} className="flex items-center gap-2 py-1 rounded px-1 hover:bg-purple-100/50 dark:hover:bg-purple-900/20 group">
+              <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                {contact?.name ?? bc.contactId}
+                {contact?.title && <span className="font-normal text-slate-400"> — {contact.title}</span>}
+              </span>
+              <span className="shrink-0 text-xs font-bold text-purple-700 dark:text-purple-300">{bc.days}d</span>
+              {bc.notes && (
+                <span className="shrink-0 text-[10px] text-slate-400 truncate max-w-[100px]" title={bc.notes}>{bc.notes}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => onRemove(bc.id)}
+                className="shrink-0 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          );
+        })}
+
+        {commitments.length > 1 && (
+          <div className="text-[10px] text-purple-500 dark:text-purple-400 font-medium pt-0.5 border-t border-purple-100 dark:border-purple-800/50">
+            {commitments.reduce((s, b) => s + b.days, 0)}d total across {commitments.length} contacts
+          </div>
+        )}
+
+        {showAdd && (
+          <div className="mt-2 pt-2 border-t border-purple-100 dark:border-purple-800/50 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Contact</label>
+                <select
+                  value={contactId}
+                  onChange={e => onContactChange(e.target.value)}
+                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">Select contact…</option>
+                  {contacts.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}{c.title ? ` — ${c.title}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Days</label>
+                <input
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  value={days}
+                  onChange={e => onDaysChange(e.target.value)}
+                  placeholder="e.g. 5"
+                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Notes (optional)</label>
+              <input
+                type="text"
+                value={notes}
+                onChange={e => onNotesChange(e.target.value)}
+                placeholder="e.g. UAT sign-off, data validation…"
+                className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={onCancelAdd} className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-2 py-1 transition-colors">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onAdd}
+                disabled={!contactId || !days}
+                className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
