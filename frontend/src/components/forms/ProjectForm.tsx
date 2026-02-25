@@ -3,7 +3,7 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { Trash2, Plus, ChevronDown, ChevronRight, Users } from 'lucide-react';
+import { Trash2, Plus, ChevronDown, ChevronRight, Users, X } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
 import { addProject, updateProject, generateId, upsertBusinessAssignment, removeBusinessAssignment } from '../../stores/actions';
 import { getCurrentQuarter, getPhaseRange } from '../../utils/calendar';
@@ -72,11 +72,11 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
 
   // Business commitments: keyed by phaseId
   const [bizCommitments, setBizCommitments] = useState<Record<string, BusinessAssignment[]>>({});
-  const [addingBizFor, setAddingBizFor] = useState<string | null>(null);
+  const [openBizPanel, setOpenBizPanel] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm]   = useState(false);
   const [bizContactId, setBizContactId] = useState('');
   const [bizDays, setBizDays]           = useState('');
   const [bizNotes, setBizNotes]         = useState('');
-  // Track which assignments were removed so we can delete them on save
   const [removedBizIds, setRemovedBizIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -94,7 +94,6 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
         ...phase,
         confidenceLevel: phase.confidenceLevel ?? defaultConfidenceLevel,
       })));
-      // Load existing business commitments for this project's phases
       const existing: Record<string, BusinessAssignment[]> = {};
       for (const a of state.businessAssignments.filter(a => a.projectId === project.id)) {
         if (a.phaseId) {
@@ -117,7 +116,8 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
     }
     setExpandedPhases(new Set());
     setErrors({});
-    setAddingBizFor(null);
+    setOpenBizPanel(null);
+    setShowAddForm(false);
     setRemovedBizIds([]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project, isOpen]);
@@ -155,7 +155,19 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
     });
   };
 
-  // Business commitment helpers
+  const toggleBizPanel = (phaseId: string) => {
+    if (openBizPanel === phaseId) {
+      setOpenBizPanel(null);
+      setShowAddForm(false);
+    } else {
+      setOpenBizPanel(phaseId);
+      setShowAddForm(false);
+      setBizContactId('');
+      setBizDays('');
+      setBizNotes('');
+    }
+  };
+
   const contactsForProject = businessContacts.filter(c =>
     !c.projectIds?.length || c.projectIds.includes(project?.id ?? '__new__')
   );
@@ -172,7 +184,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       notes: bizNotes.trim() || undefined,
     };
     setBizCommitments(prev => ({ ...prev, [phaseId]: [...(prev[phaseId] ?? []), newEntry] }));
-    setAddingBizFor(null);
+    setShowAddForm(false);
     setBizContactId('');
     setBizDays('');
     setBizNotes('');
@@ -183,7 +195,6 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       ...prev,
       [phaseId]: (prev[phaseId] ?? []).filter(b => b.id !== id),
     }));
-    // Only queue deletion for pre-existing (already saved) ids
     if (!id.includes('__pending__')) {
       setRemovedBizIds(prev => [...prev, id]);
     }
@@ -225,13 +236,11 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
       savedProjectId = created.id;
     }
 
-    // Persist business commitments
     for (const id of removedBizIds) {
       removeBusinessAssignment(id);
     }
     for (const phaseId of Object.keys(bizCommitments)) {
       for (const bc of bizCommitments[phaseId]) {
-        // Derive quarter from phase date range for storage
         const phase = phases.find(p => p.id === phaseId);
         let quarter = bc.quarter;
         if (!quarter && phase) {
@@ -398,6 +407,10 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
           <div className="space-y-2">
             {phases.map((phase, index) => {
               const isPhaseExpanded = expandedPhases.has(phase.id);
+              const isBizOpen = openBizPanel === phase.id;
+              const phaseCommitments = bizCommitments[phase.id] ?? [];
+              const totalBizDays = phaseCommitments.reduce((s, b) => s + b.days, 0);
+
               return (
                 <div
                   key={phase.id}
@@ -434,6 +447,26 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
                         options={quarterOptions}
                       />
                     </div>
+
+                    {/* BIZ chip — always visible */}
+                    <button
+                      type="button"
+                      onClick={() => toggleBizPanel(phase.id)}
+                      title={phaseCommitments.length > 0
+                        ? `Business commitments: ${phaseCommitments.length} contact${phaseCommitments.length !== 1 ? 's' : ''}, ${totalBizDays}d`
+                        : 'Assign business contact'}
+                      className={`mt-1.5 shrink-0 flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                        phaseCommitments.length > 0
+                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 hover:bg-purple-200 dark:hover:bg-purple-900/50'
+                          : 'border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-purple-300 dark:hover:border-purple-600 hover:text-purple-500 dark:hover:text-purple-400'
+                      }`}
+                    >
+                      <Users size={11} />
+                      {phaseCommitments.length > 0
+                        ? `BIZ: ${phaseCommitments.length} · ${totalBizDays}d`
+                        : '+ BIZ'}
+                    </button>
+
                     {phases.length > 1 && (
                       <button
                         type="button"
@@ -445,7 +478,28 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
                     )}
                   </div>
 
-                  {/* Expanded phase details: dates + notes */}
+                  {/* BIZ panel — inline, below header */}
+                  {isBizOpen && (
+                    <BizPanel
+                      commitments={phaseCommitments}
+                      contacts={contactsForProject}
+                      businessContacts={businessContacts}
+                      showAddForm={showAddForm}
+                      bizContactId={bizContactId}
+                      bizDays={bizDays}
+                      bizNotes={bizNotes}
+                      onShowAddForm={() => { setShowAddForm(true); setBizContactId(''); setBizDays(''); setBizNotes(''); }}
+                      onHideAddForm={() => setShowAddForm(false)}
+                      onContactChange={setBizContactId}
+                      onDaysChange={setBizDays}
+                      onNotesChange={setBizNotes}
+                      onAdd={() => handleAddBizCommitment(phase.id)}
+                      onRemove={(id) => handleRemoveBizCommitment(phase.id, id)}
+                      onClose={() => { setOpenBizPanel(null); setShowAddForm(false); }}
+                    />
+                  )}
+
+                  {/* Expanded phase details: dates, notes, confidence */}
                   {isPhaseExpanded && (
                     <div className="px-10 pb-3 space-y-3 border-t border-slate-200 dark:border-slate-700 pt-3">
                       <div className="grid grid-cols-3 gap-3">
@@ -484,113 +538,6 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
                           className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                         />
                       </div>
-
-                      {/* Business commitment section */}
-                      <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                            <Users size={12} />
-                            Business commitment
-                          </label>
-                          {addingBizFor !== phase.id && (
-                            <button
-                              type="button"
-                              onClick={() => { setAddingBizFor(phase.id); setBizContactId(''); setBizDays(''); setBizNotes(''); }}
-                              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline"
-                            >
-                              + Add contact
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Existing commitments */}
-                        {(bizCommitments[phase.id] ?? []).map(bc => {
-                          const contact = businessContacts.find(c => c.id === bc.contactId);
-                          return (
-                            <div key={bc.id} className="flex items-center gap-2 py-1 text-xs">
-                              <span className="font-medium text-slate-700 dark:text-slate-300 min-w-0 truncate flex-1">
-                                {contact?.name ?? bc.contactId}
-                              </span>
-                              <span className="shrink-0 font-semibold text-slate-600 dark:text-slate-400">{bc.days}d</span>
-                              {bc.notes && <span className="shrink-0 text-slate-400 truncate max-w-[120px]">{bc.notes}</span>}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveBizCommitment(phase.id, bc.id)}
-                                className="shrink-0 text-slate-300 hover:text-red-500 transition-colors ml-1"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          );
-                        })}
-
-                        {/* Inline add form */}
-                        {addingBizFor === phase.id && (
-                          <div className="mt-2 space-y-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="block text-xs text-slate-500 mb-1">Contact</label>
-                                <select
-                                  value={bizContactId}
-                                  onChange={e => setBizContactId(e.target.value)}
-                                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option value="">Select contact…</option>
-                                  {contactsForProject.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}{c.title ? ` — ${c.title}` : ''}</option>
-                                  ))}
-                                </select>
-                                {contactsForProject.length === 0 && (
-                                  <p className="text-xs text-slate-400 mt-1">No business contacts. Add them in Settings → Reference Data.</p>
-                                )}
-                              </div>
-                              <div>
-                                <label className="block text-xs text-slate-500 mb-1">Days committed</label>
-                                <input
-                                  type="number"
-                                  min="0.5"
-                                  step="0.5"
-                                  value={bizDays}
-                                  onChange={e => setBizDays(e.target.value)}
-                                  placeholder="e.g. 5"
-                                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-xs text-slate-500 mb-1">Notes (optional)</label>
-                              <input
-                                type="text"
-                                value={bizNotes}
-                                onChange={e => setBizNotes(e.target.value)}
-                                placeholder="e.g. UAT sign-off, data validation…"
-                                className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div className="flex gap-2 justify-end">
-                              <button type="button" onClick={() => setAddingBizFor(null)} className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1">
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleAddBizCommitment(phase.id)}
-                                disabled={!bizContactId || !bizDays}
-                                className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-40"
-                              >
-                                Add
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Totals summary */}
-                        {(bizCommitments[phase.id]?.length ?? 0) > 0 && (
-                          <p className="text-xs text-slate-400 mt-1.5">
-                            {(bizCommitments[phase.id] ?? []).reduce((s, b) => s + b.days, 0)}d total
-                            across {bizCommitments[phase.id].length} contact{bizCommitments[phase.id].length !== 1 ? 's' : ''}
-                          </p>
-                        )}
-                      </div>
                     </div>
                   )}
                 </div>
@@ -600,5 +547,177 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
         </div>
       </div>
     </Modal>
+  );
+}
+
+/* ─── BIZ panel (inline, below feature row header) ──────────────────────────── */
+
+interface BizPanelProps {
+  commitments: BusinessAssignment[];
+  contacts: ReturnType<typeof useCurrentState>['businessContacts'];
+  businessContacts: ReturnType<typeof useCurrentState>['businessContacts'];
+  showAddForm: boolean;
+  bizContactId: string;
+  bizDays: string;
+  bizNotes: string;
+  onShowAddForm: () => void;
+  onHideAddForm: () => void;
+  onContactChange: (v: string) => void;
+  onDaysChange: (v: string) => void;
+  onNotesChange: (v: string) => void;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onClose: () => void;
+}
+
+function BizPanel({
+  commitments,
+  contacts,
+  businessContacts,
+  showAddForm,
+  bizContactId,
+  bizDays,
+  bizNotes,
+  onShowAddForm,
+  onHideAddForm,
+  onContactChange,
+  onDaysChange,
+  onNotesChange,
+  onAdd,
+  onRemove,
+  onClose,
+}: BizPanelProps) {
+  return (
+    <div
+      className="mx-3 mb-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/10"
+    >
+      {/* Panel header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100 dark:border-purple-800/50">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+          <Users size={11} />
+          Business commitment
+        </span>
+        <div className="flex items-center gap-2">
+          {!showAddForm && (
+            <button
+              type="button"
+              onClick={onShowAddForm}
+              className="text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 transition-colors"
+            >
+              + Add contact
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      </div>
+
+      <div className="px-3 py-2 space-y-1.5">
+        {/* Existing commitments */}
+        {commitments.length === 0 && !showAddForm && (
+          <p className="text-xs text-slate-400 dark:text-slate-500 py-1 italic">
+            No contacts assigned yet.{contacts.length === 0 ? ' Add contacts in Settings → Reference Data first.' : ''}
+          </p>
+        )}
+
+        {commitments.map(bc => {
+          const contact = businessContacts.find(c => c.id === bc.contactId);
+          return (
+            <div key={bc.id} className="flex items-center gap-2 py-1 rounded px-1 hover:bg-purple-100/50 dark:hover:bg-purple-900/20 group">
+              <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                {contact?.name ?? bc.contactId}
+                {contact?.title && <span className="font-normal text-slate-400 dark:text-slate-500"> — {contact.title}</span>}
+              </span>
+              <span className="shrink-0 text-xs font-bold text-purple-700 dark:text-purple-300">
+                {bc.days}d
+              </span>
+              {bc.notes && (
+                <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[100px]" title={bc.notes}>
+                  {bc.notes}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => onRemove(bc.id)}
+                className="shrink-0 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          );
+        })}
+
+        {/* Total summary */}
+        {commitments.length > 1 && (
+          <div className="text-[10px] text-purple-500 dark:text-purple-400 font-medium pt-0.5 border-t border-purple-100 dark:border-purple-800/50">
+            {commitments.reduce((s, b) => s + b.days, 0)}d total across {commitments.length} contacts
+          </div>
+        )}
+
+        {/* Add form */}
+        {showAddForm && (
+          <div className="mt-2 pt-2 border-t border-purple-100 dark:border-purple-800/50 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Contact</label>
+                <select
+                  value={bizContactId}
+                  onChange={e => onContactChange(e.target.value)}
+                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">Select contact…</option>
+                  {contacts.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}{c.title ? ` — ${c.title}` : ''}</option>
+                  ))}
+                </select>
+                {contacts.length === 0 && (
+                  <p className="text-[10px] text-slate-400 mt-1">Add contacts in Settings → Reference Data first.</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Days committed</label>
+                <input
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  value={bizDays}
+                  onChange={e => onDaysChange(e.target.value)}
+                  placeholder="e.g. 5"
+                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Notes (optional)</label>
+              <input
+                type="text"
+                value={bizNotes}
+                onChange={e => onNotesChange(e.target.value)}
+                placeholder="e.g. UAT sign-off, data validation…"
+                className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={onHideAddForm} className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-2 py-1 transition-colors">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onAdd}
+                disabled={!bizContactId || !bizDays}
+                className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
