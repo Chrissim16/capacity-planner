@@ -79,10 +79,21 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Capacity Planner</h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Sign in to continue</p>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <img
+            src="/mileway-logo.svg"
+            alt="Mileway"
+            className="h-9 dark:brightness-0 dark:invert"
+            draggable={false}
+          />
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm p-8">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Capacity Planner</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sign in to continue</p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
@@ -121,7 +132,7 @@ export function Login() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-medium py-2.5"
+            className="w-full rounded-lg bg-[#0089DD] hover:bg-[#007ac4] disabled:opacity-60 text-white font-medium py-2.5 transition-colors"
           >
             {isSubmitting ? 'Please wait…' : isSignUpMode ? 'Create account' : 'Sign in'}
           </button>
@@ -134,10 +145,11 @@ export function Login() {
             setError(null);
             setInfo(null);
           }}
-          className="mt-4 w-full text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          className="mt-4 w-full text-sm text-[#0089DD] hover:underline"
         >
           {isSignUpMode ? 'Have an account? Sign in' : 'Need an account? Create one'}
         </button>
+        </div>
       </div>
     </div>
   );
