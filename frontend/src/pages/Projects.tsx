@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Plus, Search, Edit2, Trash2, Copy, ExternalLink, UserPlus,
   ChevronDown, ChevronRight, FolderKanban, Filter,
@@ -18,13 +18,13 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { ProjectForm } from '../components/forms/ProjectForm';
 import { AssignmentModal } from '../components/forms/AssignmentModal';
 import { useCurrentState, useAppStore } from '../stores/appStore';
-import { deleteProject, duplicateProject, archiveProject, unarchiveProject, upsertBusinessAssignment, removeBusinessAssignment, generateId, upsertJiraItemBizAssignment, removeJiraItemBizAssignment } from '../stores/actions';
+import { deleteProject, duplicateProject, archiveProject, unarchiveProject, upsertBusinessAssignment, removeBusinessAssignment, generateId, upsertJiraItemBizAssignment, removeJiraItemBizAssignment, updateJiraWorkItemMapping } from '../stores/actions';
 import { autoLinkNow } from '../application/jiraSync';
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
 import { getCurrentQuarter } from '../utils/calendar';
-import { computeRollup } from '../utils/confidence';
-import type { Project, JiraWorkItem, JiraItemType, BusinessAssignment, BusinessContact, JiraItemBizAssignment } from '../types';
+import { computeRollup, getForecastedDays, getConfidenceLabel } from '../utils/confidence';
+import type { Project, JiraWorkItem, JiraItemType, BusinessAssignment, BusinessContact, JiraItemBizAssignment, ConfidenceLevel, Settings as AppSettings } from '../types';
 
 export function Projects() {
   const state = useCurrentState();
@@ -717,6 +717,8 @@ export function Projects() {
                           jiraBaseUrl={activeJiraBaseUrl}
                           bizAssignments={state.jiraItemBizAssignments ?? []}
                           businessContacts={state.businessContacts}
+                          defaultConfidenceLevel={jiraSettings.defaultConfidenceLevel ?? 'medium'}
+                          confidenceSettings={state.settings.confidenceLevels}
                         />
                       </div>
                     )}
@@ -1111,6 +1113,80 @@ function InlineBizPanel({
   );
 }
 
+/* ─── Confidence-level days cell (used inside EpicGrid rows) ────────────── */
+
+const CONF_COLORS_GRID: Record<string, string> = {
+  high:   'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800',
+  medium: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+  low:    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+};
+
+function EpicDaysCell({ item, defaultConfidenceLevel = 'medium', confidenceSettings }: {
+  item: JiraWorkItem;
+  defaultConfidenceLevel?: ConfidenceLevel;
+  confidenceSettings?: AppSettings['confidenceLevels'];
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropStyle, setDropStyle] = useState<React.CSSProperties>({});
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const confidence = item.confidenceLevel ?? defaultConfidenceLevel;
+  const raw = item.storyPoints!;
+  const forecasted = getForecastedDays(raw, confidence, confidenceSettings);
+
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setDropStyle({ position: 'fixed', top: r.bottom + 4, left: r.left, zIndex: 9999 });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handle = () => setOpen(false);
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [open]);
+
+  return (
+    <span className="inline-flex items-center gap-1 flex-shrink-0">
+      <span className="text-[10px] text-slate-400 dark:text-slate-500">{raw}d</span>
+      <span className="text-[10px] text-slate-300 dark:text-slate-600">→</span>
+      <span className="text-[10px] font-semibold text-[#0089DD]">{forecasted}d</span>
+      <button
+        ref={btnRef}
+        onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+        className={`text-[9px] font-medium rounded-full px-1.5 py-0.5 border cursor-pointer leading-tight ${CONF_COLORS_GRID[confidence]}`}
+        title={`Confidence: ${confidence} — click to change`}
+      >
+        {confidence.charAt(0).toUpperCase()}
+      </button>
+      {open && (
+        <span
+          style={dropStyle}
+          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[170px]"
+          onMouseDown={e => e.stopPropagation()}
+        >
+          {(['', 'high', 'medium', 'low'] as const).map(v => (
+            <button
+              key={v}
+              onClick={e => {
+                e.stopPropagation();
+                updateJiraWorkItemMapping(item.id, { confidenceLevel: (v as ConfidenceLevel) || null });
+                setOpen(false);
+              }}
+              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
+                (v === '' ? !item.confidenceLevel : item.confidenceLevel === v)
+                  ? 'font-semibold text-[#0089DD]' : 'text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {v === '' ? `Default (${defaultConfidenceLevel})` : getConfidenceLabel(v, confidenceSettings)}
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /* ─── Epic Grid (5-column Jira hierarchy with IT + BIZ assignees) ────────── */
 
 const EPIC_GRID_COLS = '1fr 180px 180px 140px 100px';
@@ -1121,9 +1197,11 @@ interface EpicGridProps {
   jiraBaseUrl: string;
   bizAssignments: JiraItemBizAssignment[];
   businessContacts: BusinessContact[];
+  defaultConfidenceLevel?: ConfidenceLevel;
+  confidenceSettings?: AppSettings['confidenceLevels'];
 }
 
-function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContacts }: EpicGridProps) {
+function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContacts, defaultConfidenceLevel = 'medium', confidenceSettings }: EpicGridProps) {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [openBizKey, setOpenBizKey] = useState<string | null>(null);
   const [bizShowAdd, setBizShowAdd] = useState(false);
@@ -1185,6 +1263,10 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
     </div>
   );
 
+  const DaysCell = ({ item }: { item: JiraWorkItem }) => (
+    <EpicDaysCell item={item} defaultConfidenceLevel={defaultConfidenceLevel} confidenceSettings={confidenceSettings} />
+  );
+
   const hdrBase = 'text-[10px] font-semibold uppercase tracking-widest pb-2 px-2.5';
 
   const JiraBizPanelInline = ({ jiraKey }: { jiraKey: string }) => (
@@ -1235,9 +1317,7 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
                   {feature.jiraKey}
                 </a>
               )}
-              {feature.storyPoints != null && (
-                <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">{feature.storyPoints}d</span>
-              )}
+              {feature.storyPoints != null && <DaysCell item={feature} />}
             </div>
             {/* IT Assignee */}
             <div className="flex items-center gap-1.5 px-2.5">
@@ -1273,9 +1353,7 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
                       {child.jiraKey}
                     </a>
                   )}
-                  {child.storyPoints != null && (
-                    <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">{child.storyPoints}d</span>
-                  )}
+                  {child.storyPoints != null && <DaysCell item={child} />}
                 </div>
                 <div className="flex items-center gap-1.5 px-2.5">
                   <AvatarStack people={getItPeople(child)} variant="it" />
@@ -1308,9 +1386,7 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
                 {item.jiraKey}
               </a>
             )}
-            {item.storyPoints != null && (
-              <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">{item.storyPoints}d</span>
-            )}
+            {item.storyPoints != null && <DaysCell item={item} />}
           </div>
           <div className="flex items-center gap-1.5 px-2.5">
             <span className="text-[9px] font-bold tracking-wider uppercase px-1 py-0.5 rounded bg-[#E8F4FB] text-[#0089DD] border border-[#BAE0F7] flex-shrink-0">IT</span>
