@@ -504,6 +504,9 @@ export function JiraGantt({
     }
   };
 
+  // ── Temporary debug state ────────────────────────────────────────────────
+  const [showDebug, setShowDebug] = useState(false);
+
   if (epics.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-slate-400">
@@ -512,6 +515,31 @@ export function JiraGantt({
       </div>
     );
   }
+
+  // Sample 3 epics for the debug panel
+  const debugSample = epics.slice(0, 3).map(e => {
+    const d = resolvedDates.get(e.jiraKey);
+    const featuresOfEpic = features.filter(f => f.parentKey === e.jiraKey);
+    const storiesOfEpic  = items.filter(i => i.parentKey === e.jiraKey ||
+      featuresOfEpic.some(f => f.jiraKey === i.parentKey));
+    const sampleStory = storiesOfEpic[0];
+    const storyDates = sampleStory ? resolvedDates.get(sampleStory.jiraKey) : undefined;
+    return {
+      key: e.jiraKey,
+      summary: e.summary.slice(0, 40),
+      epicDates: d ? `${d.start.toISOString().slice(0,10)} → ${d.end.toISOString().slice(0,10)}` : 'NO DATES',
+      storyCount: storiesOfEpic.length,
+      sampleStory: sampleStory ? {
+        key: sampleStory.jiraKey,
+        sprintName: sampleStory.sprintName,
+        sprintStartDate: sampleStory.sprintStartDate,
+        sprintEndDate: sampleStory.sprintEndDate,
+        startDate: sampleStory.startDate,
+        dueDate: sampleStory.dueDate,
+        resolvedDates: storyDates ? `${storyDates.start.toISOString().slice(0,10)} → ${storyDates.end.toISOString().slice(0,10)}` : 'NO DATES',
+      } : null,
+    };
+  });
 
   return (
     <div className="flex flex-col gap-3">
@@ -581,6 +609,32 @@ export function JiraGantt({
             ))}
           </div>
         </div>
+      </div>
+
+      {/* ── Debug panel ─────────────────────────────────────────────────────── */}
+      <div>
+        <button
+          onClick={() => setShowDebug(v => !v)}
+          className="text-[10px] text-slate-400 hover:text-slate-600 underline mb-1"
+        >
+          {showDebug ? 'Hide' : 'Show'} diagnostics
+        </button>
+        {showDebug && (
+          <div className="bg-slate-900 text-green-300 text-[10px] font-mono rounded-lg p-3 space-y-2 overflow-x-auto">
+            <p>View window: <strong>{vStart.toISOString().slice(0,10)}</strong> → <strong>{vEnd.toISOString().slice(0,10)}</strong></p>
+            <p>Items total: {items.length} | Epics: {epics.length} | Features: {features.length} | ResolvedDates: {resolvedDates.size}</p>
+            <p>allSprints count (generated+saved): {allSprints.length}</p>
+            {debugSample.map(e => (
+              <div key={e.key} className="border-t border-slate-700 pt-1">
+                <p className="text-yellow-300">{e.key}: {e.summary} — <span className={e.epicDates === 'NO DATES' ? 'text-red-400' : 'text-green-300'}>{e.epicDates}</span></p>
+                <p>  Stories under: {e.storyCount}</p>
+                {e.sampleStory && (
+                  <p className="text-slate-400">  Sample story {e.sampleStory.key}: sprint="{e.sampleStory.sprintName}" sprintStart={e.sampleStory.sprintStartDate ?? 'null'} sprintEnd={e.sampleStory.sprintEndDate ?? 'null'} startDate={e.sampleStory.startDate ?? 'null'} dueDate={e.sampleStory.dueDate ?? 'null'} → <span className={e.sampleStory.resolvedDates === 'NO DATES' ? 'text-red-400' : 'text-green-300'}>{e.sampleStory.resolvedDates}</span></p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Timeline body */}
