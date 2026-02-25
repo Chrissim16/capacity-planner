@@ -992,7 +992,8 @@ function InlineBizPanel({
   const contacts = allContacts.filter(c => !c.archived);
 
   return (
-    <div className="mb-2 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/10">
+    <div className="flex justify-end px-5 pb-2">
+      <div className="w-72 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 shadow-md">
       <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100 dark:border-purple-800/50">
         <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
           <Users size={11} />
@@ -1005,7 +1006,7 @@ function InlineBizPanel({
               onClick={onOpenAdd}
               className="text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 transition-colors"
             >
-              + Add contact
+              + Add
             </button>
           )}
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
@@ -1018,22 +1019,22 @@ function InlineBizPanel({
         {commitments.length === 0 && !showAdd && (
           <p className="text-xs text-slate-400 dark:text-slate-500 py-1 italic">
             {contacts.length === 0
-              ? 'No business contacts yet. Add them in Settings → Reference Data.'
-              : 'No contacts assigned. Click + Add contact to get started.'}
+              ? 'Add contacts in Settings → Reference Data first.'
+              : 'None yet — click + Add to assign.'}
           </p>
         )}
 
         {commitments.map(bc => {
           const contact = allContacts.find(c => c.id === bc.contactId);
           return (
-            <div key={bc.id} className="flex items-center gap-2 py-1 rounded px-1 hover:bg-purple-100/50 dark:hover:bg-purple-900/20 group">
+            <div key={bc.id} className="flex items-center gap-2 py-1 rounded px-1 hover:bg-purple-50 dark:hover:bg-purple-900/20 group">
               <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
                 {contact?.name ?? bc.contactId}
                 {contact?.title && <span className="font-normal text-slate-400"> — {contact.title}</span>}
               </span>
               <span className="shrink-0 text-xs font-bold text-purple-700 dark:text-purple-300">{bc.days}d</span>
               {bc.notes && (
-                <span className="shrink-0 text-[10px] text-slate-400 truncate max-w-[100px]" title={bc.notes}>{bc.notes}</span>
+                <span className="shrink-0 text-[10px] text-slate-400 truncate max-w-[80px]" title={bc.notes}>{bc.notes}</span>
               )}
               <button
                 type="button"
@@ -1048,12 +1049,12 @@ function InlineBizPanel({
 
         {commitments.length > 1 && (
           <div className="text-[10px] text-purple-500 dark:text-purple-400 font-medium pt-0.5 border-t border-purple-100 dark:border-purple-800/50">
-            {commitments.reduce((s, b) => s + b.days, 0)}d total across {commitments.length} contacts
+            {commitments.reduce((s, b) => s + b.days, 0)}d total · {commitments.length} contacts
           </div>
         )}
 
         {showAdd && (
-          <div className="mt-2 pt-2 border-t border-purple-100 dark:border-purple-800/50 space-y-2">
+          <div className="mt-1 pt-2 border-t border-purple-100 dark:border-purple-800/50 space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Contact</label>
@@ -1062,7 +1063,7 @@ function InlineBizPanel({
                   onChange={e => onContactChange(e.target.value)}
                   className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  <option value="">Select contact…</option>
+                  <option value="">Select…</option>
                   {contacts.map(c => (
                     <option key={c.id} value={c.id}>{c.name}{c.title ? ` — ${c.title}` : ''}</option>
                   ))}
@@ -1087,7 +1088,7 @@ function InlineBizPanel({
                 type="text"
                 value={notes}
                 onChange={e => onNotesChange(e.target.value)}
-                placeholder="e.g. UAT sign-off, data validation…"
+                placeholder="e.g. UAT sign-off…"
                 className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
@@ -1106,6 +1107,7 @@ function InlineBizPanel({
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

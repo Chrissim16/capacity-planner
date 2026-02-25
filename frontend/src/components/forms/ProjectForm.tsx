@@ -588,9 +588,8 @@ function BizPanel({
   onClose,
 }: BizPanelProps) {
   return (
-    <div
-      className="mx-3 mb-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/10"
-    >
+    <div className="flex justify-end mx-3 mb-3">
+    <div className="w-72 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 shadow-md">
       {/* Panel header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100 dark:border-purple-800/50">
         <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
@@ -604,7 +603,7 @@ function BizPanel({
               onClick={onShowAddForm}
               className="text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 transition-colors"
             >
-              + Add contact
+              + Add
             </button>
           )}
           <button
@@ -621,7 +620,9 @@ function BizPanel({
         {/* Existing commitments */}
         {commitments.length === 0 && !showAddForm && (
           <p className="text-xs text-slate-400 dark:text-slate-500 py-1 italic">
-            No contacts assigned yet.{contacts.length === 0 ? ' Add contacts in Settings → Reference Data first.' : ''}
+            {contacts.length === 0
+              ? 'Add contacts in Settings → Reference Data first.'
+              : 'None yet — click + Add to assign.'}
           </p>
         )}
 
@@ -718,6 +719,7 @@ function BizPanel({
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }
