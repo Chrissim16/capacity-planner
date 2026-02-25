@@ -749,53 +749,115 @@ export async function fetchJiraIssues(
 
     result.success = true;
     result.itemsSynced = workItems.length;
-    // ── Agile API sprint date enrichment ─────────────────────────────────────
-    // Some Jira instances (company-managed) don't include start/endDate in the
-    // customfield_10020 sprint objects.  Fall back to the Agile REST API which
-    // always returns accurate sprint dates.  Only fetch sprint IDs that don't
-    // already have dates from the issue-level parsing.
-    const sprintIdsMissingDates = new Set<number>();
-    for (const item of workItems) {
-      if (item.sprintId && !item.sprintStartDate) {
-        const id = parseInt(item.sprintId, 10);
-        if (!isNaN(id)) sprintIdsMissingDates.add(id);
-      }
-    }
 
-    if (sprintIdsMissingDates.size > 0) {
-      onProgress?.(`Fetching sprint dates for ${sprintIdsMissingDates.size} sprint(s)…`);
-      const sprintDateMap = new Map<number, { startDate: string; endDate: string }>();
+    // ── Agile Board API sprint enrichment ────────────────────────────────────
+    // Jira Cloud's REST API v3 often returns customfield_10020 = null for
+    // company-managed Scrum boards. The Agile REST API is the authoritative
+    // source for sprint assignments and dates.
+    //
+    // Strategy:
+    //   1. Find the Scrum board(s) for the project.
+    //   2. Fetch all sprints for the board to build a sprint-ID → dates map.
+    //   3. Fetch all board issues (same JQL) requesting only the sprint field
+    //      to build an issue-key → sprint-ID map.
+    //   4. Back-fill sprintId / sprintName / sprintStartDate / sprintEndDate
+    //      on every work item that is still missing sprint data.
+    const itemsMissingSprintData = workItems.filter(w => !w.sprintStartDate);
+    if (itemsMissingSprintData.length > 0) {
+      try {
+        onProgress?.('Enriching sprint data via Agile API…');
 
-      await Promise.all(
-        [...sprintIdsMissingDates].map(async (sprintId) => {
-          try {
-            const resp = await jiraFetch(
-              connection.jiraBaseUrl,
-              `/rest/agile/1.0/sprint/${sprintId}`,
-              authHeader,
-              { method: 'GET' }
-            );
-            if (!resp.ok) return;
-            const s = await resp.json() as { startDate?: string; endDate?: string; completeDate?: string };
-            const start = s.startDate?.slice(0, 10);
-            const end   = (s.completeDate ?? s.endDate)?.slice(0, 10);
-            if (start && end) sprintDateMap.set(sprintId, { startDate: start, endDate: end });
-          } catch {
-            // Non-critical — skip this sprint if Agile API is unavailable
+        type AgileSprint = { id: number; name: string; state: string; startDate?: string; endDate?: string; completeDate?: string };
+        type AgileBoard  = { id: number; type: string };
+
+        // 1. Find board(s) for the project (prefer Scrum boards)
+        const boardResp = await jiraFetch(
+          connection.jiraBaseUrl,
+          `/rest/agile/1.0/board?projectKeyOrId=${encodeURIComponent(connection.jiraProjectKey)}&maxResults=10`,
+          authHeader,
+          { method: 'GET' }
+        );
+        if (!boardResp.ok) throw new Error('board API not available');
+        const boardData = await boardResp.json() as { values?: AgileBoard[] };
+        const boards = (boardData.values ?? []).sort(
+          (a, b) => (a.type === 'scrum' ? 0 : 1) - (b.type === 'scrum' ? 0 : 1)
+        );
+        if (boards.length === 0) throw new Error('no boards found');
+
+        const boardId = boards[0].id;
+
+        // 2. Collect all sprints (paginated)
+        const allSprints: AgileSprint[] = [];
+        let sprintStart = 0;
+        for (;;) {
+          const spResp = await jiraFetch(
+            connection.jiraBaseUrl,
+            `/rest/agile/1.0/board/${boardId}/sprint?maxResults=50&startAt=${sprintStart}`,
+            authHeader,
+            { method: 'GET' }
+          );
+          if (!spResp.ok) break;
+          const spData = await spResp.json() as { isLast?: boolean; values?: AgileSprint[] };
+          allSprints.push(...(spData.values ?? []));
+          if (spData.isLast !== false || (spData.values ?? []).length === 0) break;
+          sprintStart += 50;
+          if (allSprints.length > 1000) break; // safety
+        }
+
+        // Build sprint-ID → dates map
+        const sprintDateMap = new Map<number, { name: string; startDate: string; endDate: string }>();
+        for (const s of allSprints) {
+          const start = s.startDate?.slice(0, 10);
+          const end   = (s.completeDate && s.completeDate !== '<null>' ? s.completeDate : s.endDate)?.slice(0, 10);
+          if (start && end) sprintDateMap.set(s.id, { name: s.name, startDate: start, endDate: end });
+        }
+
+        // 3. Fetch board issues (sprint field only) — same JQL, paginated
+        const keyToSprintId = new Map<string, number>();
+        let agileStart = 0;
+        const agileMax = 100;
+        for (;;) {
+          const aResp = await jiraFetch(
+            connection.jiraBaseUrl,
+            `/rest/agile/1.0/board/${boardId}/issue`
+              + `?jql=${encodeURIComponent(jql)}`
+              + `&fields=sprint&maxResults=${agileMax}&startAt=${agileStart}`,
+            authHeader,
+            { method: 'GET' }
+          );
+          if (!aResp.ok) break;
+          const aData = await aResp.json() as {
+            total?: number;
+            issues?: { key: string; fields?: { sprint?: { id: number; name?: string } | null } }[];
+          };
+          for (const issue of aData.issues ?? []) {
+            const spId = issue.fields?.sprint?.id;
+            if (spId) keyToSprintId.set(issue.key, spId);
           }
-        })
-      );
+          agileStart += agileMax;
+          if ((aData.total ?? 0) <= agileStart || (aData.issues ?? []).length === 0) break;
+          if (agileStart > 5000) break; // safety
+        }
 
-      // Back-fill dates onto items that were missing them
-      for (const item of workItems) {
-        if (item.sprintId && !item.sprintStartDate) {
-          const id = parseInt(item.sprintId, 10);
-          const dates = sprintDateMap.get(id);
-          if (dates) {
-            item.sprintStartDate = dates.startDate;
-            item.sprintEndDate   = dates.endDate;
+        // 4. Back-fill sprint data onto work items
+        for (const item of workItems) {
+          if (!item.sprintStartDate) {
+            const spId = keyToSprintId.get(item.jiraKey);
+            if (spId) {
+              const dates = sprintDateMap.get(spId);
+              if (dates) {
+                item.sprintId        = spId.toString();
+                item.sprintName      = dates.name;
+                item.sprintStartDate = dates.startDate;
+                item.sprintEndDate   = dates.endDate;
+              }
+            }
           }
         }
+
+        onProgress?.(`Sprint data enriched for ${keyToSprintId.size} items from Agile API.`);
+      } catch {
+        // Non-critical — Agile API unavailable on some Jira configurations
       }
     }
 
