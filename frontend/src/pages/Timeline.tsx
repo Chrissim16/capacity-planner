@@ -160,6 +160,7 @@ export function Timeline() {
           bizAssignments={state.jiraItemBizAssignments ?? []}
           businessContacts={state.businessContacts ?? []}
           localPhases={state.localPhases ?? []}
+          savedSprints={state.sprints ?? []}
           settings={settings}
           quarters={quarters}
           jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}

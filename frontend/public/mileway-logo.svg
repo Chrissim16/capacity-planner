@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 52" fill="none">
-  <!-- Diamond mark -->
-  <g transform="translate(0,2)">
-    <polygon points="24,0 42,24 24,48 6,24" fill="#0089DD"/>
-    <polygon points="24,10 36,24 24,38 12,24" fill="#003E65"/>
-  </g>
-  <!-- Wordmark -->
-  <text x="56" y="36" font-family="'Plus Jakarta Sans', 'Inter', sans-serif" font-size="26" font-weight="700" letter-spacing="-0.5" fill="#003E65">mileway</text>
-</svg>

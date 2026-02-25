@@ -57,6 +57,8 @@ export interface JiraGanttProps {
   businessContacts: BusinessContact[];
   localPhases: LocalPhase[];
   settings: Settings;
+  /** Saved sprints from the store — used as an additional sprint-date source */
+  savedSprints?: Sprint[];
   quarters: string[];
   jiraBaseUrl: string;
   onAddLocalPhase: (phase: Omit<LocalPhase, 'id'>) => void;
@@ -302,10 +304,17 @@ function SlidePanel({
 // ── Main component ───────────────────────────────────────────────────────────
 
 export function JiraGantt({
-  items, bizAssignments, businessContacts, localPhases, settings, quarters, jiraBaseUrl,
+  items, bizAssignments, businessContacts, localPhases, settings, savedSprints = [], quarters, jiraBaseUrl,
   onAddLocalPhase, onRemoveLocalPhase,
 }: JiraGanttProps) {
-  const allSprints = useMemo(() => generateSprints(settings, 2), [settings]);
+  // Merge generated + saved sprints so sprint-name lookups can match both sources
+  const allSprints = useMemo(() => {
+    const generated = generateSprints(settings, 3);
+    // Add any saved sprints that have unique names not already present
+    const names = new Set(generated.map(s => s.name.toLowerCase()));
+    const extras = (savedSprints ?? []).filter(s => !names.has(s.name.toLowerCase()));
+    return [...generated, ...extras];
+  }, [settings, savedSprints]);
 
   // ── Resizable label column ─────────────────────────────────────────────────
   const [labelW, setLabelW] = useState(LABEL_W_DEFAULT);
@@ -346,6 +355,51 @@ export function JiraGantt({
   const epics    = useMemo(() => items.filter(i => i.type === 'epic'), [items]);
   const features = useMemo(() => items.filter(i => i.type === 'feature'), [items]);
 
+  // Pre-compute resolved dates for every item, then roll up from children to parents
+  const resolvedDates = useMemo(() => {
+    const map = new Map<string, { start: Date; end: Date }>();
+
+    // Pass 1: resolve leaf dates directly
+    for (const item of items) {
+      const { start, end } = itemDates(item, allSprints);
+      if (start && end && !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()))
+        map.set(item.jiraKey, { start, end });
+    }
+
+    // Pass 2: roll up features from their children (stories/tasks)
+    for (const feat of features) {
+      if (!map.has(feat.jiraKey)) {
+        const children = items.filter(i => i.parentKey === feat.jiraKey && i.type !== 'feature');
+        let minStart: Date | null = null, maxEnd: Date | null = null;
+        for (const child of children) {
+          const d = map.get(child.jiraKey);
+          if (!d) continue;
+          if (!minStart || d.start < minStart) minStart = d.start;
+          if (!maxEnd   || d.end   > maxEnd)   maxEnd   = d.end;
+        }
+        if (minStart && maxEnd) map.set(feat.jiraKey, { start: minStart, end: maxEnd });
+      }
+    }
+
+    // Pass 3: roll up epics from their features (which may themselves be rolled up)
+    for (const epic of epics) {
+      if (!map.has(epic.jiraKey)) {
+        const epicFeatures = features.filter(f => f.parentKey === epic.jiraKey);
+        const epicChildren = items.filter(i => i.parentKey === epic.jiraKey && i.type !== 'feature');
+        let minStart: Date | null = null, maxEnd: Date | null = null;
+        for (const item of [...epicFeatures, ...epicChildren]) {
+          const d = map.get(item.jiraKey);
+          if (!d) continue;
+          if (!minStart || d.start < minStart) minStart = d.start;
+          if (!maxEnd   || d.end   > maxEnd)   maxEnd   = d.end;
+        }
+        if (minStart && maxEnd) map.set(epic.jiraKey, { start: minStart, end: maxEnd });
+      }
+    }
+
+    return map;
+  }, [items, features, epics, allSprints]);
+
   // View bounds (start/end dates for bar positioning)
   const { vStart, vEnd } = useMemo(() => {
     if (viewMode === 'year') {
@@ -355,9 +409,18 @@ export function JiraGantt({
     }
     const b = boundsForQuarter(quarters[qtrIdx] ?? '', allSprints);
     if (b) return { vStart: b.start, vEnd: b.end };
+
+    // Fallback: derive window from actual item dates if sprint config doesn't match
+    const allDates = Array.from(resolvedDates.values());
+    if (allDates.length > 0) {
+      const minD = allDates.reduce((m, d) => d.start < m ? d.start : m, allDates[0].start);
+      const maxD = allDates.reduce((m, d) => d.end   > m ? d.end   : m, allDates[0].end);
+      return { vStart: minD, vEnd: maxD };
+    }
+
     const now = new Date();
     return { vStart: now, vEnd: new Date(now.getTime() + 90 * 86400_000) };
-  }, [viewMode, qtrIdx, quarters, allSprints]);
+  }, [viewMode, qtrIdx, quarters, allSprints, resolvedDates]);
 
   // Column headers
   const columns = useMemo(() => {
@@ -779,7 +842,9 @@ export function JiraGantt({
               const { item, level } = row;
               const h = level === 0 ? ROW_EPIC : ROW_SUB;
               const bg = level === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/80 dark:bg-slate-800/30';
-              const { start, end } = itemDates(item, allSprints);
+              const resolved = resolvedDates.get(item.jiraKey);
+              const start = resolved?.start ?? null;
+              const end   = resolved?.end   ?? null;
               const layout = barLayout(start, end, vStart, vEnd);
               const barH = level === 0 ? 30 : (level === 1 ? 22 : 18);
               const bs = BAR[item.type.toLowerCase()] ?? BAR.story;
