@@ -557,7 +557,6 @@ export function JiraGantt({
             const bg = level === 0
               ? 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50'
               : 'bg-slate-50/80 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/60';
-            const isExpanded = level === 0 && expandedEpics.has(item.jiraKey);
 
             return (
               <div
@@ -603,11 +602,7 @@ export function JiraGantt({
                 {level === 0 && item.jiraKey && (
                   <>
                     <button
-                      className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider transition-all flex-shrink-0 ${
-                        isExpanded
-                          ? 'opacity-0 group-hover:opacity-100 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-[#F3EEFF] hover:text-[#7C3AED]'
-                          : 'hidden'
-                      }`}
+                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider transition-all flex-shrink-0 border border-dashed border-[#C4B5FD] text-[#7C3AED] bg-[#F5F3FF] hover:bg-[#EDE9FE] hover:border-[#7C3AED]"
                       onClick={e => {
                         e.stopPropagation();
                         if (!expandedEpics.has(item.jiraKey)) {
