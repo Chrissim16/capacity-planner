@@ -8,10 +8,10 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronRight, ExternalLink, X } from 'lucide-react';
+import { ChevronRight, ExternalLink, X, Plus, Trash2 } from 'lucide-react';
 import { generateSprints, getSprintsForQuarter, parseSprint, formatDateRange } from '../utils/sprints';
 import type {
-  JiraWorkItem, JiraItemBizAssignment, BusinessContact, Settings, Sprint,
+  JiraWorkItem, JiraItemBizAssignment, BusinessContact, Settings, Sprint, LocalPhase,
 } from '../types';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -53,9 +53,12 @@ export interface JiraGanttProps {
   items: JiraWorkItem[];
   bizAssignments: JiraItemBizAssignment[];
   businessContacts: BusinessContact[];
+  localPhases: LocalPhase[];
   settings: Settings;
   quarters: string[];
   jiraBaseUrl: string;
+  onAddLocalPhase: (phase: Omit<LocalPhase, 'id'>) => void;
+  onRemoveLocalPhase: (id: string) => void;
 }
 
 // ── Helper functions ─────────────────────────────────────────────────────────
@@ -282,7 +285,8 @@ function SlidePanel({
 // ── Main component ───────────────────────────────────────────────────────────
 
 export function JiraGantt({
-  items, bizAssignments, businessContacts, settings, quarters, jiraBaseUrl,
+  items, bizAssignments, businessContacts, localPhases, settings, quarters, jiraBaseUrl,
+  onAddLocalPhase, onRemoveLocalPhase,
 }: JiraGanttProps) {
   const allSprints = useMemo(() => generateSprints(settings, 2), [settings]);
 
@@ -353,24 +357,40 @@ export function JiraGantt({
     return { left: idx / colCount, width: 1 / colCount };
   }, [viewMode, qtrIdx, quarters, allSprints, colCount]);
 
+  // Track which epic has the "+ Add Phase" form open
+  const [addPhaseForEpic, setAddPhaseForEpic] = useState<string | null>(null);
+
   // Flat row list for parallel label + gantt rendering
-  type RowEntry = { item: JiraWorkItem; level: 0 | 1 | 2 };
+  type RowEntry =
+    | { kind: 'jira';       item: JiraWorkItem; level: 0 | 1 | 2 }
+    | { kind: 'phase';      phase: LocalPhase;  epicKey: string }
+    | { kind: 'add-phase';  epicKey: string };
+
   const rows: RowEntry[] = useMemo(() => {
     const result: RowEntry[] = [];
     epics.forEach(epic => {
-      result.push({ item: epic, level: 0 });
+      result.push({ kind: 'jira', item: epic, level: 0 });
       if (!expandedEpics.has(epic.jiraKey)) return;
+      // Feature + child rows
       const epicFeatures = features.filter(f => f.parentKey === epic.jiraKey);
       epicFeatures.forEach(feat => {
-        result.push({ item: feat, level: 1 });
+        result.push({ kind: 'jira', item: feat, level: 1 });
         if (!expandedFeatures.has(feat.jiraKey)) return;
         items
           .filter(i => i.parentKey === feat.jiraKey && i.type !== 'feature')
-          .forEach(child => result.push({ item: child, level: 2 }));
+          .forEach(child => result.push({ kind: 'jira', item: child, level: 2 }));
       });
+      // Local phase rows (UAT / Hypercare) — shown after all features
+      (localPhases ?? [])
+        .filter(p => p.jiraKey === epic.jiraKey)
+        .forEach(p => result.push({ kind: 'phase', phase: p, epicKey: epic.jiraKey }));
+      // Add-phase form row (shown when that epic's form is open)
+      if (addPhaseForEpic === epic.jiraKey) {
+        result.push({ kind: 'add-phase', epicKey: epic.jiraKey });
+      }
     });
     return result;
-  }, [epics, features, items, expandedEpics, expandedFeatures]);
+  }, [epics, features, items, expandedEpics, expandedFeatures, localPhases, addPhaseForEpic]);
 
   const handleExpandAll = () => {
     if (allExpanded) {
@@ -475,7 +495,56 @@ export function JiraGantt({
           </div>
 
           {/* Label rows */}
-          {rows.map(({ item, level }) => {
+          {rows.map((row) => {
+            // ── Add-phase form row ──────────────────────────────────────────
+            if (row.kind === 'add-phase') {
+              return (
+                <AddPhaseForm
+                  key={`add-phase-${row.epicKey}`}
+                  epicKey={row.epicKey}
+                  onAdd={(phase) => { onAddLocalPhase(phase); setAddPhaseForEpic(null); }}
+                  onCancel={() => setAddPhaseForEpic(null)}
+                />
+              );
+            }
+
+            // ── Local phase row ─────────────────────────────────────────────
+            if (row.kind === 'phase') {
+              const { phase } = row;
+              const phaseChipStyle = phase.type === 'uat'
+                ? { bg: '#F3EEFF', color: '#6B2EC2' }
+                : { bg: '#EEFAF5', color: '#1A7A52' };
+              return (
+                <div
+                  key={phase.id}
+                  className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/80 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/60 group select-none"
+                  style={{ height: ROW_SUB, paddingLeft: 32 }}
+                >
+                  <span
+                    style={{ background: phaseChipStyle.bg, color: phaseChipStyle.color }}
+                    className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded flex-shrink-0"
+                  >
+                    {phase.type}
+                  </span>
+                  <span className="text-xs text-slate-700 dark:text-slate-300 truncate flex-1" title={phase.name}>
+                    {phase.name}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                    {phase.startDate.slice(5)} – {phase.endDate.slice(5)}
+                  </span>
+                  <button
+                    className="w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0 mr-2"
+                    onClick={() => onRemoveLocalPhase(phase.id)}
+                    title="Remove phase"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              );
+            }
+
+            // ── Jira item row ───────────────────────────────────────────────
+            const { item, level } = row;
             const h = level === 0 ? ROW_EPIC : ROW_SUB;
             const pl = level === 0 ? 14 : level === 1 ? 32 : 48;
             const isExpEpic = level === 0 && expandedEpics.has(item.jiraKey);
@@ -488,11 +557,12 @@ export function JiraGantt({
             const bg = level === 0
               ? 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50'
               : 'bg-slate-50/80 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/60';
+            const isExpanded = level === 0 && expandedEpics.has(item.jiraKey);
 
             return (
               <div
                 key={item.id}
-                className={`flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50 cursor-pointer select-none transition-colors ${bg}`}
+                className={`flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50 cursor-pointer select-none transition-colors group ${bg}`}
                 style={{ height: h, paddingLeft: pl }}
                 onClick={() => setPanelItem(item)}
               >
@@ -529,9 +599,28 @@ export function JiraGantt({
                 >
                   {item.summary}
                 </span>
-                {/* Jira ID (epic level) */}
+                {/* Jira ID (epic level) + Add Phase button */}
                 {level === 0 && item.jiraKey && (
-                  <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 shrink-0 pr-3">{item.jiraKey}</span>
+                  <>
+                    <button
+                      className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider transition-all flex-shrink-0 ${
+                        isExpanded
+                          ? 'opacity-0 group-hover:opacity-100 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-[#F3EEFF] hover:text-[#7C3AED]'
+                          : 'hidden'
+                      }`}
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (!expandedEpics.has(item.jiraKey)) {
+                          setExpandedEpics(prev => { const n = new Set(prev); n.add(item.jiraKey); return n; });
+                        }
+                        setAddPhaseForEpic(prev => prev === item.jiraKey ? null : item.jiraKey);
+                      }}
+                      title="Add UAT / Hypercare phase"
+                    >
+                      <Plus size={9} />Phase
+                    </button>
+                    <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 shrink-0 pr-2">{item.jiraKey}</span>
+                  </>
                 )}
               </div>
             );
@@ -592,7 +681,59 @@ export function JiraGantt({
             )}
 
             {/* Gantt rows */}
-            {rows.map(({ item, level }) => {
+            {rows.map((row) => {
+              // Add-phase form: empty gantt row (form is in the label column)
+              if (row.kind === 'add-phase') {
+                return (
+                  <div
+                    key={`add-phase-gantt-${row.epicKey}`}
+                    className="relative border-b border-slate-100 dark:border-slate-700/50 bg-[#FAF5FF] dark:bg-[#7C3AED]/5"
+                    style={{ height: ROW_SUB, overflow: 'visible' }}
+                  />
+                );
+              }
+
+              // Local phase bar
+              if (row.kind === 'phase') {
+                const { phase } = row;
+                const start = new Date(phase.startDate + 'T00:00:00');
+                const end   = new Date(phase.endDate   + 'T00:00:00');
+                const layout = barLayout(start, end, vStart, vEnd);
+                const bs = BAR[phase.type] ?? BAR.uat;
+                const clipCls = [
+                  layout.clipLeft  ? 'gantt-bar-clip-left'  : '',
+                  layout.clipRight ? 'gantt-bar-clip-right' : '',
+                ].filter(Boolean).join(' ');
+                return (
+                  <div
+                    key={phase.id}
+                    className="relative border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/80 dark:bg-slate-800/30"
+                    style={{ height: ROW_SUB, overflow: 'visible' }}
+                  >
+                    {!layout.hidden && (
+                      <div
+                        className={`absolute transition-[filter,transform] duration-150 hover:brightness-90 ${clipCls}`}
+                        style={{
+                          left:         `${(layout.left  * 100).toFixed(2)}%`,
+                          width:        `${(layout.width * 100).toFixed(2)}%`,
+                          height:       22,
+                          top:          '50%',
+                          transform:    'translateY(-50%)',
+                          background:   bs.bg,
+                          border:       `${bs.borderW}px solid ${bs.border}`,
+                          borderRadius: bs.radius,
+                          zIndex:       5,
+                          overflow:     'visible',
+                          minWidth:     4,
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              }
+
+              // Jira item bar
+              const { item, level } = row;
               const h = level === 0 ? ROW_EPIC : ROW_SUB;
               const bg = level === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/80 dark:bg-slate-800/30';
               const { start, end } = itemDates(item, allSprints);
@@ -653,6 +794,90 @@ export function JiraGantt({
         businessContacts={businessContacts}
         onClose={() => setPanelItem(null)}
       />
+    </div>
+  );
+}
+
+// ── Add Phase inline form ────────────────────────────────────────────────────
+
+function AddPhaseForm({
+  epicKey,
+  onAdd,
+  onCancel,
+}: {
+  epicKey: string;
+  onAdd: (phase: Omit<LocalPhase, 'id'>) => void;
+  onCancel: () => void;
+}) {
+  const [type,      setType]      = useState<'uat' | 'hypercare'>('uat');
+  const [name,      setName]      = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate,   setEndDate]   = useState('');
+
+  const canSubmit = name.trim() && startDate && endDate && endDate >= startDate;
+
+  const submit = () => {
+    if (!canSubmit) return;
+    onAdd({ jiraKey: epicKey, type, name: name.trim(), startDate, endDate });
+  };
+
+  return (
+    <div
+      className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50 bg-[#FAF5FF] dark:bg-[#7C3AED]/5 px-4"
+      style={{ height: ROW_SUB, paddingLeft: 32 }}
+    >
+      {/* Type */}
+      <select
+        value={type}
+        onChange={e => {
+          setType(e.target.value as 'uat' | 'hypercare');
+          if (!name) setName(e.target.value === 'uat' ? 'UAT' : 'Hypercare');
+        }}
+        className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-[#DDD6FE] bg-[#F3EEFF] text-[#6B2EC2] cursor-pointer focus:outline-none"
+      >
+        <option value="uat">UAT</option>
+        <option value="hypercare">Hypercare</option>
+      </select>
+      {/* Name */}
+      <input
+        type="text"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        placeholder="Label…"
+        className="text-xs border border-slate-200 dark:border-slate-600 rounded px-2 py-0.5 w-28 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#9B6EE2]"
+        onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onCancel(); }}
+      />
+      {/* Start */}
+      <input
+        type="date"
+        value={startDate}
+        onChange={e => setStartDate(e.target.value)}
+        className="text-[10px] border border-slate-200 dark:border-slate-600 rounded px-1.5 py-0.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-[#9B6EE2]"
+      />
+      <span className="text-[10px] text-slate-400">–</span>
+      {/* End */}
+      <input
+        type="date"
+        value={endDate}
+        min={startDate}
+        onChange={e => setEndDate(e.target.value)}
+        className="text-[10px] border border-slate-200 dark:border-slate-600 rounded px-1.5 py-0.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-[#9B6EE2]"
+      />
+      {/* Add */}
+      <button
+        disabled={!canSubmit}
+        onClick={submit}
+        className="px-2.5 py-0.5 rounded text-[10px] font-semibold bg-[#7C3AED] text-white hover:bg-[#6D28D9] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+      >
+        Add
+      </button>
+      {/* Cancel */}
+      <button
+        onClick={onCancel}
+        className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
+      >
+        <X size={11} />
+      </button>
     </div>
   );
 }

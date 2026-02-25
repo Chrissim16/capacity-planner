@@ -220,6 +220,17 @@ export interface JiraItemBizAssignment {
   notes?: string;
 }
 
+/** Manually-managed phase (UAT / Hypercare) attached to a Jira Epic */
+export interface LocalPhase {
+  id: string;
+  /** Parent Epic's jiraKey, e.g. "ERP-1001" */
+  jiraKey: string;
+  type: 'uat' | 'hypercare';
+  name: string;        // e.g. "UAT", "Hypercare"
+  startDate: string;   // YYYY-MM-DD
+  endDate: string;     // YYYY-MM-DD
+}
+
 export interface AppState {
   version: number;
   lastModified: string;
@@ -249,6 +260,8 @@ export interface AppState {
   businessAssignments: BusinessAssignment[];
   /** BIZ contact assignments at the Jira-item level (Epic, Feature, Story) */
   jiraItemBizAssignments: JiraItemBizAssignment[];
+  /** Manually-managed UAT / Hypercare phases attached to Jira Epics */
+  localPhases: LocalPhase[];
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

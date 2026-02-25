@@ -4,7 +4,7 @@
  */
 
 import { useAppStore } from './appStore';
-import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint, Settings, BusinessContact, BusinessTimeOff, BusinessAssignment, JiraItemBizAssignment } from '../types';
+import type { Project, Phase, TeamMember, TimeOff, Assignment, Sprint, Settings, BusinessContact, BusinessTimeOff, BusinessAssignment, JiraItemBizAssignment, LocalPhase } from '../types';
 
 function flattenProjectAssignments(projects: Project[]): Assignment[] {
   const flattened: Assignment[] = [];
@@ -1091,5 +1091,31 @@ export function removeJiraItemBizAssignment(id: string): void {
   const state = useAppStore.getState();
   state.updateData({
     jiraItemBizAssignments: state.getCurrentState().jiraItemBizAssignments.filter(a => a.id !== id),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOCAL PHASES  (UAT / Hypercare manually attached to Jira Epics)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function addLocalPhase(phase: LocalPhase): void {
+  const state = useAppStore.getState();
+  const existing = state.getCurrentState().localPhases ?? [];
+  state.updateData({ localPhases: [...existing, phase] });
+}
+
+export function updateLocalPhase(id: string, updates: Partial<Omit<LocalPhase, 'id'>>): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    localPhases: (state.getCurrentState().localPhases ?? []).map(p =>
+      p.id === id ? { ...p, ...updates } : p
+    ),
+  });
+}
+
+export function removeLocalPhase(id: string): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    localPhases: (state.getCurrentState().localPhases ?? []).filter(p => p.id !== id),
   });
 }

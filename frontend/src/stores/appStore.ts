@@ -113,6 +113,7 @@ const defaultAppState: AppState = {
   businessTimeOff: [],
   businessAssignments: [],
   jiraItemBizAssignments: [],
+  localPhases: [],
 };
 
 function flattenAssignmentsFromProjects(projects: AppState['projects']): AppState['assignments'] {
@@ -236,6 +237,7 @@ function migrate(data: Partial<AppState>, fromVersion: number): AppState {
     businessTimeOff: Array.isArray(d.businessTimeOff) ? (d.businessTimeOff as AppState['businessTimeOff']) : [],
     businessAssignments: Array.isArray(d.businessAssignments) ? (d.businessAssignments as AppState['businessAssignments']) : [],
     jiraItemBizAssignments: Array.isArray(d.jiraItemBizAssignments) ? (d.jiraItemBizAssignments as AppState['jiraItemBizAssignments']) : [],
+    localPhases: Array.isArray(d.localPhases) ? (d.localPhases as AppState['localPhases']) : [],
   };
 }
 

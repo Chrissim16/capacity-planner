@@ -125,7 +125,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       squadsRes, processTeamsRes,
       teamMembersRes, projectsRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes, assignmentsRes,
-      bizContactsRes, bizTimeOffRes, bizAssignmentsRes, bizJiraItemsRes,
+      bizContactsRes, bizTimeOffRes, bizAssignmentsRes, bizJiraItemsRes, localPhasesRes,
     ] = await Promise.all([
       supabase.from('roles').select('*').order('name'),
       supabase.from('countries').select('*').order('name'),
@@ -147,6 +147,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       supabase.from('business_time_off').select('*'),
       supabase.from('business_assignments').select('*'),
       supabase.from('jira_item_biz_assignments').select('*'),
+      supabase.from('local_phases').select('*').order('created_at'),
     ]);
 
     // Log any table errors but continue with empty arrays — partial data is
@@ -157,6 +158,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       squadsRes, processTeamsRes,
       teamMembersRes, projectsRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes, assignmentsRes,
+      localPhasesRes,
       bizContactsRes, bizTimeOffRes, bizAssignmentsRes, bizJiraItemsRes,
     ];
     const errorCount = allResults.filter(r => r.error).length;
@@ -428,6 +430,15 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       notes: r.notes ?? undefined,
     }));
 
+    const localPhases = (localPhasesRes.data ?? []).map(r => ({
+      id: r.id as string,
+      jiraKey: r.jira_key as string,
+      type: r.type as 'uat' | 'hypercare',
+      name: r.name as string,
+      startDate: r.start_date as string,
+      endDate: r.end_date as string,
+    }));
+
     return {
       version: 10,
       lastModified: new Date().toISOString(),
@@ -454,6 +465,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       businessTimeOff,
       businessAssignments,
       jiraItemBizAssignments,
+      localPhases,
     };
   } catch (err) {
     console.error('[Sync] Unexpected error loading from Supabase:', err);
@@ -501,6 +513,7 @@ export async function saveToSupabase(state: AppState): Promise<void> {
     ['business_time_off',          syncBusinessTimeOff(state.businessTimeOff ?? [])],
     ['business_assignments',       syncBusinessAssignments(state.businessAssignments ?? [])],
     ['jira_item_biz_assignments',  syncJiraItemBizAssignments(state.jiraItemBizAssignments ?? [])],
+    ['local_phases',               syncLocalPhases(state.localPhases ?? [])],
   ];
 
   const results = await Promise.allSettled(tasks.map(([, p]) => p));
@@ -937,6 +950,30 @@ async function syncJiraItemBizAssignments(items: JiraItemBizAssignment[]): Promi
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('jira_item_biz_assignments') && (msg.includes('not found') || msg.includes('does not exist') || msg.includes('relation'))) {
       console.warn('[Sync] jira_item_biz_assignments table not found — run migration 012. Skipping.');
+      return;
+    }
+    throw err;
+  }
+}
+
+async function syncLocalPhases(phases: import('../types').LocalPhase[]): Promise<void> {
+  try {
+    await upsertAndPrune(
+      'local_phases',
+      phases,
+      p => ({
+        id: p.id,
+        jira_key: p.jiraKey,
+        type: p.type,
+        name: p.name,
+        start_date: p.startDate,
+        end_date: p.endDate,
+      })
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('local_phases') && (msg.includes('not found') || msg.includes('does not exist') || msg.includes('relation'))) {
+      console.warn('[Sync] local_phases table not found — run migration 013. Skipping.');
       return;
     }
     throw err;
