@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -131,6 +131,9 @@ export function Team() {
   const activeScenarioId = useAppStore(s => s.data.activeScenarioId);
   const activeScenario = useAppStore(s => s.data.scenarios.find(sc => sc.id === s.data.activeScenarioId));
 
+  // View mode: card grid or compact list
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+
   // Members needing enrichment (imported from Jira but missing role/country)
   const needsEnrichmentMembers = teamMembers.filter(m => m.needsEnrichment);
   const [enrichmentMode, setEnrichmentMode] = useState(false);
@@ -200,7 +203,7 @@ export function Team() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-3 items-center">
         <div className="flex-1 min-w-[200px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -237,6 +240,23 @@ export function Team() {
             options={processTeamFilterOptions}
           />
         )}
+        {/* View mode toggle */}
+        <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
+          <button
+            onClick={() => setViewMode('card')}
+            className={`p-2 transition-colors ${viewMode === 'card' ? 'bg-[#0089DD] text-white' : 'bg-white dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+            title="Card view"
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[#0089DD] text-white' : 'bg-white dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+            title="List view"
+          >
+            <List size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Team List */}
@@ -259,7 +279,8 @@ export function Team() {
             )}
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === 'card' ? (
+        /* ── Card grid view ─────────────────────────────────────────────── */
         <div className="space-y-6">
           {Object.entries(membersByRole).map(([role, members]) => (
             <div key={role}>
@@ -421,6 +442,142 @@ export function Team() {
             </div>
           ))}
         </div>
+      ) : (
+        /* ── Compact list view ──────────────────────────────────────────── */
+        <Card>
+          <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+            {/* Table header */}
+            <div className="grid grid-cols-[1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800/50">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Name</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Role</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Country</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Skills / Squad</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 text-right pr-1">Actions</span>
+            </div>
+
+            {Object.entries(membersByRole).map(([role, members]) => (
+              <div key={role}>
+                {/* Role group header */}
+                <div className="px-4 py-1.5 bg-slate-50/60 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-700/40">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                    {role} · {members.length}
+                  </span>
+                </div>
+
+                {members.map(member => {
+                  const memberSkills = getMemberSkills(member.skillIds || []);
+                  const countryInfo  = getCountryInfo(member.countryId);
+                  const timeOff      = getMemberTimeOff(member.id);
+                  const squad        = squads.find(s => s.id === member.squadId);
+
+                  const today    = new Date().toISOString().split('T')[0];
+                  const nextOff  = timeOff
+                    .filter(t => t.endDate >= today)
+                    .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+                  const fmt = (d: string) =>
+                    new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+                  // Avatar initials
+                  const initials = member.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+                  return (
+                    <div
+                      key={member.id}
+                      className="grid grid-cols-[1fr_140px_140px_160px_auto] gap-2 items-center px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group"
+                    >
+                      {/* Name + badges */}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-[#0089DD]/10 text-[#0089DD] text-[10px] font-bold flex items-center justify-center shrink-0 select-none">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{member.name}</span>
+                            {member.needsEnrichment && (
+                              <button
+                                onClick={() => handleEdit(member)}
+                                className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded hover:bg-amber-200 transition-colors"
+                                title="Complete setup"
+                              >
+                                <AlertTriangle size={10} />Setup
+                              </button>
+                            )}
+                            {member.syncedFromJira && !member.needsEnrichment && (
+                              <span className="px-1 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded">Jira</span>
+                            )}
+                          </div>
+                          {member.email && (
+                            <p className="text-[11px] text-slate-400 truncate">{member.email}</p>
+                          )}
+                          {nextOff && (
+                            <p className="text-[10px] text-amber-500 flex items-center gap-0.5 mt-0.5">
+                              <CalendarOff size={9} />
+                              {fmt(nextOff.startDate)}{nextOff.startDate !== nextOff.endDate ? `–${fmt(nextOff.endDate)}` : ''}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Role */}
+                      <span className="text-sm text-slate-600 dark:text-slate-300 truncate">{member.role || <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+
+                      {/* Country */}
+                      <span className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                        <span>{countryInfo.flag}</span>
+                        <span className="truncate">{countryInfo.name || <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+                      </span>
+
+                      {/* Skills / Squad */}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {squad && (
+                          <span className="px-1.5 py-0 text-[10px] font-medium bg-[#E8F4FB] text-[#0089DD] rounded shrink-0">{squad.name}</span>
+                        )}
+                        {memberSkills.slice(0, 2).map(skill => (
+                          <span key={skill} className="px-1.5 py-0 text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded">{skill}</span>
+                        ))}
+                        {memberSkills.length > 2 && (
+                          <span className="text-[10px] text-slate-400">+{memberSkills.length - 2}</span>
+                        )}
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleAddTimeOff(member.id)}
+                          className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Manage Time Off"
+                        >
+                          <CalendarOff size={13} />
+                        </button>
+                        <button
+                          onClick={() => setCalendarMember(member)}
+                          className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="View Availability Calendar"
+                        >
+                          <CalendarDays size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleEdit(member)}
+                          className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(member)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
       {/* Team Member Form Modal */}
