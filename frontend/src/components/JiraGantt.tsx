@@ -7,7 +7,7 @@
  * Colors: Mileway primary blue (#0089DD) for IT / purple (#7C3AED) for BIZ.
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { ChevronRight, ExternalLink, X, Plus, Trash2 } from 'lucide-react';
 import { generateSprints, getSprintsForQuarter, parseSprint, formatDateRange } from '../utils/sprints';
 import type {
@@ -16,9 +16,11 @@ import type {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const LABEL_W   = 300;
-const ROW_EPIC  = 44;
-const ROW_SUB   = 36;
+const LABEL_W_DEFAULT = 300;
+const LABEL_W_MIN     = 200;
+const LABEL_W_MAX     = 600;
+const ROW_EPIC        = 44;
+const ROW_SUB         = 36;
 
 // Bar fill + border per item type — keeps feature/story/uat/hypercare colours
 // from the spec; epic and feature use Mileway blue instead of spec's #6090E0
@@ -290,6 +292,28 @@ export function JiraGantt({
 }: JiraGanttProps) {
   const allSprints = useMemo(() => generateSprints(settings, 2), [settings]);
 
+  // ── Resizable label column ─────────────────────────────────────────────────
+  const [labelW, setLabelW] = useState(LABEL_W_DEFAULT);
+  const dragRef  = useRef<{ startX: number; startW: number } | null>(null);
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startW: labelW };
+    const onMove = (mv: MouseEvent) => {
+      if (!dragRef.current) return;
+      const next = Math.max(LABEL_W_MIN, Math.min(LABEL_W_MAX,
+        dragRef.current.startW + mv.clientX - dragRef.current.startX));
+      setLabelW(next);
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [labelW]);
+
   const [viewMode,      setViewMode]      = useState<'quarter' | 'year'>('quarter');
   const [qtrIdx,        setQtrIdx]        = useState(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -486,12 +510,21 @@ export function JiraGantt({
 
         {/* ── Label column ── */}
         <div
-          className="shrink-0 border-r-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 z-10"
-          style={{ width: LABEL_W }}
+          className="shrink-0 relative bg-white dark:bg-slate-900 z-10"
+          style={{ width: labelW }}
         >
           {/* Header cell */}
           <div className="h-16 flex items-end px-4 pb-2.5 border-b border-slate-200 dark:border-slate-700">
             <span className="text-[10.5px] font-semibold uppercase tracking-widest text-slate-400">Epic / Feature / Item</span>
+          </div>
+
+          {/* Drag-resize handle */}
+          <div
+            onMouseDown={onDragStart}
+            className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize group z-20 flex items-center justify-center"
+            title="Drag to resize column"
+          >
+            <div className="w-0.5 h-full bg-slate-200 dark:bg-slate-700 group-hover:bg-[#0089DD] group-active:bg-[#0089DD] transition-colors" />
           </div>
 
           {/* Label rows */}
