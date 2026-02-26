@@ -610,7 +610,9 @@ export function Dashboard() {
                     );
                   })}
                 </div>
-              ))}
+              );
+              })}
+
 
               {/* Legend */}
               {timelineView === 'heatmap' ? (
