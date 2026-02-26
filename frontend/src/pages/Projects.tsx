@@ -1331,7 +1331,7 @@ function EpicDaysCell({ item, defaultConfidenceLevel = 'medium', confidenceSetti
 
 /* ─── Epic Grid (5-column Jira hierarchy with IT + BIZ assignees) ────────── */
 
-const EPIC_GRID_COLS = '1fr 180px 180px 140px 100px';
+const EPIC_GRID_COLS = 'minmax(200px, 38%) 16% 16% 15% 15%';
 
 interface EpicGridProps {
   items: JiraWorkItem[];
@@ -1447,10 +1447,10 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
           {/* Feature row */}
           <div
             style={{ display: 'grid', gridTemplateColumns: EPIC_GRID_COLS }}
-            className="items-center py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+            className="epic-row items-center py-2.5 cursor-pointer transition-colors"
             onClick={() => children.length > 0 && toggleExpand(feature.jiraKey)}
           >
-            <div className="flex items-center gap-1.5 min-w-0 px-4 pr-4">
+            <div className="epic-row-name flex items-center gap-1.5 min-w-0 px-4 pr-4">
               {children.length > 0 ? (
                 <button className="p-0.5 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 flex-shrink-0" onClick={e => { e.stopPropagation(); toggleExpand(feature.jiraKey); }}>
                   {isExp ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -1486,9 +1486,9 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
             <div key={child.id}>
               <div
                 style={{ display: 'grid', gridTemplateColumns: EPIC_GRID_COLS }}
-                className="items-center py-2 bg-white dark:bg-slate-900/20 border-t border-slate-50 dark:border-slate-700/40 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
+                className="epic-row epic-row--child items-center py-2 bg-white dark:bg-slate-900/20 border-t border-slate-50 dark:border-slate-700/40 transition-colors"
               >
-                <div className="flex items-center gap-1.5 min-w-0 pr-4 pl-14">
+                <div className="epic-row-name flex items-center gap-1.5 min-w-0 pr-4 pl-14">
                   <svg className="w-4 h-4 text-slate-200 dark:text-slate-700 flex-shrink-0" viewBox="0 0 16 16" fill="none">
                     <path d="M4 0v10h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -1522,9 +1522,9 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
       <div key={item.id}>
         <div
           style={{ display: 'grid', gridTemplateColumns: EPIC_GRID_COLS }}
-          className="items-center py-2 border-t border-slate-100 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+          className="epic-row items-center py-2 border-t border-slate-100 dark:border-slate-700/60 transition-colors"
         >
-          <div className="flex items-center gap-1.5 min-w-0 px-4 pr-4">
+          <div className="epic-row-name flex items-center gap-1.5 min-w-0 px-4 pr-4">
             <TypeChip type={item.typeName || item.type} />
             <span className="text-sm text-slate-800 dark:text-slate-100 truncate">{item.summary}</span>
             {item.jiraKey && jiraBaseUrl && (

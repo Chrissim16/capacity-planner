@@ -58,6 +58,64 @@ body {
    Do NOT set overflow:hidden on gantt rows — these pseudo-elements must be visible.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   WIDE-SCREEN READABILITY — Row hover highlight + left accent line
+   Uses Mileway blue (#0089DD). No overflow:hidden on gantt rows.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Epic view rows (CSS Grid divs) ───────────────────────────────────────── */
+.epic-row {
+  position: relative;
+  cursor: pointer;
+}
+.epic-row:hover {
+  background: rgba(0, 137, 221, 0.055) !important;
+}
+[data-theme="dark"] .epic-row:hover {
+  background: rgba(0, 137, 221, 0.08) !important;
+}
+.epic-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: #0089DD;
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.epic-row:hover::before {
+  opacity: 1;
+}
+.epic-row:hover .epic-row-name {
+  color: #0089DD;
+}
+[data-theme="dark"] .epic-row:hover .epic-row-name {
+  color: #38b6f5;
+}
+
+/* ── Gantt label column rows (flex divs) ──────────────────────────────────── */
+.gantt-label-row {
+  position: relative;
+}
+.gantt-label-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: #0089DD;
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.gantt-label-row:hover::before {
+  opacity: 1;
+}
+
 .gantt-bar-clip-left {
   border-left: none !important;
   border-top-left-radius: 0 !important;

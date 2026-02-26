@@ -705,7 +705,7 @@ export function JiraGantt({
             return (
               <div
                 key={item.id}
-                className={`flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50 cursor-pointer select-none transition-colors group ${bg}`}
+                className={`gantt-label-row flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50 cursor-pointer select-none transition-colors group ${bg}`}
                 style={{ height: h, paddingLeft: pl }}
                 onClick={() => setPanelItem(item)}
               >
