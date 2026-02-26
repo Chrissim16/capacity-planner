@@ -65,6 +65,7 @@ export function Dashboard() {
   const yearQuarters = useMemo(() => getCurrentYearQuarters(), []);
 
   const [selectedCell, setSelectedCell] = useState<{ memberId: string; quarter: string } | null>(null);
+  const [selectedBizCell, setSelectedBizCell] = useState<{ contactId: string; quarter: string } | null>(null);
   const [peopleFilter, setPeopleFilter] = useState<PeopleFilter>('it_only');
   const [timelineView, setTimelineView] = useState<'heatmap' | 'bars'>('heatmap');
 
@@ -538,74 +539,185 @@ export function Dashboard() {
 
               {/* Business rows */}
               {peopleFilter !== 'it_only' && bizTimelineData.map(({ contact, cells }) => {
+                const isBizSelected = selectedBizCell?.contactId === contact.id;
                 return (
-                <div
-                  key={contact.id}
-                  className="grid border-b border-slate-50 dark:border-slate-800/50 last:border-0 hover:bg-purple-50/20 dark:hover:bg-purple-900/5 transition-colors"
-                  style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
-                >
-                  <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
-                    <div className="w-7 h-7 rounded-full bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 flex items-center justify-center text-[10px] font-bold text-purple-600 dark:text-purple-400 shrink-0">
-                      {getInitials(contact.name)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-normal text-slate-600 dark:text-slate-400 truncate">{contact.name}</span>
-                        <span className="text-[9px] font-bold tracking-wide uppercase text-purple-400 shrink-0">BIZ</span>
+                <Fragment key={contact.id}>
+                  <div
+                    className={`grid border-b border-slate-50 dark:border-slate-800/50 transition-colors hover:bg-purple-50/20 dark:hover:bg-purple-900/5 ${isBizSelected ? 'bg-purple-50/30 dark:bg-purple-900/10' : ''}`}
+                    style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
+                  >
+                    <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
+                      <div className="w-7 h-7 rounded-full bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 flex items-center justify-center text-[10px] font-bold text-purple-600 dark:text-purple-400 shrink-0">
+                        {getInitials(contact.name)}
                       </div>
-                      <div className="text-xs text-slate-400 truncate">{contact.title ?? contact.department ?? ''}</div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-normal text-slate-600 dark:text-slate-400 truncate">{contact.name}</span>
+                          <span className="text-[9px] font-bold tracking-wide uppercase text-purple-400 shrink-0">BIZ</span>
+                        </div>
+                        <div className="text-xs text-slate-400 truncate">{contact.title ?? contact.department ?? ''}</div>
+                      </div>
                     </div>
-                  </div>
-                  {cells.map(({ quarter, cell }) => {
-                    const pct = cell.usedPercent;
-                    const isOver = pct > 100;
-                    const isWarn = pct >= 90 && !isOver;
-                    const remainingDays = cell.availableDays - cell.allocatedDays;
-                    const effectiveBizCellClass = getCellClass(pct);
+                    {cells.map(({ quarter, cell }) => {
+                      const pct = cell.usedPercent;
+                      const isOver = pct > 100;
+                      const isWarn = pct >= 90 && !isOver;
+                      const remainingDays = cell.availableDays - cell.allocatedDays;
+                      const effectiveBizCellClass = getCellClass(pct);
+                      const isCellSelected = isBizSelected && selectedBizCell?.quarter === quarter;
 
-                    if (timelineView === 'heatmap') {
+                      if (timelineView === 'heatmap') {
+                        return (
+                          <button
+                            key={quarter}
+                            onClick={() => setSelectedBizCell(isCellSelected ? null : { contactId: contact.id, quarter })}
+                            className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${effectiveBizCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-purple-500' : ''}`}
+                            style={{ filter: isCellSelected ? undefined : 'none' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
+                            title={`${quarter} · ${pct}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
+                          >
+                            <div className="text-sm font-bold tabular-nums leading-tight">
+                              {pct === 0 ? '—' : `${pct}%`}
+                            </div>
+                            <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : 'inherit' }}>
+                              {pct === 0 ? '' : isOver
+                                ? `−${Math.abs(Math.round(remainingDays))}d`
+                                : `${Math.round(remainingDays)}d free`}
+                            </div>
+                          </button>
+                        );
+                      }
+
                       return (
                         <div
                           key={quarter}
-                          className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center ${effectiveBizCellClass}`}
-                          title={`${quarter} · ${pct}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
+                          title={cell.breakdownByProject.map(b => `${b.projectName}${b.phaseName ? ` / ${b.phaseName}` : ''}: ${b.days.toFixed(1)}d`).join('\n')}
+                          className={`px-3 py-3 border-l border-slate-100 dark:border-slate-800 ${quarter === currentQuarter ? 'bg-blue-50/20 dark:bg-blue-900/5' : ''}`}
                         >
-                          <div className="text-sm font-bold tabular-nums leading-tight">
-                            {pct === 0 ? '—' : `${pct}%`}
+                          <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden mb-1.5">
+                            <div
+                              className={`h-full ${isOver ? 'bg-red-400' : isWarn ? 'bg-amber-400' : 'bg-purple-400'}`}
+                              style={{ width: `${Math.min(100, pct)}%` }}
+                            />
                           </div>
-                          <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : 'inherit' }}>
-                            {pct === 0 ? '' : isOver
-                              ? `−${Math.abs(Math.round(remainingDays))}d`
-                              : `${Math.round(remainingDays)}d free`}
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {pct > 0 ? `${cell.allocatedDays.toFixed(1)}d` : '—'}
+                            </span>
+                            <span className={`text-[10px] ${isOver ? 'text-red-500' : isWarn ? 'text-amber-500' : 'text-slate-400'}`}>
+                              {pct > 0 ? `${pct}%` : ''}
+                            </span>
                           </div>
                         </div>
                       );
-                    }
+                    })}
+                  </div>
+
+                  {/* BIZ inline drill-down panel */}
+                  {isBizSelected && (() => {
+                    const selCellData = cells.find(c => c.quarter === selectedBizCell?.quarter);
+                    if (!selCellData) return null;
+                    const cap = selCellData.cell;
+                    const pct = cap.usedPercent;
+                    const isOver = pct > 100;
+                    const remainingRaw = cap.availableDays - cap.allocatedDays;
+                    const summaryCellColor = getCellColor(pct);
+
+                    const workItems = cap.breakdownByProject.filter(b => b.projectId !== '__bau__');
+                    const bauEntry = cap.breakdownByProject.find(b => b.projectId === '__bau__');
 
                     return (
-                      <div
-                        key={quarter}
-                        title={cell.breakdownByProject.map(b => `${b.projectName}${b.phaseName ? ` / ${b.phaseName}` : ''}: ${b.days.toFixed(1)}d`).join('\n')}
-                        className={`px-3 py-3 border-l border-slate-100 dark:border-slate-800 ${quarter === currentQuarter ? 'bg-blue-50/20 dark:bg-blue-900/5' : ''}`}
-                      >
-                        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden mb-1.5">
-                          <div
-                            className={`h-full ${isOver ? 'bg-red-400' : isWarn ? 'bg-amber-400' : 'bg-purple-400'}`}
-                            style={{ width: `${Math.min(100, pct)}%` }}
-                          />
+                      <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                        {/* Panel header */}
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                              {selectedBizCell?.quarter} — {contact.name}
+                            </span>
+                            {(contact.title || contact.department) && (
+                              <span className="text-xs text-slate-400">{contact.title ?? contact.department}</span>
+                            )}
+                            <span className="text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-500 border border-purple-100 dark:border-purple-800">BIZ</span>
+                          </div>
+                          <button
+                            onClick={() => setSelectedBizCell(null)}
+                            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
+                          >
+                            <X size={15} />
+                          </button>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-slate-500 dark:text-slate-400">
-                            {pct > 0 ? `${cell.allocatedDays.toFixed(1)}d` : '—'}
-                          </span>
-                          <span className={`text-[10px] ${isOver ? 'text-red-500' : isWarn ? 'text-amber-500' : 'text-slate-400'}`}>
-                            {pct > 0 ? `${pct}%` : ''}
-                          </span>
+
+                        {/* Two-column body */}
+                        <div className="grid grid-cols-[1fr_180px] gap-0 px-5 py-4 max-w-4xl">
+                          {/* Left — assigned work */}
+                          <div className="pr-6 min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Assigned Work</p>
+                            {workItems.length === 0 && !bauEntry ? (
+                              <p className="text-sm italic text-slate-400">No work assigned this quarter.</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {workItems.map((item, i) => (
+                                  <div key={i} className="dd-item flex items-start gap-2 pl-2 border-l-2 border-purple-200 dark:border-purple-800">
+                                    <div className="flex-1 min-w-0">
+                                      {item.phaseName && (
+                                        <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{item.projectName}</p>
+                                      )}
+                                      <p className="dd-item-label text-xs font-medium text-slate-700 dark:text-slate-200 truncate mt-0.5">
+                                        {item.phaseName ?? item.projectName}
+                                      </p>
+                                    </div>
+                                    <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0 pt-0.5 tabular-nums">{item.days.toFixed(1)}d</span>
+                                  </div>
+                                ))}
+                                {bauEntry && (
+                                  <div className="dd-item flex items-center gap-2 pl-2 border-l-2 border-slate-200 dark:border-slate-700">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded border bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">BAU</span>
+                                      </div>
+                                      <p className="dd-item-label text-xs font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">BAU Reserve</p>
+                                    </div>
+                                    <span className="text-xs text-slate-400 shrink-0 tabular-nums">{bauEntry.days.toFixed(1)}d</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right — quarter summary */}
+                          <div className="border-l border-slate-100 dark:border-slate-800 pl-5">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Quarter Summary</p>
+                            <div className="space-y-2.5">
+                              {[
+                                { label: 'Available', value: `${cap.availableDays.toFixed(1)}d`, color: 'text-slate-600 dark:text-slate-300' },
+                                { label: 'Allocated', value: `${cap.allocatedDays.toFixed(1)}d`, color: summaryCellColor },
+                                {
+                                  label: 'Remaining',
+                                  value: isOver ? `−${Math.abs(Math.round(remainingRaw))}d` : `${Math.round(remainingRaw)}d`,
+                                  color: isOver ? '#B02030' : 'inherit',
+                                },
+                                { label: 'Utilization', value: `${pct}%`, color: summaryCellColor },
+                              ].map(row => (
+                                <div key={row.label} className="flex items-center justify-between">
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">{row.label}</span>
+                                  <span className="text-xs font-semibold tabular-nums" style={{ color: row.color }}>{row.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {/* Mini utilization bar */}
+                            <div className="mt-4 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{ width: `${Math.min(100, pct)}%`, background: summaryCellColor }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
-                  })}
-                </div>
+                  })()}
+                </Fragment>
               );
               })}
 
