@@ -78,6 +78,7 @@ export function Team() {
   const [bizFormOpen, setBizFormOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<BusinessContact | null>(null);
   const [bizDeleteConfirm, setBizDeleteConfirm] = useState<BusinessContact | null>(null);
+  const [openBizListMenu, setOpenBizListMenu] = useState<string | null>(null);
 
   // Convert IT → BIZ
   const [convertMember, setConvertMember] = useState<TeamMember | null>(null);
@@ -854,8 +855,37 @@ export function Team() {
                           </div>
                           <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => { setEditingContact(contact); setBizFormOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title="Edit"><Edit2 size={13} /></button>
-                            <button onClick={() => updateBusinessContact(contact.id, { archived: true })} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title="Archive"><Archive size={13} /></button>
-                            <button onClick={() => setBizDeleteConfirm(contact)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title="Remove"><Trash2 size={13} /></button>
+                            <div className="relative">
+                              <button
+                                onClick={() => setOpenBizListMenu(openBizListMenu === contact.id ? null : contact.id)}
+                                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                                title="More actions"
+                              >
+                                <MoreHorizontal size={13} />
+                              </button>
+                              {openBizListMenu === contact.id && (
+                                <>
+                                  <div className="fixed inset-0 z-10" onClick={() => setOpenBizListMenu(null)} />
+                                  <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1">
+                                    <button
+                                      onClick={() => { updateBusinessContact(contact.id, { archived: true }); setOpenBizListMenu(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors text-left"
+                                    >
+                                      <Archive size={13} className="text-slate-400" />
+                                      Archive
+                                    </button>
+                                    <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+                                    <button
+                                      onClick={() => { setBizDeleteConfirm(contact); setOpenBizListMenu(null); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
+                                    >
+                                      <Trash2 size={13} />
+                                      Remove
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
