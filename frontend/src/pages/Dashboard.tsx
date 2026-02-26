@@ -550,8 +550,34 @@ export function Dashboard() {
                   </div>
                   {cells.map(({ quarter, cell }) => {
                     const pct = cell.usedPercent;
-                    const isOver = pct >= 100;
+                    const isOver = pct > 100;
                     const isWarn = pct >= 90 && !isOver;
+                    const remainingDays = cell.availableDays - cell.allocatedDays;
+
+                    if (timelineView === 'heatmap') {
+                      const cellStyle = getCellStyle(pct);
+                      return (
+                        <div
+                          key={quarter}
+                          className="px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center"
+                          style={{
+                            background: cellStyle.background,
+                            borderLeft: cellStyle.borderLeft ?? undefined,
+                          }}
+                          title={`${quarter} · ${pct}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
+                        >
+                          <div className="text-sm font-bold tabular-nums leading-tight" style={{ color: cellStyle.color }}>
+                            {pct === 0 ? '—' : `${pct}%`}
+                          </div>
+                          <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : '#94a3b8' }}>
+                            {pct === 0 ? '' : isOver
+                              ? `−${Math.abs(Math.round(remainingDays))}d`
+                              : `${Math.round(remainingDays)}d free`}
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div
                         key={quarter}
@@ -580,12 +606,14 @@ export function Dashboard() {
 
               {/* Legend */}
               {timelineView === 'heatmap' ? (
-                <div className="flex items-center gap-5 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                  <LegendDot color="bg-green-200 dark:bg-green-900/50" label="< 80% (available)" />
-                  <LegendDot color="bg-amber-200 dark:bg-amber-900/50" label="80–100% (busy)" />
-                  <LegendDot color="bg-red-200 dark:bg-red-900/50" label="> 100% (over-allocated)" />
+                <div className="flex items-center gap-4 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex-wrap">
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm border border-slate-200" style={{ background: 'rgba(74,181,129,0.12)' }} /><span className="text-[10px] text-slate-500">1–40%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(74,181,129,0.30)' }} /><span className="text-[10px] text-slate-500">41–70%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(74,181,129,0.55)' }} /><span className="text-[10px] text-slate-500">71–99%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(74,181,129,0.80)' }} /><span className="text-[10px] text-slate-500">100% full</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm border-l-2 border-red-500" style={{ background: 'rgba(220,53,69,0.15)' }} /><span className="text-[10px] text-slate-500">&gt;100% overloaded</span></div>
                   <div className="flex-1" />
-                  <span className="text-[10px] text-slate-400">Click any cell to drill down</span>
+                  <span className="text-[10px] text-slate-400">Click any IT cell to drill down</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-5 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
