@@ -1012,6 +1012,58 @@ export function deleteBusinessContact(id: string): void {
   });
 }
 
+// ─── BULK UPDATES ─────────────────────────────────────────────────────────────
+
+/**
+ * Apply a partial update to multiple team members at once.
+ * For array fields (processTeamIds, skills) the mode controls behaviour:
+ *   'replace' — overwrite the field entirely with the supplied value
+ *   'add'     — union the supplied values with the existing values
+ */
+export function bulkUpdateTeamMembers(
+  ids: string[],
+  updates: Partial<TeamMember>,
+  arrayMode: 'replace' | 'add' = 'replace',
+): void {
+  const state = useAppStore.getState();
+  const idSet = new Set(ids);
+  const teamMembers = state.getCurrentState().teamMembers.map(m => {
+    if (!idSet.has(m.id)) return m;
+    const merged: TeamMember = { ...m, ...updates };
+    if (arrayMode === 'add') {
+      if (updates.processTeamIds) {
+        merged.processTeamIds = [...new Set([...(m.processTeamIds ?? []), ...updates.processTeamIds])];
+      }
+    }
+    if (merged.role && merged.countryId) merged.needsEnrichment = false;
+    return merged;
+  });
+  state.updateData({ teamMembers });
+}
+
+/**
+ * Apply a partial update to multiple business contacts at once.
+ */
+export function bulkUpdateBusinessContacts(
+  ids: string[],
+  updates: Partial<BusinessContact>,
+  arrayMode: 'replace' | 'add' = 'replace',
+): void {
+  const state = useAppStore.getState();
+  const idSet = new Set(ids);
+  const businessContacts = state.getCurrentState().businessContacts.map(c => {
+    if (!idSet.has(c.id)) return c;
+    const merged: BusinessContact = { ...c, ...updates };
+    if (arrayMode === 'add') {
+      if (updates.processTeamIds) {
+        merged.processTeamIds = [...new Set([...(c.processTeamIds ?? []), ...updates.processTeamIds])];
+      }
+    }
+    return merged;
+  });
+  state.updateData({ businessContacts });
+}
+
 // ─── BUSINESS TIME OFF ────────────────────────────────────────────────────────
 
 export function addBusinessTimeOff(data: Omit<BusinessTimeOff, 'id'>): void {

@@ -184,6 +184,10 @@ export interface BusinessContact {
   countryId: string;
   workingDaysPerWeek?: number;  // default: 5
   workingHoursPerDay?: number;  // default: 8
+  /** Days per quarter reserved for BAU (non-project operational work), default 5 */
+  bauReserveDays?: number;
+  /** Cross-functional process teams — same pattern as TeamMember.processTeamIds */
+  processTeamIds?: string[];
   notes?: string;
   archived?: boolean;
   /** Which projects this contact is associated with — used to filter dropdown in phase forms */

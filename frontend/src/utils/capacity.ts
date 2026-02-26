@@ -74,6 +74,23 @@ export function calculateBusinessCapacity(
   const breakdownByProject: BusinessCellData['breakdownByProject'] = [];
   let allocated = 0;
 
+  // BAU reserve — prorate the per-quarter BAU days down to the actual date range
+  const bauReserveDays = contact.bauReserveDays ?? 5;
+  if (bauReserveDays > 0) {
+    const d = new Date(weekStart + 'T00:00:00');
+    const yr = d.getFullYear();
+    const qn = Math.ceil((d.getMonth() + 1) / 3); // 1–4
+    const qStarts = ['01-01', '04-01', '07-01', '10-01'];
+    const qEnds   = ['03-31', '06-30', '09-30', '12-31'];
+    const qStart = `${yr}-${qStarts[qn - 1]}`;
+    const qEnd   = `${yr}-${qEnds[qn - 1]}`;
+    const bauForRange = prorateDaysToWeek(bauReserveDays, qStart, qEnd, weekStart, weekEnd, contactHolidays);
+    if (bauForRange > 0) {
+      allocated += bauForRange;
+      breakdownByProject.push({ projectId: '__bau__', projectName: 'BAU Reserve', days: bauForRange });
+    }
+  }
+
   for (const a of businessAssignments.filter(a => a.contactId === contact.id)) {
     let rangeStart: string;
     let rangeEnd: string;
