@@ -1,0 +1,162 @@
+# Cursor Rules — Mileway IT Capacity Planner
+
+These rules apply to all code written in this repository. They encode hard decisions made during
+the design and implementation of the VS Finance capacity planning tool. Follow them exactly.
+
+---
+
+## 1. DUAL-TRACK IT/BIZ ASSIGNEES — NON-NEGOTIABLE
+
+Every level of the Jira hierarchy (Epic, Feature, Story, Phase) must support BOTH an IT assignee
+and a BIZ assignee. Never add assignee fields that cover only one track.
+
+- IT track = TeamMember, colour #0089DD (Mileway blue)
+- BIZ track = BusinessContact, colour #7C3AED (purple)
+- The slide-out panel ALWAYS shows both in a two-column grid (IT | Business)
+- If a new component involves assigning people, it must have both tracks or neither
+
+---
+
+## 2. NO TEXT LABELS ON GANTT BARS
+
+Gantt bars are plain coloured rectangles. They do NOT contain text, percentages, names, or icons
+inside the bar rectangle. Assignees and details are only visible in the slide-out panel.
+
+Avatar stacks INSIDE bars are also not currently implemented and should not be added without an
+explicit decision to do so. If the spec calls for avatar stacks on bars, check the latest spec first.
+
+---
+
+## 3. SPRINT FRACTION SYSTEM — USE DATES, NOT FRACTIONS
+
+The sprint fraction formula (sprint_number / 24) is a conceptual model for documentation.
+In the runtime implementation, bar positions are computed from ISO dates, not stored fractions.
+
+- `sprint_start` and `sprint_end` are NOT stored on JiraWorkItem — do not add these fields
+- Bar `left` and `width` are calculated from `(date - viewStart) / (viewEnd - viewStart)`
+- Do not add new position calculation approaches; use the existing `barLayout()` function
+
+---
+
+## 4. QUARTER-FIRST DESIGN
+
+The default time granularity is a SINGLE QUARTER (6 sprints). Full-year is always a secondary
+toggle. When designing a new view:
+
+- Default to single-quarter display
+- Implement full-year as a toggle, not the default
+- Sprint columns default to 6 equal columns filling the available width
+- Quarter navigation (prev/next) is always present in quarter mode
+
+---
+
+## 5. CLEAN, MINIMAL UI
+
+- No decorative elements (no gradients, no shadows on bars, no rounded pill backgrounds on status labels that weren't there before)
+- Status is communicated by colour only: green = normal, amber = warning, red = overloaded
+- Do not add icon decorations to rows that don't already have them
+- Use existing Tailwind utility classes and the existing colour palette
+
+---
+
+## 6. NEVER SET overflow: hidden ON GANTT ROWS
+
+The gantt continuation arrows (.gantt-bar-clip-left::before, .gantt-bar-clip-right::after) are
+CSS pseudo-elements that render OUTSIDE the bar's own bounding box. If any ancestor gantt row
+gets overflow: hidden, these arrows will be silently clipped and disappear.
+
+This rule applies to:
+- The gantt row div (the div containing the bar, with the height: h style)
+- Any wrapper around multiple rows
+- Do NOT add overflow: hidden to gantt containers
+
+The gantt area outer container CAN use overflow-x: auto for horizontal scrolling.
+
+---
+
+## 7. CSS DESIGN TOKENS — NO HARDCODED HEX VALUES IN COMPONENT STYLES
+
+All colours in component JSX and component-level CSS must use:
+- Tailwind utility classes (e.g. `bg-[#0089DD]` is acceptable in Tailwind arbitrary value syntax)
+- CSS custom properties defined in index.css
+- The `BAR` constant in JiraGantt.tsx (the one approved exception for bar colours)
+
+Do NOT add bare hex values like `color: '#123456'` or `background: '#AABBCC'` in inline styles
+outside of the BAR constant. If you need a new colour, add it to tailwind.config.js.
+
+---
+
+## 8. BAR POSITIONING USES PERCENTAGE-BASED left/width — NOT CSS GRID COLUMNS
+
+Gantt bars use `position: absolute` with:
+- `left: ${(barLayout.left * 100).toFixed(2)}%`
+- `width: ${(barLayout.width * 100).toFixed(2)}%`
+
+The column grid (CSS `grid-template-columns: repeat(N, 1fr)`) is ONLY used for the time header
+row and the vertical grid lines. It is NEVER used to position bars.
+
+Do not attempt to align bars to column grid tracks. Date-to-percentage conversion is the only
+correct approach.
+
+---
+
+## 9. SLIDE-OUT PANEL IS THE SINGLE DETAIL VIEW
+
+For all item types (JiraWorkItem, LocalPhase, TeamMember detail), the slide-out panel is the
+canonical detail surface. Do NOT:
+
+- Create inline edit forms that expand inside the table/gantt
+- Create a second modal form that duplicates the panel content
+- Add editable fields directly on row items (except the small BIZ days input on the Epics tree)
+
+The panel slides in from the right (420px wide), has a backdrop overlay, and closes on Escape.
+
+---
+
+## 10. OVERLOADED DEFINITION
+
+"Overloaded" = allocatedDays > availableDays in a sprint.
+
+- This is a hard threshold at 100% utilisation
+- Do NOT use a configurable threshold for the overloaded state
+- Warning state = > 90% (amber)
+- Overloaded state = > 100% (red)
+- This definition must be consistent across ALL views that show capacity
+
+---
+
+## 11. HIERARCHY STRUCTURE — NEVER SKIP LEVELS
+
+The hierarchy is ALWAYS: Epic → Feature → Story | Phase
+
+- A Story cannot be the direct child of an Epic (must go through Feature)
+- A LocalPhase (UAT/Hypercare) is attached to an Epic, NOT to a Feature
+- Do not create new hierarchy levels between or below the existing ones without an explicit design decision
+
+---
+
+## 12. TECH STACK — NO NEW DEPENDENCIES WITHOUT REVIEW
+
+The frontend uses: React 19, TypeScript, Vite, Tailwind CSS, Zustand, Supabase JS SDK,
+lucide-react (icons), date-fns, clsx, xlsx.
+
+Do not add new dependencies for things already covered by the existing stack:
+- No new icon libraries (use lucide-react)
+- No new CSS-in-JS (use Tailwind)
+- No new state management (use Zustand)
+- No new UI component libraries (use the existing ui/ components)
+
+---
+
+## 13. SUPABASE MIGRATIONS
+
+Database changes MUST be expressed as new numbered migration files in supabase/migrations/.
+Do NOT edit schema.sql directly. Migration files are numbered sequentially (e.g. 017_...).
+
+---
+
+## 14. TypeScript TYPES IN types/index.ts
+
+All new TypeScript interfaces and types belong in `frontend/src/types/index.ts`.
+Do NOT scatter type definitions across component files. Inline type definitions are only
+acceptable for component-local state types (e.g. `type TabType = 'it' | 'biz' | 'all'`).
