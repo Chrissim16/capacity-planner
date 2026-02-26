@@ -781,63 +781,6 @@ export function Projects() {
                       </div>
                     )}
 
-                    {/* Business commitments for Jira-synced epics: show local phases with BIZ chips */}
-                    {jiraItems.length > 0 && project.phases.length > 0 && (
-                      <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700/60">
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                          <Users size={11} />
-                          Business commitments
-                        </p>
-                        <div className="space-y-1">
-                          {project.phases.map(phase => {
-                            const phaseCommitments = state.businessAssignments.filter(a => a.phaseId === phase.id);
-                            const bizKey = `${project.id}:${phase.id}`;
-                            const isBizOpen = openBizKey === bizKey;
-                            return (
-                              <div key={phase.id}>
-                                <div className="flex items-center justify-between gap-3 py-1">
-                                  <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{phase.name}</span>
-                                  <button
-                                    onClick={() => toggleBizPanel(project.id, phase.id)}
-                                    title={phaseCommitments.length > 0 ? `Business commitments: ${phaseCommitments.length} contact${phaseCommitments.length !== 1 ? 's' : ''}` : 'Assign business contact'}
-                                    className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold transition-colors ${
-                                      phaseCommitments.length > 0
-                                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 hover:bg-purple-200 dark:hover:bg-purple-900/50'
-                                        : 'border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-purple-300 dark:hover:border-purple-600 hover:text-purple-500 dark:hover:text-purple-400'
-                                    }`}
-                                  >
-                                    <Users size={11} />
-                                    {phaseCommitments.length > 0
-                                      ? `BIZ: ${phaseCommitments.length} · ${phaseCommitments.reduce((s, b) => s + b.days, 0)}d`
-                                      : '+ BIZ'}
-                                  </button>
-                                </div>
-                                {isBizOpen && (
-                                  <InlineBizPanel
-                                    projectId={project.id}
-                                    phaseId={phase.id}
-                                    commitments={phaseCommitments}
-                                    allContacts={state.businessContacts}
-                                    showAdd={bizShowAdd}
-                                    contactId={bizContactId}
-                                    days={bizDays}
-                                    notes={bizNotes}
-                                    onOpenAdd={() => { setBizShowAdd(true); setBizContactId(''); setBizDays(''); setBizNotes(''); }}
-                                    onCancelAdd={() => setBizShowAdd(false)}
-                                    onContactChange={setBizContactId}
-                                    onDaysChange={setBizDays}
-                                    onNotesChange={setBizNotes}
-                                    onAdd={() => handleAddBiz(project.id, phase.id)}
-                                    onRemove={(id) => removeBusinessAssignment(id)}
-                                    onClose={() => { setOpenBizKey(null); setBizShowAdd(false); }}
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Only show manual phases when the project has no Jira items.
                         When Jira items are present the hierarchy tree above already shows the full
