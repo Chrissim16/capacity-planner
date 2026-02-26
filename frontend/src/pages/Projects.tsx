@@ -593,10 +593,26 @@ export function Projects() {
                 state.settings.confidenceLevels
               );
               const epicKey = project.jiraSourceKey;
-              if (epicKey && rollupMap.has(epicKey)) return rollupMap.get(epicKey)!;
-              let raw = 0; let forecasted = 0; let count = 0;
-              for (const [, r] of rollupMap) { raw += r.rawDays; forecasted += r.forecastedDays; count += r.itemCount; }
-              return count > 0 ? { rawDays: Math.round(raw * 10) / 10, forecastedDays: Math.round(forecasted * 10) / 10, itemCount: count } : null;
+              let base = epicKey && rollupMap.has(epicKey)
+                ? rollupMap.get(epicKey)!
+                : (() => {
+                    let raw = 0; let forecasted = 0; let count = 0;
+                    for (const [, r] of rollupMap) { raw += r.rawDays; forecasted += r.forecastedDays; count += r.itemCount; }
+                    return count > 0 ? { rawDays: raw, forecastedDays: forecasted, itemCount: count } : null;
+                  })();
+              if (!base) return null;
+
+              // Add BIZ assignment days for all items in this epic's hierarchy
+              const jiraKeySet = new Set(jiraItems.map(i => i.jiraKey));
+              const bizDays = (state.jiraItemBizAssignments ?? [])
+                .filter(a => jiraKeySet.has(a.jiraKey) && (a.days ?? 0) > 0)
+                .reduce((s, a) => s + (a.days ?? 0), 0);
+
+              return {
+                rawDays: Math.round((base.rawDays + bizDays) * 10) / 10,
+                forecastedDays: Math.round((base.forecastedDays + bizDays) * 10) / 10,
+                itemCount: base.itemCount,
+              };
             })();
 
             const jiraFeatureCount = jiraItems.filter(i => i.type === 'feature').length;
