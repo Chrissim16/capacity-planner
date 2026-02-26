@@ -442,7 +442,7 @@ export function Dashboard() {
                           </div>
 
                           {/* Two-column body */}
-                          <div className="grid grid-cols-[1fr_180px] gap-0 px-5 py-4">
+                          <div className="grid grid-cols-[1fr_180px] gap-0 px-5 py-4 max-w-4xl">
                             {/* Left — assigned work */}
                             <div className="pr-6 min-w-0">
                               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Assigned Work</p>
@@ -455,7 +455,7 @@ export function Dashboard() {
                                     const label = item.jiraSummary ?? item.phaseName ?? item.projectName ?? '—';
                                     const typeLabel = item.type === 'jira' ? 'Story' : 'Project';
                                     return (
-                                      <div key={i} className="flex items-start gap-2 pl-2 border-l-2 border-blue-200 dark:border-blue-800">
+                                      <div key={i} className="dd-item flex items-start gap-2 pl-2 border-l-2 border-blue-200 dark:border-blue-800">
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-1.5 flex-wrap">
                                             {item.jiraKey && (
@@ -463,7 +463,7 @@ export function Dashboard() {
                                             )}
                                             <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${typePillClass(typeLabel)}`}>{typeLabel.toUpperCase()}</span>
                                           </div>
-                                          <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate mt-0.5">{label}</p>
+                                          <p className="dd-item-label text-xs font-medium text-slate-700 dark:text-slate-200 truncate mt-0.5">{label}</p>
                                           {breadcrumb && (
                                             <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{breadcrumb}</p>
                                           )}
@@ -473,14 +473,14 @@ export function Dashboard() {
                                     );
                                   })}
                                   {overhead.map((item: CapacityBreakdownItem, i: number) => (
-                                    <div key={`oh-${i}`} className="flex items-center gap-2 pl-2 border-l-2 border-slate-200 dark:border-slate-700">
+                                    <div key={`oh-${i}`} className="dd-item flex items-center gap-2 pl-2 border-l-2 border-slate-200 dark:border-slate-700">
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-1.5">
                                           <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${typePillClass(item.type)}`}>
                                             {item.type === 'bau' ? 'BAU' : 'TIME OFF'}
                                           </span>
                                         </div>
-                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                        <p className="dd-item-label text-xs font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
                                           {item.type === 'bau' ? 'BAU Reserve' : 'Time Off'}
                                         </p>
                                       </div>

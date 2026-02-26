@@ -13,6 +13,12 @@
    CUSTOM CSS VARIABLES - Design tokens
    ═══════════════════════════════════════════════════════════════════════════════ */
 
+:root {
+  --blue:       #2558C9;
+  --blue-light: #6090E0;
+  --row-hover:  rgba(37, 88, 201, 0.055);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════════
    BASE STYLES
    ═══════════════════════════════════════════════════════════════════════════════ */
@@ -164,4 +170,21 @@ body {
   border-left: 8px solid rgba(0,0,0,.22);
   pointer-events: none;
   z-index: 7;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   DRILL-DOWN PANEL — work-item row hover (wide-screen readability)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.dd-item {
+  position: relative;
+  border-radius: 3px;
+  transition: background 0.1s ease;
+}
+.dd-item:hover {
+  background: var(--row-hover);
+  border-left-color: var(--blue) !important;
+}
+.dd-item:hover .dd-item-label {
+  color: var(--blue);
 }
