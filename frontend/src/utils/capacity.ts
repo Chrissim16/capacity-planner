@@ -61,12 +61,14 @@ export function calculateBusinessCapacity(
   const weekStartDate = new Date(weekStart + 'T00:00:00');
   const weekEndDate   = new Date(weekEnd   + 'T00:00:00');
 
-  const workdays = getWorkdaysInDateRange(weekStart, weekEnd, contactHolidays);
+  // Scale raw Mon-Fri workdays by the contact's working pattern
+  const capacityScale = ((contact.workingDaysPerWeek ?? 5) / 5) * ((contact.workingHoursPerDay ?? 8) / 8);
+  const workdays = getWorkdaysInDateRange(weekStart, weekEnd, contactHolidays) * capacityScale;
 
   const timeOffDays = businessTimeOff
     .filter(t => t.contactId === contact.id)
     .reduce((sum, t) =>
-      sum + getWorkdaysInDateRange(t.startDate, t.endDate, contactHolidays, weekStartDate, weekEndDate),
+      sum + getWorkdaysInDateRange(t.startDate, t.endDate, contactHolidays, weekStartDate, weekEndDate) * capacityScale,
     0);
 
   const availableDays = Math.max(0, workdays - timeOffDays);
