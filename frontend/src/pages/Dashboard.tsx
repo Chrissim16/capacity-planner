@@ -36,21 +36,27 @@ function isPastQuarter(q: string, current: string): boolean {
   return Number(ql.slice(1)) < Number(cl.slice(1));
 }
 
-// ── Heatmap color scale (5-tier: green → amber → orange → red) ───────────────
+// ── Heatmap color scale (8-tier: green → amber → orange → red) ───────────────
 function getCellClass(pct: number): string {
-  if (pct === 0)  return 'cell-empty';
-  if (pct <= 60)  return 'cell-low';
-  if (pct <= 85)  return 'cell-moderate';
-  if (pct <= 100) return 'cell-high';
+  if (pct <= 10)  return 'cell-empty';
+  if (pct <= 30)  return 'cell-tier1';
+  if (pct <= 50)  return 'cell-tier2';
+  if (pct <= 70)  return 'cell-tier3';
+  if (pct <= 80)  return 'cell-tier4';
+  if (pct <= 90)  return 'cell-tier5';
+  if (pct < 100)  return 'cell-tier6';
   return 'cell-overloaded';
 }
 
 function getCellColor(pct: number): string {
-  if (pct === 0)  return '#AAAAAA';
-  if (pct <= 60)  return '#2A7A45';
-  if (pct <= 85)  return '#8A6000';
-  if (pct <= 100) return '#B04500';
-  return '#B02030';
+  if (pct <= 10)  return '#BBBBBB';
+  if (pct <= 30)  return '#2A7A45';
+  if (pct <= 50)  return '#1A6435';
+  if (pct <= 70)  return '#8A6000';
+  if (pct <= 80)  return '#8A4500';
+  if (pct <= 90)  return '#B04500';
+  if (pct < 100)  return '#8B2500';
+  return '#8B0000';
 }
 
 
@@ -603,11 +609,14 @@ export function Dashboard() {
 
               {/* Legend */}
               {timelineView === 'heatmap' ? (
-                <div className="flex items-center gap-4 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex-wrap">
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-low" /><span className="text-[10px] text-slate-500">1–60%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-moderate" /><span className="text-[10px] text-slate-500">61–85%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-high" /><span className="text-[10px] text-slate-500">86–100%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-overloaded" /><span className="text-[10px] text-slate-500">Over 100%</span></div>
+                <div className="flex items-center gap-3 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex-wrap">
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier1" /><span className="text-[10px] text-slate-500">11–30%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier2" /><span className="text-[10px] text-slate-500">31–50%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier3" /><span className="text-[10px] text-slate-500">51–70%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier4" /><span className="text-[10px] text-slate-500">71–80%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier5" /><span className="text-[10px] text-slate-500">81–90%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier6" /><span className="text-[10px] text-slate-500">91–99%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-overloaded" /><span className="text-[10px] text-slate-500">≥100%</span></div>
                   <div className="flex-1" />
                   <span className="text-[10px] text-slate-400">Click any IT cell to drill down</span>
                 </div>

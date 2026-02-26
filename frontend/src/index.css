@@ -53,14 +53,29 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   HEATMAP CELL TIERS — Green → Amber → Orange → Red
+   HEATMAP CELL TIERS — Green → Amber → Orange → Red (8-tier)
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-.cell-empty      { background: #FFFFFF;                   color: #AAAAAA; }
-.cell-low        { background: rgba(74, 181, 100, 0.25);  color: #2A7A45; }
-.cell-moderate   { background: rgba(255, 193,  60, 0.30); color: #8A6000; }
-.cell-high       { background: rgba(255, 130,  50, 0.35); color: #B04500; }
-.cell-overloaded { background: rgba(220,  53,  69, 0.20); color: #B02030; border-left: 2px solid #DC3545; }
+.cell-empty      { background: #FFFFFF;                   color: #BBBBBB; }
+.cell-tier1      { background: rgba(74, 181, 100, 0.15);  color: #2A7A45; }
+.cell-tier2      { background: rgba(74, 181, 100, 0.35);  color: #1A6435; }
+.cell-tier3      { background: rgba(255, 210,  60, 0.35); color: #8A6000; }
+.cell-tier4      { background: rgba(255, 175,  40, 0.45); color: #8A4500; }
+.cell-tier5      { background: rgba(255, 130,  50, 0.45); color: #B04500; }
+.cell-tier6      { background: rgba(220,  80,  50, 0.40); color: #8B2500; }
+.cell-overloaded { background: rgba(220,  53,  69, 0.25); color: #8B0000; border-left: 2px solid #DC3545; }
+
+/* Dark mode — flip text to near-white for legibility, backgrounds unchanged */
+@media (prefers-color-scheme: dark) {
+  .cell-empty      { color: #555555; }
+  .cell-tier1      { color: #E8E8E8; }
+  .cell-tier2      { color: #E8E8E8; }
+  .cell-tier3      { color: #E8E8E8; }
+  .cell-tier4      { color: #E8E8E8; }
+  .cell-tier5      { color: #E8E8E8; }
+  .cell-tier6      { color: #E8E8E8; }
+  .cell-overloaded { color: #FF6B6B; }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    GANTT BAR — Continuation arrows (clip-left / clip-right)
