@@ -12,7 +12,7 @@ export function LoadingScreen({ message = 'Loading your data…' }: LoadingScree
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-slate-900">
       {/* Mileway logo */}
       <img
-        src="/mileway-logo.svg"
+        src="/mileway-logo.png"
         alt="Mileway"
         className="h-10 mb-10 dark:brightness-0 dark:invert"
         draggable={false}

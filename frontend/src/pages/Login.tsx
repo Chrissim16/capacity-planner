@@ -84,7 +84,7 @@ export function Login() {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <img
-            src="/mileway-logo.svg"
+            src="/mileway-logo.png"
             alt="Mileway"
             className="h-9 dark:brightness-0 dark:invert"
             draggable={false}
