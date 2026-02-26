@@ -277,7 +277,17 @@ export function syncTeamMembersFromJira(): TeamMemberSyncResult {
   const updatedMembers: TeamMember[] = [];
   const processedEmails = new Set<string>();
   
+  const businessContactEmails = new Set(
+    (currentState.businessContacts ?? [])
+      .map(c => c.email?.toLowerCase())
+      .filter(Boolean) as string[]
+  );
+
   for (const [emailKey, assignee] of assigneeMap) {
+    // Skip assignees who have been converted to Business Contacts — they should
+    // never be re-created as IT team members on subsequent Jira syncs.
+    if (businessContactEmails.has(emailKey)) continue;
+
     // Check if member already exists (by email)
     const existingMember = existingMembers.find(
       m => m.email?.toLowerCase() === emailKey
