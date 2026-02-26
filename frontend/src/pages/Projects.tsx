@@ -47,6 +47,11 @@ export function Projects() {
 
   // Jira sync section state
   const [showJiraSection, setShowJiraSection] = useState(false);
+
+  // Section collapse state
+  const [epicsOpen, setEpicsOpen] = useState(true);
+  const [orphanFeaturesOpen, setOrphanFeaturesOpen] = useState(true);
+  const [rootItemsOpen, setRootItemsOpen] = useState(true);
   const [autoLinkMsg, setAutoLinkMsg] = useState<Record<string, string>>({});
   const [autoLinking, setAutoLinking] = useState<string | null>(null);
 
@@ -181,6 +186,52 @@ export function Projects() {
     jiraWorkItems.filter(i => i.type === 'epic').forEach(e => subtreeIds.add(e.id));
     return jiraWorkItems.filter(i => !subtreeIds.has(i.id));
   }, [jiraWorkItems]);
+
+  // Features whose parentKey is not a known Epic key
+  const orphanFeatures = useMemo(() => {
+    const epicKeys = new Set(jiraWorkItems.filter(i => i.type === 'epic').map(i => i.jiraKey));
+    return jiraWorkItems.filter(i => i.type === 'feature' && (!i.parentKey || !epicKeys.has(i.parentKey)));
+  }, [jiraWorkItems]);
+
+  // Stories + Bugs whose parentKey is not in any synced item at all
+  const rootItems = useMemo(() => {
+    const allKeys = new Set(jiraWorkItems.map(i => i.jiraKey));
+    return jiraWorkItems.filter(i =>
+      (i.type === 'story' || i.type === 'bug') &&
+      (!i.parentKey || !allKeys.has(i.parentKey))
+    );
+  }, [jiraWorkItems]);
+
+  // Filtered orphan features (respects search + status filter)
+  const filteredOrphanFeatures = useMemo(() => {
+    let result = orphanFeatures;
+    if (search) result = result.filter(i =>
+      i.summary.toLowerCase().includes(search.toLowerCase()) ||
+      i.jiraKey.toLowerCase().includes(search.toLowerCase())
+    );
+    if (statusFilter === '__open__') result = result.filter(i => i.statusCategory !== 'done');
+    return result;
+  }, [orphanFeatures, search, statusFilter]);
+
+  // Children of filteredOrphanFeatures (always included so expand works)
+  const orphanFeaturesWithChildren = useMemo(() => {
+    const featureKeys = new Set(filteredOrphanFeatures.map(f => f.jiraKey));
+    const children = jiraWorkItems.filter(i =>
+      i.type !== 'feature' && i.type !== 'epic' && i.parentKey && featureKeys.has(i.parentKey)
+    );
+    return [...filteredOrphanFeatures, ...children];
+  }, [filteredOrphanFeatures, jiraWorkItems]);
+
+  // Filtered root items (respects search + status filter)
+  const filteredRootItems = useMemo(() => {
+    let result = rootItems;
+    if (search) result = result.filter(i =>
+      i.summary.toLowerCase().includes(search.toLowerCase()) ||
+      i.jiraKey.toLowerCase().includes(search.toLowerCase())
+    );
+    if (statusFilter === '__open__') result = result.filter(i => i.statusCategory !== 'done');
+    return result;
+  }, [rootItems, search, statusFilter]);
 
   const handleAutoLink = async (connectionId: string) => {
     setAutoLinking(connectionId);
@@ -493,8 +544,15 @@ export function Projects() {
         <Select value={systemFilter}   onChange={(e) => setSystemFilter(e.target.value)}   options={systemOptions}   />
       </div>
 
-      {/* Projects List */}
-      {filteredProjects.length === 0 ? (
+      {/* ── Epics Section ─────────────────────────────────────────────────── */}
+      <SectionHeader
+        title="Epics"
+        count={filteredProjects.length}
+        open={epicsOpen}
+        onToggle={() => setEpicsOpen(v => !v)}
+      />
+
+      {epicsOpen && (filteredProjects.length === 0 ? (
         <Card>
           <CardContent>
             {projects.filter(p => !p.archived).length === 0 && !showArchived ? (
@@ -904,6 +962,58 @@ export function Projects() {
             );
           })}
         </div>
+      ))}
+
+      {/* ── Features Section (features with no epic parent) ───────────────── */}
+      {filteredOrphanFeatures.length > 0 && (
+        <>
+          <SectionHeader
+            title="Features"
+            count={filteredOrphanFeatures.length}
+            open={orphanFeaturesOpen}
+            onToggle={() => setOrphanFeaturesOpen(v => !v)}
+          />
+          {orphanFeaturesOpen && (
+            <Card className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <EpicGrid
+                  items={orphanFeaturesWithChildren}
+                  jiraBaseUrl={activeJiraBaseUrl}
+                  bizAssignments={state.jiraItemBizAssignments ?? []}
+                  businessContacts={state.businessContacts}
+                  defaultConfidenceLevel={jiraSettings.defaultConfidenceLevel ?? 'medium'}
+                  confidenceSettings={state.settings.confidenceLevels}
+                />
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* ── Stories Section (stories/bugs with no parent) ─────────────────── */}
+      {filteredRootItems.length > 0 && (
+        <>
+          <SectionHeader
+            title="Stories"
+            count={filteredRootItems.length}
+            open={rootItemsOpen}
+            onToggle={() => setRootItemsOpen(v => !v)}
+          />
+          {rootItemsOpen && (
+            <Card className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <EpicGrid
+                  items={filteredRootItems}
+                  jiraBaseUrl={activeJiraBaseUrl}
+                  bizAssignments={state.jiraItemBizAssignments ?? []}
+                  businessContacts={state.businessContacts}
+                  defaultConfidenceLevel={jiraSettings.defaultConfidenceLevel ?? 'medium'}
+                  confidenceSettings={state.settings.confidenceLevels}
+                />
+              </div>
+            </Card>
+          )}
+        </>
       )}
 
       {/* Project Form Modal */}
@@ -947,6 +1057,33 @@ export function Projects() {
         </p>
       </Modal>
     </div>
+  );
+}
+
+/* ─── Section Header ─────────────────────────────────────────────────────── */
+
+function SectionHeader({ title, count, open, onToggle }: {
+  title: string;
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className="flex items-center gap-2 w-full text-left py-1 group"
+    >
+      {open
+        ? <ChevronDown size={15} className="text-slate-400 flex-shrink-0 transition-transform" />
+        : <ChevronRight size={15} className="text-slate-400 flex-shrink-0 transition-transform" />
+      }
+      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+        {title}
+      </span>
+      <span className="px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        {count}
+      </span>
+    </button>
   );
 }
 
