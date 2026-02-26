@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, Fragment } from 'react';
 import {
   Users, FolderKanban, AlertTriangle, TrendingUp, X,
   ChevronRight, CheckCircle2, Circle, Link2, Zap, Globe,
-  Clock, PlayCircle, Flag,
+  Clock, PlayCircle,
 } from 'lucide-react';
 import { useAppStore, useCurrentState } from '../stores/appStore';
 import { Card, CardContent } from '../components/ui/Card';
@@ -46,22 +46,6 @@ function getCellStyle(pct: number): { background: string; color: string; borderL
   /* > 100 overloaded */return { background: 'rgba(220,53,69,0.15)',  color: '#B02030', borderLeft: '2px solid #DC3545' };
 }
 
-function getMilestonesForQuarter(
-  quarter: string,
-  projects: Project[]
-): { id: string; name: string; projectName: string }[] {
-  const result: { id: string; name: string; projectName: string }[] = [];
-  for (const project of projects) {
-    if (project.status === 'Completed' || project.status === 'Cancelled') continue;
-    for (const phase of project.phases) {
-      const phaseEndQ = phase.endQuarter ?? phase.startQuarter;
-      if (phaseEndQ === quarter) {
-        result.push({ id: phase.id, name: phase.name, projectName: project.name });
-      }
-    }
-  }
-  return result;
-}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -292,35 +276,6 @@ export function Dashboard() {
                 })}
               </div>
 
-              {/* Milestones row */}
-              {peopleFilter !== 'business_only' && (
-                <div className="grid border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30"
-                  style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}>
-                  <div className="px-4 py-2 flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                    <Flag size={11} />
-                    Milestones
-                  </div>
-                  {yearQuarters.map(q => {
-                    const milestones = getMilestonesForQuarter(q, state.projects);
-                    return (
-                      <div key={q} className="px-3 py-2 border-l border-slate-100 dark:border-slate-800 flex flex-wrap gap-1 min-h-[32px]">
-                        {milestones.slice(0, 3).map(m => (
-                          <span
-                            key={m.id}
-                            title={`${m.projectName} / ${m.name}`}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800 truncate max-w-[120px]"
-                          >
-                            ▶ {m.name}
-                          </span>
-                        ))}
-                        {milestones.length > 3 && (
-                          <span className="text-[10px] text-slate-400">+{milestones.length - 3}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
 
               {/* IT Member rows */}
               {peopleFilter !== 'business_only' && timelineData.map(({ member, cells }) => {
