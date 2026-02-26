@@ -66,6 +66,7 @@ export interface TeamMember {
   jiraAccountId?: string;            // Jira user account ID
   syncedFromJira?: boolean;          // True if auto-created from Jira
   needsEnrichment?: boolean;         // True if missing local fields (country, role, etc.)
+  excludedFromCapacity?: boolean;    // If true, member is shown but excluded from capacity totals
 }
 
 export interface TimeOff {
@@ -192,6 +193,8 @@ export interface BusinessContact {
   archived?: boolean;
   /** Which projects this contact is associated with — used to filter dropdown in phase forms */
   projectIds?: string[];
+  /** If true, contact is shown but excluded from capacity totals */
+  excludedFromCapacity?: boolean;
 }
 
 export interface BusinessTimeOff {

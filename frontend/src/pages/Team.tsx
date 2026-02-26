@@ -459,6 +459,11 @@ export function Team() {
                                   Jira
                                 </span>
                               )}
+                              {member.excludedFromCapacity && (
+                                <span className="px-1.5 py-0.5 text-xs bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded font-bold uppercase tracking-wide" title="Excluded from capacity calculation">
+                                  Excluded
+                                </span>
+                              )}
                             </div>
                             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
                               <span>{countryInfo.flag}</span>
@@ -837,7 +842,12 @@ export function Team() {
                               {initials}
                             </div>
                             <div className="min-w-0">
-                              <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate block">{contact.name}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{contact.name}</span>
+                                {contact.excludedFromCapacity && (
+                                  <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shrink-0">Excluded</span>
+                                )}
+                              </div>
                               {contact.email && <span className="text-[11px] text-slate-400 truncate block">{contact.email}</span>}
                             </div>
                           </div>
@@ -948,6 +958,9 @@ export function Team() {
                                 <div className="flex items-center gap-2">
                                   <span className="font-semibold text-slate-900 dark:text-white truncate text-sm">{member.name}</span>
                                   <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-500 border border-blue-100 dark:border-blue-800 shrink-0">IT</span>
+                                  {member.excludedFromCapacity && (
+                                    <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shrink-0">Excluded</span>
+                                  )}
                                 </div>
                                 <p className="text-xs text-slate-500 mt-0.5">{member.role || '—'}</p>
                                 <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">{countryInfo.flag} {countryInfo.name}</p>
@@ -1256,6 +1269,9 @@ function BizContactCard({
               <div className="flex items-center gap-1.5">
                 <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">{contact.name}</span>
                 <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-500 border border-purple-100 dark:border-purple-800 shrink-0">BIZ</span>
+                {contact.excludedFromCapacity && (
+                  <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shrink-0">Excluded</span>
+                )}
               </div>
               {(contact.title || contact.department) && (
                 <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{contact.title ?? contact.department}</p>
@@ -1731,6 +1747,7 @@ function BizContactFormModal({
   const [workingHoursPerDay, setWorkingHoursPerDay] = useState(String(contact?.workingHoursPerDay ?? 8));
   const [bauReserveDays, setBauReserveDays] = useState(String(contact?.bauReserveDays ?? 5));
   const [selectedProcessTeamIds, setSelectedProcessTeamIds] = useState<string[]>(contact?.processTeamIds ?? []);
+  const [excludedFromCapacity, setExcludedFromCapacity] = useState(contact?.excludedFromCapacity ?? false);
 
   const toggleProcessTeam = (id: string) =>
     setSelectedProcessTeamIds(prev =>
@@ -1753,6 +1770,7 @@ function BizContactFormModal({
       processTeamIds: selectedProcessTeamIds,
       archived: contact?.archived ?? false,
       projectIds: contact?.projectIds ?? [],
+      excludedFromCapacity,
     });
   };
 
@@ -1844,6 +1862,19 @@ function BizContactFormModal({
             </div>
           </div>
         )}
+
+        <label className="flex items-center justify-between gap-3 py-1 cursor-pointer select-none">
+          <div>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Exclude from capacity calculation</span>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Contact is still visible but not counted in capacity totals</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={excludedFromCapacity}
+            onChange={e => setExcludedFromCapacity(e.target.checked)}
+            className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-purple-600 focus:ring-purple-500 cursor-pointer"
+          />
+        </label>
       </div>
     </Modal>
   );

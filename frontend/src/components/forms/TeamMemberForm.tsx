@@ -29,6 +29,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
   const [selectedProcessTeamIds, setSelectedProcessTeamIds] = useState<string[]>([]);
   const [maxConcurrentProjects, setMaxConcurrentProjects] = useState(2);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [excludedFromCapacity, setExcludedFromCapacity] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Reset form only when the modal opens or the target member changes.
@@ -45,6 +46,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
       setSelectedProcessTeamIds(member.processTeamIds || []);
       setMaxConcurrentProjects(member.maxConcurrentProjects);
       setSelectedSkills(member.skillIds || []);
+      setExcludedFromCapacity(member.excludedFromCapacity ?? false);
     } else {
       setName('');
       setEmail('');
@@ -54,6 +56,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
       setSelectedProcessTeamIds([]);
       setMaxConcurrentProjects(2);
       setSelectedSkills([]);
+      setExcludedFromCapacity(false);
     }
     setErrors({});
   }, [member?.id, isOpen]);
@@ -95,6 +98,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
       processTeamIds: selectedProcessTeamIds,
       maxConcurrentProjects,
       skillIds: selectedSkills,
+      excludedFromCapacity,
     };
 
     // Clear needsEnrichment if country and role are now set
@@ -246,6 +250,19 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
           value={maxConcurrentProjects}
           onChange={(e) => setMaxConcurrentProjects(parseInt(e.target.value) || 2)}
         />
+
+        <label className="flex items-center justify-between gap-3 py-1 cursor-pointer select-none">
+          <div>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Exclude from capacity calculation</span>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Member is still visible but not counted in capacity totals</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={excludedFromCapacity}
+            onChange={e => setExcludedFromCapacity(e.target.checked)}
+            className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+          />
+        </label>
 
         {/* Skills */}
         <div>

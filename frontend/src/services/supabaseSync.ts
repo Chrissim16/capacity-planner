@@ -229,6 +229,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       jiraAccountId: m.jira_account_id ?? undefined,
       syncedFromJira: m.synced_from_jira ?? false,
       needsEnrichment: m.needs_enrichment ?? false,
+      excludedFromCapacity: m.excluded_from_capacity ?? false,
     }));
 
     const projects: Project[] = (projectsRes.data ?? []).map(p => ({
@@ -410,6 +411,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       projectIds: Array.isArray(c.project_ids) ? c.project_ids : [],
       notes: c.notes ?? undefined,
       archived: c.archived ?? false,
+      excludedFromCapacity: c.excluded_from_capacity ?? false,
     }));
 
     const businessTimeOff: BusinessTimeOff[] = (bizTimeOffRes.data ?? []).map(t => ({
@@ -617,6 +619,7 @@ const BASE_MEMBER_ROW = (m: TeamMember) => ({
   synced_from_jira: m.syncedFromJira ?? false,
   needs_enrichment: m.needsEnrichment ?? false,
   is_active: true,
+  excluded_from_capacity: m.excludedFromCapacity ?? false,
 });
 
 const EXTENDED_MEMBER_ROW = (m: TeamMember) => ({
@@ -888,6 +891,7 @@ async function syncBusinessContacts(contacts: BusinessContact[]): Promise<void> 
         project_ids: c.projectIds ?? [],
         notes: c.notes ?? null,
         archived: c.archived ?? false,
+        excluded_from_capacity: c.excludedFromCapacity ?? false,
         updated_at: new Date().toISOString(),
       })
     );

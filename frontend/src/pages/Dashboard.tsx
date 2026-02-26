@@ -94,6 +94,7 @@ export function Dashboard() {
       let totalTimeOff = 0;
 
       for (const m of state.teamMembers) {
+        if (m.excludedFromCapacity) continue;
         const cap = calculateCapacity(m.id, q, state);
         totalWorkdays += cap.totalWorkdays;
         totalUsed += cap.usedDays;
@@ -289,10 +290,11 @@ export function Dashboard() {
               {peopleFilter !== 'business_only' && timelineData.map(({ member, cells }) => {
                 const country = state.countries.find(c => c.id === member.countryId);
                 const isMemberSelected = selectedCell?.memberId === member.id;
+                const isExcluded = member.excludedFromCapacity === true;
                 return (
                   <Fragment key={member.id}>
                     <div
-                      className={`grid border-b border-slate-50 dark:border-slate-800/50 transition-colors hover:bg-blue-50/30 dark:hover:bg-blue-900/5 ${isMemberSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                      className={`grid border-b border-slate-50 dark:border-slate-800/50 transition-colors hover:bg-blue-50/30 dark:hover:bg-blue-900/5 ${isMemberSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''} ${isExcluded ? 'opacity-50' : ''}`}
                       style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
                     >
                       {/* Identity */}
@@ -301,7 +303,10 @@ export function Dashboard() {
                           {getInitials(member.name)}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">{member.name}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">{member.name}</span>
+                            {isExcluded && <span className="shrink-0 text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Excluded</span>}
+                          </div>
                           <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
                             {member.role}{country ? ` · ${country.code}` : ''}
                           </div>
@@ -310,27 +315,28 @@ export function Dashboard() {
 
                       {/* Quarter cells */}
                       {cells.map(({ quarter, cap, bauPct, timeOffPct, projectPct }) => {
-                        const isOver = cap.status === 'overallocated';
+                        const isOver = !isExcluded && cap.status === 'overallocated';
                         const isWarn = cap.status === 'warning';
                         const isCellSelected = isMemberSelected && selectedCell?.quarter === quarter;
                         const remainingDays = cap.totalWorkdays - cap.usedDays;
+                        const effectiveCellClass = isExcluded ? 'cell-empty' : getCellClass(cap.usedPercent);
 
                         if (timelineView === 'heatmap') {
                           return (
                             <button
                               key={quarter}
-                              onClick={() => handleCellClick(member.id, quarter)}
-                              className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${getCellClass(cap.usedPercent)} ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
+                              onClick={() => !isExcluded && handleCellClick(member.id, quarter)}
+                              className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${effectiveCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''} ${isExcluded ? 'cursor-default' : ''}`}
                               style={{ filter: isCellSelected ? undefined : 'none' }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
+                              onMouseEnter={e => { if (!isExcluded) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
                               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
-                              title={`${quarter} · ${cap.usedPercent}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
+                              title={isExcluded ? `${member.name} is excluded from capacity calculation` : `${quarter} · ${cap.usedPercent}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
                             >
                               <div className="text-sm font-bold tabular-nums leading-tight">
-                                {cap.usedPercent === 0 ? '—' : `${cap.usedPercent}%`}
+                                {isExcluded ? '—' : cap.usedPercent === 0 ? '—' : `${cap.usedPercent}%`}
                               </div>
                               <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : 'inherit' }}>
-                                {cap.usedPercent === 0 ? '' : isOver
+                                {isExcluded ? '' : cap.usedPercent === 0 ? '' : isOver
                                   ? `−${Math.abs(Math.round(remainingDays))}d`
                                   : `${Math.round(remainingDays)}d free`}
                               </div>
@@ -533,10 +539,12 @@ export function Dashboard() {
               )}
 
               {/* Business rows */}
-              {peopleFilter !== 'it_only' && bizTimelineData.map(({ contact, cells }) => (
+              {peopleFilter !== 'it_only' && bizTimelineData.map(({ contact, cells }) => {
+                const isBizExcluded = contact.excludedFromCapacity === true;
+                return (
                 <div
                   key={contact.id}
-                  className="grid border-b border-slate-50 dark:border-slate-800/50 last:border-0 hover:bg-purple-50/20 dark:hover:bg-purple-900/5 transition-colors"
+                  className={`grid border-b border-slate-50 dark:border-slate-800/50 last:border-0 hover:bg-purple-50/20 dark:hover:bg-purple-900/5 transition-colors ${isBizExcluded ? 'opacity-50' : ''}`}
                   style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
                 >
                   <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
@@ -544,31 +552,33 @@ export function Dashboard() {
                       {getInitials(contact.name)}
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <span className="text-sm font-normal text-slate-600 dark:text-slate-400 truncate">{contact.name}</span>
                         <span className="text-[9px] font-bold tracking-wide uppercase text-purple-400 shrink-0">BIZ</span>
+                        {isBizExcluded && <span className="shrink-0 text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Excluded</span>}
                       </div>
                       <div className="text-xs text-slate-400 truncate">{contact.title ?? contact.department ?? ''}</div>
                     </div>
                   </div>
                   {cells.map(({ quarter, cell }) => {
                     const pct = cell.usedPercent;
-                    const isOver = pct > 100;
+                    const isOver = !isBizExcluded && pct > 100;
                     const isWarn = pct >= 90 && !isOver;
                     const remainingDays = cell.availableDays - cell.allocatedDays;
+                    const effectiveBizCellClass = isBizExcluded ? 'cell-empty' : getCellClass(pct);
 
                     if (timelineView === 'heatmap') {
                       return (
                         <div
                           key={quarter}
-                          className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center ${getCellClass(pct)}`}
-                          title={`${quarter} · ${pct}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
+                          className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center ${effectiveBizCellClass}`}
+                          title={isBizExcluded ? `${contact.name} is excluded from capacity calculation` : `${quarter} · ${pct}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
                         >
                           <div className="text-sm font-bold tabular-nums leading-tight">
-                            {pct === 0 ? '—' : `${pct}%`}
+                            {isBizExcluded ? '—' : pct === 0 ? '—' : `${pct}%`}
                           </div>
                           <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : 'inherit' }}>
-                            {pct === 0 ? '' : isOver
+                            {isBizExcluded ? '' : pct === 0 ? '' : isOver
                               ? `−${Math.abs(Math.round(remainingDays))}d`
                               : `${Math.round(remainingDays)}d free`}
                           </div>
