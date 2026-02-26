@@ -36,14 +36,21 @@ function isPastQuarter(q: string, current: string): boolean {
   return Number(ql.slice(1)) < Number(cl.slice(1));
 }
 
-// ── Heatmap color scale (6-tier, matches team-view spec) ─────────────────────
-function getCellStyle(pct: number): { background: string; color: string; borderLeft?: string } {
-  if (pct === 0)        return { background: '#FFFFFF', color: '#94a3b8' };
-  if (pct <= 40)        return { background: 'rgba(74,181,129,0.12)', color: '#2E7D5E' };
-  if (pct <= 70)        return { background: 'rgba(74,181,129,0.30)', color: '#1A6649' };
-  if (pct <= 99)        return { background: 'rgba(74,181,129,0.55)', color: '#0F4D35' };
-  if (pct === 100)      return { background: 'rgba(74,181,129,0.80)', color: '#0A3324' };
-  /* > 100 overloaded */return { background: 'rgba(220,53,69,0.15)',  color: '#B02030', borderLeft: '2px solid #DC3545' };
+// ── Heatmap color scale (5-tier: green → amber → orange → red) ───────────────
+function getCellClass(pct: number): string {
+  if (pct === 0)  return 'cell-empty';
+  if (pct <= 60)  return 'cell-low';
+  if (pct <= 85)  return 'cell-moderate';
+  if (pct <= 100) return 'cell-high';
+  return 'cell-overloaded';
+}
+
+function getCellColor(pct: number): string {
+  if (pct === 0)  return '#AAAAAA';
+  if (pct <= 60)  return '#2A7A45';
+  if (pct <= 85)  return '#8A6000';
+  if (pct <= 100) return '#B04500';
+  return '#B02030';
 }
 
 
@@ -308,25 +315,20 @@ export function Dashboard() {
                         const remainingDays = cap.totalWorkdays - cap.usedDays;
 
                         if (timelineView === 'heatmap') {
-                          const cellStyle = getCellStyle(cap.usedPercent);
                           return (
                             <button
                               key={quarter}
                               onClick={() => handleCellClick(member.id, quarter)}
-                              className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
-                              style={{
-                                background: cellStyle.background,
-                                borderLeft: cellStyle.borderLeft ?? undefined,
-                                filter: isCellSelected ? undefined : 'none',
-                              }}
+                              className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${getCellClass(cap.usedPercent)} ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
+                              style={{ filter: isCellSelected ? undefined : 'none' }}
                               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
                               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
                               title={`${quarter} · ${cap.usedPercent}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
                             >
-                              <div className="text-sm font-bold tabular-nums leading-tight" style={{ color: cellStyle.color }}>
+                              <div className="text-sm font-bold tabular-nums leading-tight">
                                 {cap.usedPercent === 0 ? '—' : `${cap.usedPercent}%`}
                               </div>
-                              <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : '#94a3b8' }}>
+                              <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : 'inherit' }}>
                                 {cap.usedPercent === 0 ? '' : isOver
                                   ? `−${Math.abs(Math.round(remainingDays))}d`
                                   : `${Math.round(remainingDays)}d free`}
@@ -377,7 +379,7 @@ export function Dashboard() {
                       const cap = drillDown.capacity;
                       const pct = cap.usedPercent;
                       const isOver = pct > 100;
-                      const summaryStyle = getCellStyle(pct);
+                      const summaryCellColor = getCellColor(pct);
 
                       // Separate breakdown into work items vs. overhead
                       const workItems = cap.breakdown.filter(
@@ -488,13 +490,13 @@ export function Dashboard() {
                               <div className="space-y-2.5">
                                 {[
                                   { label: 'Available', value: `${cap.totalWorkdays}d`, color: 'text-slate-600 dark:text-slate-300' },
-                                  { label: 'Allocated', value: `${cap.usedDays.toFixed(1)}d`, color: summaryStyle.color },
+                                  { label: 'Allocated', value: `${cap.usedDays.toFixed(1)}d`, color: summaryCellColor },
                                   {
                                     label: 'Remaining',
                                     value: isOver ? `−${Math.abs(Math.round(remainingRaw))}d` : `${Math.round(remainingRaw)}d`,
                                     color: isOver ? '#B02030' : 'inherit',
                                   },
-                                  { label: 'Utilization', value: `${pct}%`, color: summaryStyle.color },
+                                  { label: 'Utilization', value: `${pct}%`, color: summaryCellColor },
                                 ].map(row => (
                                   <div key={row.label} className="flex items-center justify-between">
                                     <span className="text-xs text-slate-500 dark:text-slate-400">{row.label}</span>
@@ -508,7 +510,7 @@ export function Dashboard() {
                                   className="h-full rounded-full transition-all"
                                   style={{
                                     width: `${Math.min(100, pct)}%`,
-                                    background: summaryStyle.color,
+                                    background: summaryCellColor,
                                   }}
                                 />
                               </div>
@@ -555,21 +557,16 @@ export function Dashboard() {
                     const remainingDays = cell.availableDays - cell.allocatedDays;
 
                     if (timelineView === 'heatmap') {
-                      const cellStyle = getCellStyle(pct);
                       return (
                         <div
                           key={quarter}
-                          className="px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center"
-                          style={{
-                            background: cellStyle.background,
-                            borderLeft: cellStyle.borderLeft ?? undefined,
-                          }}
+                          className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center ${getCellClass(pct)}`}
                           title={`${quarter} · ${pct}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
                         >
-                          <div className="text-sm font-bold tabular-nums leading-tight" style={{ color: cellStyle.color }}>
+                          <div className="text-sm font-bold tabular-nums leading-tight">
                             {pct === 0 ? '—' : `${pct}%`}
                           </div>
-                          <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : '#94a3b8' }}>
+                          <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : 'inherit' }}>
                             {pct === 0 ? '' : isOver
                               ? `−${Math.abs(Math.round(remainingDays))}d`
                               : `${Math.round(remainingDays)}d free`}
@@ -607,11 +604,10 @@ export function Dashboard() {
               {/* Legend */}
               {timelineView === 'heatmap' ? (
                 <div className="flex items-center gap-4 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex-wrap">
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm border border-slate-200" style={{ background: 'rgba(74,181,129,0.12)' }} /><span className="text-[10px] text-slate-500">1–40%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(74,181,129,0.30)' }} /><span className="text-[10px] text-slate-500">41–70%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(74,181,129,0.55)' }} /><span className="text-[10px] text-slate-500">71–99%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(74,181,129,0.80)' }} /><span className="text-[10px] text-slate-500">100% full</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm border-l-2 border-red-500" style={{ background: 'rgba(220,53,69,0.15)' }} /><span className="text-[10px] text-slate-500">&gt;100% overloaded</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-low" /><span className="text-[10px] text-slate-500">1–60%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-moderate" /><span className="text-[10px] text-slate-500">61–85%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-high" /><span className="text-[10px] text-slate-500">86–100%</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-overloaded" /><span className="text-[10px] text-slate-500">Over 100%</span></div>
                   <div className="flex-1" />
                   <span className="text-[10px] text-slate-400">Click any IT cell to drill down</span>
                 </div>

@@ -53,6 +53,16 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   HEATMAP CELL TIERS — Green → Amber → Orange → Red
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.cell-empty      { background: #FFFFFF;                   color: #AAAAAA; }
+.cell-low        { background: rgba(74, 181, 100, 0.25);  color: #2A7A45; }
+.cell-moderate   { background: rgba(255, 193,  60, 0.30); color: #8A6000; }
+.cell-high       { background: rgba(255, 130,  50, 0.35); color: #B04500; }
+.cell-overloaded { background: rgba(220,  53,  69, 0.20); color: #B02030; border-left: 2px solid #DC3545; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    GANTT BAR — Continuation arrows (clip-left / clip-right)
    Rendered as CSS triangles via ::before / ::after INSIDE the bar.
    Do NOT set overflow:hidden on gantt rows — these pseudo-elements must be visible.
