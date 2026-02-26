@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List, Building2, Archive, ArchiveRestore, CheckSquare, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List, Building2, Archive, ArchiveRestore, CheckSquare, X, ArrowRightLeft, ChevronRight } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -10,7 +10,7 @@ import { TimeOffForm } from '../components/forms/TimeOffForm';
 import { MemberCalendarModal } from '../components/ui/MemberCalendarModal';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useCurrentState, useAppStore } from '../stores/appStore';
-import { deleteTeamMember, addBusinessContact, updateBusinessContact, deleteBusinessContact, bulkUpdateTeamMembers, bulkUpdateBusinessContacts } from '../stores/actions';
+import { deleteTeamMember, addBusinessContact, updateBusinessContact, deleteBusinessContact, bulkUpdateTeamMembers, bulkUpdateBusinessContacts, upsertJiraItemBizAssignment } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
 import { calculateBusinessCapacityForQuarter } from '../utils/capacity';
 import { getCurrentQuarter } from '../utils/calendar';
@@ -78,6 +78,9 @@ export function Team() {
   const [bizFormOpen, setBizFormOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<BusinessContact | null>(null);
   const [bizDeleteConfirm, setBizDeleteConfirm] = useState<BusinessContact | null>(null);
+
+  // Convert IT → BIZ
+  const [convertMember, setConvertMember] = useState<TeamMember | null>(null);
 
   const currentQuarter = useMemo(() => getCurrentQuarter(), []);
 
@@ -490,6 +493,13 @@ export function Team() {
                           </div>
                           <div className="flex items-center gap-1 ml-2">
                             <button
+                              onClick={() => setConvertMember(member)}
+                              className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                              title="Convert to Business Contact"
+                            >
+                              <ArrowRightLeft size={14} />
+                            </button>
+                            <button
                               onClick={() => handleAddTimeOff(member.id)}
                               className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Manage Time Off"
@@ -683,6 +693,13 @@ export function Team() {
 
                       {/* Action buttons */}
                       <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => setConvertMember(member)}
+                          className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Convert to Business Contact"
+                        >
+                          <ArrowRightLeft size={13} />
+                        </button>
                         <button
                           onClick={() => handleAddTimeOff(member.id)}
                           className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
@@ -1079,6 +1096,46 @@ export function Team() {
         </p>
       </Modal>
 
+      {/* Convert IT → BIZ modal */}
+      {convertMember && (
+        <ConvertToBizModal
+          member={convertMember}
+          countries={countries}
+          processTeams={processTeams}
+          jiraWorkItems={state.jiraWorkItems}
+          onConfirm={(contactData, migrateKeys) => {
+            const snapshotMembers = JSON.parse(JSON.stringify(state.teamMembers));
+            const snapshotContacts = JSON.parse(JSON.stringify(state.businessContacts));
+            const snapshotBizAssignments = JSON.parse(JSON.stringify(state.jiraItemBizAssignments));
+
+            const newContact = addBusinessContact(contactData);
+            for (const key of migrateKeys) {
+              upsertJiraItemBizAssignment({ jiraKey: key, contactId: newContact.id, days: 0 });
+            }
+            deleteTeamMember(convertMember.id);
+            setConvertMember(null);
+            setActiveTab('biz');
+
+            showToast(`${convertMember.name} converted to Business Contact`, {
+              type: 'success',
+              duration: 10000,
+              action: {
+                label: 'Undo',
+                onClick: () => {
+                  useAppStore.getState().updateData({
+                    teamMembers: snapshotMembers,
+                    businessContacts: snapshotContacts,
+                    jiraItemBizAssignments: snapshotBizAssignments,
+                  });
+                  showToast('Conversion undone', 'success');
+                },
+              },
+            });
+          }}
+          onClose={() => setConvertMember(null)}
+        />
+      )}
+
       {/* ── Bulk action bar ────────────────────────────────────────────────── */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-xl shadow-2xl">
@@ -1375,6 +1432,218 @@ function MassUpdateModal({
           </>
         )}
       </div>
+    </Modal>
+  );
+}
+
+// ─── Convert IT Member → Business Contact Modal ───────────────────────────────
+
+function ConvertToBizModal({
+  member, countries, processTeams, jiraWorkItems, onConfirm, onClose,
+}: {
+  member: TeamMember;
+  countries: ReturnType<typeof useCurrentState>['countries'];
+  processTeams: ProcessTeam[];
+  jiraWorkItems: ReturnType<typeof useCurrentState>['jiraWorkItems'];
+  onConfirm: (contactData: Omit<BusinessContact, 'id'>, migrateKeys: string[]) => void;
+  onClose: () => void;
+}) {
+  // ── Step state ──────────────────────────────────────────────────────────────
+  const [step, setStep] = useState<1 | 2>(1);
+
+  // ── Step 1: contact details (pre-filled from member) ────────────────────────
+  const [name, setName] = useState(member.name);
+  const [title, setTitle] = useState(member.role ?? '');
+  const [department, setDepartment] = useState('');
+  const [email, setEmail] = useState(member.email ?? '');
+  const [countryId, setCountryId] = useState(member.countryId ?? '');
+  const [bauReserveDays, setBauReserveDays] = useState('5');
+  const [selectedProcessTeamIds, setSelectedProcessTeamIds] = useState<string[]>([]);
+
+  const toggleProcessTeam = (id: string) =>
+    setSelectedProcessTeamIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+
+  // ── Step 2: Jira assignments to migrate ─────────────────────────────────────
+  // Match by assignee email (case-insensitive) or by assignee name if no email
+  const assignedItems = useMemo(() => {
+    const memberEmail = (member.email ?? '').toLowerCase();
+    const memberName = member.name.toLowerCase();
+    return jiraWorkItems.filter(item => {
+      if (memberEmail && item.assigneeEmail) {
+        return item.assigneeEmail.toLowerCase() === memberEmail;
+      }
+      if (memberName && item.assigneeName) {
+        return item.assigneeName.toLowerCase() === memberName;
+      }
+      return false;
+    });
+  }, [jiraWorkItems, member]);
+
+  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(() => new Set(assignedItems.map(i => i.jiraKey)));
+
+  const toggleKey = (key: string) =>
+    setCheckedKeys(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggleAll = () =>
+    setCheckedKeys(prev => prev.size === assignedItems.length ? new Set() : new Set(assignedItems.map(i => i.jiraKey)));
+
+  const step1Valid = name.trim().length > 0 && countryId.length > 0;
+
+  const fieldClass = "w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500";
+  const labelClass = "block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1";
+
+  const handleConfirm = () => {
+    onConfirm({
+      name: name.trim(),
+      title: title.trim() || undefined,
+      department: department.trim() || undefined,
+      email: email.trim() || undefined,
+      countryId,
+      workingDaysPerWeek: 5,
+      workingHoursPerDay: 8,
+      bauReserveDays: parseFloat(bauReserveDays) || 5,
+      processTeamIds: selectedProcessTeamIds,
+      archived: false,
+      projectIds: [],
+    }, Array.from(checkedKeys));
+  };
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={`Convert to Business Contact — Step ${step} of 2`}
+      size="md"
+      footer={
+        step === 1 ? (
+          <>
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button
+              disabled={!step1Valid}
+              onClick={() => setStep(2)}
+              className="flex items-center gap-1.5"
+            >
+              Next <ChevronRight size={14} />
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
+            <Button
+              onClick={handleConfirm}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              Convert {checkedKeys.size > 0 ? `& migrate ${checkedKeys.size} item${checkedKeys.size !== 1 ? 's' : ''}` : ''}
+            </Button>
+          </>
+        )
+      }
+    >
+      {step === 1 ? (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-lg text-xs text-purple-700 dark:text-purple-300">
+            <ArrowRightLeft size={13} className="shrink-0" />
+            <span><strong>{member.name}</strong> will be removed from IT members and added as a business contact. IT-specific data (skills, squad, assignments) will be dropped.</span>
+          </div>
+          <div>
+            <label className={labelClass}>Full name *</label>
+            <input className={fieldClass} value={name} onChange={e => setName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Job title</label>
+              <input className={fieldClass} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Finance Manager" />
+            </div>
+            <div>
+              <label className={labelClass}>Department</label>
+              <input className={fieldClass} value={department} onChange={e => setDepartment(e.target.value)} placeholder="e.g. Finance" />
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Email</label>
+            <input className={fieldClass} type="email" value={email} onChange={e => setEmail(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelClass}>Country *</label>
+            <select className={fieldClass} value={countryId} onChange={e => setCountryId(e.target.value)}>
+              <option value="">Select country…</option>
+              {countries.map(c => (
+                <option key={c.id} value={c.id}>{c.flag || '🏳️'} {c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>BAU reserve (days/qtr)</label>
+            <input className={fieldClass} type="number" min={0} max={65} step={1} value={bauReserveDays} onChange={e => setBauReserveDays(e.target.value)} />
+          </div>
+          {processTeams.length > 0 && (
+            <div>
+              <label className={labelClass}>Process teams</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {processTeams.map(pt => {
+                  const active = selectedProcessTeamIds.includes(pt.id);
+                  return (
+                    <button
+                      key={pt.id} type="button" onClick={() => toggleProcessTeam(pt.id)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        active ? 'bg-purple-600 border-purple-600 text-white' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-purple-400'
+                      }`}
+                    >{pt.name}</button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {assignedItems.length === 0 ? (
+            <div className="text-center py-6 text-slate-500 dark:text-slate-400 text-sm">
+              <Mail size={24} className="mx-auto mb-2 opacity-30" />
+              No Jira items found assigned to {member.name}.<br />
+              <span className="text-xs text-slate-400">The conversion will proceed without migrating any assignments.</span>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Select which Jira items to migrate to <strong>{name}</strong> as BIZ assignments (days = 0, fill in effort later via the Epics page).
+              </p>
+              <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-700">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  <input
+                    type="checkbox"
+                    checked={checkedKeys.size === assignedItems.length}
+                    onChange={toggleAll}
+                    className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  {checkedKeys.size === assignedItems.length ? 'Deselect all' : 'Select all'} ({assignedItems.length})
+                </label>
+                <span className="text-xs text-slate-400">{checkedKeys.size} selected</span>
+              </div>
+              <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                {assignedItems.map(item => (
+                  <label key={item.jiraKey} className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={checkedKeys.has(item.jiraKey)}
+                      onChange={() => toggleKey(item.jiraKey)}
+                      className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono font-semibold text-slate-400 shrink-0">{item.jiraKey}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide shrink-0">{item.typeName}</span>
+                      </div>
+                      <span className="text-sm text-slate-700 dark:text-slate-200 truncate block">{item.summary}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </Modal>
   );
 }
