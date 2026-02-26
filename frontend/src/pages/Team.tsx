@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List, Building2, Archive, ArchiveRestore, CheckSquare, ChevronDown, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List, Building2, Archive, ArchiveRestore, CheckSquare, X } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
