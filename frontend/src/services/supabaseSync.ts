@@ -635,22 +635,51 @@ const softDeleteMembers = async (idsToRemove: string[]) => {
   }
 };
 
+// Row without columns added after migration 004 and 017 — ultimate fallback
+const LEGACY_MEMBER_ROW = (m: TeamMember) => ({
+  id: m.id,
+  name: m.name,
+  role: m.role,
+  country_id: m.countryId,
+  skill_ids: m.skillIds,
+  max_concurrent_projects: m.maxConcurrentProjects,
+  email: m.email ?? null,
+  jira_account_id: m.jiraAccountId ?? null,
+  synced_from_jira: m.syncedFromJira ?? false,
+  needs_enrichment: m.needsEnrichment ?? false,
+  is_active: true,
+});
+
+// Row with migration 004 columns but without migration 017 (excluded_from_capacity)
+const MEMBER_ROW_NO_EXCLUDED = (m: TeamMember) => ({
+  ...LEGACY_MEMBER_ROW(m),
+  squad_id: m.squadId ?? null,
+  process_team_ids: m.processTeamIds ?? [],
+});
+
 async function syncTeamMembers(members: TeamMember[]): Promise<void> {
   try {
-    // Try with squad / process-team columns (migration 004)
+    // Full: squad/process (004) + excluded_from_capacity (017)
     await upsertAndPrune('team_members', members, EXTENDED_MEMBER_ROW, softDeleteMembers);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    // If the error is specifically about missing squad/process-team columns
-    // (migration 004 not yet applied), fall back to base columns only.
-    if (msg.includes('squad_id') || msg.includes('process_team_ids')) {
-      console.warn(
-        '[Sync] team_members: squad_id / process_team_ids columns missing — ' +
-        'falling back to base sync. Run supabase/migrations/004_squads_and_process_teams.sql to enable.'
-      );
-      await upsertAndPrune('team_members', members, BASE_MEMBER_ROW, softDeleteMembers);
+    if (msg.includes('excluded_from_capacity')) {
+      // Migration 017 not yet applied — drop that column and retry
+      console.warn('[Sync] team_members: excluded_from_capacity missing — run supabase/migrations/017_excluded_from_capacity.sql');
+      try {
+        await upsertAndPrune('team_members', members, MEMBER_ROW_NO_EXCLUDED, softDeleteMembers);
+      } catch (err2) {
+        const msg2 = err2 instanceof Error ? err2.message : String(err2);
+        if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
+          await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
+        } else { throw err2; }
+      }
+    } else if (msg.includes('squad_id') || msg.includes('process_team_ids')) {
+      // Migration 004 not yet applied — drop those columns
+      console.warn('[Sync] team_members: squad_id / process_team_ids missing — run supabase/migrations/004_squads_and_process_teams.sql');
+      await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
     } else {
-      throw err; // Re-throw unrelated errors
+      throw err;
     }
   }
 }
