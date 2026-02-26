@@ -160,3 +160,26 @@ Do NOT edit schema.sql directly. Migration files are numbered sequentially (e.g.
 All new TypeScript interfaces and types belong in `frontend/src/types/index.ts`.
 Do NOT scatter type definitions across component files. Inline type definitions are only
 acceptable for component-local state types (e.g. `type TabType = 'it' | 'biz' | 'all'`).
+
+---
+
+## 15. DOCS STAY IN SYNC — UPDATE ON EVERY COMMIT
+
+After every coding session that changes code, you MUST update documentation before committing.
+
+Trigger → what to update:
+- New or changed data entity (types/index.ts)   → docs/data-model.md
+- New or changed component / page               → docs/views/<view>.md or docs/architecture.md
+- New feature or view status change             → docs/README.md (views table)
+- Architectural change (store, sync, routing)   → docs/architecture.md
+- Any code change at all                        → docs/CHANGELOG.md (add entry at top)
+
+CHANGELOG entry format:
+  ## [YYYY-MM-DD] — <short title>
+  ### Added / Changed / Fixed
+  - one bullet per meaningful change
+  ### Docs updated
+  - list each doc file touched and what was updated
+
+Never commit code without a matching CHANGELOG.md entry.
+The CHANGELOG.md entry must be committed in the same commit as the code change.
