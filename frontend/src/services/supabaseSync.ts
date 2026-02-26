@@ -901,36 +901,76 @@ async function syncSettings(
 
 // ─── BUSINESS CONTACT SYNC ────────────────────────────────────────────────────
 
+// Full business contact row (all migrations applied)
+const FULL_BIZ_CONTACT_ROW = (c: BusinessContact) => ({
+  id: c.id,
+  name: c.name,
+  title: c.title ?? null,
+  department: c.department ?? null,
+  email: c.email ?? null,
+  country_id: c.countryId,
+  working_days_per_week: c.workingDaysPerWeek ?? 5,
+  working_hours_per_day: c.workingHoursPerDay ?? 8,
+  bau_reserve_days: c.bauReserveDays ?? 5,
+  process_team_ids: c.processTeamIds ?? [],
+  project_ids: c.projectIds ?? [],
+  notes: c.notes ?? null,
+  archived: c.archived ?? false,
+  excluded_from_capacity: c.excludedFromCapacity ?? false,
+  updated_at: new Date().toISOString(),
+});
+
+// Without excluded_from_capacity (migration 017 not yet run)
+const BIZ_CONTACT_ROW_NO_EXCLUDED = (c: BusinessContact) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { excluded_from_capacity: _excl, ...row } = FULL_BIZ_CONTACT_ROW(c);
+  return row;
+};
+
+// Without bau_reserve_days / process_team_ids / excluded_from_capacity (migration 016/017 not run)
+const LEGACY_BIZ_CONTACT_ROW = (c: BusinessContact) => ({
+  id: c.id,
+  name: c.name,
+  title: c.title ?? null,
+  department: c.department ?? null,
+  email: c.email ?? null,
+  country_id: c.countryId,
+  working_days_per_week: c.workingDaysPerWeek ?? 5,
+  working_hours_per_day: c.workingHoursPerDay ?? 8,
+  project_ids: c.projectIds ?? [],
+  notes: c.notes ?? null,
+  archived: c.archived ?? false,
+  updated_at: new Date().toISOString(),
+});
+
 async function syncBusinessContacts(contacts: BusinessContact[]): Promise<void> {
   try {
-    await upsertAndPrune(
-      'business_contacts',
-      contacts,
-      c => ({
-        id: c.id,
-        name: c.name,
-        title: c.title ?? null,
-        department: c.department ?? null,
-        email: c.email ?? null,
-        country_id: c.countryId,
-        working_days_per_week: c.workingDaysPerWeek ?? 5,
-        working_hours_per_day: c.workingHoursPerDay ?? 8,
-        bau_reserve_days: c.bauReserveDays ?? 5,
-        process_team_ids: c.processTeamIds ?? [],
-        project_ids: c.projectIds ?? [],
-        notes: c.notes ?? null,
-        archived: c.archived ?? false,
-        excluded_from_capacity: c.excludedFromCapacity ?? false,
-        updated_at: new Date().toISOString(),
-      })
-    );
+    await upsertAndPrune('business_contacts', contacts, FULL_BIZ_CONTACT_ROW);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('business_contacts') && (msg.includes('not found') || msg.includes('does not exist') || msg.includes('relation'))) {
+    // Table doesn't exist at all — only skip for table-level errors, not column errors
+    if (!msg.includes('column') && (msg.includes('relation "business_contacts" does not exist') || msg.includes('table "business_contacts" does not exist'))) {
       console.warn('[Sync] business_contacts table not found — run migration 011. Skipping.');
       return;
     }
-    throw err;
+    if (msg.includes('excluded_from_capacity')) {
+      // Migration 017 not applied to business_contacts — drop that column and retry
+      console.warn('[Sync] business_contacts: excluded_from_capacity missing — run supabase/migrations/017_excluded_from_capacity.sql');
+      try {
+        await upsertAndPrune('business_contacts', contacts, BIZ_CONTACT_ROW_NO_EXCLUDED);
+      } catch (err2) {
+        const msg2 = err2 instanceof Error ? err2.message : String(err2);
+        if (msg2.includes('bau_reserve_days') || msg2.includes('process_team_ids')) {
+          await upsertAndPrune('business_contacts', contacts, LEGACY_BIZ_CONTACT_ROW);
+        } else { throw err2; }
+      }
+    } else if (msg.includes('bau_reserve_days') || msg.includes('process_team_ids')) {
+      // Migration 016 not applied — use legacy row
+      console.warn('[Sync] business_contacts: bau_reserve_days / process_team_ids missing — run supabase/migrations/016_biz_contacts_extra_cols.sql');
+      await upsertAndPrune('business_contacts', contacts, LEGACY_BIZ_CONTACT_ROW);
+    } else {
+      throw err;
+    }
   }
 }
 
