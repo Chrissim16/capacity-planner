@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, Fragment } from 'react';
 import {
-  Users, FolderKanban, AlertTriangle, TrendingUp, CalendarOff, X,
+  Users, FolderKanban, AlertTriangle, TrendingUp, X,
   ChevronRight, CheckCircle2, Circle, Link2, Zap, Globe,
   Clock, PlayCircle, Flag,
 } from 'lucide-react';
@@ -34,6 +34,16 @@ function isPastQuarter(q: string, current: string): boolean {
   const [cl, cy] = current.split(' ');
   if (qy !== cy) return Number(qy) < Number(cy);
   return Number(ql.slice(1)) < Number(cl.slice(1));
+}
+
+// ── Heatmap color scale (6-tier, matches team-view spec) ─────────────────────
+function getCellStyle(pct: number): { background: string; color: string; borderLeft?: string } {
+  if (pct === 0)        return { background: '#FFFFFF', color: '#94a3b8' };
+  if (pct <= 40)        return { background: 'rgba(74,181,129,0.12)', color: '#2E7D5E' };
+  if (pct <= 70)        return { background: 'rgba(74,181,129,0.30)', color: '#1A6649' };
+  if (pct <= 99)        return { background: 'rgba(74,181,129,0.55)', color: '#0F4D35' };
+  if (pct === 100)      return { background: 'rgba(74,181,129,0.80)', color: '#0A3324' };
+  /* > 100 overloaded */return { background: 'rgba(220,53,69,0.15)',  color: '#B02030', borderLeft: '2px solid #DC3545' };
 }
 
 function getMilestonesForQuarter(
@@ -343,33 +353,28 @@ export function Dashboard() {
                         const remainingDays = cap.totalWorkdays - cap.usedDays;
 
                         if (timelineView === 'heatmap') {
+                          const cellStyle = getCellStyle(cap.usedPercent);
                           return (
                             <button
                               key={quarter}
                               onClick={() => handleCellClick(member.id, quarter)}
-                              className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all
-                                ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}
-                                ${isOver
-                                  ? 'bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60'
-                                  : isWarn
-                                  ? 'bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50'
-                                  : 'bg-green-50 dark:bg-green-950/20 hover:bg-green-100 dark:hover:bg-green-950/40'
-                                }
-                              `}
+                              className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
+                              style={{
+                                background: cellStyle.background,
+                                borderLeft: cellStyle.borderLeft ?? undefined,
+                                filter: isCellSelected ? undefined : 'none',
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
+                              title={`${quarter} · ${cap.usedPercent}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
                             >
-                              <div className={`text-base font-bold tabular-nums leading-tight ${
-                                isOver ? 'text-red-700 dark:text-red-300'
-                                : isWarn ? 'text-amber-700 dark:text-amber-300'
-                                : 'text-green-700 dark:text-green-300'
-                              }`}>
-                                {cap.usedPercent}%
+                              <div className="text-sm font-bold tabular-nums leading-tight" style={{ color: cellStyle.color }}>
+                                {cap.usedPercent === 0 ? '—' : `${cap.usedPercent}%`}
                               </div>
-                              <div className={`text-[10px] mt-0.5 ${
-                                isOver ? 'text-red-500 dark:text-red-400'
-                                : isWarn ? 'text-amber-600 dark:text-amber-400'
-                                : 'text-green-600 dark:text-green-400'
-                              }`}>
-                                {isOver ? `−${Math.abs(Math.round(remainingDays))}d` : `${Math.round(remainingDays)}d free`}
+                              <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : '#94a3b8' }}>
+                                {cap.usedPercent === 0 ? '' : isOver
+                                  ? `−${Math.abs(Math.round(remainingDays))}d`
+                                  : `${Math.round(remainingDays)}d free`}
                               </div>
                             </button>
                           );
@@ -413,71 +418,150 @@ export function Dashboard() {
                     </div>
 
                     {/* Inline drill-down panel */}
-                    {isMemberSelected && drillDown && (
-                      <div className="border-b border-blue-100 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20">
-                        <div className="px-5 py-4">
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <h3 className="font-semibold text-slate-900 dark:text-white">{drillDown.member.name}</h3>
-                              <p className="text-sm text-slate-500 dark:text-slate-400">
-                                {drillDown.member.role} · {drillDown.quarter}
-                              </p>
+                    {isMemberSelected && drillDown && (() => {
+                      const cap = drillDown.capacity;
+                      const pct = cap.usedPercent;
+                      const isOver = pct > 100;
+                      const summaryStyle = getCellStyle(pct);
+
+                      // Separate breakdown into work items vs. overhead
+                      const workItems = cap.breakdown.filter(
+                        (b: CapacityBreakdownItem) => b.type === 'jira' || b.type === 'project'
+                      );
+                      const overhead = cap.breakdown.filter(
+                        (b: CapacityBreakdownItem) => b.type === 'bau' || b.type === 'timeoff'
+                      );
+
+                      // Build Epic › Feature breadcrumb for Jira items
+                      const jiraMap = new Map(state.jiraWorkItems.map(i => [i.jiraKey, i]));
+                      const getBreadcrumb = (jiraKey: string): string => {
+                        const item = jiraMap.get(jiraKey);
+                        if (!item) return '';
+                        const parent = item.parentKey ? jiraMap.get(item.parentKey) : undefined;
+                        const grandParent = parent?.parentKey ? jiraMap.get(parent.parentKey) : undefined;
+                        const parts: string[] = [];
+                        if (grandParent) parts.push(grandParent.summary);
+                        else if (parent) parts.push(parent.summary);
+                        if (grandParent && parent) parts.push(parent.summary);
+                        return parts.join(' › ');
+                      };
+
+                      const typePillClass = (type: string) => {
+                        switch (type.toLowerCase()) {
+                          case 'story': return 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800';
+                          case 'uat': return 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/30 dark:text-amber-300';
+                          case 'hypercare': return 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/30 dark:text-purple-300';
+                          default: return 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
+                        }
+                      };
+
+                      const remainingRaw = cap.totalWorkdays - cap.usedDays;
+
+                      return (
+                        <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                          {/* Panel header */}
+                          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                {drillDown.quarter} — {drillDown.member.name}
+                              </span>
+                              {drillDown.member.role && (
+                                <span className="text-xs text-slate-400">{drillDown.member.role}</span>
+                              )}
                             </div>
-                            <div className="flex items-center gap-3">
-                              <CapacityBadge capacity={drillDown.capacity} />
-                              <button
-                                onClick={() => setSelectedCell(null)}
-                                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
-                              >
-                                <X size={16} />
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => setSelectedCell(null)}
+                              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
+                            >
+                              <X size={15} />
+                            </button>
                           </div>
 
-                          <div className="flex items-center gap-2 mb-5">
-                            <div className="flex-1 h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  drillDown.capacity.status === 'overallocated' ? 'bg-red-500'
-                                  : drillDown.capacity.status === 'warning' ? 'bg-amber-500'
-                                  : 'bg-green-500'
-                                }`}
-                                style={{ width: `${Math.min(100, drillDown.capacity.usedPercent)}%` }}
-                              />
+                          {/* Two-column body */}
+                          <div className="grid grid-cols-[1fr_180px] gap-0 px-5 py-4">
+                            {/* Left — assigned work */}
+                            <div className="pr-6 min-w-0">
+                              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Assigned Work</p>
+                              {workItems.length === 0 && overhead.length === 0 ? (
+                                <p className="text-sm italic text-slate-400">No work assigned this quarter.</p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {workItems.map((item: CapacityBreakdownItem, i: number) => {
+                                    const breadcrumb = item.jiraKey ? getBreadcrumb(item.jiraKey) : (item.phaseName ? `${item.projectName} › ${item.phaseName}` : item.projectName ?? '');
+                                    const label = item.jiraSummary ?? item.phaseName ?? item.projectName ?? '—';
+                                    const typeLabel = item.type === 'jira' ? 'Story' : 'Project';
+                                    return (
+                                      <div key={i} className="flex items-start gap-2 pl-2 border-l-2 border-blue-200 dark:border-blue-800">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                            {item.jiraKey && (
+                                              <span className="text-[9px] font-mono text-slate-400 shrink-0">{item.jiraKey}</span>
+                                            )}
+                                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${typePillClass(typeLabel)}`}>{typeLabel.toUpperCase()}</span>
+                                          </div>
+                                          <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate mt-0.5">{label}</p>
+                                          {breadcrumb && (
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{breadcrumb}</p>
+                                          )}
+                                        </div>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0 pt-3 tabular-nums">{item.days.toFixed(1)}d</span>
+                                      </div>
+                                    );
+                                  })}
+                                  {overhead.map((item: CapacityBreakdownItem, i: number) => (
+                                    <div key={`oh-${i}`} className="flex items-center gap-2 pl-2 border-l-2 border-slate-200 dark:border-slate-700">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${typePillClass(item.type)}`}>
+                                            {item.type === 'bau' ? 'BAU' : 'TIME OFF'}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                          {item.type === 'bau' ? 'BAU Reserve' : 'Time Off'}
+                                        </p>
+                                      </div>
+                                      <span className="text-xs text-slate-400 shrink-0 tabular-nums">{item.days.toFixed(1)}d</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 w-20 text-right">
-                              {drillDown.capacity.usedDays.toFixed(1)}d / {drillDown.capacity.totalWorkdays}d
-                            </span>
-                          </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {drillDown.capacity.breakdown.map((item: CapacityBreakdownItem, i: number) => (
-                              <BreakdownCard key={i} item={item} />
-                            ))}
-                            <div className={`rounded-lg p-3 border ${
-                              drillDown.capacity.status === 'overallocated'
-                                ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'
-                                : drillDown.capacity.status === 'warning'
-                                ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'
-                                : 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
-                            }`}>
-                              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
-                                {drillDown.capacity.availableDaysRaw < 0 ? 'Over-allocated by' : 'Available'}
+                            {/* Right — quarter summary */}
+                            <div className="border-l border-slate-100 dark:border-slate-800 pl-5">
+                              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Quarter Summary</p>
+                              <div className="space-y-2.5">
+                                {[
+                                  { label: 'Available', value: `${cap.totalWorkdays}d`, color: 'text-slate-600 dark:text-slate-300' },
+                                  { label: 'Allocated', value: `${cap.usedDays.toFixed(1)}d`, color: summaryStyle.color },
+                                  {
+                                    label: 'Remaining',
+                                    value: isOver ? `−${Math.abs(Math.round(remainingRaw))}d` : `${Math.round(remainingRaw)}d`,
+                                    color: isOver ? '#B02030' : 'inherit',
+                                  },
+                                  { label: 'Utilization', value: `${pct}%`, color: summaryStyle.color },
+                                ].map(row => (
+                                  <div key={row.label} className="flex items-center justify-between">
+                                    <span className="text-xs text-slate-500 dark:text-slate-400">{row.label}</span>
+                                    <span className="text-xs font-semibold tabular-nums" style={{ color: row.color }}>{row.value}</span>
+                                  </div>
+                                ))}
                               </div>
-                              <div className={`text-lg font-bold ${
-                                drillDown.capacity.status === 'overallocated' ? 'text-red-700 dark:text-red-300'
-                                : drillDown.capacity.status === 'warning' ? 'text-amber-700 dark:text-amber-300'
-                                : 'text-green-700 dark:text-green-300'
-                              }`}>
-                                {drillDown.capacity.availableDaysRaw < 0
-                                  ? `${Math.abs(drillDown.capacity.availableDaysRaw).toFixed(1)}d`
-                                  : `${drillDown.capacity.availableDays.toFixed(1)}d`}
+                              {/* Mini utilization bar */}
+                              <div className="mt-4 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${Math.min(100, pct)}%`,
+                                    background: summaryStyle.color,
+                                  }}
+                                />
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </Fragment>
                 );
               })}
@@ -786,24 +870,6 @@ function Stat({ icon: Icon, label, value, color }: {
   );
 }
 
-function CapacityBadge({ capacity }: { capacity: CapacityResult }) {
-  const cls =
-    capacity.status === 'overallocated'
-      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-      : capacity.status === 'warning'
-      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-      : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
-  const label =
-    capacity.status === 'overallocated' ? 'Over-allocated'
-    : capacity.status === 'warning' ? 'High utilization'
-    : 'Available';
-  return (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${cls}`}>
-      {capacity.usedPercent}% · {label}
-    </span>
-  );
-}
-
 // ─── Onboarding Checklist ────────────────────────────────────────────────────
 
 function OnboardingChecklist({ state, navigate }: {
@@ -909,45 +975,3 @@ function OnboardingChecklist({ state, navigate }: {
   );
 }
 
-function BreakdownCard({ item }: { item: CapacityBreakdownItem }) {
-  if (item.type === 'bau') {
-    return (
-      <div className="rounded-lg p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-        <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">BAU Reserve</div>
-        <div className="text-lg font-bold text-slate-700 dark:text-slate-300">{item.days}d</div>
-      </div>
-    );
-  }
-  if (item.type === 'timeoff') {
-    return (
-      <div className="rounded-lg p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
-        <div className="text-xs text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-1">
-          <CalendarOff size={11} />
-          Time Off
-        </div>
-        <div className="text-lg font-bold text-amber-700 dark:text-amber-300">{item.days}d</div>
-      </div>
-    );
-  }
-  if (item.type === 'jira') {
-    return (
-      <div className="rounded-lg p-3 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800">
-        <div className="text-xs text-indigo-600 dark:text-indigo-400 mb-1 truncate flex items-center gap-1" title={`${item.jiraKey}: ${item.jiraSummary}`}>
-          <Zap size={11} />
-          {item.jiraKey}
-          {item.jiraSummary && <span className="text-indigo-400 dark:text-indigo-500 truncate"> {item.jiraSummary}</span>}
-        </div>
-        <div className="text-lg font-bold text-indigo-700 dark:text-indigo-300">{item.days}d</div>
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-lg p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
-      <div className="text-xs text-blue-600 dark:text-blue-400 mb-1 truncate" title={`${item.projectName} / ${item.phaseName}`}>
-        {item.projectName}
-        {item.phaseName && <span className="text-blue-400 dark:text-blue-500"> / {item.phaseName}</span>}
-      </div>
-      <div className="text-lg font-bold text-blue-700 dark:text-blue-300">{item.days}d</div>
-    </div>
-  );
-}
