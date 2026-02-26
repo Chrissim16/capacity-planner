@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List, Building2, Archive, ArchiveRestore } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -10,9 +10,11 @@ import { TimeOffForm } from '../components/forms/TimeOffForm';
 import { MemberCalendarModal } from '../components/ui/MemberCalendarModal';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useCurrentState, useAppStore } from '../stores/appStore';
-import { deleteTeamMember } from '../stores/actions';
+import { deleteTeamMember, addBusinessContact, updateBusinessContact, deleteBusinessContact } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
-import type { TeamMember } from '../types';
+import { calculateBusinessCapacityForQuarter } from '../utils/capacity';
+import { getCurrentQuarter } from '../utils/calendar';
+import type { TeamMember, BusinessContact } from '../types';
 
 export function Team() {
   const state = useCurrentState();
@@ -131,6 +133,26 @@ export function Team() {
   const activeScenarioId = useAppStore(s => s.data.activeScenarioId);
   const activeScenario = useAppStore(s => s.data.scenarios.find(sc => sc.id === s.data.activeScenarioId));
 
+  // Tab switcher: IT Members vs Business Contacts
+  const [activeTab, setActiveTab] = useState<'it' | 'biz'>('it');
+
+  // Business contacts state
+  const [bizFormOpen, setBizFormOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<BusinessContact | null>(null);
+  const [bizSearch, setBizSearch] = useState('');
+  const [bizDeleteConfirm, setBizDeleteConfirm] = useState<BusinessContact | null>(null);
+
+  const currentQuarter = useMemo(() => getCurrentQuarter(), []);
+
+  const filteredContacts = useMemo(() => {
+    const lower = bizSearch.toLowerCase();
+    return state.businessContacts.filter(c =>
+      !lower || c.name.toLowerCase().includes(lower) ||
+      (c.department ?? '').toLowerCase().includes(lower) ||
+      (c.title ?? '').toLowerCase().includes(lower)
+    );
+  }, [state.businessContacts, bizSearch]);
+
   // View mode: card grid or compact list
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
@@ -165,14 +187,57 @@ export function Team() {
       )}
       <PageHeader
         title="Team"
-        subtitle={`${filteredMembers.length} members · ${countries.length} countries · VS Finance`}
+        subtitle={activeTab === 'it'
+          ? `${filteredMembers.length} members · ${countries.length} countries · VS Finance`
+          : `${filteredContacts.length} business contacts`}
         actions={
-          <Button onClick={() => setIsMemberFormOpen(true)}>
-            <Plus size={16} />
-            Add Member
-          </Button>
+          activeTab === 'it' ? (
+            <Button onClick={() => setIsMemberFormOpen(true)}>
+              <Plus size={16} />
+              Add Member
+            </Button>
+          ) : (
+            <Button onClick={() => { setEditingContact(null); setBizFormOpen(true); }}>
+              <Plus size={16} />
+              Add Contact
+            </Button>
+          )
         }
       />
+
+      {/* Tab switcher */}
+      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-700">
+        <button
+          onClick={() => setActiveTab('it')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'it'
+              ? 'border-[#0089DD] text-[#0089DD]'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          <Users size={15} />
+          IT Members
+          <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'it' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
+            {teamMembers.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('biz')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'biz'
+              ? 'border-purple-600 text-purple-600'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          <Building2 size={15} />
+          Business Contacts
+          <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'biz' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
+            {state.businessContacts.filter(c => !c.archived).length}
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'it' && <>
 
       {/* Enrichment banner — shown when Jira-imported members are missing role/country */}
       {needsEnrichmentMembers.length > 0 && (
@@ -580,6 +645,134 @@ export function Team() {
         </Card>
       )}
 
+      </> /* end activeTab === 'it' */}
+
+      {/* ── Business Contacts Tab ─────────────────────────────────────────── */}
+      {activeTab === 'biz' && (
+        <div className="space-y-4">
+          {/* Search */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-[200px] relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search business contacts…"
+                value={bizSearch}
+                onChange={e => setBizSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          </div>
+
+          {filteredContacts.length === 0 ? (
+            <Card>
+              <CardContent>
+                {state.businessContacts.length === 0 ? (
+                  <EmptyState
+                    icon={Building2}
+                    title="No business contacts yet"
+                    description="Add business contacts to track their availability and effort on Jira items alongside IT capacity."
+                    action={{ label: 'Add first contact', onClick: () => { setEditingContact(null); setBizFormOpen(true); } }}
+                  />
+                ) : (
+                  <EmptyState
+                    icon={Filter}
+                    title="No matches"
+                    description="No contacts match your search."
+                  />
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Active contacts */}
+              {filteredContacts.filter(c => !c.archived).length > 0 && (
+                <div>
+                  <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wide">
+                    Active ({filteredContacts.filter(c => !c.archived).length})
+                  </h2>
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredContacts.filter(c => !c.archived).map(contact => (
+                      <BizContactCard
+                        key={contact.id}
+                        contact={contact}
+                        currentQuarter={currentQuarter}
+                        state={state}
+                        countries={countries}
+                        onEdit={() => { setEditingContact(contact); setBizFormOpen(true); }}
+                        onArchive={() => updateBusinessContact(contact.id, { archived: true })}
+                        onDelete={() => setBizDeleteConfirm(contact)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Archived contacts */}
+              {filteredContacts.filter(c => c.archived).length > 0 && (
+                <div>
+                  <h2 className="text-sm font-medium text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-wide">
+                    Archived ({filteredContacts.filter(c => c.archived).length})
+                  </h2>
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 opacity-60">
+                    {filteredContacts.filter(c => c.archived).map(contact => (
+                      <BizContactCard
+                        key={contact.id}
+                        contact={contact}
+                        currentQuarter={currentQuarter}
+                        state={state}
+                        countries={countries}
+                        onEdit={() => { setEditingContact(contact); setBizFormOpen(true); }}
+                        onArchive={() => updateBusinessContact(contact.id, { archived: false })}
+                        onDelete={() => setBizDeleteConfirm(contact)}
+                        isArchived
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Business Contact Form Modal */}
+      {bizFormOpen && (
+        <BizContactFormModal
+          contact={editingContact}
+          countries={countries}
+          onSave={data => {
+            if (editingContact) {
+              updateBusinessContact(editingContact.id, data);
+            } else {
+              addBusinessContact(data);
+            }
+            setBizFormOpen(false);
+            setEditingContact(null);
+          }}
+          onClose={() => { setBizFormOpen(false); setEditingContact(null); }}
+        />
+      )}
+
+      {/* Business Contact Delete Confirmation */}
+      <Modal
+        isOpen={!!bizDeleteConfirm}
+        onClose={() => setBizDeleteConfirm(null)}
+        title="Remove Business Contact"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setBizDeleteConfirm(null)}>Cancel</Button>
+            <Button variant="danger" onClick={() => {
+              if (bizDeleteConfirm) { deleteBusinessContact(bizDeleteConfirm.id); setBizDeleteConfirm(null); }
+            }}>Remove</Button>
+          </>
+        }
+      >
+        <p className="text-slate-600 dark:text-slate-300">
+          Are you sure you want to remove <strong>{bizDeleteConfirm?.name}</strong>? This will also remove their capacity assignments.
+        </p>
+      </Modal>
+
       {/* Team Member Form Modal */}
       <TeamMemberForm
         isOpen={isMemberFormOpen}
@@ -624,5 +817,188 @@ export function Team() {
         </p>
       </Modal>
     </div>
+  );
+}
+
+// ─── Business Contact Card ────────────────────────────────────────────────────
+
+function BizContactCard({
+  contact, currentQuarter, state, countries,
+  onEdit, onArchive, onDelete, isArchived = false,
+}: {
+  contact: BusinessContact;
+  currentQuarter: string;
+  state: ReturnType<typeof useCurrentState>;
+  countries: ReturnType<typeof useCurrentState>['countries'];
+  onEdit: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+  isArchived?: boolean;
+}) {
+  const country = countries.find(c => c.id === contact.countryId);
+  const cap = useMemo(() => calculateBusinessCapacityForQuarter(
+    contact, currentQuarter,
+    state.businessAssignments, state.businessTimeOff, state.publicHolidays, state.projects,
+    state.jiraItemBizAssignments, state.jiraWorkItems
+  ), [contact, currentQuarter, state]);
+
+  const pct = cap.usedPercent;
+  const isOver = pct >= 100;
+  const isWarn = pct >= 80 && !isOver;
+
+  const initials = contact.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  return (
+    <Card className={`hover:border-purple-300 dark:hover:border-purple-700 transition-colors ${isArchived ? 'opacity-70' : ''}`}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 flex items-center justify-center text-sm font-bold text-purple-600 dark:text-purple-400 shrink-0">
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">{contact.name}</span>
+                <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-500 border border-purple-100 dark:border-purple-800 shrink-0">BIZ</span>
+              </div>
+              {(contact.title || contact.department) && (
+                <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{contact.title ?? contact.department}</p>
+              )}
+              {contact.email && (
+                <p className="text-xs text-slate-400 flex items-center gap-1 truncate mt-0.5">
+                  <Mail size={10} className="shrink-0" />{contact.email}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-0.5 ml-1 shrink-0">
+            <button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors" title="Edit">
+              <Edit2 size={13} />
+            </button>
+            <button onClick={onArchive} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors" title={isArchived ? 'Unarchive' : 'Archive'}>
+              {isArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+            </button>
+            <button onClick={onDelete} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors" title="Remove">
+              <Trash2 size={13} />
+            </button>
+          </div>
+        </div>
+
+        {/* Country + capacity row */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+          <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            {country ? `${country.flag || '🏳️'} ${country.name}` : '—'}
+          </span>
+          <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold ${
+            isOver ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+            : isWarn ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+            : pct > 0 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+            : 'bg-slate-50 dark:bg-slate-700/40 text-slate-400'
+          }`} title={`${currentQuarter} · ${cap.allocatedDays.toFixed(1)}d allocated of ${cap.availableDays.toFixed(1)}d available`}>
+            {pct > 0 ? `${pct}% · ${currentQuarter}` : `Free · ${currentQuarter}`}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Business Contact Form Modal ──────────────────────────────────────────────
+
+function BizContactFormModal({
+  contact, countries, onSave, onClose,
+}: {
+  contact: BusinessContact | null;
+  countries: ReturnType<typeof useCurrentState>['countries'];
+  onSave: (data: Omit<BusinessContact, 'id'>) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(contact?.name ?? '');
+  const [title, setTitle] = useState(contact?.title ?? '');
+  const [department, setDepartment] = useState(contact?.department ?? '');
+  const [email, setEmail] = useState(contact?.email ?? '');
+  const [countryId, setCountryId] = useState(contact?.countryId ?? '');
+  const [workingDaysPerWeek, setWorkingDaysPerWeek] = useState(String(contact?.workingDaysPerWeek ?? 5));
+  const [workingHoursPerDay, setWorkingHoursPerDay] = useState(String(contact?.workingHoursPerDay ?? 8));
+
+  const isValid = name.trim().length > 0 && countryId.length > 0;
+
+  const handleSave = () => {
+    if (!isValid) return;
+    onSave({
+      name: name.trim(),
+      title: title.trim() || undefined,
+      department: department.trim() || undefined,
+      email: email.trim() || undefined,
+      countryId,
+      workingDaysPerWeek: parseFloat(workingDaysPerWeek) || 5,
+      workingHoursPerDay: parseFloat(workingHoursPerDay) || 8,
+      archived: contact?.archived ?? false,
+      projectIds: contact?.projectIds ?? [],
+    });
+  };
+
+  const fieldClass = "w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500";
+  const labelClass = "block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1";
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={contact ? 'Edit Business Contact' : 'Add Business Contact'}
+      size="md"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={handleSave}
+            disabled={!isValid}
+            className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-40"
+          >
+            {contact ? 'Save changes' : 'Add contact'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className={labelClass}>Full name *</label>
+          <input className={fieldClass} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Jane Smith" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Job title</label>
+            <input className={fieldClass} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Finance Manager" />
+          </div>
+          <div>
+            <label className={labelClass}>Department</label>
+            <input className={fieldClass} value={department} onChange={e => setDepartment(e.target.value)} placeholder="e.g. Finance" />
+          </div>
+        </div>
+        <div>
+          <label className={labelClass}>Email</label>
+          <input className={fieldClass} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jane.smith@mileway.com" />
+        </div>
+        <div>
+          <label className={labelClass}>Country *</label>
+          <select className={fieldClass} value={countryId} onChange={e => setCountryId(e.target.value)}>
+            <option value="">Select country…</option>
+            {countries.map(c => (
+              <option key={c.id} value={c.id}>{c.flag || '🏳️'} {c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Working days / week</label>
+            <input className={fieldClass} type="number" min={1} max={7} step={0.5} value={workingDaysPerWeek} onChange={e => setWorkingDaysPerWeek(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelClass}>Working hours / day</label>
+            <input className={fieldClass} type="number" min={1} max={24} step={0.5} value={workingHoursPerDay} onChange={e => setWorkingHoursPerDay(e.target.value)} />
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }

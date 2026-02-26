@@ -433,6 +433,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       id: r.id,
       jiraKey: r.jira_key,
       contactId: r.contact_id,
+      days: r.days != null ? Number(r.days) : undefined,
       notes: r.notes ?? undefined,
     }));
 
@@ -955,6 +956,7 @@ async function syncJiraItemBizAssignments(items: JiraItemBizAssignment[]): Promi
         id: a.id,
         jira_key: a.jiraKey,
         contact_id: a.contactId,
+        days: a.days ?? null,
         notes: a.notes ?? null,
       })
     );

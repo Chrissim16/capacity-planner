@@ -1348,6 +1348,7 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
   const [openBizKey, setOpenBizKey] = useState<string | null>(null);
   const [bizShowAdd, setBizShowAdd] = useState(false);
   const [bizContactId, setBizContactId] = useState('');
+  const [bizDays, setBizDays] = useState('');
   const [bizNotes, setBizNotes] = useState('');
 
   const toggleExpand = (key: string) =>
@@ -1355,13 +1356,15 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
 
   const toggleBiz = (key: string) => {
     if (openBizKey === key) { setOpenBizKey(null); setBizShowAdd(false); }
-    else { setOpenBizKey(key); setBizShowAdd(false); setBizContactId(''); setBizNotes(''); }
+    else { setOpenBizKey(key); setBizShowAdd(false); setBizContactId(''); setBizDays(''); setBizNotes(''); }
   };
 
   const handleAddBiz = (jiraKey: string) => {
     if (!bizContactId) return;
-    upsertJiraItemBizAssignment({ jiraKey, contactId: bizContactId, notes: bizNotes.trim() || undefined });
-    setBizShowAdd(false); setBizContactId(''); setBizNotes('');
+    const days = parseFloat(bizDays);
+    if (isNaN(days) || days <= 0) return;
+    upsertJiraItemBizAssignment({ jiraKey, contactId: bizContactId, days, notes: bizNotes.trim() || undefined });
+    setBizShowAdd(false); setBizContactId(''); setBizDays(''); setBizNotes('');
   };
 
   const getItPeople = (item: JiraWorkItem): AvatarPerson[] =>
@@ -1418,10 +1421,12 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
       businessContacts={businessContacts}
       showAdd={bizShowAdd}
       contactId={bizContactId}
+      days={bizDays}
       notes={bizNotes}
-      onOpenAdd={() => { setBizShowAdd(true); setBizContactId(''); setBizNotes(''); }}
+      onOpenAdd={() => { setBizShowAdd(true); setBizContactId(''); setBizDays(''); setBizNotes(''); }}
       onCancelAdd={() => setBizShowAdd(false)}
       onContactChange={setBizContactId}
+      onDaysChange={setBizDays}
       onNotesChange={setBizNotes}
       onAdd={() => handleAddBiz(jiraKey)}
       onRemove={removeJiraItemBizAssignment}
@@ -1569,10 +1574,12 @@ interface JiraBizPanelProps {
   businessContacts: BusinessContact[];
   showAdd: boolean;
   contactId: string;
+  days: string;
   notes: string;
   onOpenAdd: () => void;
   onCancelAdd: () => void;
   onContactChange: (v: string) => void;
+  onDaysChange: (v: string) => void;
   onNotesChange: (v: string) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
@@ -1585,10 +1592,12 @@ function JiraBizPanel({
   businessContacts,
   showAdd,
   contactId,
+  days,
   notes,
   onOpenAdd,
   onCancelAdd,
   onContactChange,
+  onDaysChange,
   onNotesChange,
   onAdd,
   onRemove,
@@ -1596,10 +1605,11 @@ function JiraBizPanel({
 }: JiraBizPanelProps) {
   const commitments = allBizAssignments.filter(a => a.jiraKey === jiraKey);
   const contacts = businessContacts.filter(c => !c.archived);
+  const totalDays = commitments.reduce((s, a) => s + (a.days ?? 0), 0);
 
   return (
     <div className="flex justify-end px-4 pb-2">
-      <div className="w-72 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 shadow-md">
+      <div className="w-80 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 shadow-md">
         <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100 dark:border-purple-800/50">
           <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
             <Users size={11} />
@@ -1627,27 +1637,52 @@ function JiraBizPanel({
             const contact = businessContacts.find(bc => bc.id === c.contactId);
             if (!contact) return null;
             return (
-              <div key={c.id} className="flex items-center justify-between gap-2 group">
-                <span className="text-xs text-slate-700 dark:text-slate-300 truncate">{contact.name}</span>
-                {c.notes && <span className="text-[10px] text-slate-400 truncate italic">{c.notes}</span>}
+              <div key={c.id} className="flex items-center gap-2 group py-0.5 rounded px-1 hover:bg-purple-50 dark:hover:bg-purple-900/20">
+                <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                  {contact.name}
+                  {contact.title && <span className="font-normal text-slate-400"> — {contact.title}</span>}
+                </span>
+                {c.days != null && c.days > 0 && (
+                  <span className="shrink-0 text-xs font-bold text-purple-700 dark:text-purple-300">{c.days}d</span>
+                )}
+                {c.notes && <span className="shrink-0 text-[10px] text-slate-400 truncate max-w-[60px]" title={c.notes}>{c.notes}</span>}
                 <button onClick={() => onRemove(c.id)}
-                  className="text-red-400 hover:text-red-600 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  className="shrink-0 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
                   <X size={12} />
                 </button>
               </div>
             );
           })}
+          {commitments.length > 1 && totalDays > 0 && (
+            <div className="text-[10px] text-purple-500 dark:text-purple-400 font-medium pt-0.5 border-t border-purple-100 dark:border-purple-800/50">
+              {totalDays}d total · {commitments.length} contacts
+            </div>
+          )}
           {showAdd && (
             <div className="mt-1 pt-2 border-t border-purple-100 dark:border-purple-800/50 space-y-2">
-              <div>
-                <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Contact</label>
-                <select value={contactId} onChange={e => onContactChange(e.target.value)}
-                  className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
-                  <option value="">Select…</option>
-                  {contacts.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}{c.title ? ` — ${c.title}` : ''}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Contact</label>
+                  <select value={contactId} onChange={e => onContactChange(e.target.value)}
+                    className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <option value="">Select…</option>
+                    {contacts.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}{c.title ? ` — ${c.title}` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Days required</label>
+                  <input
+                    type="number"
+                    min="0.5"
+                    step="0.5"
+                    value={days}
+                    onChange={e => onDaysChange(e.target.value)}
+                    placeholder="e.g. 3"
+                    className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Notes (optional)</label>
@@ -1660,7 +1695,7 @@ function JiraBizPanel({
                   className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-2 py-1 transition-colors">
                   Cancel
                 </button>
-                <button type="button" onClick={onAdd} disabled={!contactId}
+                <button type="button" onClick={onAdd} disabled={!contactId || !days || parseFloat(days) <= 0}
                   className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                   Add
                 </button>

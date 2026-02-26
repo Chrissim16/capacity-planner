@@ -14,6 +14,8 @@ import type {
   BusinessContact,
   BusinessTimeOff,
   BusinessAssignment,
+  JiraItemBizAssignment,
+  JiraWorkItem,
   Project,
   PublicHoliday,
 } from '../types';
@@ -136,6 +138,10 @@ export function calculateBusinessCapacity(
  * Quarter-level business capacity — aggregates all weeks in a quarter.
  * Uses the existing quarterly workday calculation approach for compatibility
  * with the heatmap table (which is quarter-based).
+ *
+ * Optional jiraItemBizAssignments + jiraWorkItems: when provided, item-level
+ * effort (days on a specific Jira Feature/Story) is rolled up into the total
+ * for the quarter in which the item's sprint falls.
  */
 export function calculateBusinessCapacityForQuarter(
   contact: BusinessContact,
@@ -143,7 +149,9 @@ export function calculateBusinessCapacityForQuarter(
   businessAssignments: BusinessAssignment[],
   businessTimeOff: BusinessTimeOff[],
   publicHolidays: PublicHoliday[],
-  projects: Project[]
+  projects: Project[],
+  jiraItemBizAssignments?: JiraItemBizAssignment[],
+  jiraWorkItems?: JiraWorkItem[]
 ): BusinessCellData {
   const q = parseQuarter(quarterStr);
   if (!q) {
@@ -151,7 +159,48 @@ export function calculateBusinessCapacityForQuarter(
   }
   const weekStart = q.start.toISOString().slice(0, 10);
   const weekEnd   = q.end.toISOString().slice(0, 10);
-  return calculateBusinessCapacity(contact, weekStart, weekEnd, businessAssignments, businessTimeOff, publicHolidays, projects);
+  const base = calculateBusinessCapacity(contact, weekStart, weekEnd, businessAssignments, businessTimeOff, publicHolidays, projects);
+
+  // Roll up item-level Jira effort that falls within this quarter
+  const myItemAssignments = (jiraItemBizAssignments ?? []).filter(
+    a => a.contactId === contact.id && (a.days ?? 0) > 0
+  );
+  if (!myItemAssignments.length || !jiraWorkItems?.length) return base;
+
+  let jiraAllocated = 0;
+  const jiraBreakdown: BusinessCellData['breakdownByProject'] = [];
+
+  for (const a of myItemAssignments) {
+    const item = jiraWorkItems.find(w => w.jiraKey === a.jiraKey);
+    if (!item) continue;
+
+    // Derive the effective date: sprint end → sprint start → due date → start date
+    const effectiveDate = item.sprintEndDate ?? item.sprintStartDate ?? item.dueDate ?? item.startDate;
+    if (!effectiveDate) continue;
+
+    const d = new Date(effectiveDate + 'T00:00:00');
+    if (d < q.start || d > q.end) continue;
+
+    jiraAllocated += a.days!;
+    jiraBreakdown.push({
+      projectId: a.jiraKey,
+      projectName: `${item.jiraKey}: ${item.summary}`,
+      days: a.days!,
+      notes: a.notes,
+    });
+  }
+
+  if (jiraAllocated === 0) return base;
+
+  const newAllocated = base.allocatedDays + jiraAllocated;
+  const utilisationPct = base.availableDays > 0 ? newAllocated / base.availableDays : 0;
+  return {
+    ...base,
+    allocatedDays: newAllocated,
+    usedPercent: Math.round(utilisationPct * 100),
+    utilisationPct,
+    breakdownByProject: [...base.breakdownByProject, ...jiraBreakdown],
+  };
 }
 
 /** Map a Jira sprint name to a quarter string ("Q1 2026") using configured sprints. */

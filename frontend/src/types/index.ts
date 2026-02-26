@@ -217,6 +217,8 @@ export interface JiraItemBizAssignment {
   /** Jira issue key, e.g. "ERP-1976" — must match JiraWorkItem.jiraKey */
   jiraKey: string;
   contactId: string;
+  /** Days of effort required from this business contact for this item */
+  days?: number;
   notes?: string;
 }
 

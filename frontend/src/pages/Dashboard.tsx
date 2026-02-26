@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, Fragment } from 'react';
 import {
   Users, FolderKanban, AlertTriangle, TrendingUp, CalendarOff, X,
   ChevronRight, CheckCircle2, Circle, Link2, Zap, Globe,
@@ -64,6 +64,7 @@ export function Dashboard() {
 
   const [selectedCell, setSelectedCell] = useState<{ memberId: string; quarter: string } | null>(null);
   const [peopleFilter, setPeopleFilter] = useState<PeopleFilter>('it_only');
+  const [timelineView, setTimelineView] = useState<'heatmap' | 'bars'>('heatmap');
 
   const warnings = useMemo(() => getWarnings(state), [state]);
 
@@ -143,7 +144,8 @@ export function Dashboard() {
       cells: yearQuarters.map(q => {
         const cell = calculateBusinessCapacityForQuarter(
           contact, q, state.businessAssignments, state.businessTimeOff,
-          state.publicHolidays, state.projects
+          state.publicHolidays, state.projects,
+          state.jiraItemBizAssignments, state.jiraWorkItems
         );
         return { quarter: q, cell };
       }),
@@ -227,6 +229,21 @@ export function Dashboard() {
               inline
             />
             <div className="flex items-center gap-2">
+              {/* Heatmap / Bars toggle */}
+              <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-xs font-medium">
+                <button
+                  onClick={() => setTimelineView('heatmap')}
+                  className={`px-2.5 py-1.5 transition-colors ${timelineView === 'heatmap' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                  Heatmap
+                </button>
+                <button
+                  onClick={() => setTimelineView('bars')}
+                  className={`px-2.5 py-1.5 border-l border-slate-200 dark:border-slate-700 transition-colors ${timelineView === 'bars' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                  Bars
+                </button>
+              </div>
               <select
                 value={peopleFilter}
                 onChange={e => setPeopleFilter(e.target.value as PeopleFilter)}
@@ -298,69 +315,170 @@ export function Dashboard() {
               {/* IT Member rows */}
               {peopleFilter !== 'business_only' && timelineData.map(({ member, cells }) => {
                 const country = state.countries.find(c => c.id === member.countryId);
-                const isSelected = cells.some(c => selectedCell?.memberId === member.id && selectedCell?.quarter === c.quarter);
+                const isMemberSelected = selectedCell?.memberId === member.id;
                 return (
-                  <div
-                    key={member.id}
-                    className={`grid border-b border-slate-50 dark:border-slate-800/50 last:border-0 transition-colors hover:bg-blue-50/30 dark:hover:bg-blue-900/5 ${isSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
-                    style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
-                  >
-                    {/* Identity */}
-                    <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
-                      <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
-                        {getInitials(member.name)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">{member.name}</div>
-                        <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
-                          {member.role}{country ? ` · ${country.code}` : ''}
+                  <Fragment key={member.id}>
+                    <div
+                      className={`grid border-b border-slate-50 dark:border-slate-800/50 transition-colors hover:bg-blue-50/30 dark:hover:bg-blue-900/5 ${isMemberSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                      style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
+                    >
+                      {/* Identity */}
+                      <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
+                          {getInitials(member.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">{member.name}</div>
+                          <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
+                            {member.role}{country ? ` · ${country.code}` : ''}
+                          </div>
                         </div>
                       </div>
+
+                      {/* Quarter cells */}
+                      {cells.map(({ quarter, cap, bauPct, timeOffPct, projectPct }) => {
+                        const isOver = cap.status === 'overallocated';
+                        const isWarn = cap.status === 'warning';
+                        const isCellSelected = isMemberSelected && selectedCell?.quarter === quarter;
+                        const remainingDays = cap.totalWorkdays - cap.usedDays;
+
+                        if (timelineView === 'heatmap') {
+                          return (
+                            <button
+                              key={quarter}
+                              onClick={() => handleCellClick(member.id, quarter)}
+                              className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all
+                                ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}
+                                ${isOver
+                                  ? 'bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60'
+                                  : isWarn
+                                  ? 'bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50'
+                                  : 'bg-green-50 dark:bg-green-950/20 hover:bg-green-100 dark:hover:bg-green-950/40'
+                                }
+                              `}
+                            >
+                              <div className={`text-base font-bold tabular-nums leading-tight ${
+                                isOver ? 'text-red-700 dark:text-red-300'
+                                : isWarn ? 'text-amber-700 dark:text-amber-300'
+                                : 'text-green-700 dark:text-green-300'
+                              }`}>
+                                {cap.usedPercent}%
+                              </div>
+                              <div className={`text-[10px] mt-0.5 ${
+                                isOver ? 'text-red-500 dark:text-red-400'
+                                : isWarn ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-green-600 dark:text-green-400'
+                              }`}>
+                                {isOver ? `−${Math.abs(Math.round(remainingDays))}d` : `${Math.round(remainingDays)}d free`}
+                              </div>
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button
+                            key={quarter}
+                            onClick={() => handleCellClick(member.id, quarter)}
+                            className={`px-3 py-3 border-l border-slate-100 dark:border-slate-800 text-left transition-colors
+                              ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}
+                              ${quarter === currentQuarter ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}
+                            `}
+                          >
+                            {/* Stacked bar */}
+                            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex mb-1.5">
+                              <div className="h-full bg-slate-300 dark:bg-slate-600" style={{ width: `${bauPct}%` }} />
+                              <div className="h-full bg-amber-300 dark:bg-amber-600" style={{ width: `${timeOffPct}%` }} />
+                              <div
+                                className={`h-full ${isOver ? 'bg-red-500' : isWarn ? 'bg-amber-400' : 'bg-blue-500'}`}
+                                style={{ width: `${projectPct}%` }}
+                              />
+                            </div>
+                            {/* Label */}
+                            <div className="flex items-center justify-between">
+                              <span className={`text-xs font-semibold ${
+                                isOver ? 'text-red-600 dark:text-red-400'
+                                : remainingDays < 10 ? 'text-amber-600 dark:text-amber-400'
+                                : remainingDays > 30 ? 'text-green-600 dark:text-green-400'
+                                : 'text-slate-700 dark:text-slate-300'
+                              }`}>
+                                {isOver ? `−${Math.abs(Math.round(remainingDays))}d` : `${Math.round(remainingDays)}d free`}
+                              </span>
+                              <span className={`text-[10px] ${isOver ? 'text-red-500 dark:text-red-400' : isWarn ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                                {cap.usedPercent}%
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
 
-                    {/* Quarter cells */}
-                    {cells.map(({ quarter, cap, bauPct, timeOffPct, projectPct }) => {
-                      const isOver = cap.status === 'overallocated';
-                      const isWarn = cap.status === 'warning';
-                      const isCellSelected = selectedCell?.memberId === member.id && selectedCell?.quarter === quarter;
-                      const remainingDays = cap.totalWorkdays - cap.usedDays;
+                    {/* Inline drill-down panel */}
+                    {isMemberSelected && drillDown && (
+                      <div className="border-b border-blue-100 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20">
+                        <div className="px-5 py-4">
+                          <div className="flex items-start justify-between mb-4">
+                            <div>
+                              <h3 className="font-semibold text-slate-900 dark:text-white">{drillDown.member.name}</h3>
+                              <p className="text-sm text-slate-500 dark:text-slate-400">
+                                {drillDown.member.role} · {drillDown.quarter}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <CapacityBadge capacity={drillDown.capacity} />
+                              <button
+                                onClick={() => setSelectedCell(null)}
+                                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          </div>
 
-                      return (
-                        <button
-                          key={quarter}
-                          onClick={() => handleCellClick(member.id, quarter)}
-                          className={`px-3 py-3 border-l border-slate-100 dark:border-slate-800 text-left transition-colors
-                            ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}
-                            ${quarter === currentQuarter ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}
-                          `}
-                        >
-                          {/* Stacked bar */}
-                          <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex mb-1.5">
-                            <div className="h-full bg-slate-300 dark:bg-slate-600" style={{ width: `${bauPct}%` }} />
-                            <div className="h-full bg-amber-300 dark:bg-amber-600" style={{ width: `${timeOffPct}%` }} />
-                            <div
-                              className={`h-full ${isOver ? 'bg-red-500' : isWarn ? 'bg-amber-400' : 'bg-blue-500'}`}
-                              style={{ width: `${projectPct}%` }}
-                            />
+                          <div className="flex items-center gap-2 mb-5">
+                            <div className="flex-1 h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  drillDown.capacity.status === 'overallocated' ? 'bg-red-500'
+                                  : drillDown.capacity.status === 'warning' ? 'bg-amber-500'
+                                  : 'bg-green-500'
+                                }`}
+                                style={{ width: `${Math.min(100, drillDown.capacity.usedPercent)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 w-20 text-right">
+                              {drillDown.capacity.usedDays.toFixed(1)}d / {drillDown.capacity.totalWorkdays}d
+                            </span>
                           </div>
-                          {/* Label */}
-                          <div className="flex items-center justify-between">
-                            <span className={`text-xs font-semibold ${
-                              isOver ? 'text-red-600 dark:text-red-400'
-                              : remainingDays < 10 ? 'text-amber-600 dark:text-amber-400'
-                              : remainingDays > 30 ? 'text-green-600 dark:text-green-400'
-                              : 'text-slate-700 dark:text-slate-300'
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {drillDown.capacity.breakdown.map((item: CapacityBreakdownItem, i: number) => (
+                              <BreakdownCard key={i} item={item} />
+                            ))}
+                            <div className={`rounded-lg p-3 border ${
+                              drillDown.capacity.status === 'overallocated'
+                                ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'
+                                : drillDown.capacity.status === 'warning'
+                                ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'
+                                : 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
                             }`}>
-                              {isOver ? `−${Math.abs(Math.round(remainingDays))}d` : `${Math.round(remainingDays)}d free`}
-                            </span>
-                            <span className={`text-[10px] ${isOver ? 'text-red-500 dark:text-red-400' : isWarn ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
-                              {cap.usedPercent}%
-                            </span>
+                              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                                {drillDown.capacity.availableDaysRaw < 0 ? 'Over-allocated by' : 'Available'}
+                              </div>
+                              <div className={`text-lg font-bold ${
+                                drillDown.capacity.status === 'overallocated' ? 'text-red-700 dark:text-red-300'
+                                : drillDown.capacity.status === 'warning' ? 'text-amber-700 dark:text-amber-300'
+                                : 'text-green-700 dark:text-green-300'
+                              }`}>
+                                {drillDown.capacity.availableDaysRaw < 0
+                                  ? `${Math.abs(drillDown.capacity.availableDaysRaw).toFixed(1)}d`
+                                  : `${drillDown.capacity.availableDays.toFixed(1)}d`}
+                              </div>
+                            </div>
                           </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                        </div>
+                      </div>
+                    )}
+                  </Fragment>
                 );
               })}
 
@@ -421,86 +539,30 @@ export function Dashboard() {
                 </div>
               ))}
 
-              {/* Bar legend */}
-              <div className="flex items-center gap-5 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                <LegendDot color="bg-slate-300 dark:bg-slate-600" label="BAU" />
-                <LegendDot color="bg-amber-300 dark:bg-amber-600" label="Time off" />
-                <LegendDot color="bg-blue-500" label="Projects" />
-                <LegendDot color="bg-red-500" label="Over-allocated" />
-                <div className="flex-1" />
-                <span className="text-[10px] text-slate-400">Click any cell to drill down</span>
-              </div>
+              {/* Legend */}
+              {timelineView === 'heatmap' ? (
+                <div className="flex items-center gap-5 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+                  <LegendDot color="bg-green-200 dark:bg-green-900/50" label="< 80% (available)" />
+                  <LegendDot color="bg-amber-200 dark:bg-amber-900/50" label="80–100% (busy)" />
+                  <LegendDot color="bg-red-200 dark:bg-red-900/50" label="> 100% (over-allocated)" />
+                  <div className="flex-1" />
+                  <span className="text-[10px] text-slate-400">Click any cell to drill down</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-5 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+                  <LegendDot color="bg-slate-300 dark:bg-slate-600" label="BAU" />
+                  <LegendDot color="bg-amber-300 dark:bg-amber-600" label="Time off" />
+                  <LegendDot color="bg-blue-500" label="Projects" />
+                  <LegendDot color="bg-red-500" label="Over-allocated" />
+                  <div className="flex-1" />
+                  <span className="text-[10px] text-slate-400">Click any cell to drill down</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </section>
       )}
 
-      {/* Drill-down panel */}
-      {drillDown && (
-        <Card className="border-blue-200 dark:border-blue-800">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">{drillDown.member.name}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {drillDown.member.role} · {drillDown.quarter}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <CapacityBadge capacity={drillDown.capacity} />
-                <button
-                  onClick={() => setSelectedCell(null)}
-                  className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 mb-5">
-              <div className="flex-1 h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    drillDown.capacity.status === 'overallocated' ? 'bg-red-500'
-                    : drillDown.capacity.status === 'warning' ? 'bg-amber-500'
-                    : 'bg-green-500'
-                  }`}
-                  style={{ width: `${Math.min(100, drillDown.capacity.usedPercent)}%` }}
-                />
-              </div>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 w-20 text-right">
-                {drillDown.capacity.usedDays.toFixed(1)}d / {drillDown.capacity.totalWorkdays}d
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {drillDown.capacity.breakdown.map((item: CapacityBreakdownItem, i: number) => (
-                <BreakdownCard key={i} item={item} />
-              ))}
-              <div className={`rounded-lg p-3 border ${
-                drillDown.capacity.status === 'overallocated'
-                  ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'
-                  : drillDown.capacity.status === 'warning'
-                  ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'
-                  : 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
-              }`}>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
-                  {drillDown.capacity.availableDaysRaw < 0 ? 'Over-allocated by' : 'Available'}
-                </div>
-                <div className={`text-lg font-bold ${
-                  drillDown.capacity.status === 'overallocated' ? 'text-red-700 dark:text-red-300'
-                  : drillDown.capacity.status === 'warning' ? 'text-amber-700 dark:text-amber-300'
-                  : 'text-green-700 dark:text-green-300'
-                }`}>
-                  {drillDown.capacity.availableDaysRaw < 0
-                    ? `${Math.abs(drillDown.capacity.availableDaysRaw).toFixed(1)}d`
-                    : `${drillDown.capacity.availableDays.toFixed(1)}d`}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
