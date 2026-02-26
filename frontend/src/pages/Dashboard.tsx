@@ -49,13 +49,8 @@ function getCellClass(pct: number): string {
 }
 
 function getCellColor(pct: number): string {
-  if (pct <= 10)  return '#BBBBBB';
-  if (pct <= 30)  return '#2A7A45';
-  if (pct <= 50)  return '#1A6435';
-  if (pct <= 70)  return '#8A6000';
-  if (pct <= 80)  return '#8A4500';
-  if (pct <= 90)  return '#B04500';
-  if (pct < 100)  return '#8B2500';
+  if (pct <= 10)  return '#94a3b8';
+  if (pct < 100)  return '#1A1A1A';
   return '#8B0000';
 }
 
