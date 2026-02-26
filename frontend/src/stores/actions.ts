@@ -386,6 +386,18 @@ export function deleteRole(roleId: string): void {
   state.updateData({ roles });
 }
 
+export function addProcessTeam(name: string): void {
+  const state = useAppStore.getState();
+  const processTeams = [...state.getCurrentState().processTeams, { id: generateId('pt'), name }];
+  state.updateData({ processTeams });
+}
+
+export function deleteProcessTeam(id: string): void {
+  const state = useAppStore.getState();
+  const processTeams = state.getCurrentState().processTeams.filter(p => p.id !== id);
+  state.updateData({ processTeams });
+}
+
 export function addSkill(name: string, category: 'System' | 'Process' | 'Technical'): void {
   const state = useAppStore.getState();
   const skills = [...state.getCurrentState().skills, { id: generateId('skill'), name, category }];
