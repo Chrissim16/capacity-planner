@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List, Building2, Archive, ArchiveRestore, CheckSquare, X, ArrowRightLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List, Building2, Archive, ArchiveRestore, CheckSquare, X, ArrowRightLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -1212,6 +1212,8 @@ function BizContactCard({
 
   const initials = contact.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <Card className={`hover:border-purple-300 dark:hover:border-purple-700 transition-colors ${isArchived ? 'opacity-70' : ''}`}>
       <CardContent className="p-4">
@@ -1236,15 +1238,46 @@ function BizContactCard({
             </div>
           </div>
           <div className="flex items-center gap-0.5 ml-1 shrink-0">
-            <button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors" title="Edit">
+            <button
+              onClick={onEdit}
+              className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+              title="Edit"
+            >
               <Edit2 size={13} />
             </button>
-            <button onClick={onArchive} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors" title={isArchived ? 'Unarchive' : 'Archive'}>
-              {isArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
-            </button>
-            <button onClick={onDelete} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors" title="Remove">
-              <Trash2 size={13} />
-            </button>
+            {/* Overflow menu */}
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(v => !v)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                title="More actions"
+              >
+                <MoreHorizontal size={13} />
+              </button>
+              {menuOpen && (
+                <>
+                  {/* Backdrop to close on outside click */}
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1">
+                    <button
+                      onClick={() => { onArchive(); setMenuOpen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors text-left"
+                    >
+                      {isArchived ? <ArchiveRestore size={13} className="text-slate-400" /> : <Archive size={13} className="text-slate-400" />}
+                      {isArchived ? 'Unarchive' : 'Archive'}
+                    </button>
+                    <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+                    <button
+                      onClick={() => { onDelete(); setMenuOpen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
+                    >
+                      <Trash2 size={13} />
+                      Remove
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 

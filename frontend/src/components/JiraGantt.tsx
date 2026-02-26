@@ -422,22 +422,50 @@ export function JiraGantt({
     return { vStart: now, vEnd: new Date(now.getTime() + 90 * 86400_000) };
   }, [viewMode, qtrIdx, quarters, allSprints, resolvedDates]);
 
+  // Unique sprint columns derived from actual Jira sprint data on work items
+  const jiraSprintCols = useMemo(() => {
+    if (viewMode !== 'quarter') return null;
+    const currentQ = quarters[qtrIdx] ?? '';
+    const map = new Map<string, { start: string; end: string }>();
+    items.forEach(item => {
+      if (item.sprintName && item.sprintStartDate && item.sprintEndDate) {
+        if (!map.has(item.sprintName)) {
+          const d = new Date(item.sprintStartDate + 'T00:00:00');
+          const q = `Q${Math.ceil((d.getMonth() + 1) / 3)} ${d.getFullYear()}`;
+          if (q === currentQ) map.set(item.sprintName, { start: item.sprintStartDate, end: item.sprintEndDate });
+        }
+      }
+    });
+    if (map.size === 0) return null;
+    return [...map.entries()]
+      .sort(([, a], [, b]) => a.start.localeCompare(b.start))
+      .map(([name, { start, end }]) => ({ name, start, end }));
+  }, [viewMode, qtrIdx, quarters, items]);
+
   // Column headers
   const columns = useMemo(() => {
     if (viewMode === 'year') {
       return quarters.slice(0, 4).map((q, i) => {
-        const qs = allSprints.filter(s => s.quarter === q).sort((a, b) => a.number - b.number);
-        return { label: q, sub: qs.length >= 2 ? `S${qs[0].number}–S${qs[qs.length - 1].number}` : '', isCurrent: i === qtrIdx };
+        const qs = allSprints.filter(s => s.quarter === q).sort((a, b) => a.startDate.localeCompare(b.startDate));
+        return { label: q, sub: qs.length >= 2 ? `${qs[0].name}–${qs[qs.length - 1].name}` : '', isCurrent: i === qtrIdx };
       });
     }
     const today = new Date().toISOString().slice(0, 10);
+    if (jiraSprintCols) {
+      return jiraSprintCols.map(sp => ({
+        label: sp.name,
+        sub: formatDateRange(sp.start, sp.end),
+        isCurrent: today >= sp.start && today <= sp.end,
+      }));
+    }
+    // Fallback to generated/saved sprints
     const qs = getSprintsForQuarter(quarters[qtrIdx] ?? '', allSprints).sort((a, b) => a.number - b.number);
     return qs.map(sp => ({
-      label: `S${sp.number}`,
+      label: sp.name,
       sub: formatDateRange(sp.startDate, sp.endDate),
       isCurrent: today >= sp.startDate && today <= sp.endDate,
     }));
-  }, [viewMode, qtrIdx, quarters, allSprints]);
+  }, [viewMode, qtrIdx, quarters, allSprints, jiraSprintCols]);
 
   const colCount = Math.max(columns.length, 1);
 
@@ -453,11 +481,16 @@ export function JiraGantt({
   const sprintHighlight = useMemo(() => {
     if (viewMode !== 'quarter') return null;
     const today = new Date().toISOString().slice(0, 10);
+    if (jiraSprintCols) {
+      const idx = jiraSprintCols.findIndex(s => today >= s.start && today <= s.end);
+      if (idx < 0) return null;
+      return { left: idx / colCount, width: 1 / colCount };
+    }
     const qs = getSprintsForQuarter(quarters[qtrIdx] ?? '', allSprints).sort((a, b) => a.number - b.number);
     const idx = qs.findIndex(s => today >= s.startDate && today <= s.endDate);
     if (idx < 0) return null;
     return { left: idx / colCount, width: 1 / colCount };
-  }, [viewMode, qtrIdx, quarters, allSprints, colCount]);
+  }, [viewMode, qtrIdx, quarters, allSprints, jiraSprintCols, colCount]);
 
   // Track which epic has the "+ Add Phase" form open
   const [addPhaseForEpic, setAddPhaseForEpic] = useState<string | null>(null);
