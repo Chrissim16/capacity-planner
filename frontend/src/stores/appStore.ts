@@ -163,6 +163,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 // UI STATE
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
+type DashboardPeopleFilter = 'it_only' | 'business_only' | 'both';
+
 interface UIState {
   currentView: ViewType;
   currentSettingsSection: string;
@@ -172,6 +174,7 @@ interface UIState {
   filters: Filters;
   projectFilters: ProjectFilters;
   projectSort: SortConfig;
+  dashboardPeopleFilter: DashboardPeopleFilter;
 }
 
 const defaultUIState: UIState = {
@@ -183,6 +186,7 @@ const defaultUIState: UIState = {
   filters: { member: [], system: [], status: [] },
   projectFilters: { search: '', priority: '', status: '', system: '' },
   projectSort: { field: 'name', direction: 'asc' },
+  dashboardPeopleFilter: 'both',
 };
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -315,6 +319,7 @@ interface AppStore {
   setProjectFilters: (filters: Partial<ProjectFilters>) => void;
   setProjectSort: (sort: SortConfig) => void;
   toggleDarkMode: () => void;
+  setDashboardPeopleFilter: (filter: DashboardPeopleFilter) => void;
 
   // Helper to get current state (respects scenarios)
   getCurrentState: () => AppState;
@@ -605,6 +610,9 @@ export const useAppStore = create<AppStore>()(
         );
       },
 
+      setDashboardPeopleFilter: (filter) =>
+        set((state) => ({ ui: { ...state.ui, dashboardPeopleFilter: filter } })),
+
       // Helper - returns current state respecting active scenario
       getCurrentState: () => {
         const state = get();
@@ -648,6 +656,7 @@ export const useAppStore = create<AppStore>()(
           teamViewMode: state.ui.teamViewMode,
           projectViewMode: state.ui.projectViewMode,
           timelineViewMode: state.ui.timelineViewMode,
+          dashboardPeopleFilter: state.ui.dashboardPeopleFilter,
         },
       }),
     }

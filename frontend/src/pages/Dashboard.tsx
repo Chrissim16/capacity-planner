@@ -14,8 +14,6 @@ import {
 import { getCurrentQuarter, getWorkdaysInQuarter } from '../utils/calendar';
 import type { CapacityResult, CapacityBreakdownItem, Project } from '../types';
 
-type PeopleFilter = 'it_only' | 'business_only' | 'both';
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getInitials(name: string): string {
@@ -60,13 +58,14 @@ function getCellColor(pct: number): string {
 export function Dashboard() {
   const state = useCurrentState();
   const setCurrentView = useAppStore(s => s.setCurrentView);
+  const peopleFilter = useAppStore(s => s.ui.dashboardPeopleFilter);
+  const setPeopleFilter = useAppStore(s => s.setDashboardPeopleFilter);
 
   const currentQuarter = getCurrentQuarter();
   const yearQuarters = useMemo(() => getCurrentYearQuarters(), []);
 
   const [selectedCell, setSelectedCell] = useState<{ memberId: string; quarter: string } | null>(null);
   const [selectedBizCell, setSelectedBizCell] = useState<{ contactId: string; quarter: string } | null>(null);
-  const [peopleFilter, setPeopleFilter] = useState<PeopleFilter>('it_only');
   const [timelineView, setTimelineView] = useState<'heatmap' | 'bars'>('heatmap');
 
   const warnings = useMemo(() => getWarnings(state), [state]);
