@@ -11,7 +11,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { ChevronRight, ExternalLink, X, Plus, Trash2 } from 'lucide-react';
 import { generateSprints, getSprintsForQuarter, parseSprint, formatDateRange } from '../utils/sprints';
 import type {
-  JiraWorkItem, JiraItemBizAssignment, BusinessContact, Settings, Sprint, LocalPhase,
+  JiraWorkItem, JiraItemBizAssignment, BusinessContact, Settings, Sprint, LocalPhase, TeamMember,
 } from '../types';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -32,6 +32,7 @@ const BAR: Record<string, { bg: string; border: string; borderW: number; radius:
   bug:       { bg: '#FECACA',              border: '#EF4444', borderW: 1, radius: 4 },
   uat:       { bg: '#CDB0F5',              border: '#9B6EE2', borderW: 1, radius: 4 },
   hypercare: { bg: '#90D9B8',              border: '#1A7A52', borderW: 1, radius: 4 },
+  custom:    { bg: '#E2E8F0',              border: '#94A3B8', borderW: 1, radius: 4 },
 };
 
 const TYPE_CHIP_STYLE: Record<string, { bg: string; color: string }> = {
@@ -63,6 +64,7 @@ export interface JiraGanttProps {
   jiraBaseUrl: string;
   onAddLocalPhase: (phase: Omit<LocalPhase, 'id'>) => void;
   onRemoveLocalPhase: (id: string) => void;
+  teamMembers?: import('../types').TeamMember[];
 }
 
 // ── Helper functions ─────────────────────────────────────────────────────────
@@ -305,7 +307,7 @@ function SlidePanel({
 
 export function JiraGantt({
   items, bizAssignments, businessContacts, localPhases, settings, savedSprints = [], quarters, jiraBaseUrl,
-  onAddLocalPhase, onRemoveLocalPhase,
+  onAddLocalPhase, onRemoveLocalPhase, teamMembers = [],
 }: JiraGanttProps) {
   // Merge generated + saved sprints so sprint-name lookups can match both sources
   const allSprints = useMemo(() => {
@@ -646,6 +648,8 @@ export function JiraGantt({
                 <AddPhaseForm
                   key={`add-phase-${row.epicKey}`}
                   epicKey={row.epicKey}
+                  teamMembers={teamMembers}
+                  businessContacts={businessContacts}
                   onAdd={(phase) => { onAddLocalPhase(phase); setAddPhaseForEpic(null); }}
                   onCancel={() => setAddPhaseForEpic(null)}
                 />
@@ -657,7 +661,15 @@ export function JiraGantt({
               const { phase } = row;
               const phaseChipStyle = phase.type === 'uat'
                 ? { bg: '#F3EEFF', color: '#6B2EC2' }
-                : { bg: '#EEFAF5', color: '#1A7A52' };
+                : phase.type === 'hypercare'
+                ? { bg: '#EEFAF5', color: '#1A7A52' }
+                : { bg: '#F1F5F9', color: '#475569' }; // custom — slate
+              const itMember = phase.assigneeEmail
+                ? teamMembers.find(m => m.email?.toLowerCase() === phase.assigneeEmail!.toLowerCase())
+                : undefined;
+              const bizContacts = (phase.bizContactIds ?? [])
+                .map(id => businessContacts.find(c => c.id === id))
+                .filter(Boolean) as BusinessContact[];
               return (
                 <div
                   key={phase.id}
@@ -668,11 +680,30 @@ export function JiraGantt({
                     style={{ background: phaseChipStyle.bg, color: phaseChipStyle.color }}
                     className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded flex-shrink-0"
                   >
-                    {phase.type}
+                    {phase.type === 'custom' ? 'phase' : phase.type}
                   </span>
                   <span className="text-xs text-slate-700 dark:text-slate-300 truncate flex-1" title={phase.name}>
                     {phase.name}
                   </span>
+                  {/* IT assignee */}
+                  {itMember && (
+                    <span
+                      title={itMember.name}
+                      className="shrink-0 w-5 h-5 rounded-full bg-[#0089DD]/15 text-[#0089DD] text-[9px] font-bold flex items-center justify-center"
+                    >
+                      {itMember.name.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                  {/* BIZ assignees */}
+                  {bizContacts.map(c => (
+                    <span
+                      key={c.id}
+                      title={c.name}
+                      className="shrink-0 w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[9px] font-bold flex items-center justify-center"
+                    >
+                      {c.name.slice(0, 2).toUpperCase()}
+                    </span>
+                  ))}
                   <span className="text-[10px] font-mono text-slate-400 shrink-0">
                     {phase.startDate.slice(5)} – {phase.endDate.slice(5)}
                   </span>
@@ -943,48 +974,71 @@ export function JiraGantt({
 
 function AddPhaseForm({
   epicKey,
+  teamMembers,
+  businessContacts,
   onAdd,
   onCancel,
 }: {
   epicKey: string;
+  teamMembers: TeamMember[];
+  businessContacts: BusinessContact[];
   onAdd: (phase: Omit<LocalPhase, 'id'>) => void;
   onCancel: () => void;
 }) {
-  const [type,      setType]      = useState<'uat' | 'hypercare'>('uat');
-  const [name,      setName]      = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate,   setEndDate]   = useState('');
+  const [type,          setType]          = useState<'uat' | 'hypercare' | 'custom'>('uat');
+  const [name,          setName]          = useState('UAT');
+  const [startDate,     setStartDate]     = useState('');
+  const [endDate,       setEndDate]       = useState('');
+  const [assigneeEmail, setAssigneeEmail] = useState('');
+  const [bizContactIds, setBizContactIds] = useState<string[]>([]);
 
   const canSubmit = name.trim() && startDate && endDate && endDate >= startDate;
 
   const submit = () => {
     if (!canSubmit) return;
-    onAdd({ jiraKey: epicKey, type, name: name.trim(), startDate, endDate });
+    onAdd({
+      jiraKey: epicKey, type, name: name.trim(), startDate, endDate,
+      assigneeEmail: assigneeEmail || undefined,
+      bizContactIds: bizContactIds.length > 0 ? bizContactIds : undefined,
+    });
   };
+
+  const handleTypeChange = (val: 'uat' | 'hypercare' | 'custom') => {
+    setType(val);
+    if (val === 'uat') setName('UAT');
+    else if (val === 'hypercare') setName('Hypercare');
+    else setName('');
+  };
+
+  const toggleBizContact = (id: string) => {
+    setBizContactIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const activeBiz = businessContacts.filter(c => !c.archived);
 
   return (
     <div
-      className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50 bg-[#FAF5FF] dark:bg-[#7C3AED]/5 px-4"
-      style={{ height: ROW_SUB, paddingLeft: 32 }}
+      className="flex flex-wrap items-center gap-2 border-b border-slate-100 dark:border-slate-700/50 bg-[#FAF5FF] dark:bg-[#7C3AED]/5 px-4 py-1.5"
+      style={{ paddingLeft: 32 }}
     >
       {/* Type */}
       <select
         value={type}
-        onChange={e => {
-          setType(e.target.value as 'uat' | 'hypercare');
-          if (!name) setName(e.target.value === 'uat' ? 'UAT' : 'Hypercare');
-        }}
+        onChange={e => handleTypeChange(e.target.value as 'uat' | 'hypercare' | 'custom')}
         className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-[#DDD6FE] bg-[#F3EEFF] text-[#6B2EC2] cursor-pointer focus:outline-none"
       >
         <option value="uat">UAT</option>
         <option value="hypercare">Hypercare</option>
+        <option value="custom">Other…</option>
       </select>
       {/* Name */}
       <input
         type="text"
         value={name}
         onChange={e => setName(e.target.value)}
-        placeholder="Label…"
+        placeholder={type === 'custom' ? 'Phase name…' : 'Label…'}
         className="text-xs border border-slate-200 dark:border-slate-600 rounded px-2 py-0.5 w-28 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#9B6EE2]"
         onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onCancel(); }}
       />
@@ -1004,6 +1058,44 @@ function AddPhaseForm({
         onChange={e => setEndDate(e.target.value)}
         className="text-[10px] border border-slate-200 dark:border-slate-600 rounded px-1.5 py-0.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-[#9B6EE2]"
       />
+      {/* IT assignee */}
+      {teamMembers.length > 0 && (
+        <select
+          value={assigneeEmail}
+          onChange={e => setAssigneeEmail(e.target.value)}
+          className="text-[10px] border border-slate-200 dark:border-slate-600 rounded px-1.5 py-0.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-[#0089DD] max-w-[120px]"
+          title="IT assignee"
+        >
+          <option value="">IT: Unassigned</option>
+          {teamMembers.filter(m => m.email).map(m => (
+            <option key={m.id} value={m.email!}>{m.name}</option>
+          ))}
+        </select>
+      )}
+      {/* BIZ contacts */}
+      {activeBiz.length > 0 && (
+        <div className="relative group/biz">
+          <button
+            type="button"
+            className="text-[10px] border border-slate-200 dark:border-slate-600 rounded px-1.5 py-0.5 bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 focus:outline-none hover:border-purple-300 whitespace-nowrap"
+          >
+            {bizContactIds.length > 0 ? `BIZ: ${bizContactIds.length}` : 'BIZ: none'}
+          </button>
+          <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50 min-w-[160px] hidden group-hover/biz:block">
+            {activeBiz.map(c => (
+              <label key={c.id} className="flex items-center gap-2 px-3 py-1 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={bizContactIds.includes(c.id)}
+                  onChange={() => toggleBizContact(c.id)}
+                  className="rounded accent-purple-600"
+                />
+                {c.name}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
       {/* Add */}
       <button
         disabled={!canSubmit}

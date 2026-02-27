@@ -81,9 +81,9 @@ export function ScenarioSelector() {
         <ChevronDown size={14} className={clsx('transition-transform', isOpen && 'rotate-180')} />
       </button>
 
-      {/* Dropdown — switcher only; full management is on the Scenarios page */}
+      {/* Dropdown — opens to the right of the sidebar to avoid being clipped */}
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-2 z-50">
+        <div className="absolute bottom-0 left-full ml-2 w-72 max-h-[80vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-2 z-50">
 
           {/* Baseline */}
           <button

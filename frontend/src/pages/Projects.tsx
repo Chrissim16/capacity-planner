@@ -587,14 +587,14 @@ export function Projects() {
             />
           </div>
         </div>
-        <Select value={statusFilter}   onChange={(e) => setStatusFilter(e.target.value)}   options={statusOptions}   />
-        <Select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} options={priorityOptions} />
-        <Select value={systemFilter}   onChange={(e) => setSystemFilter(e.target.value)}   options={systemOptions}   />
+        <Select value={statusFilter}   onChange={(e) => setStatusFilter(e.target.value)}   options={statusOptions}   className="w-40" />
+        <Select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} options={priorityOptions} className="w-36" />
+        <Select value={systemFilter}   onChange={(e) => setSystemFilter(e.target.value)}   options={systemOptions}   className="w-36" />
         {state.squads.length > 0 && (
-          <Select value={squadFilter} onChange={(e) => setSquadFilter(e.target.value)} options={squadOptions} />
+          <Select value={squadFilter} onChange={(e) => setSquadFilter(e.target.value)} options={squadOptions} className="w-36" />
         )}
         {state.processTeams.length > 0 && (
-          <Select value={processTeamFilter} onChange={(e) => setProcessTeamFilter(e.target.value)} options={processTeamOptions} />
+          <Select value={processTeamFilter} onChange={(e) => setProcessTeamFilter(e.target.value)} options={processTeamOptions} className="w-44" />
         )}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />

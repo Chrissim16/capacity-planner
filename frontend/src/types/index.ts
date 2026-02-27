@@ -234,10 +234,14 @@ export interface LocalPhase {
   id: string;
   /** Parent Epic's jiraKey, e.g. "ERP-1001" */
   jiraKey: string;
-  type: 'uat' | 'hypercare';
-  name: string;        // e.g. "UAT", "Hypercare"
+  type: 'uat' | 'hypercare' | 'custom';
+  name: string;        // e.g. "UAT", "Hypercare", or any custom label
   startDate: string;   // YYYY-MM-DD
   endDate: string;     // YYYY-MM-DD
+  /** IT team member assigned to this phase (matched by email) */
+  assigneeEmail?: string;
+  /** BIZ contact IDs assigned to this phase */
+  bizContactIds?: string[];
 }
 
 export interface AppState {

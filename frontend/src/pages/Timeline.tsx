@@ -215,24 +215,24 @@ export function Timeline() {
 
             {/* Person filters */}
             {state.squads.length > 0 && (
-              <Select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} options={squadOptions} />
+              <Select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} options={squadOptions} className="w-36" />
             )}
             {state.processTeams.length > 0 && (
-              <Select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} options={processTeamOptions} />
+              <Select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} options={processTeamOptions} className="w-44" />
             )}
             <input
               type="text"
               placeholder="IT member…"
               value={memberSearch}
               onChange={e => setMemberSearch(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-36"
             />
             <input
               type="text"
               placeholder="BIZ contact…"
               value={bizSearch}
               onChange={e => setBizSearch(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 w-32"
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 w-36"
             />
           </div>
         }
@@ -244,6 +244,7 @@ export function Timeline() {
           items={filteredJiraItems}
           bizAssignments={state.jiraItemBizAssignments ?? []}
           businessContacts={state.businessContacts ?? []}
+          teamMembers={teamMembers}
           localPhases={state.localPhases ?? []}
           savedSprints={state.sprints ?? []}
           settings={settings}
