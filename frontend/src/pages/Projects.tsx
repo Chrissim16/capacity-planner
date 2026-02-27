@@ -12,7 +12,6 @@ import type { AvatarPerson } from '../components/ui/AvatarStack';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/layout/PageHeader';
 import { ProjectForm } from '../components/forms/ProjectForm';
@@ -587,14 +586,24 @@ export function Projects() {
             />
           </div>
         </div>
-        <Select value={statusFilter}   onChange={(e) => setStatusFilter(e.target.value)}   options={statusOptions}   className="w-40" />
-        <Select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} options={priorityOptions} className="w-36" />
-        <Select value={systemFilter}   onChange={(e) => setSystemFilter(e.target.value)}   options={systemOptions}   className="w-36" />
+        <select value={statusFilter}   onChange={(e) => setStatusFilter(e.target.value)}   className="w-40 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+          {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+          {priorityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <select value={systemFilter}   onChange={(e) => setSystemFilter(e.target.value)}   className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+          {systemOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
         {state.squads.length > 0 && (
-          <Select value={squadFilter} onChange={(e) => setSquadFilter(e.target.value)} options={squadOptions} className="w-36" />
+          <select value={squadFilter} onChange={(e) => setSquadFilter(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+            {squadOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         )}
         {state.processTeams.length > 0 && (
-          <Select value={processTeamFilter} onChange={(e) => setProcessTeamFilter(e.target.value)} options={processTeamOptions} className="w-44" />
+          <select value={processTeamFilter} onChange={(e) => setProcessTeamFilter(e.target.value)} className="w-44 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+            {processTeamOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         )}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -603,7 +612,7 @@ export function Projects() {
             placeholder="IT member…"
             value={memberSearch}
             onChange={(e) => setMemberSearch(e.target.value)}
-            className="pl-8 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-36"
+            className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-36"
           />
         </div>
         <div className="relative">
@@ -613,7 +622,7 @@ export function Projects() {
             placeholder="BIZ contact…"
             value={bizSearch}
             onChange={(e) => setBizSearch(e.target.value)}
-            className="pl-8 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-36"
+            className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-36"
           />
         </div>
       </div>

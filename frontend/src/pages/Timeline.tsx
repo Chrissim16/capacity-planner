@@ -215,10 +215,14 @@ export function Timeline() {
 
             {/* Person filters */}
             {state.squads.length > 0 && (
-              <Select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} options={squadOptions} className="w-36" />
+              <select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                {squadOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
             )}
             {state.processTeams.length > 0 && (
-              <Select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} options={processTeamOptions} className="w-44" />
+              <select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} className="w-44 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                {processTeamOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
             )}
             <input
               type="text"
