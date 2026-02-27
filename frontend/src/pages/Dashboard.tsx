@@ -5,6 +5,7 @@ import {
   Clock, PlayCircle,
 } from 'lucide-react';
 import { useAppStore, useCurrentState } from '../stores/appStore';
+import type { DashboardPeopleFilter } from '../stores/appStore';
 import { Card, CardContent } from '../components/ui/Card';
 import { PageHeader } from '../components/layout/PageHeader';
 import {
@@ -249,7 +250,7 @@ export function Dashboard() {
               </div>
               <select
                 value={peopleFilter}
-                onChange={e => setPeopleFilter(e.target.value as PeopleFilter)}
+                onChange={e => setPeopleFilter(e.target.value as DashboardPeopleFilter)}
                 className="text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="it_only">IT team only</option>

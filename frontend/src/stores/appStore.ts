@@ -163,7 +163,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 // UI STATE
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-type DashboardPeopleFilter = 'it_only' | 'business_only' | 'both';
+export type DashboardPeopleFilter = 'it_only' | 'business_only' | 'both';
 
 interface UIState {
   currentView: ViewType;
