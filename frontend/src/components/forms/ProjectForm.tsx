@@ -190,6 +190,13 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
     setBizNotes('');
   };
 
+  const handleUpdateBizCommitmentDays = (phaseId: string, id: string, days: number) => {
+    setBizCommitments(prev => ({
+      ...prev,
+      [phaseId]: (prev[phaseId] ?? []).map(b => b.id === id ? { ...b, days } : b),
+    }));
+  };
+
   const handleRemoveBizCommitment = (phaseId: string, id: string) => {
     setBizCommitments(prev => ({
       ...prev,
@@ -495,6 +502,7 @@ export function ProjectForm({ isOpen, onClose, project }: ProjectFormProps) {
                       onNotesChange={setBizNotes}
                       onAdd={() => handleAddBizCommitment(phase.id)}
                       onRemove={(id) => handleRemoveBizCommitment(phase.id, id)}
+                      onUpdateDays={(id, days) => handleUpdateBizCommitmentDays(phase.id, id, days)}
                       onClose={() => { setOpenBizPanel(null); setShowAddForm(false); }}
                     />
                   )}
@@ -567,6 +575,7 @@ interface BizPanelProps {
   onNotesChange: (v: string) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
+  onUpdateDays: (id: string, days: number) => void;
   onClose: () => void;
 }
 
@@ -585,10 +594,11 @@ function BizPanel({
   onNotesChange,
   onAdd,
   onRemove,
+  onUpdateDays,
   onClose,
 }: BizPanelProps) {
   return (
-    <div className="flex justify-end mx-3 mb-3">
+    <div className="mx-3 mb-3">
     <div className="w-72 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 shadow-md">
       {/* Panel header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100 dark:border-purple-800/50">
@@ -634,9 +644,15 @@ function BizPanel({
                 {contact?.name ?? bc.contactId}
                 {contact?.title && <span className="font-normal text-slate-400 dark:text-slate-500"> — {contact.title}</span>}
               </span>
-              <span className="shrink-0 text-xs font-bold text-purple-700 dark:text-purple-300">
-                {bc.days}d
-              </span>
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                defaultValue={bc.days ?? 0}
+                onBlur={e => onUpdateDays(bc.id, parseFloat(e.target.value) || 0)}
+                className="shrink-0 w-14 text-xs font-bold text-purple-700 dark:text-purple-300 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-purple-400"
+                title="Days committed — click to edit"
+              />
               {bc.notes && (
                 <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[100px]" title={bc.notes}>
                   {bc.notes}

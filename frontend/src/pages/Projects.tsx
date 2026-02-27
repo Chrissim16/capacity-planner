@@ -124,6 +124,10 @@ export function Projects() {
   const [statusFilter, setStatusFilter] = useState('__open__');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [systemFilter, setSystemFilter] = useState('');
+  const [squadFilter, setSquadFilter] = useState('');
+  const [processTeamFilter, setProcessTeamFilter] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [bizSearch, setBizSearch] = useState('');
 
   const getStatusVariant = (status: string): 'success' | 'warning' | 'default' => {
     switch (status) {
@@ -202,7 +206,39 @@ export function Projects() {
     );
   }, [jiraWorkItems]);
 
-  // Filtered orphan features (respects search + status filter)
+  // Person-filter helper — used in orphanFeatures + rootItems memos
+  const matchesPersonFilters = useMemo(() => {
+    const bizAssignmentsByKey = new Map<string, string[]>();
+    for (const a of state.jiraItemBizAssignments ?? []) {
+      const list = bizAssignmentsByKey.get(a.jiraKey) ?? [];
+      list.push(a.contactId);
+      bizAssignmentsByKey.set(a.jiraKey, list);
+    }
+    return (item: JiraWorkItem): boolean => {
+      if (squadFilter || processTeamFilter || memberSearch) {
+        const member = teamMembers.find(m => m.email && item.assigneeEmail && m.email.toLowerCase() === item.assigneeEmail.toLowerCase());
+        if (squadFilter && member?.squadId !== squadFilter) return false;
+        if (processTeamFilter && !member?.processTeamIds?.includes(processTeamFilter)) return false;
+        if (memberSearch) {
+          const q = memberSearch.toLowerCase();
+          const nameMatch = (item.assigneeName ?? '').toLowerCase().includes(q) || (member?.name ?? '').toLowerCase().includes(q);
+          if (!nameMatch) return false;
+        }
+      }
+      if (bizSearch) {
+        const q = bizSearch.toLowerCase();
+        const contactIds = bizAssignmentsByKey.get(item.jiraKey) ?? [];
+        const bizMatch = contactIds.some(id => {
+          const c = state.businessContacts.find(bc => bc.id === id);
+          return c && c.name.toLowerCase().includes(q);
+        });
+        if (!bizMatch) return false;
+      }
+      return true;
+    };
+  }, [squadFilter, processTeamFilter, memberSearch, bizSearch, teamMembers, state.jiraItemBizAssignments, state.businessContacts]);
+
+  // Filtered orphan features (respects search + status + person filters)
   const filteredOrphanFeatures = useMemo(() => {
     let result = orphanFeatures;
     if (search) result = result.filter(i =>
@@ -210,8 +246,9 @@ export function Projects() {
       i.jiraKey.toLowerCase().includes(search.toLowerCase())
     );
     if (statusFilter === '__open__') result = result.filter(i => i.statusCategory !== 'done');
+    if (squadFilter || processTeamFilter || memberSearch || bizSearch) result = result.filter(matchesPersonFilters);
     return result;
-  }, [orphanFeatures, search, statusFilter]);
+  }, [orphanFeatures, search, statusFilter, squadFilter, processTeamFilter, memberSearch, bizSearch, matchesPersonFilters]);
 
   // Children of filteredOrphanFeatures (always included so expand works)
   const orphanFeaturesWithChildren = useMemo(() => {
@@ -222,7 +259,7 @@ export function Projects() {
     return [...filteredOrphanFeatures, ...children];
   }, [filteredOrphanFeatures, jiraWorkItems]);
 
-  // Filtered root items (respects search + status filter)
+  // Filtered root items (respects search + status + person filters)
   const filteredRootItems = useMemo(() => {
     let result = rootItems;
     if (search) result = result.filter(i =>
@@ -230,8 +267,9 @@ export function Projects() {
       i.jiraKey.toLowerCase().includes(search.toLowerCase())
     );
     if (statusFilter === '__open__') result = result.filter(i => i.statusCategory !== 'done');
+    if (squadFilter || processTeamFilter || memberSearch || bizSearch) result = result.filter(matchesPersonFilters);
     return result;
-  }, [rootItems, search, statusFilter]);
+  }, [rootItems, search, statusFilter, squadFilter, processTeamFilter, memberSearch, bizSearch, matchesPersonFilters]);
 
   const handleAutoLink = async (connectionId: string) => {
     setAutoLinking(connectionId);
@@ -341,6 +379,16 @@ export function Projects() {
   const systemOptions = [
     { value: '', label: 'All Systems' },
     ...systems.map(s => ({ value: s.id, label: s.name })),
+  ];
+
+  const squadOptions = [
+    { value: '', label: 'All Squads' },
+    ...state.squads.map(s => ({ value: s.id, label: s.name })),
+  ];
+
+  const processTeamOptions = [
+    { value: '', label: 'All Process Teams' },
+    ...state.processTeams.map(t => ({ value: t.id, label: t.name })),
   ];
 
   const collectJiraItemsForProject = (project: Project): JiraWorkItem[] => {
@@ -542,6 +590,32 @@ export function Projects() {
         <Select value={statusFilter}   onChange={(e) => setStatusFilter(e.target.value)}   options={statusOptions}   />
         <Select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} options={priorityOptions} />
         <Select value={systemFilter}   onChange={(e) => setSystemFilter(e.target.value)}   options={systemOptions}   />
+        {state.squads.length > 0 && (
+          <Select value={squadFilter} onChange={(e) => setSquadFilter(e.target.value)} options={squadOptions} />
+        )}
+        {state.processTeams.length > 0 && (
+          <Select value={processTeamFilter} onChange={(e) => setProcessTeamFilter(e.target.value)} options={processTeamOptions} />
+        )}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="IT member…"
+            value={memberSearch}
+            onChange={(e) => setMemberSearch(e.target.value)}
+            className="pl-8 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-36"
+          />
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="BIZ contact…"
+            value={bizSearch}
+            onChange={(e) => setBizSearch(e.target.value)}
+            className="pl-8 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-36"
+          />
+        </div>
       </div>
 
       {/* ── Epics Section ─────────────────────────────────────────────────── */}
@@ -906,6 +980,10 @@ export function Projects() {
                                     onNotesChange={setBizNotes}
                                     onAdd={() => handleAddBiz(project.id, phase.id)}
                                     onRemove={(id) => removeBusinessAssignment(id)}
+                                    onUpdateDays={(id, newDays) => {
+                                      const a = state.businessAssignments.find(x => x.id === id);
+                                      if (a) upsertBusinessAssignment({ ...a, days: newDays });
+                                    }}
                                     onClose={() => { setOpenBizKey(null); setBizShowAdd(false); }}
                                   />
                                 )}
@@ -1064,6 +1142,7 @@ interface InlineBizPanelProps {
   onNotesChange: (v: string) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
+  onUpdateDays: (id: string, days: number) => void;
   onClose: () => void;
 }
 
@@ -1083,12 +1162,13 @@ function InlineBizPanel({
   onNotesChange,
   onAdd,
   onRemove,
+  onUpdateDays,
   onClose,
 }: InlineBizPanelProps) {
   const contacts = allContacts.filter(c => !c.archived);
 
   return (
-    <div className="flex justify-end px-5 pb-2">
+    <div className="px-5 pb-2">
       <div className="w-72 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 shadow-md">
       <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100 dark:border-purple-800/50">
         <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
@@ -1128,7 +1208,15 @@ function InlineBizPanel({
                 {contact?.name ?? bc.contactId}
                 {contact?.title && <span className="font-normal text-slate-400"> — {contact.title}</span>}
               </span>
-              <span className="shrink-0 text-xs font-bold text-purple-700 dark:text-purple-300">{bc.days}d</span>
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                defaultValue={bc.days ?? 0}
+                onBlur={e => onUpdateDays(bc.id, parseFloat(e.target.value) || 0)}
+                className="shrink-0 w-14 text-xs font-bold text-purple-700 dark:text-purple-300 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-purple-400"
+                title="Days committed — click to edit"
+              />
               {bc.notes && (
                 <span className="shrink-0 text-[10px] text-slate-400 truncate max-w-[80px]" title={bc.notes}>{bc.notes}</span>
               )}
@@ -1374,23 +1462,32 @@ function EpicGrid({ items, epicKey, jiraBaseUrl, bizAssignments, businessContact
   const hdrBase = 'text-[10px] font-semibold uppercase tracking-widest pb-2 px-2.5';
 
   const JiraBizPanelInline = ({ jiraKey }: { jiraKey: string }) => (
-    <JiraBizPanel
-      jiraKey={jiraKey}
-      allBizAssignments={bizAssignments}
-      businessContacts={businessContacts}
-      showAdd={bizShowAdd}
-      contactId={bizContactId}
-      days={bizDays}
-      notes={bizNotes}
-      onOpenAdd={() => { setBizShowAdd(true); setBizContactId(''); setBizDays(''); setBizNotes(''); }}
-      onCancelAdd={() => setBizShowAdd(false)}
-      onContactChange={setBizContactId}
-      onDaysChange={setBizDays}
-      onNotesChange={setBizNotes}
-      onAdd={() => handleAddBiz(jiraKey)}
-      onRemove={removeJiraItemBizAssignment}
-      onClose={() => { setOpenBizKey(null); setBizShowAdd(false); }}
-    />
+    <div style={{ display: 'grid', gridTemplateColumns: EPIC_GRID_COLS }} className="py-2">
+      <div style={{ gridColumn: 'span 2' }} />
+      <div style={{ gridColumn: 'span 3' }} className="px-2.5">
+        <JiraBizPanel
+          jiraKey={jiraKey}
+          allBizAssignments={bizAssignments}
+          businessContacts={businessContacts}
+          showAdd={bizShowAdd}
+          contactId={bizContactId}
+          days={bizDays}
+          notes={bizNotes}
+          onOpenAdd={() => { setBizShowAdd(true); setBizContactId(''); setBizDays(''); setBizNotes(''); }}
+          onCancelAdd={() => setBizShowAdd(false)}
+          onContactChange={setBizContactId}
+          onDaysChange={setBizDays}
+          onNotesChange={setBizNotes}
+          onAdd={() => handleAddBiz(jiraKey)}
+          onRemove={removeJiraItemBizAssignment}
+          onUpdateDays={(id, newDays) => {
+            const a = bizAssignments.find(x => x.id === id);
+            if (a) upsertJiraItemBizAssignment({ ...a, days: newDays });
+          }}
+          onClose={() => { setOpenBizKey(null); setBizShowAdd(false); }}
+        />
+      </div>
+    </div>
   );
 
   const nonEpics = items.filter(i => i.type !== 'epic');
@@ -1542,6 +1639,7 @@ interface JiraBizPanelProps {
   onNotesChange: (v: string) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
+  onUpdateDays: (id: string, days: number) => void;
   onClose: () => void;
 }
 
@@ -1560,6 +1658,7 @@ function JiraBizPanel({
   onNotesChange,
   onAdd,
   onRemove,
+  onUpdateDays,
   onClose,
 }: JiraBizPanelProps) {
   const commitments = allBizAssignments.filter(a => a.jiraKey === jiraKey);
@@ -1567,8 +1666,7 @@ function JiraBizPanel({
   const totalDays = commitments.reduce((s, a) => s + (a.days ?? 0), 0);
 
   return (
-    <div className="flex justify-end px-4 pb-2">
-      <div className="w-80 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 shadow-md">
+    <div className="w-80 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 shadow-md">
         <div className="flex items-center justify-between px-3 py-2 border-b border-purple-100 dark:border-purple-800/50">
           <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
             <Users size={11} />
@@ -1601,9 +1699,15 @@ function JiraBizPanel({
                   {contact.name}
                   {contact.title && <span className="font-normal text-slate-400"> — {contact.title}</span>}
                 </span>
-                {c.days != null && c.days > 0 && (
-                  <span className="shrink-0 text-xs font-bold text-purple-700 dark:text-purple-300">{c.days}d</span>
-                )}
+                <input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  defaultValue={c.days ?? 0}
+                  onBlur={e => onUpdateDays(c.id, parseFloat(e.target.value) || 0)}
+                  className="shrink-0 w-14 text-xs font-bold text-purple-700 dark:text-purple-300 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-purple-400"
+                  title="Days required — click to edit"
+                />
                 {c.notes && <span className="shrink-0 text-[10px] text-slate-400 truncate max-w-[60px]" title={c.notes}>{c.notes}</span>}
                 <button onClick={() => onRemove(c.id)}
                   className="shrink-0 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
@@ -1663,6 +1767,5 @@ function JiraBizPanel({
           )}
         </div>
       </div>
-    </div>
   );
 }

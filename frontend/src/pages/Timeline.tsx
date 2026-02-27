@@ -30,6 +30,12 @@ export function Timeline() {
   const [granularity, setGranularity] = useState<TimelineGranularity>('quarter');
   const [labelWidth,  setLabelWidth]  = useState(256);
 
+  // Person filters
+  const [squadFilter, setSquadFilter]           = useState('');
+  const [processTeamFilter, setProcessTeamFilter] = useState('');
+  const [memberSearch, setMemberSearch]           = useState('');
+  const [bizSearch, setBizSearch]                 = useState('');
+
   const startLabelResize = (e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -75,6 +81,63 @@ export function Timeline() {
 
   const fromOptions = quarters.map((q, i) => ({ value: String(i), label: q }));
   const toOptions   = quarters.map((q, i) => ({ value: String(i), label: q })).filter((_, i) => i >= fromIdx);
+
+  const squadOptions = useMemo(() => [
+    { value: '', label: 'All Squads' },
+    ...state.squads.map(s => ({ value: s.id, label: s.name })),
+  ], [state.squads]);
+
+  const processTeamOptions = useMemo(() => [
+    { value: '', label: 'All Process Teams' },
+    ...state.processTeams.map(t => ({ value: t.id, label: t.name })),
+  ], [state.processTeams]);
+
+  // Pre-filter team members for Team view
+  const filteredTeamMembers = useMemo(() => {
+    let result = teamMembers;
+    if (squadFilter) result = result.filter(m => m.squadId === squadFilter);
+    if (processTeamFilter) result = result.filter(m => m.processTeamIds?.includes(processTeamFilter));
+    if (memberSearch) {
+      const q = memberSearch.toLowerCase();
+      result = result.filter(m => m.name.toLowerCase().includes(q));
+    }
+    return result;
+  }, [teamMembers, squadFilter, processTeamFilter, memberSearch]);
+
+  // Pre-filter Jira items for Gantt view
+  const filteredJiraItems = useMemo(() => {
+    const items = state.jiraWorkItems ?? [];
+    if (!squadFilter && !processTeamFilter && !memberSearch && !bizSearch) return items;
+
+    const bizAssignmentsByKey = new Map<string, string[]>();
+    for (const a of state.jiraItemBizAssignments ?? []) {
+      const list = bizAssignmentsByKey.get(a.jiraKey) ?? [];
+      list.push(a.contactId);
+      bizAssignmentsByKey.set(a.jiraKey, list);
+    }
+
+    return items.filter(item => {
+      if (squadFilter || processTeamFilter || memberSearch) {
+        const member = teamMembers.find(m => m.email && item.assigneeEmail && m.email.toLowerCase() === item.assigneeEmail.toLowerCase());
+        if (squadFilter && member?.squadId !== squadFilter) return false;
+        if (processTeamFilter && !member?.processTeamIds?.includes(processTeamFilter)) return false;
+        if (memberSearch) {
+          const q = memberSearch.toLowerCase();
+          if (!(item.assigneeName ?? '').toLowerCase().includes(q) && !(member?.name ?? '').toLowerCase().includes(q)) return false;
+        }
+      }
+      if (bizSearch) {
+        const q = bizSearch.toLowerCase();
+        const contactIds = bizAssignmentsByKey.get(item.jiraKey) ?? [];
+        const bizMatch = contactIds.some(id => {
+          const c = state.businessContacts.find(bc => bc.id === id);
+          return c && c.name.toLowerCase().includes(q);
+        });
+        if (!bizMatch) return false;
+      }
+      return true;
+    });
+  }, [state.jiraWorkItems, state.jiraItemBizAssignments, state.businessContacts, teamMembers, squadFilter, processTeamFilter, memberSearch, bizSearch]);
 
   return (
     <div className="space-y-6">
@@ -149,6 +212,28 @@ export function Timeline() {
                 />
               </div>
             )}
+
+            {/* Person filters */}
+            {state.squads.length > 0 && (
+              <Select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} options={squadOptions} />
+            )}
+            {state.processTeams.length > 0 && (
+              <Select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} options={processTeamOptions} />
+            )}
+            <input
+              type="text"
+              placeholder="IT member…"
+              value={memberSearch}
+              onChange={e => setMemberSearch(e.target.value)}
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+            />
+            <input
+              type="text"
+              placeholder="BIZ contact…"
+              value={bizSearch}
+              onChange={e => setBizSearch(e.target.value)}
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 w-32"
+            />
           </div>
         }
       />
@@ -156,7 +241,7 @@ export function Timeline() {
       {/* ── Gantt View ─────────────────────────────────────────────────────── */}
       {viewMode === 'gantt' && (
         <JiraGantt
-          items={state.jiraWorkItems ?? []}
+          items={filteredJiraItems}
           bizAssignments={state.jiraItemBizAssignments ?? []}
           businessContacts={state.businessContacts ?? []}
           localPhases={state.localPhases ?? []}
@@ -248,8 +333,14 @@ export function Timeline() {
                   description="Add team members to see their capacity and assignments on the timeline."
                   action={{ label: 'Go to Team', onClick: () => setCurrentView('team') }}
                 />
+              ) : filteredTeamMembers.length === 0 ? (
+                <EmptyState
+                  icon={User}
+                  title="No members match filters"
+                  description="Try adjusting the squad, process team, or name filters."
+                />
               ) : (
-                teamMembers.map(member => (
+                filteredTeamMembers.map(member => (
                   <TeamMemberRow
                     key={member.id}
                     member={member}
