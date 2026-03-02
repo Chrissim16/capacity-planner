@@ -244,19 +244,39 @@ export function Timeline() {
 
       {/* ── Gantt View ─────────────────────────────────────────────────────── */}
       {viewMode === 'gantt' && (
-        <JiraGantt
-          items={filteredJiraItems}
-          bizAssignments={state.jiraItemBizAssignments ?? []}
-          businessContacts={state.businessContacts ?? []}
-          teamMembers={teamMembers}
-          localPhases={state.localPhases ?? []}
-          savedSprints={state.sprints ?? []}
-          settings={settings}
-          quarters={quarters}
-          jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}
-          onAddLocalPhase={(p: Omit<LocalPhase, 'id'>) => addLocalPhase({ ...p, id: generateId('lp') })}
-          onRemoveLocalPhase={(id: string) => removeLocalPhase(id)}
-        />
+        filteredJiraItems.length === 0 ? (
+          <Card>
+            <CardContent>
+              {(state.jiraWorkItems ?? []).length === 0 ? (
+                <EmptyState
+                  icon={BarChart2}
+                  title="No Jira items yet"
+                  description="Sync your Jira board to populate the timeline. Go to Settings → Jira to connect and sync."
+                />
+              ) : (
+                <EmptyState
+                  icon={BarChart2}
+                  title="No items match your filters"
+                  description="Try clearing the squad, process team, or assignee filters to see all timeline items."
+                />
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <JiraGantt
+            items={filteredJiraItems}
+            bizAssignments={state.jiraItemBizAssignments ?? []}
+            businessContacts={state.businessContacts ?? []}
+            teamMembers={teamMembers}
+            localPhases={state.localPhases ?? []}
+            savedSprints={state.sprints ?? []}
+            settings={settings}
+            quarters={quarters}
+            jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}
+            onAddLocalPhase={(p: Omit<LocalPhase, 'id'>) => addLocalPhase({ ...p, id: generateId('lp') })}
+            onRemoveLocalPhase={(id: string) => removeLocalPhase(id)}
+          />
+        )
       )}
 
       {/* ── Team View ──────────────────────────────────────────────────────── */}

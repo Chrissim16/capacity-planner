@@ -121,6 +121,40 @@ async function jiraFetch(
   }
 }
 
+/** Resolved custom field IDs for a connection (with defaults applied). */
+interface ResolvedFieldIds {
+  epicLink:    string;   // default: 'customfield_10014'
+  epicLinkAlt: string;   // default: 'customfield_10008'
+  startDate:   string;   // default: 'customfield_10015'
+  sprint:      string;   // default: 'customfield_10020'
+}
+
+/**
+ * Returns the resolved custom field IDs for a Jira connection.
+ * If no overrides are configured, the Jira Cloud defaults are used.
+ */
+export function getFieldIds(connection: Pick<JiraConnection, 'customFieldIds'>): ResolvedFieldIds {
+  const cfg = connection.customFieldIds ?? {};
+  return {
+    epicLink:    cfg.epicLink    ?? 'customfield_10014',
+    epicLinkAlt: cfg.epicLinkAlt ?? 'customfield_10008',
+    startDate:   cfg.startDate   ?? 'customfield_10015',
+    sprint:      cfg.sprint      ?? 'customfield_10020',
+  };
+}
+
+/** Builds the Jira fields list, substituting user-configured IDs for the defaults. */
+function buildJiraFieldsList(fieldIds: ResolvedFieldIds, extraSpFieldId?: string | null): string {
+  const defaultCustomFields = new Set([
+    'customfield_10014', 'customfield_10008', 'customfield_10015', 'customfield_10020',
+  ]);
+  const base = BASE_JIRA_FIELDS.filter(f => !defaultCustomFields.has(f));
+  const dynamic = [fieldIds.epicLink, fieldIds.epicLinkAlt, fieldIds.startDate, fieldIds.sprint];
+  const all = [...new Set([...base, ...dynamic])];
+  if (extraSpFieldId && !all.includes(extraSpFieldId)) all.push(extraSpFieldId);
+  return all.join(',');
+}
+
 function mapJiraTypeToItemType(typeName: string): JiraItemType {
   const lowerName = typeName.toLowerCase();
   if (lowerName.includes('epic')) return 'epic';
@@ -261,8 +295,7 @@ function parseGreenHopperSprint(raw: string): JiraSprintObject | null {
   return { id, name, state: (kv['state'] ?? '').toLowerCase(), startDate, endDate };
 }
 
-function getSprint(fields: JiraIssueFields): JiraSprintObject | undefined {
-  const raw = fields.customfield_10020;
+function getSprintFromRaw(raw: unknown): JiraSprintObject | undefined {
   if (!raw || (Array.isArray(raw) && raw.length === 0)) return undefined;
 
   // ── Normalise to an array of candidate values ─────────────────────────────
@@ -282,6 +315,10 @@ function getSprint(fields: JiraIssueFields): JiraSprintObject | undefined {
 
   // Prefer the active sprint; fall back to the last one
   return sprints.find(s => s.state === 'active' || s.state === 'ACTIVE') ?? sprints[sprints.length - 1];
+}
+
+function getSprint(fields: JiraIssueFields): JiraSprintObject | undefined {
+  return getSprintFromRaw(fields.customfield_10020);
 }
 
 function convertSecondsToHours(seconds?: number): number | undefined {
@@ -635,7 +672,6 @@ const BASE_JIRA_FIELDS = [
   'customfield_10008',
 ];
 
-const JIRA_FIELDS = BASE_JIRA_FIELDS.join(',');
 
 export async function fetchJiraIssues(
   connection: JiraConnection,
@@ -650,10 +686,9 @@ export async function fetchJiraIssues(
 
     // Discover the story-points field for this instance (cached per session)
     onProgress?.('Discovering story-points field…');
+    const fieldIds = getFieldIds(connection);
     const spFieldId = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader, jql);
-    const jiraFields = spFieldId && !BASE_JIRA_FIELDS.includes(spFieldId)
-      ? [...BASE_JIRA_FIELDS, spFieldId].join(',')
-      : JIRA_FIELDS;
+    const jiraFields = buildJiraFieldsList(fieldIds, spFieldId);
 
     const workItems: JiraWorkItem[] = [];
     const maxResults = 100;
@@ -697,7 +732,7 @@ export async function fetchJiraIssues(
       if (!data.issues || data.issues.length === 0) break;
 
       for (const issue of data.issues) {
-        workItems.push(mapJiraIssueToWorkItem(issue, connection.id, spFieldId));
+        workItems.push(mapJiraIssueToWorkItem(issue, connection.id, spFieldId, fieldIds));
       }
 
       if (data.total != null) knownTotal = data.total;
@@ -745,7 +780,7 @@ export async function fetchJiraIssues(
             const data = await resp.json() as { issues: JiraIssue[] };
             for (const issue of (data.issues ?? [])) {
               if (!fetchedKeys.has(issue.key)) {
-                workItems.push(mapJiraIssueToWorkItem(issue, connection.id, spFieldId));
+                workItems.push(mapJiraIssueToWorkItem(issue, connection.id, spFieldId, fieldIds));
                 fetchedKeys.add(issue.key);
               }
             }
@@ -887,10 +922,9 @@ export async function refreshItemStatuses(
 ): Promise<JiraWorkItem[]> {
   if (jiraKeys.length === 0) return [];
   const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
+  const fieldIds = getFieldIds(connection);
   const spFieldId = await discoverStoryPointsField(connection.jiraBaseUrl, authHeader);
-  const fields = spFieldId && !BASE_JIRA_FIELDS.includes(spFieldId)
-    ? [...BASE_JIRA_FIELDS, spFieldId].join(',')
-    : JIRA_FIELDS;
+  const fields = buildJiraFieldsList(fieldIds, spFieldId);
   const CHUNK = 50;
   const refreshed: JiraWorkItem[] = [];
 
@@ -905,7 +939,7 @@ export async function refreshItemStatuses(
       if (resp.ok) {
         const data = await resp.json() as { issues: JiraIssue[] };
         for (const issue of (data.issues ?? [])) {
-          refreshed.push(mapJiraIssueToWorkItem(issue, connection.id, spFieldId));
+          refreshed.push(mapJiraIssueToWorkItem(issue, connection.id, spFieldId, fieldIds));
         }
       }
     } catch { /* non-fatal */ }
@@ -926,14 +960,24 @@ function extractEpicLinkKey(
   return field.key || undefined;
 }
 
-function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string, discoveredSpFieldId?: string | null): JiraWorkItem {
+function mapJiraIssueToWorkItem(
+  issue: JiraIssue,
+  connectionId: string,
+  discoveredSpFieldId?: string | null,
+  fieldIds?: ResolvedFieldIds,
+): JiraWorkItem {
   const f = issue.fields;
-  const sprint = getSprint(f);
+  const fIds = fieldIds ?? {
+    epicLink: 'customfield_10014', epicLinkAlt: 'customfield_10008',
+    startDate: 'customfield_10015', sprint: 'customfield_10020',
+  };
+
+  const sprint = getSprintFromRaw(f[fIds.sprint]);
 
   // Resolve parent key: try direct parent (next-gen), then both Epic Link fields (classic)
   const epicLinkKey =
-    extractEpicLinkKey(f.customfield_10014) ??
-    extractEpicLinkKey(f.customfield_10008);
+    extractEpicLinkKey(f[fIds.epicLink] as string | { key?: string; id?: string } | undefined) ??
+    extractEpicLinkKey(f[fIds.epicLinkAlt] as string | { key?: string; id?: string } | undefined);
   const parentKey = f.parent?.key ?? epicLinkKey;
 
   return {
@@ -953,7 +997,7 @@ function mapJiraIssueToWorkItem(issue: JiraIssue, connectionId: string, discover
     sprintEndDate:   sprint?.endDate   ? sprint.endDate.slice(0, 10)   : undefined,
     labels: f.labels || [], components: f.components?.map(c => c.name) || [],
     created: f.created, updated: f.updated,
-    startDate: f.customfield_10015 ?? undefined,
+    startDate: (f[fIds.startDate] as string | undefined) ?? undefined,
     dueDate: f.duedate ?? undefined,
   };
 }

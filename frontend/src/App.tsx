@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Timeline } from './pages/Timeline';
@@ -16,6 +17,27 @@ import type { ViewType } from './types';
 import { Login } from './pages/Login';
 import { useCurrentUser } from './hooks/useCurrentUser';
 import { isSupabaseConfigured } from './services/supabase';
+
+/** Maps a URL pathname to a ViewType (defaults to 'dashboard'). */
+const PATH_TO_VIEW: Record<string, ViewType> = {
+  '/':          'dashboard',
+  '/timeline':  'timeline',
+  '/epics':     'projects',
+  '/team':      'team',
+  '/scenarios': 'scenarios',
+  '/settings':  'settings',
+};
+
+/** Maps a ViewType to its canonical URL pathname. */
+const VIEW_TO_PATH: Record<ViewType, string> = {
+  dashboard: '/',
+  timeline:  '/timeline',
+  projects:  '/epics',
+  jira:      '/epics',
+  team:      '/team',
+  scenarios: '/scenarios',
+  settings:  '/settings',
+};
 
 // Page components map
 const pages: Record<ViewType, React.ComponentType> = {
@@ -41,12 +63,29 @@ function App() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const { user, loading: authLoading } = useCurrentUser();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // US-001 / US-002: Load data from Supabase on first mount
   useEffect(() => {
     if (isSupabaseConfigured() && !user) return;
     initializeFromSupabase();
   }, [initializeFromSupabase, user]);
+
+  // ── URL ↔ store sync ─────────────────────────────────────────────────────
+  // When the URL changes (browser back/forward), update the store.
+  useEffect(() => {
+    const view = PATH_TO_VIEW[location.pathname] ?? 'dashboard';
+    if (view !== currentView) setCurrentView(view);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  // When the store view changes (programmatic nav), push to history.
+  useEffect(() => {
+    const targetPath = VIEW_TO_PATH[currentView] ?? '/';
+    if (location.pathname !== targetPath) navigate(targetPath, { replace: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView]);
 
   // Apply dark mode
   useEffect(() => {

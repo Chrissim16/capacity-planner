@@ -432,6 +432,13 @@ export interface JiraConnection {
   autoCreateAssignments: boolean;      // auto-create Assignments from sprint+SP on sync
   defaultDaysPerItem: number;          // fallback effort when story points absent (days)
   jqlFilter?: string;                  // additional JQL clause appended to every sync query
+  // Configurable Jira custom field IDs (override defaults for non-standard instances)
+  customFieldIds?: {
+    epicLink?:     string;   // default: 'customfield_10014'
+    epicLinkAlt?:  string;   // default: 'customfield_10008'
+    startDate?:    string;   // default: 'customfield_10015'
+    sprint?:       string;   // default: 'customfield_10020'
+  };
 }
 
 export interface JiraWorkItem {

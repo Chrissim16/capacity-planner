@@ -17,11 +17,31 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { ScenarioSelector } from '../ScenarioSelector';
-import { useAppStore, useCurrentView, useSettings, useSyncStatus } from '../../stores/appStore';
+import { useAppStore, useSettings, useSyncStatus } from '../../stores/appStore';
 import type { ViewType } from '../../types';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { supabase, isSupabaseConfigured } from '../../services/supabase';
+
+const VIEW_TO_PATH: Record<ViewType, string> = {
+  dashboard: '/',
+  timeline:  '/timeline',
+  projects:  '/epics',
+  jira:      '/epics',
+  team:      '/team',
+  scenarios: '/scenarios',
+  settings:  '/settings',
+};
+
+const PATH_TO_VIEW: Record<string, ViewType> = {
+  '/':          'dashboard',
+  '/timeline':  'timeline',
+  '/epics':     'projects',
+  '/team':      'team',
+  '/scenarios': 'scenarios',
+  '/settings':  'settings',
+};
 
 const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string }[] = [
   { view: 'dashboard', icon: LayoutDashboard, label: 'Capacity' },
@@ -84,9 +104,9 @@ function SyncIndicator({ collapsed }: { collapsed: boolean }) {
 }
 
 export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
-  const currentView = useCurrentView();
+  const location = useLocation();
+  const currentView = PATH_TO_VIEW[location.pathname] ?? 'dashboard';
   const settings = useSettings();
-  const setCurrentView = useAppStore((s) => s.setCurrentView);
   const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
   const { user, role } = useCurrentUser();
 
@@ -118,9 +138,9 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
 
       <nav className="flex-1 py-3">
         {navItems.map(({ view, icon: Icon, label }) => (
-          <button
+          <Link
             key={view}
-            onClick={() => setCurrentView(view)}
+            to={VIEW_TO_PATH[view]}
             className={clsx(
               'w-full flex items-center transition-colors border-l-[3px]',
               collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-4 py-2.5',
@@ -132,7 +152,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           >
             <Icon size={16} />
             {!collapsed && <span className="text-sm">{label}</span>}
-          </button>
+          </Link>
         ))}
       </nav>
 

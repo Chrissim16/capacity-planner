@@ -48,6 +48,11 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
   const [defaultDaysPerItem, setDefaultDaysPerItem] = useState(connection?.defaultDaysPerItem ?? 1);
   const [jqlFilter, setJqlFilter] = useState(connection?.jqlFilter || '');
   const [importBehaviourOpen, setImportBehaviourOpen] = useState(false);
+  const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
+  const [cfEpicLink,    setCfEpicLink]    = useState(connection?.customFieldIds?.epicLink    ?? '');
+  const [cfEpicLinkAlt, setCfEpicLinkAlt] = useState(connection?.customFieldIds?.epicLinkAlt ?? '');
+  const [cfStartDate,   setCfStartDate]   = useState(connection?.customFieldIds?.startDate   ?? '');
+  const [cfSprint,      setCfSprint]      = useState(connection?.customFieldIds?.sprint      ?? '');
 
   useEffect(() => {
     if (connectionStatus === 'success' && availableProjects.length === 0) loadProjects();
@@ -112,6 +117,12 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
       autoCreateAssignments,
       defaultDaysPerItem,
       jqlFilter: jqlFilter.trim() || undefined,
+      customFieldIds: (cfEpicLink || cfEpicLinkAlt || cfStartDate || cfSprint) ? {
+        epicLink:    cfEpicLink.trim()    || undefined,
+        epicLinkAlt: cfEpicLinkAlt.trim() || undefined,
+        startDate:   cfStartDate.trim()   || undefined,
+        sprint:      cfSprint.trim()      || undefined,
+      } : undefined,
     });
     setIsSaving(false);
   };
@@ -279,6 +290,45 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
                 Appended to every sync query with AND. Use this to narrow scope and avoid Jira's 5,000-item limit — e.g. limit to recent updates or open sprints.
               </p>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Custom Field IDs — collapsible */}
+      <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+        <button
+          type="button"
+          className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          onClick={() => setCustomFieldsOpen(o => !o)}
+        >
+          <span>Custom Field IDs <span className="font-normal text-slate-400">(advanced)</span></span>
+          {customFieldsOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+        </button>
+        {customFieldsOpen && (
+          <div className="px-4 pb-4 pt-1 space-y-3 border-t border-slate-200 dark:border-slate-700">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Override the default Jira custom field IDs if your instance uses non-standard ones.
+              Leave blank to use the Jira Cloud defaults.
+            </p>
+            {([
+              ['epicLink',    cfEpicLink,    setCfEpicLink,    'Epic Link',     'customfield_10014'],
+              ['epicLinkAlt', cfEpicLinkAlt, setCfEpicLinkAlt, 'Epic Link (alt)', 'customfield_10008'],
+              ['startDate',   cfStartDate,   setCfStartDate,   'Start Date',    'customfield_10015'],
+              ['sprint',      cfSprint,      setCfSprint,      'Sprint',        'customfield_10020'],
+            ] as [string, string, (v: string) => void, string, string][]).map(([, value, setter, label, placeholder]) => (
+              <div key={label}>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                  {label}
+                </label>
+                <input
+                  type="text"
+                  value={value}
+                  onChange={e => setter(e.target.value)}
+                  placeholder={`default: ${placeholder}`}
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 font-mono"
+                />
+              </div>
+            ))}
           </div>
         )}
       </div>

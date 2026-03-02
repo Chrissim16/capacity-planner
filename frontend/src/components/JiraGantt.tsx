@@ -192,6 +192,9 @@ function SlidePanel({
         onClick={onClose}
       />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={item?.summary ?? 'Jira item details'}
         className={`fixed top-0 right-0 bottom-0 w-[420px] bg-white dark:bg-slate-900 shadow-2xl z-[301] flex flex-col overflow-hidden transition-transform duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${open ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {item && (
@@ -215,6 +218,7 @@ function SlidePanel({
               </div>
               <button
                 onClick={onClose}
+                aria-label="Close panel"
                 className="w-7 h-7 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 flex-shrink-0 transition-colors"
               >
                 <X size={14} />
@@ -583,6 +587,7 @@ export function JiraGantt({
               <button
                 disabled={qtrIdx === 0}
                 onClick={() => setQtrIdx(i => i - 1)}
+                aria-label="Previous quarter"
                 className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-default transition-colors"
               >
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 2L3 5l3 3"/></svg>
@@ -593,6 +598,7 @@ export function JiraGantt({
               <button
                 disabled={qtrIdx >= Math.min(quarters.length - 1, 3)}
                 onClick={() => setQtrIdx(i => i + 1)}
+                aria-label="Next quarter"
                 className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-default transition-colors"
               >
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 2l3 3-3 3"/></svg>
@@ -711,6 +717,7 @@ export function JiraGantt({
                     className="w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0 mr-2"
                     onClick={() => onRemoveLocalPhase(phase.id)}
                     title="Remove phase"
+                    aria-label={`Remove phase: ${phase.name}`}
                   >
                     <Trash2 size={11} />
                   </button>
@@ -745,6 +752,8 @@ export function JiraGantt({
                   <button
                     className="w-[18px] h-[18px] flex items-center justify-center rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex-shrink-0 transition-colors disabled:opacity-0"
                     disabled={!hasSubs}
+                    aria-expanded={level === 0 ? isExpEpic : isExpFeat}
+                    aria-label={(level === 0 ? isExpEpic : isExpFeat) ? `Collapse ${item.summary}` : `Expand ${item.summary}`}
                     onClick={e => {
                       e.stopPropagation();
                       if (level === 0) setExpandedEpics(prev => { const n = new Set(prev); n.has(item.jiraKey) ? n.delete(item.jiraKey) : n.add(item.jiraKey); return n; });
@@ -785,7 +794,8 @@ export function JiraGantt({
                         }
                         setAddPhaseForEpic(prev => prev === item.jiraKey ? null : item.jiraKey);
                       }}
-                      title="Add UAT / Hypercare phase"
+                      title="Add phase"
+                      aria-label={`Add phase to ${item.summary}`}
                     >
                       <Plus size={9} />Phase
                     </button>
@@ -925,7 +935,10 @@ export function JiraGantt({
                 >
                   {!layout.hidden && (
                     <div
-                      className={`absolute cursor-pointer transition-[filter,transform] duration-150 hover:brightness-90 hover:-translate-y-px ${clipCls}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${item.typeName}: ${item.summary}`}
+                      className={`absolute cursor-pointer transition-[filter,transform] duration-150 hover:brightness-90 hover:-translate-y-px focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 ${clipCls}`}
                       style={{
                         left:         `${(layout.left  * 100).toFixed(2)}%`,
                         width:        `${(layout.width * 100).toFixed(2)}%`,
@@ -940,6 +953,7 @@ export function JiraGantt({
                         minWidth:     4,
                       }}
                       onClick={() => setPanelItem(item)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPanelItem(item); } }}
                     />
                   )}
                   {/* Ghost row for items with no dates */}
@@ -1107,6 +1121,7 @@ function AddPhaseForm({
       {/* Cancel */}
       <button
         onClick={onCancel}
+        aria-label="Cancel adding phase"
         className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
       >
         <X size={11} />
