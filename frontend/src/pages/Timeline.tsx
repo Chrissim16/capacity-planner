@@ -5,8 +5,9 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Select } from '../components/ui/Select';
 import { ProgressBar } from '../components/ui/ProgressBar';
+import { SkeletonGantt } from '../components/ui/Skeleton';
 import { PageHeader } from '../components/layout/PageHeader';
-import { useAppStore, useCurrentState } from '../stores/appStore';
+import { useAppStore, useCurrentState, useIsLoading } from '../stores/appStore';
 import { addLocalPhase, removeLocalPhase, generateId } from '../stores/actions';
 import type { LocalPhase } from '../types';
 import { calculateCapacity } from '../utils/capacity';
@@ -24,6 +25,7 @@ type TimelineGranularity = 'quarter' | 'sprint' | 'dates';
 export function Timeline() {
   const state       = useCurrentState();
   const setCurrentView = useAppStore(s => s.setCurrentView);
+  const isLoading   = useIsLoading();
   const { teamMembers, quarters, settings, publicHolidays } = state;
 
   const [viewMode,    setViewMode]    = useState<TimelineView>('gantt');
@@ -243,7 +245,10 @@ export function Timeline() {
       />
 
       {/* ── Gantt View ─────────────────────────────────────────────────────── */}
-      {viewMode === 'gantt' && (
+      {viewMode === 'gantt' && isLoading && filteredJiraItems.length === 0 && (
+        <Card><CardContent><SkeletonGantt rows={8} /></CardContent></Card>
+      )}
+      {viewMode === 'gantt' && !isLoading && (
         filteredJiraItems.length === 0 ? (
           <Card>
             <CardContent>

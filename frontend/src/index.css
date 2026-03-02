@@ -7,16 +7,37 @@
   from { opacity: 0; transform: translateX(1rem); }
   to { opacity: 1; transform: translateX(0); }
 }
-.animate-slide-in { animation: slide-in 0.2s ease-out; }
+.animate-slide-in { animation: slide-in var(--duration-standard) ease-out; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   REDUCED-MOTION — honour user preference
+   Collapses all transitions/animations to zero duration when the user has
+   set "Reduce motion" in their OS accessibility settings.
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    CUSTOM CSS VARIABLES - Design tokens
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --blue:       #2558C9;
-  --blue-light: #6090E0;
-  --row-hover:  rgba(37, 88, 201, 0.055);
+  --mw-primary:        #0089DD;
+  --mw-primary-dark:   #38b6f5;
+  --mw-dark:           #003E65;
+  --blue:              #2558C9;
+  --blue-light:        #6090E0;
+  --row-hover:         rgba(0, 137, 221, 0.055);
+  --row-hover-dk:      rgba(0, 137, 221, 0.08);
+  --duration-fast:     150ms;
+  --duration-standard: 200ms;
+  --duration-slow:     300ms;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -46,11 +67,11 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-mw-grey-light dark:bg-[#2A4A6B] rounded;
+  @apply bg-mw-grey-light dark:bg-mw-muted-border-dark rounded;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-mw-grey dark:bg-[#3A5B7B];
+  @apply bg-mw-grey dark:bg-mw-scrollbar-dark;
 }
 
 /* Focus styles */
@@ -89,20 +110,20 @@ body {
   cursor: pointer;
 }
 .epic-row:hover {
-  background: rgba(0, 137, 221, 0.055) !important;
+  background: var(--row-hover) !important;
 }
 [data-theme="dark"] .epic-row:hover {
-  background: rgba(0, 137, 221, 0.08) !important;
+  background: var(--row-hover-dk) !important;
 }
 .epic-row::before {
   content: '';
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 3px;
-  background: #0089DD;
+  background: var(--mw-primary);
   border-radius: 0 2px 2px 0;
   opacity: 0;
-  transition: opacity 0.1s ease;
+  transition: opacity var(--duration-fast) ease;
   pointer-events: none;
   z-index: 1;
 }
@@ -110,10 +131,10 @@ body {
   opacity: 1;
 }
 .epic-row:hover .epic-row-name {
-  color: #0089DD;
+  color: var(--mw-primary);
 }
 [data-theme="dark"] .epic-row:hover .epic-row-name {
-  color: #38b6f5;
+  color: var(--mw-primary-dark);
 }
 
 /* ── Gantt label column rows (flex divs) ──────────────────────────────────── */
@@ -125,10 +146,10 @@ body {
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 3px;
-  background: #0089DD;
+  background: var(--mw-primary);
   border-radius: 0 2px 2px 0;
   opacity: 0;
-  transition: opacity 0.1s ease;
+  transition: opacity var(--duration-fast) ease;
   pointer-events: none;
   z-index: 1;
 }

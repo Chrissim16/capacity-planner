@@ -1,6 +1,6 @@
 /**
  * Full-screen loading screen shown while the app fetches data from Supabase
- * on startup (US-002).
+ * on startup.
  */
 
 interface LoadingScreenProps {
@@ -9,7 +9,7 @@ interface LoadingScreenProps {
 
 export function LoadingScreen({ message = 'Loading your data…' }: LoadingScreenProps) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-slate-900">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-mw-dark">
       {/* Mileway logo */}
       <img
         src="/mileway-logo.png"
@@ -18,12 +18,11 @@ export function LoadingScreen({ message = 'Loading your data…' }: LoadingScree
         draggable={false}
       />
 
-      {/* Spinner */}
-      <div className="w-7 h-7 border-[3px] border-slate-200 dark:border-slate-700 border-t-[#0089DD] rounded-full animate-spin mb-5" />
+      {/* Spinner — border-t uses the brand primary blue */}
+      <div className="w-7 h-7 border-[3px] border-mw-grey-light dark:border-mw-card-border-dark border-t-mw-primary rounded-full animate-spin mb-5" />
 
-      {/* Messages */}
-      <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">{message}</p>
-      <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Connecting to database…</p>
+      <p className="text-mw-grey dark:text-mw-muted-text-dark text-sm font-medium">{message}</p>
+      <p className="text-mw-grey-light dark:text-mw-card-border-dark text-xs mt-1">Connecting to database…</p>
     </div>
   );
 }

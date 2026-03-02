@@ -4,9 +4,10 @@ import {
   ChevronRight, CheckCircle2, Circle, Link2, Zap, Globe,
   Clock, PlayCircle,
 } from 'lucide-react';
-import { useAppStore, useCurrentState } from '../stores/appStore';
+import { useAppStore, useCurrentState, useIsLoading } from '../stores/appStore';
 import type { DashboardPeopleFilter } from '../stores/appStore';
 import { Card, CardContent } from '../components/ui/Card';
+import { SkeletonCard, SkeletonList } from '../components/ui/Skeleton';
 import { PageHeader } from '../components/layout/PageHeader';
 import {
   calculateCapacity, getWarnings, getTeamUtilizationSummary,
@@ -47,11 +48,19 @@ function getCellClass(pct: number): string {
   return 'cell-overloaded';
 }
 
+/** Text colour matching each heatmap tier — mirrors the .cell-* CSS classes in index.css */
+const CELL_EMPTY_TEXT    = '#94a3b8';
+const CELL_NORMAL_TEXT   = '#1A1A1A';
+const CELL_OVERLOAD_TEXT = '#8B0000';
+
 function getCellColor(pct: number): string {
-  if (pct <= 10)  return '#94a3b8';
-  if (pct < 100)  return '#1A1A1A';
-  return '#8B0000';
+  if (pct <= 10)  return CELL_EMPTY_TEXT;
+  if (pct < 100)  return CELL_NORMAL_TEXT;
+  return CELL_OVERLOAD_TEXT;
 }
+
+/** Inline-style overload accent — matches .cell-overloaded text colour */
+const OVERLOAD_COLOR = '#B02030';
 
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -61,6 +70,7 @@ export function Dashboard() {
   const setCurrentView = useAppStore(s => s.setCurrentView);
   const peopleFilter = useAppStore(s => s.ui.dashboardPeopleFilter);
   const setPeopleFilter = useAppStore(s => s.setDashboardPeopleFilter);
+  const isLoading = useIsLoading();
 
   const currentQuarter = getCurrentQuarter();
   const yearQuarters = useMemo(() => getCurrentYearQuarters(), []);
@@ -170,6 +180,24 @@ export function Dashboard() {
   }, []);
 
   const isEmpty = state.teamMembers.length === 0 && state.projects.length === 0;
+
+  if (isLoading && isEmpty) {
+    return (
+      <div className="space-y-6">
+        <div className="h-10 flex items-center justify-between">
+          <div className="space-y-1.5">
+            <div className="h-6 w-48 rounded-md bg-mw-grey-light dark:bg-mw-muted-dark animate-shimmer bg-[length:200%_100%]" />
+            <div className="h-4 w-64 rounded-md bg-mw-grey-light dark:bg-mw-muted-dark animate-shimmer bg-[length:200%_100%]" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <SkeletonCard lines={4} />
+          <SkeletonCard lines={4} />
+        </div>
+        <SkeletonList rows={6} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -334,7 +362,7 @@ export function Dashboard() {
                               <div className="text-sm font-bold tabular-nums leading-tight">
                                 {cap.usedPercent === 0 ? '—' : `${cap.usedPercent}%`}
                               </div>
-                              <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : 'inherit' }}>
+                              <div className="text-[10px] mt-0.5" style={{ color: isOver ? OVERLOAD_COLOR : 'inherit' }}>
                                 {cap.usedPercent === 0 ? '' : isOver
                                   ? `−${Math.abs(Math.round(remainingDays))}d`
                                   : `${Math.round(remainingDays)}d free`}
@@ -500,7 +528,7 @@ export function Dashboard() {
                                   {
                                     label: 'Remaining',
                                     value: isOver ? `−${Math.abs(Math.round(remainingRaw))}d` : `${Math.round(remainingRaw)}d`,
-                                    color: isOver ? '#B02030' : 'inherit',
+                                    color: isOver ? OVERLOAD_COLOR : 'inherit',
                                   },
                                   { label: 'Utilization', value: `${pct}%`, color: summaryCellColor },
                                 ].map(row => (
@@ -580,7 +608,7 @@ export function Dashboard() {
                             <div className="text-sm font-bold tabular-nums leading-tight">
                               {pct === 0 ? '—' : `${pct}%`}
                             </div>
-                            <div className="text-[10px] mt-0.5" style={{ color: isOver ? '#B02030' : 'inherit' }}>
+                            <div className="text-[10px] mt-0.5" style={{ color: isOver ? OVERLOAD_COLOR : 'inherit' }}>
                               {pct === 0 ? '' : isOver
                                 ? `−${Math.abs(Math.round(remainingDays))}d`
                                 : `${Math.round(remainingDays)}d free`}
@@ -695,7 +723,7 @@ export function Dashboard() {
                                 {
                                   label: 'Remaining',
                                   value: isOver ? `−${Math.abs(Math.round(remainingRaw))}d` : `${Math.round(remainingRaw)}d`,
-                                  color: isOver ? '#B02030' : 'inherit',
+                                  color: isOver ? OVERLOAD_COLOR : 'inherit',
                                 },
                                 { label: 'Utilization', value: `${pct}%`, color: summaryCellColor },
                               ].map(row => (
