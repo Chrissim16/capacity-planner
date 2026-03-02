@@ -13,14 +13,4 @@ export default defineConfig({
   server: {
     port: 5173,
   },
-  test: {
-    environment: 'happy-dom',
-    globals: true,
-    setupFiles: ['./src/test/setup.ts'],
-    coverage: {
-      provider: 'v8',
-      include: ['src/utils/**/*.ts'],
-      exclude: ['src/utils/**/*.test.ts'],
-    },
-  },
 })
