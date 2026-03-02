@@ -81,6 +81,13 @@ function createAuthHeader(email: string, apiToken: string): string {
 // Use proxy in production (Vercel), direct calls in development
 const USE_PROXY = import.meta.env.PROD;
 
+function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 15_000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
 async function jiraFetch(
   baseUrl: string,
   path: string,
@@ -92,7 +99,7 @@ async function jiraFetch(
   if (USE_PROXY) {
     // Use the Vercel serverless proxy to avoid CORS
     const proxyUrl = `/api/jira?path=${encodeURIComponent(path)}`;
-    return fetch(proxyUrl, {
+    return fetchWithTimeout(proxyUrl, {
       ...options,
       headers: {
         ...options.headers,
@@ -103,7 +110,7 @@ async function jiraFetch(
     });
   } else {
     // Direct call in development (may have CORS issues)
-    return fetch(cleanUrl + path, {
+    return fetchWithTimeout(cleanUrl + path, {
       ...options,
       headers: {
         ...options.headers,

@@ -1,11 +1,12 @@
 import { ShieldAlert, GitBranch, RefreshCw } from 'lucide-react';
 import { useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore, useIsBaselineWithJira } from '../../stores/appStore';
 import { createScenario, refreshScenarioFromJira, switchScenario } from '../../stores/actions';
 import { getSmartScenarioName } from '../ScenarioSelector';
 
 export function NotificationBanners() {
-  const data = useAppStore((s) => s.data);
+  const data = useAppStore(useShallow((s) => s.data));
   const isBaselineWithJira = useIsBaselineWithJira();
 
   const activeScenario = useMemo(

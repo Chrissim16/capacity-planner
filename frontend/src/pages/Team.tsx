@@ -9,7 +9,7 @@ import { TeamMemberForm } from '../components/forms/TeamMemberForm';
 import { TimeOffForm } from '../components/forms/TimeOffForm';
 import { MemberCalendarModal } from '../components/ui/MemberCalendarModal';
 import { PageHeader } from '../components/layout/PageHeader';
-import { useCurrentState, useAppStore } from '../stores/appStore';
+import { useCurrentState, useAppStore, useActiveScenario } from '../stores/appStore';
 import { deleteTeamMember, addBusinessContact, updateBusinessContact, deleteBusinessContact, bulkUpdateTeamMembers, bulkUpdateBusinessContacts, upsertJiraItemBizAssignment } from '../stores/actions';
 import { useToast } from '../components/ui/Toast';
 import { calculateBusinessCapacityForQuarter } from '../utils/capacity';
@@ -248,7 +248,7 @@ export function Team() {
   ];
 
   const activeScenarioId = useAppStore(s => s.data.activeScenarioId);
-  const activeScenario = useAppStore(s => s.data.scenarios.find(sc => sc.id === s.data.activeScenarioId));
+  const activeScenario = useActiveScenario();
 
   return (
     <div className="space-y-6">

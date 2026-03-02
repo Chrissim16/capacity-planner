@@ -45,6 +45,7 @@ import type {
   JiraItemBizAssignment,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
+import { flattenAssignmentsFromProjects } from '../utils/projects';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEFAULT VALUES — mirrors defaults in appStore.ts
@@ -89,21 +90,6 @@ const DEFAULT_JIRA_SETTINGS: JiraSettings = {
   defaultConfidenceLevel: 'medium',
 };
 
-function flattenAssignmentsFromProjects(projects: Project[]): Assignment[] {
-  const flattened: Assignment[] = [];
-  for (const project of projects) {
-    for (const phase of project.phases) {
-      for (const assignment of phase.assignments ?? []) {
-        flattened.push({
-          ...assignment,
-          projectId: project.id,
-          phaseId: phase.id,
-        });
-      }
-    }
-  }
-  return flattened;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOAD

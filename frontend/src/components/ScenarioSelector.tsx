@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Plus, Database, Check, ExternalLink } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../stores/appStore';
 import { switchScenario } from '../stores/actions';
 import type { ScenarioColor } from '../types';
@@ -27,7 +28,7 @@ export function scenarioColorDot(color?: ScenarioColor) {
 }
 
 export function ScenarioSelector() {
-  const state = useAppStore((s) => s.data);
+  const state = useAppStore(useShallow((s) => s.data));
   const setCurrentView = useAppStore(s => s.setCurrentView);
   const { scenarios, activeScenarioId } = state;
 

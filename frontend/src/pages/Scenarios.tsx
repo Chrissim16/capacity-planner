@@ -11,6 +11,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ScenarioDiffModal } from '../components/ScenarioDiffModal';
 import { PageHeader } from '../components/layout/PageHeader';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore, useCurrentState as useCurrentStateForCreate } from '../stores/appStore';
 import {
   createScenario, duplicateScenario, deleteScenario, switchScenario, updateScenario,
@@ -44,7 +45,7 @@ interface CreateModalProps {
 
 function CreateModal({ duplicateFrom, onClose }: CreateModalProps) {
   const state = useCurrentStateForCreate();
-  const data = useAppStore(s => s.data);
+  const data = useAppStore(useShallow(s => s.data));
   const [name, setName] = useState(
     duplicateFrom ? `${duplicateFrom.name} (Copy)` : `Q${Math.floor(new Date().getMonth() / 3) + 1} ${new Date().getFullYear()} – Plan A`
   );
@@ -192,7 +193,7 @@ function CreateModal({ duplicateFrom, onClose }: CreateModalProps) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function Scenarios() {
-  const data = useAppStore(s => s.data);
+  const data = useAppStore(useShallow(s => s.data));
   const setCurrentView = useAppStore(s => s.setCurrentView);
   const { scenarios, activeScenarioId } = data;
 

@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, Minus, Pencil, UploadCloud, X } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../stores/appStore';
 import { promoteScenarioToBaseline } from '../stores/actions';
 import type { Scenario, Project, TeamMember } from '../types';
@@ -117,7 +118,7 @@ interface ScenarioDiffModalProps {
 }
 
 export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps) {
-  const data = useAppStore(s => s.data);
+  const data = useAppStore(useShallow(s => s.data));
   const [confirming, setConfirming] = useState(false);
 
   const { projectChanges, memberChanges, totalChanges } = useMemo(() => {

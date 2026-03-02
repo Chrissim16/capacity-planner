@@ -17,6 +17,7 @@ import type {
   Settings,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
+import { flattenAssignmentsFromProjects } from '../utils/projects';
 import { loadFromSupabase, saveToSupabase, scheduleSyncToSupabase } from '../services/supabaseSync';
 import { isSupabaseConfigured } from '../services/supabase';
 
@@ -116,21 +117,6 @@ const defaultAppState: AppState = {
   localPhases: [],
 };
 
-function flattenAssignmentsFromProjects(projects: AppState['projects']): AppState['assignments'] {
-  const flattened: AppState['assignments'] = [];
-  for (const project of projects) {
-    for (const phase of project.phases) {
-      for (const assignment of phase.assignments ?? []) {
-        flattened.push({
-          ...assignment,
-          projectId: project.id,
-          phaseId: phase.id,
-        });
-      }
-    }
-  }
-  return flattened;
-}
 
 function quarterToIsoRange(quarter: string): { startDate: string; endDate: string } | null {
   const match = quarter.match(/^Q([1-4])\s+(\d{4})$/);
@@ -673,7 +659,7 @@ export const useIsLoading = () => useAppStore((state) => state.isLoading);
 export const useIsInitializing = () => useAppStore((state) => state.isInitializing);
 export const useError = () => useAppStore((state) => state.error);
 export const useActiveScenarioId = () => useAppStore((state) => state.data.activeScenarioId);
-export const useScenarios = () => useAppStore((state) => state.data.scenarios);
+export const useScenarios = () => useAppStore(useShallow((state) => state.data.scenarios));
 export const useIsBaselineWithJira = () => useAppStore((state) =>
   !state.data.activeScenarioId && state.data.jiraConnections.length > 0
 );

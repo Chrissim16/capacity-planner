@@ -18,6 +18,7 @@ import {
 import { useState, useMemo } from 'react';
 import { ScenarioDiffModal } from '../ScenarioDiffModal';
 import { clsx } from 'clsx';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore, useCurrentView, useSettings, useSyncStatus, useIsBaselineWithJira } from '../../stores/appStore';
 import type { ViewType } from '../../types';
 import { ScenarioSelector, getSmartScenarioName } from '../ScenarioSelector';
@@ -29,7 +30,7 @@ import { switchScenario, refreshScenarioFromJira, createScenario } from '../../s
  * Returns { total, breakdown } for display.
  */
 function useScenarioDiff(scenarioId: string | null) {
-  const data = useAppStore(s => s.data);
+  const data = useAppStore(useShallow(s => s.data));
 
   return useMemo(() => {
     if (!scenarioId) return null;
@@ -135,8 +136,8 @@ function SyncIndicator() {
  */
 function RefreshFromJiraButton({ scenarioId, scenarioName: _scenarioName }: { scenarioId: string; scenarioName: string }) {
   const [showConfirm, setShowConfirm] = useState(false);
-  const jiraWorkItems = useAppStore(s => s.data.jiraWorkItems);
-  const scenarios = useAppStore(s => s.data.scenarios);
+  const jiraWorkItems = useAppStore(useShallow(s => s.data.jiraWorkItems));
+  const scenarios = useAppStore(useShallow(s => s.data.scenarios));
 
   const scenario = scenarios.find(s => s.id === scenarioId);
   const baselineItemIds = new Set(jiraWorkItems.map(i => i.jiraId));
@@ -183,7 +184,7 @@ export function Header() {
   const currentView = useCurrentView();
   const settings = useSettings();
   const activeScenarioId = useAppStore((s) => s.data.activeScenarioId);
-  const scenarios = useAppStore((s) => s.data.scenarios);
+  const scenarios = useAppStore(useShallow((s) => s.data.scenarios));
   const isBaselineWithJira = useIsBaselineWithJira();
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
