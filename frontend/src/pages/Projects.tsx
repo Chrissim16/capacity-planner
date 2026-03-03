@@ -146,6 +146,78 @@ export function Projects() {
     new Map(jiraWorkItems.filter(i => i.type === 'epic').map(i => [i.jiraKey, i]))
   , [jiraWorkItems]);
 
+  // Person-filter helper — shared across filteredProjects, filteredOrphanFeatures, filteredRootItems
+  // NOTE: defined here (before filteredProjects) so filteredProjects can reference it.
+  const matchesPersonFilters = useMemo(() => {
+    const bizAssignmentsByKey = new Map<string, string[]>();
+    for (const a of state.jiraItemBizAssignments ?? []) {
+      const list = bizAssignmentsByKey.get(a.jiraKey) ?? [];
+      list.push(a.contactId);
+      bizAssignmentsByKey.set(a.jiraKey, list);
+    }
+    return (item: JiraWorkItem): boolean => {
+      if (squadFilter || processTeamFilter || memberSearch) {
+        const member = teamMembers.find(
+          m => m.email && item.assigneeEmail &&
+               m.email.toLowerCase() === item.assigneeEmail.toLowerCase()
+        );
+        // Email-mismatch fix: only exclude when a member IS found but doesn't match.
+        // Items whose assignee email doesn't match any team member are kept for squad/
+        // processTeam filters (we can't determine membership for unknown assignees).
+        if (member !== undefined) {
+          if (squadFilter && member.squadId !== squadFilter) return false;
+          if (processTeamFilter && !member.processTeamIds?.includes(processTeamFilter)) return false;
+        }
+        if (memberSearch) {
+          const q = memberSearch.toLowerCase();
+          const nameMatch =
+            (item.assigneeName ?? '').toLowerCase().includes(q) ||
+            (member?.name ?? '').toLowerCase().includes(q);
+          if (!nameMatch) return false;
+        }
+      }
+      if (bizSearch) {
+        const q = bizSearch.toLowerCase();
+        const contactIds = bizAssignmentsByKey.get(item.jiraKey) ?? [];
+        const bizMatch = contactIds.some(id => {
+          const c = state.businessContacts.find(bc => bc.id === id);
+          return c && c.name.toLowerCase().includes(q);
+        });
+        if (!bizMatch) return false;
+      }
+      return true;
+    };
+  }, [squadFilter, processTeamFilter, memberSearch, bizSearch, teamMembers, state.jiraItemBizAssignments, state.businessContacts]);
+
+  // Precompute project → child JiraWorkItems (BFS via parentKey + direct mappedProjectId).
+  // Used both by filteredProjects (person-filter check) and the existing collectJiraItemsForProject.
+  const jiraItemsByProjectId = useMemo(() => {
+    const map = new Map<string, JiraWorkItem[]>();
+    for (const project of projects) {
+      const included = new Set<string>();
+      if (project.jiraSourceKey) {
+        const queue = [project.jiraSourceKey];
+        const visited = new Set<string>();
+        while (queue.length > 0) {
+          const key = queue.shift()!;
+          if (visited.has(key)) continue;
+          visited.add(key);
+          for (const item of jiraWorkItems) {
+            if (item.parentKey === key) {
+              included.add(item.id);
+              queue.push(item.jiraKey);
+            }
+          }
+        }
+      }
+      for (const item of jiraWorkItems) {
+        if (item.mappedProjectId === project.id) included.add(item.id);
+      }
+      map.set(project.id, jiraWorkItems.filter(i => included.has(i.id)));
+    }
+    return map;
+  }, [projects, jiraWorkItems]);
+
   const filteredProjects = useMemo(() => projects.filter(project => {
     if (!showArchived && project.archived) return false;
     if (showArchived && !project.archived) return false;
@@ -158,8 +230,14 @@ export function Projects() {
     if (statusFilter && statusFilter !== '__open__' && project.status !== statusFilter) return false;
     if (priorityFilter && project.priority !== priorityFilter) return false;
     if (systemFilter && !project.systemIds?.includes(systemFilter)) return false;
+    // Person filters: show epic only if at least one of its child Jira items matches
+    if (squadFilter || processTeamFilter || memberSearch || bizSearch) {
+      const items = jiraItemsByProjectId.get(project.id) ?? [];
+      if (!items.some(matchesPersonFilters)) return false;
+    }
     return true;
-  }), [projects, showArchived, search, statusFilter, priorityFilter, systemFilter, jiraEpicByKey]);
+  }), [projects, showArchived, search, statusFilter, priorityFilter, systemFilter, jiraEpicByKey,
+       squadFilter, processTeamFilter, memberSearch, bizSearch, jiraItemsByProjectId, matchesPersonFilters]);
 
   const sortedProjects = useMemo(() => {
     const { field, direction: dir } = epicsSortConfig;
@@ -237,37 +315,7 @@ export function Projects() {
     );
   }, [jiraWorkItems]);
 
-  // Person-filter helper — used in orphanFeatures + rootItems memos
-  const matchesPersonFilters = useMemo(() => {
-    const bizAssignmentsByKey = new Map<string, string[]>();
-    for (const a of state.jiraItemBizAssignments ?? []) {
-      const list = bizAssignmentsByKey.get(a.jiraKey) ?? [];
-      list.push(a.contactId);
-      bizAssignmentsByKey.set(a.jiraKey, list);
-    }
-    return (item: JiraWorkItem): boolean => {
-      if (squadFilter || processTeamFilter || memberSearch) {
-        const member = teamMembers.find(m => m.email && item.assigneeEmail && m.email.toLowerCase() === item.assigneeEmail.toLowerCase());
-        if (squadFilter && member?.squadId !== squadFilter) return false;
-        if (processTeamFilter && !member?.processTeamIds?.includes(processTeamFilter)) return false;
-        if (memberSearch) {
-          const q = memberSearch.toLowerCase();
-          const nameMatch = (item.assigneeName ?? '').toLowerCase().includes(q) || (member?.name ?? '').toLowerCase().includes(q);
-          if (!nameMatch) return false;
-        }
-      }
-      if (bizSearch) {
-        const q = bizSearch.toLowerCase();
-        const contactIds = bizAssignmentsByKey.get(item.jiraKey) ?? [];
-        const bizMatch = contactIds.some(id => {
-          const c = state.businessContacts.find(bc => bc.id === id);
-          return c && c.name.toLowerCase().includes(q);
-        });
-        if (!bizMatch) return false;
-      }
-      return true;
-    };
-  }, [squadFilter, processTeamFilter, memberSearch, bizSearch, teamMembers, state.jiraItemBizAssignments, state.businessContacts]);
+  // matchesPersonFilters is defined earlier (before filteredProjects) so both memos can reference it.
 
   // Filtered orphan features (respects search + status + person filters)
   const filteredOrphanFeatures = useMemo(() => {
