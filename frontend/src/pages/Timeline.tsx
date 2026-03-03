@@ -37,6 +37,7 @@ export function Timeline() {
   const [processTeamFilter, setProcessTeamFilter] = useState('');
   const [memberSearch, setMemberSearch]           = useState('');
   const [bizSearch, setBizSearch]                 = useState('');
+  const [showCompleted, setShowCompleted]         = useState(false);
 
   const startLabelResize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -109,7 +110,6 @@ export function Timeline() {
   // Pre-filter Jira items for Gantt view
   const filteredJiraItems = useMemo(() => {
     const items = state.jiraWorkItems ?? [];
-    if (!squadFilter && !processTeamFilter && !memberSearch && !bizSearch) return items;
 
     const bizAssignmentsByKey = new Map<string, string[]>();
     for (const a of state.jiraItemBizAssignments ?? []) {
@@ -119,6 +119,8 @@ export function Timeline() {
     }
 
     return items.filter(item => {
+      if (!showCompleted && item.statusCategory === 'done') return false;
+
       if (squadFilter || processTeamFilter || memberSearch) {
         const member = teamMembers.find(m => m.email && item.assigneeEmail && m.email.toLowerCase() === item.assigneeEmail.toLowerCase());
         if (squadFilter && member?.squadId !== squadFilter) return false;
@@ -139,7 +141,7 @@ export function Timeline() {
       }
       return true;
     });
-  }, [state.jiraWorkItems, state.jiraItemBizAssignments, state.businessContacts, teamMembers, squadFilter, processTeamFilter, memberSearch, bizSearch]);
+  }, [state.jiraWorkItems, state.jiraItemBizAssignments, state.businessContacts, teamMembers, showCompleted, squadFilter, processTeamFilter, memberSearch, bizSearch]);
 
   return (
     <div className="space-y-6">
@@ -240,6 +242,15 @@ export function Timeline() {
               onChange={e => setBizSearch(e.target.value)}
               className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 w-36"
             />
+            <label className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={showCompleted}
+                onChange={e => setShowCompleted(e.target.checked)}
+                className="accent-mw-primary"
+              />
+              Show completed
+            </label>
           </div>
         }
       />
