@@ -960,6 +960,20 @@ function extractEpicLinkKey(
   return field.key || undefined;
 }
 
+/**
+ * Recursively extract plain text from an Atlassian Document Format (ADF) node.
+ * Jira Cloud API v3 returns `description` as ADF; this strips all formatting
+ * and returns raw text content, with paragraph/heading breaks as newlines.
+ */
+function extractPlainTextFromAdf(node: unknown): string {
+  if (!node || typeof node !== 'object') return '';
+  const n = node as { type?: string; text?: string; content?: unknown[] };
+  if (typeof n.text === 'string') return n.text;
+  if (!Array.isArray(n.content)) return '';
+  const sep = (n.type === 'paragraph' || n.type === 'heading') ? '\n' : '';
+  return n.content.map(child => extractPlainTextFromAdf(child)).join('') + sep;
+}
+
 function mapJiraIssueToWorkItem(
   issue: JiraIssue,
   connectionId: string,
@@ -982,7 +996,12 @@ function mapJiraIssueToWorkItem(
 
   return {
     id: 'jira-' + issue.id, connectionId, jiraKey: issue.key, jiraId: issue.id, summary: f.summary,
-    description: typeof f.description === 'string' ? f.description : undefined,
+    description:
+      typeof f.description === 'string'
+        ? f.description || undefined
+        : f.description
+          ? extractPlainTextFromAdf(f.description).trim() || undefined
+          : undefined,
     type: mapJiraTypeToItemType(f.issuetype.name), typeName: f.issuetype.name,
     status: f.status.name, statusCategory: mapStatusCategory(f.status.statusCategory.key),
     priority: f.priority?.name, storyPoints: getStoryPoints(f, discoveredSpFieldId),

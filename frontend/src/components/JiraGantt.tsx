@@ -161,6 +161,35 @@ function StatusBadge({ item }: { item: JiraWorkItem }) {
 
 // ── Slide-out panel ──────────────────────────────────────────────────────────
 
+const DESCRIPTION_PREVIEW_CHARS = 400;
+
+function DescriptionSection({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const truncated = text.length > DESCRIPTION_PREVIEW_CHARS;
+  const display = expanded || !truncated
+    ? text
+    : text.slice(0, DESCRIPTION_PREVIEW_CHARS).replace(/\s+\S*$/, '') + '…';
+
+  return (
+    <div>
+      <p className="text-[10.5px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2.5">
+        Description
+      </p>
+      <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+        {display}
+      </p>
+      {truncated && (
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="mt-2 text-xs font-medium text-mw-primary hover:underline"
+        >
+          {expanded ? 'Show less ▲' : 'Show more ▼'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function SlidePanel({
   item, jiraBaseUrl, bizAssignments, businessContacts, onClose,
 }: {
@@ -204,15 +233,6 @@ function SlidePanel({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5">
                   <TypeChip type={item.type} />
-                  {item.jiraKey && jiraBaseUrl && (
-                    <a
-                      href={`${jiraBaseUrl}/browse/${item.jiraKey}`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="font-mono text-[10px] text-slate-400 hover:text-[#0089DD] flex items-center gap-0.5 transition-colors"
-                    >
-                      {item.jiraKey}<ExternalLink size={9} />
-                    </a>
-                  )}
                 </div>
                 <p className="text-[15px] font-semibold text-slate-900 dark:text-white leading-snug">{item.summary}</p>
               </div>
@@ -227,6 +247,24 @@ function SlidePanel({
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {/* Open in Jira button */}
+              {item.jiraKey && jiraBaseUrl && (
+                <a
+                  href={`${jiraBaseUrl}/browse/${item.jiraKey}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg
+                             border border-mw-grey-light bg-mw-grey-lighter text-mw-dark text-sm font-semibold
+                             hover:bg-mw-primary-light hover:border-mw-primary hover:text-mw-primary
+                             dark:bg-mw-muted-dark dark:border-mw-muted-border-dark dark:text-mw-muted-text-dark
+                             dark:hover:bg-mw-primary/10 dark:hover:border-mw-primary dark:hover:text-mw-accent-text-dark
+                             transition-colors"
+                >
+                  <ExternalLink size={14} />
+                  Open {item.jiraKey} in Jira
+                </a>
+              )}
+
               {/* Assignees */}
               <div>
                 <p className="text-[10.5px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2.5">Assignees</p>
@@ -299,6 +337,9 @@ function SlidePanel({
                   )}
                 </div>
               </div>
+
+              {/* Description */}
+              {item.description && <DescriptionSection text={item.description} />}
             </div>
           </>
         )}
