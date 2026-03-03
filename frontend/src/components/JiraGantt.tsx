@@ -163,28 +163,38 @@ function StatusBadge({ item }: { item: JiraWorkItem }) {
 
 const DESCRIPTION_PREVIEW_CHARS = 400;
 
-function DescriptionSection({ text }: { text: string }) {
+function DescriptionSection({ text }: { text?: string }) {
   const [expanded, setExpanded] = useState(false);
-  const truncated = text.length > DESCRIPTION_PREVIEW_CHARS;
-  const display = expanded || !truncated
-    ? text
-    : text.slice(0, DESCRIPTION_PREVIEW_CHARS).replace(/\s+\S*$/, '') + '…';
+  const truncated = !!text && text.length > DESCRIPTION_PREVIEW_CHARS;
+  const display = !text
+    ? null
+    : expanded || !truncated
+      ? text
+      : text.slice(0, DESCRIPTION_PREVIEW_CHARS).replace(/\s+\S*$/, '') + '…';
 
   return (
     <div>
       <p className="text-[10.5px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2.5">
         Description
       </p>
-      <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
-        {display}
-      </p>
-      {truncated && (
-        <button
-          onClick={() => setExpanded(e => !e)}
-          className="mt-2 text-xs font-medium text-mw-primary hover:underline"
-        >
-          {expanded ? 'Show less ▲' : 'Show more ▼'}
-        </button>
+      {display ? (
+        <>
+          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+            {display}
+          </p>
+          {truncated && (
+            <button
+              onClick={() => setExpanded(e => !e)}
+              className="mt-2 text-xs font-medium text-mw-primary hover:underline"
+            >
+              {expanded ? 'Show less ▲' : 'Show more ▼'}
+            </button>
+          )}
+        </>
+      ) : (
+        <p className="text-sm text-slate-400 dark:text-slate-500 italic">
+          No description available.
+        </p>
       )}
     </div>
   );
@@ -339,7 +349,7 @@ function SlidePanel({
               </div>
 
               {/* Description */}
-              {item.description && <DescriptionSection text={item.description} />}
+              <DescriptionSection text={item.description} />
             </div>
           </>
         )}
