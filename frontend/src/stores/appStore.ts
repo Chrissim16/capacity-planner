@@ -160,6 +160,7 @@ interface UIState {
   filters: Filters;
   projectFilters: ProjectFilters;
   projectSort: SortConfig;
+  epicsSortConfig: SortConfig;
   dashboardPeopleFilter: DashboardPeopleFilter;
 }
 
@@ -172,6 +173,7 @@ const defaultUIState: UIState = {
   filters: { member: [], system: [], status: [] },
   projectFilters: { search: '', priority: '', status: '', system: '' },
   projectSort: { field: 'name', direction: 'asc' },
+  epicsSortConfig: { field: '', direction: 'asc' },
   dashboardPeopleFilter: 'both',
 };
 
@@ -304,6 +306,7 @@ interface AppStore {
   setFilters: (filters: Partial<Filters>) => void;
   setProjectFilters: (filters: Partial<ProjectFilters>) => void;
   setProjectSort: (sort: SortConfig) => void;
+  setEpicsSort: (sort: SortConfig) => void;
   toggleDarkMode: () => void;
   setDashboardPeopleFilter: (filter: DashboardPeopleFilter) => void;
 
@@ -578,6 +581,11 @@ export const useAppStore = create<AppStore>()(
       setProjectSort: (sort) =>
         set((state) => ({
           ui: { ...state.ui, projectSort: sort },
+        })),
+
+      setEpicsSort: (sort) =>
+        set((state) => ({
+          ui: { ...state.ui, epicsSortConfig: sort },
         })),
       
       toggleDarkMode: () => {

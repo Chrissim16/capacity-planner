@@ -37,6 +37,8 @@ export function Projects() {
   const activeJiraBaseUrl = activeConnection?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
   const { showToast } = useToast();
   const setView = useAppStore(s => s.setCurrentView);
+  const epicsSortConfig = useAppStore(s => s.ui.epicsSortConfig);
+  const setEpicsSort   = useAppStore(s => s.setEpicsSort);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -158,6 +160,36 @@ export function Projects() {
     if (systemFilter && !project.systemIds?.includes(systemFilter)) return false;
     return true;
   }), [projects, showArchived, search, statusFilter, priorityFilter, systemFilter, jiraEpicByKey]);
+
+  const sortedProjects = useMemo(() => {
+    const { field, direction: dir } = epicsSortConfig;
+    if (!field) return filteredProjects;
+    const sign = dir === 'asc' ? 1 : -1;
+    const STATUS_ORDER = ['Active', 'Planning', 'On Hold', 'Completed', 'Cancelled'];
+    const PRIORITY_ORDER = ['High', 'Medium', 'Low'];
+    return [...filteredProjects].sort((a, b) => {
+      switch (field) {
+        case 'name':
+          return sign * a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        case 'status': {
+          const ai = STATUS_ORDER.indexOf(a.status ?? '');
+          const bi = STATUS_ORDER.indexOf(b.status ?? '');
+          return sign * ((ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi));
+        }
+        case 'priority': {
+          const ai = PRIORITY_ORDER.indexOf(a.priority ?? '');
+          const bi = PRIORITY_ORDER.indexOf(b.priority ?? '');
+          return sign * ((ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi));
+        }
+        case 'startDate': {
+          const ad = a.startDate ?? 'z';
+          const bd = b.startDate ?? 'z';
+          return sign * ad.localeCompare(bd);
+        }
+        default: return 0;
+      }
+    });
+  }, [filteredProjects, epicsSortConfig]);
 
   const archivedCount = useMemo(() => projects.filter(p => p.archived).length, [projects]);
 
@@ -595,6 +627,24 @@ export function Projects() {
         <select value={systemFilter}   onChange={(e) => setSystemFilter(e.target.value)}   className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
           {systemOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
+        <select
+          value={epicsSortConfig.field ? `${epicsSortConfig.field}:${epicsSortConfig.direction}` : ''}
+          onChange={e => {
+            const val = e.target.value;
+            if (!val) { setEpicsSort({ field: '', direction: 'asc' }); return; }
+            const [field, direction] = val.split(':') as [string, 'asc' | 'desc'];
+            setEpicsSort({ field, direction });
+          }}
+          className="w-40 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+        >
+          <option value="">Sort: Default</option>
+          <option value="name:asc">Name A–Z</option>
+          <option value="name:desc">Name Z–A</option>
+          <option value="status:asc">Status</option>
+          <option value="priority:asc">Priority</option>
+          <option value="startDate:asc">Start date ↑</option>
+          <option value="startDate:desc">Start date ↓</option>
+        </select>
         {state.squads.length > 0 && (
           <select value={squadFilter} onChange={(e) => setSquadFilter(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
             {squadOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -625,17 +675,35 @@ export function Projects() {
             className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-36"
           />
         </div>
+        <select
+          value={epicsSortConfig.field ? `${epicsSortConfig.field}:${epicsSortConfig.direction}` : ''}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (!val) { setEpicsSort({ field: '', direction: 'asc' }); return; }
+            const [field, direction] = val.split(':');
+            setEpicsSort({ field, direction: direction as 'asc' | 'desc' });
+          }}
+          className="w-44 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+        >
+          <option value="">Sort: Default</option>
+          <option value="name:asc">Name A–Z</option>
+          <option value="name:desc">Name Z–A</option>
+          <option value="status:asc">Status</option>
+          <option value="priority:asc">Priority</option>
+          <option value="startDate:asc">Start date ↑</option>
+          <option value="startDate:desc">Start date ↓</option>
+        </select>
       </div>
 
       {/* ── Epics Section ─────────────────────────────────────────────────── */}
       <SectionHeader
         title="Epics"
-        count={filteredProjects.length}
+        count={sortedProjects.length}
         open={epicsOpen}
         onToggle={() => setEpicsOpen(v => !v)}
       />
 
-      {epicsOpen && (filteredProjects.length === 0 ? (
+      {epicsOpen && (sortedProjects.length === 0 ? (
         <Card>
           <CardContent>
             {projects.filter(p => !p.archived).length === 0 && !showArchived ? (
@@ -656,7 +724,7 @@ export function Projects() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {filteredProjects.map(project => {
+          {sortedProjects.map(project => {
             const isExpanded = expandedProjects.has(project.id);
 
             const uniqueMembers = new Map<string, number>();
