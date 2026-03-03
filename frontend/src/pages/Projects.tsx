@@ -675,24 +675,6 @@ export function Projects() {
             className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-36"
           />
         </div>
-        <select
-          value={epicsSortConfig.field ? `${epicsSortConfig.field}:${epicsSortConfig.direction}` : ''}
-          onChange={(e) => {
-            const val = e.target.value;
-            if (!val) { setEpicsSort({ field: '', direction: 'asc' }); return; }
-            const [field, direction] = val.split(':');
-            setEpicsSort({ field, direction: direction as 'asc' | 'desc' });
-          }}
-          className="w-44 text-sm px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-        >
-          <option value="">Sort: Default</option>
-          <option value="name:asc">Name A–Z</option>
-          <option value="name:desc">Name Z–A</option>
-          <option value="status:asc">Status</option>
-          <option value="priority:asc">Priority</option>
-          <option value="startDate:asc">Start date ↑</option>
-          <option value="startDate:desc">Start date ↓</option>
-        </select>
       </div>
 
       {/* ── Epics Section ─────────────────────────────────────────────────── */}
@@ -780,7 +762,7 @@ export function Projects() {
             const dateRange = formatDateRange(project.startDate, project.endDate);
 
             return (
-              <Card key={project.id} id={`project-${project.id}`} className="overflow-hidden">
+              <Card key={project.id} id={`project-${project.id}`} className="overflow-visible">
                 {/* Project Header */}
                 <div
                   className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
