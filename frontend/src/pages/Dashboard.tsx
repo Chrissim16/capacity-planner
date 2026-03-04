@@ -12,7 +12,9 @@ import { PageHeader } from '../components/layout/PageHeader';
 import {
   calculateCapacity, getWarnings, getTeamUtilizationSummary,
   calculateBusinessCapacityForQuarter,
+  calculateCapacityBySquad, calculateCapacityByProcessTeam,
 } from '../utils/capacity';
+import type { GroupCapacitySummary } from '../utils/capacity';
 import { getCurrentQuarter, getWorkdaysInQuarter } from '../utils/calendar';
 import type { CapacityResult, CapacityBreakdownItem, Project } from '../types';
 
@@ -78,6 +80,8 @@ export function Dashboard() {
   const [selectedCell, setSelectedCell] = useState<{ memberId: string; quarter: string } | null>(null);
   const [selectedBizCell, setSelectedBizCell] = useState<{ contactId: string; quarter: string } | null>(null);
   const [timelineView, setTimelineView] = useState<'heatmap' | 'bars'>('heatmap');
+  const [activeTab, setActiveTab] = useState<'overview' | 'squad'>('overview');
+  const [selectedGroupQuarter, setSelectedGroupQuarter] = useState(currentQuarter);
 
   const warnings = useMemo(() => getWarnings(state), [state]);
 
@@ -166,6 +170,25 @@ export function Dashboard() {
     }));
   }, [peopleFilter, state, yearQuarters]);
 
+  // Group capacity — By Squad / By Process Team tab
+  const squadSummaries = useMemo(() =>
+    state.squads.map(sq => ({
+      id:   sq.id,
+      name: sq.name,
+      data: calculateCapacityBySquad(sq.id, selectedGroupQuarter, state),
+    })),
+    [state, selectedGroupQuarter]
+  );
+
+  const processTeamSummaries = useMemo(() =>
+    state.processTeams.map(pt => ({
+      id:   pt.id,
+      name: pt.name,
+      data: calculateCapacityByProcessTeam(pt.id, selectedGroupQuarter, state),
+    })),
+    [state, selectedGroupQuarter]
+  );
+
   const drillDown = useMemo<{ member: typeof state.teamMembers[0]; quarter: string; capacity: CapacityResult } | null>(() => {
     if (!selectedCell) return null;
     const member = state.teamMembers.find(m => m.id === selectedCell.memberId);
@@ -214,11 +237,33 @@ export function Dashboard() {
         }
       />
 
+      {/* Tab bar */}
+      {!isEmpty && (
+        <div className="flex border-b border-slate-200 dark:border-slate-700 -mt-2">
+          {([
+            { id: 'overview', label: 'Overview' },
+            { id: 'squad',    label: 'By Squad / Team' },
+          ] as const).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'border-mw-primary text-mw-primary'
+                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Onboarding */}
       {isEmpty && <OnboardingChecklist state={state} navigate={setCurrentView} />}
 
       {/* Stats strip */}
-      {!isEmpty && (
+      {!isEmpty && activeTab === 'overview' && (
         <div className="flex items-center gap-6 px-1">
           <Stat icon={Users} label="Team" value={activeMembers.length} color="blue" />
           <Stat icon={FolderKanban} label="Active Epics" value={activeProjects} color="slate" />
@@ -237,7 +282,7 @@ export function Dashboard() {
       )}
 
       {/* ── Section 1: Capacity Bank ──────────────────────────────────────────── */}
-      {!isEmpty && (
+      {!isEmpty && activeTab === 'overview' && (
         <section>
           <SectionLabel title="Capacity Bank" subtitle="Team-wide remaining days per quarter" />
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -249,10 +294,10 @@ export function Dashboard() {
       )}
 
       {/* ── Section 2: Alerts ────────────────────────────────────────────────── */}
-      {!isEmpty && <AlertsGrid warnings={warnings} projects={state.projects} />}
+      {!isEmpty && activeTab === 'overview' && <AlertsGrid warnings={warnings} projects={state.projects} />}
 
       {/* ── Section 3: Timeline Preview ──────────────────────────────────────── */}
-      {!isEmpty && activeMembers.length > 0 && (
+      {!isEmpty && activeTab === 'overview' && activeMembers.length > 0 && (
         <section>
           <div className="flex items-end justify-between mb-3">
             <SectionLabel
@@ -778,6 +823,125 @@ export function Dashboard() {
         </section>
       )}
 
+      {/* ── By Squad / Team tab ──────────────────────────────────────────────── */}
+      {!isEmpty && activeTab === 'squad' && (
+        <SquadTeamTab
+          yearQuarters={yearQuarters}
+          selectedQuarter={selectedGroupQuarter}
+          onSelectQuarter={setSelectedGroupQuarter}
+          squadSummaries={squadSummaries}
+          processTeamSummaries={processTeamSummaries}
+        />
+      )}
+
+    </div>
+  );
+}
+
+/* ─── By Squad / Team tab ────────────────────────────────────────────────────── */
+
+function getBarColor(utilization: number): string {
+  const pct = utilization * 100;
+  if (pct <= 0)   return '#E2ECF5';
+  if (pct <= 30)  return 'rgba(74,181,100,0.30)';
+  if (pct <= 50)  return 'rgba(74,181,100,0.55)';
+  if (pct <= 70)  return 'rgba(255,210,60,0.60)';
+  if (pct <= 80)  return 'rgba(255,175,40,0.70)';
+  if (pct <= 100) return 'rgba(255,130,50,0.70)';
+  return 'rgba(220,53,69,0.50)';
+}
+
+function GroupBar({ name, data }: { name: string; data: GroupCapacitySummary }) {
+  const pct = Math.round(data.utilization * 100);
+  const isOverloaded = data.utilization > 1;
+  const barFill = getBarColor(data.utilization);
+  const barWidth = `${Math.min(100, pct)}%`;
+
+  return (
+    <div
+      className="py-3 border-b border-slate-100 dark:border-slate-800 last:border-0"
+      style={isOverloaded ? { borderLeft: '2px solid #DC3545', paddingLeft: '8px' } : undefined}
+    >
+      <div className="flex items-center gap-3 mb-1.5">
+        <span className="text-sm font-medium text-slate-800 dark:text-slate-100 w-28 shrink-0 truncate">{name}</span>
+        <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+          <div className="h-full rounded-full transition-all" style={{ width: barWidth, backgroundColor: barFill }} />
+        </div>
+        <span className={`text-xs font-semibold tabular-nums w-10 text-right ${isOverloaded ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
+          {data.totalDays === 0 ? '—' : `${pct}%`}
+        </span>
+      </div>
+      {data.totalDays > 0 && (
+        <div className="text-xs text-slate-400 dark:text-slate-500 pl-[112px]">
+          {data.usedDays}d used · {data.availableDays}d free
+        </div>
+      )}
+      {data.totalDays === 0 && (
+        <div className="text-xs text-slate-400 dark:text-slate-500 pl-[112px]">No members assigned</div>
+      )}
+    </div>
+  );
+}
+
+function SquadTeamTab({
+  yearQuarters,
+  selectedQuarter,
+  onSelectQuarter,
+  squadSummaries,
+  processTeamSummaries,
+}: {
+  yearQuarters: string[];
+  selectedQuarter: string;
+  onSelectQuarter: (q: string) => void;
+  squadSummaries: { id: string; name: string; data: GroupCapacitySummary }[];
+  processTeamSummaries: { id: string; name: string; data: GroupCapacitySummary }[];
+}) {
+  return (
+    <div className="space-y-4">
+      {/* Quarter pills */}
+      <div className="flex items-center gap-2">
+        {yearQuarters.map(q => (
+          <button
+            key={q}
+            onClick={() => onSelectQuarter(q)}
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              selectedQuarter === q
+                ? 'bg-mw-primary text-white'
+                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-mw-primary hover:text-mw-primary'
+            }`}
+          >
+            {q.split(' ')[0]}
+          </button>
+        ))}
+        <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">{selectedQuarter}</span>
+      </div>
+
+      {/* Two-column grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* By Squad */}
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">By Squad</p>
+            {squadSummaries.length === 0 ? (
+              <p className="text-sm text-slate-400 dark:text-slate-500 italic">No squads configured.</p>
+            ) : (
+              squadSummaries.map(s => <GroupBar key={s.id} name={s.name} data={s.data} />)
+            )}
+          </CardContent>
+        </Card>
+
+        {/* By Process Team */}
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">By Process Team</p>
+            {processTeamSummaries.length === 0 ? (
+              <p className="text-sm text-slate-400 dark:text-slate-500 italic">No process teams configured.</p>
+            ) : (
+              processTeamSummaries.map(pt => <GroupBar key={pt.id} name={pt.name} data={pt.data} />)
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -632,6 +632,98 @@ export function getProjectAllocationSummary(
   return { totalDays, byQuarter, byMember };
 }
 
+// ─── GROUP CAPACITY (by Squad / by Process Team) ──────────────────────────────
+
+/**
+ * Aggregated capacity for a group of people (squad or process team).
+ * utilization > 1.0 means the group is overloaded.
+ */
+export interface GroupCapacitySummary {
+  totalDays:     number;
+  usedDays:      number;
+  availableDays: number;
+  utilization:   number;
+}
+
+const EMPTY_GROUP: GroupCapacitySummary = { totalDays: 0, usedDays: 0, availableDays: 0, utilization: 0 };
+
+/**
+ * Capacity summary for all non-excluded IT team members in a squad.
+ */
+export function calculateCapacityBySquad(
+  squadId: string,
+  quarter: string,
+  state: AppState,
+): GroupCapacitySummary {
+  const members = state.teamMembers.filter(
+    m => m.squadId === squadId && !m.excludedFromCapacity,
+  );
+  if (members.length === 0) return EMPTY_GROUP;
+
+  let totalDays = 0;
+  let usedDays  = 0;
+
+  for (const m of members) {
+    const cap = calculateCapacity(m.id, quarter, state);
+    totalDays += cap.totalWorkdays;
+    usedDays  += cap.usedDays;
+  }
+
+  const availableDays = Math.max(0, totalDays - usedDays);
+  const utilization   = totalDays > 0 ? usedDays / totalDays : 0;
+  return { totalDays: Math.round(totalDays), usedDays: Math.round(usedDays), availableDays: Math.round(availableDays), utilization };
+}
+
+/**
+ * Capacity summary for all non-excluded IT members + BIZ contacts in a process team.
+ * IT members contribute totalWorkdays / usedDays.
+ * BIZ contacts contribute (availableDays + allocatedDays) as totalDays and allocatedDays as usedDays.
+ */
+export function calculateCapacityByProcessTeam(
+  processTeamId: string,
+  quarter: string,
+  state: AppState,
+): GroupCapacitySummary {
+  let totalDays = 0;
+  let usedDays  = 0;
+
+  // IT members
+  const itMembers = state.teamMembers.filter(
+    m => m.processTeamIds?.includes(processTeamId) && !m.excludedFromCapacity,
+  );
+  for (const m of itMembers) {
+    const cap = calculateCapacity(m.id, quarter, state);
+    totalDays += cap.totalWorkdays;
+    usedDays  += cap.usedDays;
+  }
+
+  // BIZ contacts
+  const bizContacts = state.businessContacts.filter(
+    c => !c.archived && !c.excludedFromCapacity && c.processTeamIds?.includes(processTeamId),
+  );
+  for (const c of bizContacts) {
+    const biz = calculateBusinessCapacityForQuarter(
+      c, quarter,
+      state.businessAssignments,
+      state.businessTimeOff,
+      state.publicHolidays,
+      state.projects,
+      state.jiraItemBizAssignments,
+      state.jiraWorkItems,
+    );
+    // biz.availableDays = net working days (after time-off); reconstruct gross = available + allocated
+    const grossDays = biz.availableDays + biz.allocatedDays;
+    totalDays += grossDays;
+    usedDays  += biz.allocatedDays;
+  }
+
+  if (totalDays === 0) return EMPTY_GROUP;
+
+  const availableDays = Math.max(0, totalDays - usedDays);
+  const utilization   = totalDays > 0 ? usedDays / totalDays : 0;
+  return { totalDays: Math.round(totalDays), usedDays: Math.round(usedDays), availableDays: Math.round(availableDays), utilization };
+}
+
 /**
  * Convert days per week to quarterly total
  */
