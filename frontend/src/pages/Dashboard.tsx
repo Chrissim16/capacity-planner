@@ -227,14 +227,6 @@ export function Dashboard() {
       <PageHeader
         title="Capacity Overview"
         subtitle={`VS Finance · ${currentQuarter} · Mileway BV`}
-        actions={
-          <button
-            onClick={() => setCurrentView('projects')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
-          >
-            + New Epic
-          </button>
-        }
       />
 
       {/* Tab bar */}
