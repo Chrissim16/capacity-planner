@@ -59,16 +59,22 @@ async function fetchUserRole(userId: string): Promise<AppRole> {
     data = res.data;
     error = res.error;
   } catch (err) {
-    console.warn('[Auth] Role lookup timeout/failure, defaulting to project_manager:', err);
+    console.error('[Auth] Role lookup timeout/failure:', err);
     return 'project_manager';
   }
 
   if (error) {
-    console.warn('[Auth] Failed to fetch role, defaulting to project_manager:', error.message);
+    console.error('[Auth] Role lookup RLS/query error:', error.message, error);
     return 'project_manager';
   }
 
-  const role = data?.role as AppRole | undefined;
+  if (!data) {
+    console.warn('[Auth] Role lookup returned no row for user', userId, '— RLS may be blocking the read');
+    return 'project_manager';
+  }
+
+  const role = data.role as AppRole | undefined;
+  console.info('[Auth] Role resolved:', role);
   return role ?? 'project_manager';
 }
 
