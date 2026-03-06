@@ -50,15 +50,15 @@ interface CurrentUserState {
 async function fetchUserRole(_userId: string): Promise<AppRole> {
   try {
     const { data, error } = await withTimeout(
-      supabase.rpc('get_my_role') as Promise<{ data: string | null; error: { message?: string } | null }>,
+      Promise.resolve(supabase.rpc('get_my_role')),
       5000,
       'Role lookup'
     );
     if (error) {
-      console.error('[Auth] get_my_role RPC error:', error.message);
+      console.error('[Auth] get_my_role RPC error:', (error as { message?: string }).message);
       return 'project_manager';
     }
-    const role = (data ?? 'project_manager') as AppRole;
+    const role = ((data as string | null) ?? 'project_manager') as AppRole;
     return role;
   } catch (err) {
     console.error('[Auth] Role lookup timeout/failure:', err);
