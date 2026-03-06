@@ -98,28 +98,20 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
         console.warn('[Auth] Session check timeout/failure:', err);
       }
       if (error) {
-        if (!cancelled) {
-          setState({ user: null, role: null, loading: false });
-        }
+        if (!cancelled) setState({ user: null, role: null, loading: false });
         return;
       }
 
       const sessionUser = data?.session?.user ?? null;
       if (!sessionUser) {
-        if (!cancelled) {
-          setState({ user: null, role: null, loading: false });
-        }
+        if (!cancelled) setState({ user: null, role: null, loading: false });
         return;
       }
 
-      if (!cancelled) {
-        // Never block signed-in state on role lookup.
-        setState({ user: sessionUser, role: 'project_manager', loading: false });
-      }
+      // Fetch role before releasing the loading state so the UI never renders
+      // with the wrong permissions (avoids "Access restricted" flash for admins).
       const role = await fetchUserRole(sessionUser.id);
-      if (!cancelled) {
-        setState({ user: sessionUser, role, loading: false });
-      }
+      if (!cancelled) setState({ user: sessionUser, role, loading: false });
     };
 
     hydrate();
@@ -127,20 +119,15 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
     const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const sessionUser = session?.user ?? null;
       if (!sessionUser) {
-        if (!cancelled) {
-          setState({ user: null, role: null, loading: false });
-        }
+        if (!cancelled) setState({ user: null, role: null, loading: false });
         return;
       }
 
-      // Set session immediately so UI can proceed.
-      if (!cancelled) {
-        setState({ user: sessionUser, role: 'project_manager', loading: false });
-      }
+      // Preserve the existing role during token refreshes and other re-auth events
+      // so the UI never flickers back to the default role mid-session.
+      // Only re-fetch to pick up any actual role change.
       const role = await fetchUserRole(sessionUser.id);
-      if (!cancelled) {
-        setState({ user: sessionUser, role, loading: false });
-      }
+      if (!cancelled) setState({ user: sessionUser, role, loading: false });
     });
 
     return () => {
