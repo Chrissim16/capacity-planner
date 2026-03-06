@@ -47,35 +47,23 @@ interface CurrentUserState {
   loading: boolean;
 }
 
-async function fetchUserRole(userId: string): Promise<AppRole> {
-  let data: { role?: AppRole } | null = null;
-  let error: { message?: string } | null = null;
+async function fetchUserRole(_userId: string): Promise<AppRole> {
   try {
-    const res: { data: { role?: AppRole } | null; error: { message?: string } | null } = await withTimeout(
-      (async () => supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle())(),
+    const { data, error } = await withTimeout(
+      supabase.rpc('get_my_role') as Promise<{ data: string | null; error: { message?: string } | null }>,
       5000,
       'Role lookup'
     );
-    data = res.data;
-    error = res.error;
+    if (error) {
+      console.error('[Auth] get_my_role RPC error:', error.message);
+      return 'project_manager';
+    }
+    const role = (data ?? 'project_manager') as AppRole;
+    return role;
   } catch (err) {
     console.error('[Auth] Role lookup timeout/failure:', err);
     return 'project_manager';
   }
-
-  if (error) {
-    console.error('[Auth] Role lookup RLS/query error:', error.message, error);
-    return 'project_manager';
-  }
-
-  if (!data) {
-    console.warn('[Auth] Role lookup returned no row for user', userId, '— RLS may be blocking the read');
-    return 'project_manager';
-  }
-
-  const role = data.role as AppRole | undefined;
-  console.info('[Auth] Role resolved:', role);
-  return role ?? 'project_manager';
 }
 
 export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) => boolean } {
