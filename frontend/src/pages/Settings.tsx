@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings2, BookOpen, Link2 } from 'lucide-react';
+import { Settings2, BookOpen, Link2, Shield } from 'lucide-react';
 import { GeneralSection } from './settings/GeneralSection';
 import { ConfidenceSection } from './settings/ConfidenceSection';
 import { RolesSection } from './settings/RolesSection';
@@ -12,14 +12,16 @@ import { ProcessTeamsSection } from './settings/ProcessTeamsSection';
 import { SprintsSection } from './settings/SprintsSection';
 import { JiraSection } from './settings/JiraSection';
 import { DataSection } from './settings/DataSection';
+import { UsersSection } from './settings/UsersSection';
 import { PageHeader } from '../components/layout/PageHeader';
 
-type SettingsGroup = 'planning' | 'reference' | 'jira';
+type SettingsGroup = 'planning' | 'reference' | 'jira' | 'users';
 
 const groups: { id: SettingsGroup; label: string; icon: typeof Settings2 }[] = [
   { id: 'planning',  label: 'Planning',        icon: Settings2 },
   { id: 'reference', label: 'Reference Data',  icon: BookOpen },
   { id: 'jira',      label: 'Jira Integration', icon: Link2 },
+  { id: 'users',     label: 'Users',            icon: Shield },
 ];
 
 export function Settings() {
@@ -77,6 +79,8 @@ export function Settings() {
         )}
 
         {activeGroup === 'jira' && <JiraSection />}
+
+        {activeGroup === 'users' && <UsersSection />}
       </div>
     </div>
   );
