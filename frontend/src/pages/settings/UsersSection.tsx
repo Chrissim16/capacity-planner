@@ -41,7 +41,7 @@ export function UsersSection() {
 
   // Invite form state
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<AppRole>('team_lead');
+  const [inviteRole, setInviteRole] = useState<AppRole>('project_manager');
   const [isInviting, setIsInviting] = useState(false);
 
   // Role update state: maps userId → true while saving
@@ -116,7 +116,7 @@ export function UsersSection() {
       } else {
         showToast(`Invitation sent to ${trimmedEmail}.`, 'success');
         setInviteEmail('');
-        setInviteRole('team_lead');
+        setInviteRole('project_manager');
         void fetchUsers();
       }
     } catch {

@@ -80,8 +80,8 @@ module.exports = async function handler(req, res) {
       if (!email || typeof email !== 'string') {
         return res.status(400).json({ error: 'email is required' });
       }
-      const validRoles = ['system_admin', 'it_manager', 'team_lead', 'stakeholder'];
-      const assignedRole = validRoles.includes(role) ? role : 'team_lead';
+      const validRoles = ['system_admin', 'project_manager', 'read_only'];
+      const assignedRole = validRoles.includes(role) ? role : 'project_manager';
 
       // Send the invitation email
       const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email);
