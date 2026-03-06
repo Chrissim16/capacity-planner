@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../services/supabase';
+import { withTimeout } from '../utils/withTimeout';
 
 export type AppRole = 'system_admin' | 'it_manager' | 'team_lead' | 'stakeholder';
 
@@ -47,21 +48,6 @@ interface CurrentUserState {
   loading: boolean;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
-}
-
 async function fetchUserRole(userId: string): Promise<AppRole> {
   let data: { role?: AppRole } | null = null;
   let error: { message?: string } | null = null;
@@ -97,13 +83,14 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
   useEffect(() => {
     let cancelled = false;
 
-    // In local-only mode, keep existing no-auth behaviour.
+    // In local-only mode, grant admin access only during development.
+    // In production a missing/misconfigured Supabase setup must deny access (fail closed).
     if (!isSupabaseConfigured()) {
-      setState({
-        user: null,
-        role: 'system_admin',
-        loading: false,
-      });
+      if (import.meta.env.DEV) {
+        setState({ user: null, role: 'system_admin', loading: false });
+      } else {
+        setState({ user: null, role: null, loading: false });
+      }
       return;
     }
 

@@ -1,20 +1,23 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { isSupabaseConfigured, supabase } from '../services/supabase';
+import { withTimeout } from '../utils/withTimeout';
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
+function normalizeAuthError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes('invalid login') || lower.includes('invalid credentials')) {
+    return 'Incorrect email or password.';
+  }
+  if (lower.includes('email not confirmed')) {
+    return 'Please verify your email address before signing in.';
+  }
+  if (lower.includes('already registered')) {
+    return 'An account with this email already exists. Sign in instead.';
+  }
+  if (lower.includes('timed out')) {
+    return 'The request timed out. Please try again.';
+  }
+  return 'Authentication failed. Please try again.';
 }
 
 export function Login() {
@@ -38,7 +41,12 @@ export function Login() {
     setIsSubmitting(true);
     try {
       if (!isSupabaseConfigured()) {
-        setError('Supabase is not configured. Sign-in is unavailable.');
+        setError('Sign-in is currently unavailable.');
+        return;
+      }
+
+      if (isSignUpMode && password.length < 8) {
+        setError('Password must be at least 8 characters.');
         return;
       }
 
@@ -52,7 +60,7 @@ export function Login() {
           'Sign-up'
         );
         if (signUpError) {
-          setError(signUpError.message);
+          setError(normalizeAuthError(signUpError.message));
           return;
         }
         setInfo('Account created. Check your email for verification if required.');
@@ -66,13 +74,13 @@ export function Login() {
           'Sign-in'
         );
         if (signInError) {
-          setError(signInError.message);
+          setError(normalizeAuthError(signInError.message));
           return;
         }
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Authentication failed';
-      setError(msg);
+      const raw = err instanceof Error ? err.message : '';
+      setError(normalizeAuthError(raw));
     } finally {
       setIsSubmitting(false);
     }
