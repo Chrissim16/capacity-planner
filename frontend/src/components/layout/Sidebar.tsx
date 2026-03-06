@@ -108,7 +108,10 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   const currentView = PATH_TO_VIEW[location.pathname] ?? 'dashboard';
   const settings = useSettings();
   const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
-  const { user, role } = useCurrentUser();
+  const { user, role, can } = useCurrentUser();
+  const visibleNavItems = navItems.filter(
+    (item) => item.view !== 'settings' || can('manage_settings')
+  );
 
   const initials = useMemo(() => {
     const source = user?.email ?? 'User';
@@ -137,7 +140,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
       </div>
 
       <nav className="flex-1 py-3">
-        {navItems.map(({ view, icon: Icon, label }) => (
+        {visibleNavItems.map(({ view, icon: Icon, label }) => (
           <Link
             key={view}
             to={VIEW_TO_PATH[view]}
@@ -197,7 +200,12 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           {!collapsed && (
             <div className="min-w-0">
               <div className="text-xs text-white/85 truncate">{user?.email ?? 'Local mode'}</div>
-              <div className="text-[11px] text-white/45 truncate">{role ?? 'No role'}</div>
+              <div className="text-[11px] text-white/45 truncate">
+                {role === 'system_admin' ? 'System Administrator'
+                  : role === 'project_manager' ? 'Project Manager'
+                  : role === 'read_only' ? 'Read Only'
+                  : role ?? 'No role'}
+              </div>
             </div>
           )}
         </div>

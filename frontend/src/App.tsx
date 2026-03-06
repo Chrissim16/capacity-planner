@@ -62,7 +62,7 @@ function App() {
   const initializeFromSupabase = useAppStore((s) => s.initializeFromSupabase);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const { user, loading: authLoading } = useCurrentUser();
+  const { user, loading: authLoading, can } = useCurrentUser();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -117,11 +117,14 @@ function App() {
       const target = e.target as HTMLElement;
       const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-      // Number keys 1-6: navigate views
+      // Number keys 1-6: navigate views (Settings gated to manage_settings)
       if (e.key >= '1' && e.key <= '6' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping) {
         const views: ViewType[] = ['dashboard', 'timeline', 'projects', 'team', 'scenarios', 'settings'];
         const index = parseInt(e.key) - 1;
-        if (views[index]) setCurrentView(views[index]);
+        const target = views[index];
+        if (target && (target !== 'settings' || can('manage_settings'))) {
+          setCurrentView(target);
+        }
       }
 
       // ? — show keyboard shortcuts modal

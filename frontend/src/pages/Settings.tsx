@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings2, BookOpen, Link2, Shield } from 'lucide-react';
+import { Settings2, BookOpen, Link2, Shield, Lock } from 'lucide-react';
 import { GeneralSection } from './settings/GeneralSection';
 import { ConfidenceSection } from './settings/ConfidenceSection';
 import { RolesSection } from './settings/RolesSection';
@@ -14,6 +14,7 @@ import { JiraSection } from './settings/JiraSection';
 import { DataSection } from './settings/DataSection';
 import { UsersSection } from './settings/UsersSection';
 import { PageHeader } from '../components/layout/PageHeader';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 
 type SettingsGroup = 'planning' | 'reference' | 'jira' | 'users';
 
@@ -25,7 +26,18 @@ const groups: { id: SettingsGroup; label: string; icon: typeof Settings2 }[] = [
 ];
 
 export function Settings() {
+  const { can } = useCurrentUser();
   const [activeGroup, setActiveGroup] = useState<SettingsGroup>('planning');
+
+  if (!can('manage_settings')) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4 text-slate-500 dark:text-slate-400">
+        <Lock size={40} className="text-slate-300 dark:text-slate-600" />
+        <p className="text-lg font-medium text-slate-700 dark:text-slate-200">Access restricted</p>
+        <p className="text-sm">You don't have permission to view Settings.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
