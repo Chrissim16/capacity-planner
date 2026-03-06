@@ -4,7 +4,7 @@ import {
   ChevronDown, ChevronRight, FolderKanban, Filter,
   Archive, ArchiveRestore, StickyNote, Calendar, MoreHorizontal,
   RefreshCw, Zap, AlertCircle, CheckCircle2, Settings, Link2,
-  Users, X,
+  Users, X, Download, Loader2,
 } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { AvatarStack } from '../components/ui/AvatarStack';
@@ -18,12 +18,13 @@ import { ProjectForm } from '../components/forms/ProjectForm';
 import { AssignmentModal } from '../components/forms/AssignmentModal';
 import { useCurrentState, useAppStore } from '../stores/appStore';
 import { deleteProject, duplicateProject, archiveProject, unarchiveProject, upsertBusinessAssignment, removeBusinessAssignment, generateId, upsertJiraItemBizAssignment, removeJiraItemBizAssignment, updateJiraWorkItemMapping } from '../stores/actions';
-import { autoLinkNow } from '../application/jiraSync';
+import { autoLinkNow, fetchSyncPreview, applySync } from '../application/jiraSync';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useToast } from '../components/ui/Toast';
 import { calculateCapacity } from '../utils/capacity';
 import { getCurrentQuarter } from '../utils/calendar';
 import { computeRollup, getForecastedDays, getConfidenceLabel } from '../utils/confidence';
-import type { Project, JiraWorkItem, JiraItemType, BusinessAssignment, BusinessContact, JiraItemBizAssignment, ConfidenceLevel, Settings as AppSettings } from '../types';
+import type { Project, JiraWorkItem, JiraItemType, BusinessAssignment, BusinessContact, JiraItemBizAssignment, ConfidenceLevel, Settings as AppSettings, JiraSyncDiff } from '../types';
 
 export function Projects() {
   const state = useCurrentState();
@@ -39,6 +40,34 @@ export function Projects() {
   const setView = useAppStore(s => s.setCurrentView);
   const epicsSortConfig = useAppStore(s => s.ui.epicsSortConfig);
   const setEpicsSort   = useAppStore(s => s.setEpicsSort);
+  const { can } = useCurrentUser();
+  // Show the sync shortcut only for users who can sync Jira but cannot access full Settings
+  const showSyncShortcut = can('sync_jira') && !can('manage_settings');
+
+  // Sync shortcut state (mirrors JiraSection's sync flow)
+  const [shortcutSyncingId, setShortcutSyncingId] = useState<string | null>(null);
+  const [shortcutSyncProgress, setShortcutSyncProgress] = useState('');
+  const [shortcutPendingDiff, setShortcutPendingDiff] = useState<JiraSyncDiff | null>(null);
+
+  const handleShortcutSync = async (conn: (typeof jiraConnections)[0]) => {
+    setShortcutSyncingId(conn.id);
+    setShortcutSyncProgress('Fetching from Jira…');
+    const { diff, error, empty } = await fetchSyncPreview(conn, jiraSettings, setShortcutSyncProgress);
+    setShortcutSyncingId(null);
+    setShortcutSyncProgress('');
+    if (error) { showToast(error, 'error'); return; }
+    if (empty)  { showToast('Nothing new to sync.', 'info'); return; }
+    if (diff)   { setShortcutPendingDiff(diff); }
+  };
+
+  const handleShortcutSyncConfirm = () => {
+    if (!shortcutPendingDiff) return;
+    const conn = jiraConnections.find(c => c.id === shortcutPendingDiff.connectionId);
+    if (!conn) return;
+    const { message } = applySync(shortcutPendingDiff, conn, jiraSettings);
+    showToast(message, 'success');
+    setShortcutPendingDiff(null);
+  };
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -513,6 +542,31 @@ export function Projects() {
               >
                 {showArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
                 {showArchived ? 'Hide archived' : `Archived (${archivedCount})`}
+              </Button>
+            )}
+            {/* Jira sync shortcut — visible to project_manager (no Settings access) */}
+            {showSyncShortcut && jiraConnections.filter(c => c.isActive).length > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!!shortcutSyncingId}
+                onClick={() => {
+                  const active = jiraConnections.filter(c => c.isActive);
+                  if (active.length === 1) {
+                    void handleShortcutSync(active[0]);
+                  } else if (active.length > 1) {
+                    // Sync all active connections sequentially
+                    void (async () => {
+                      for (const conn of active) {
+                        await handleShortcutSync(conn);
+                      }
+                    })();
+                  }
+                }}
+              >
+                {shortcutSyncingId
+                  ? <><Loader2 size={14} className="animate-spin" />{shortcutSyncProgress || 'Syncing…'}</>
+                  : <><Download size={14} />Sync Jira</>}
               </Button>
             )}
             <Button variant="secondary" onClick={() => setIsAssignmentOpen(true)}>
@@ -1177,6 +1231,40 @@ export function Projects() {
         projectId={assignmentContext.projectId}
         phaseId={assignmentContext.phaseId}
       />
+
+      {/* Jira Sync shortcut preview modal — for project_manager users */}
+      {showSyncShortcut && (
+        <Modal
+          isOpen={!!shortcutPendingDiff}
+          onClose={() => setShortcutPendingDiff(null)}
+          title="Jira Sync Preview"
+          size="md"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setShortcutPendingDiff(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleShortcutSyncConfirm}>
+                <Download size={14} />
+                Apply sync
+              </Button>
+            </>
+          }
+        >
+          {shortcutPendingDiff && (
+            <div className="space-y-3 text-sm text-slate-700 dark:text-slate-200">
+              <p>
+                <strong>{shortcutPendingDiff.toAdd.length}</strong> items to add,{' '}
+                <strong>{shortcutPendingDiff.toUpdate.length}</strong> to update,{' '}
+                <strong>{shortcutPendingDiff.toRemove.length}</strong> to remove.
+              </p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs">
+                Review and apply the changes fetched from Jira.
+              </p>
+            </div>
+          )}
+        </Modal>
+      )}
 
       {/* Delete Confirmation Modal */}
       <Modal

@@ -17,6 +17,7 @@ import {
   createScenario, duplicateScenario, deleteScenario, switchScenario, updateScenario,
 } from '../stores/actions';
 import { SCENARIO_COLORS, scenarioColorDot } from '../components/ScenarioSelector';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import type { Scenario, ScenarioColor } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,6 +197,8 @@ export function Scenarios() {
   const data = useAppStore(useShallow(s => s.data));
   const setCurrentView = useAppStore(s => s.setCurrentView);
   const { scenarios, activeScenarioId } = data;
+  const { can } = useCurrentUser();
+  const canManage = can('manage_scenarios');
 
   const [showCreate, setShowCreate] = useState(false);
   const [duplicateSource, setDuplicateSource] = useState<Scenario | null>(null);
@@ -231,12 +234,12 @@ export function Scenarios() {
       <PageHeader
         title="Scenarios"
         subtitle="What-if planning workspace"
-        actions={
+        actions={canManage ? (
           <Button onClick={() => { setDuplicateSource(null); setShowCreate(true); }}>
             <Plus size={16} className="mr-1" />
             New Scenario
           </Button>
-        }
+        ) : undefined}
       />
 
       {/* What is isolated info box */}
@@ -275,10 +278,12 @@ export function Scenarios() {
                   Switch to Baseline
                 </Button>
               )}
-              <Button size="sm" onClick={() => { setDuplicateSource(null); setShowCreate(true); }}>
-                <GitBranch size={14} className="mr-1" />
-                Create Scenario
-              </Button>
+              {canManage && (
+                <Button size="sm" onClick={() => { setDuplicateSource(null); setShowCreate(true); }}>
+                  <GitBranch size={14} className="mr-1" />
+                  Create Scenario
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -297,7 +302,7 @@ export function Scenarios() {
               <strong className="text-slate-800 dark:text-slate-200">{baselineStats.timeOff}</strong> time-off entries
             </span>
           </div>
-          {!activeScenarioId && (
+          {!activeScenarioId && canManage && (
             <div className="mt-3 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
               <Info size={13} className="shrink-0" />
               <span>You are editing the baseline. Create a scenario to safely explore changes without risk.</span>
@@ -319,7 +324,9 @@ export function Scenarios() {
           icon={Layers}
           title="No scenarios yet"
           description="Create a scenario to safely plan &ldquo;what-if&rdquo; changes without affecting your Jira baseline."
-          action={{ label: 'Create your first scenario', onClick: () => { setDuplicateSource(null); setShowCreate(true); } }}
+          action={canManage
+            ? { label: 'Create your first scenario', onClick: () => { setDuplicateSource(null); setShowCreate(true); } }
+            : undefined}
         />
       )}
 
@@ -386,28 +393,32 @@ export function Scenarios() {
                   >
                     Compare
                   </Button>
-                  <Button
-                    variant="ghost" size="sm"
-                    onClick={() => { setRenamingId(scenario.id); setRenameValue(scenario.name); }}
-                    title="Rename"
-                  >
-                    <Pencil size={14} />
-                  </Button>
-                  <Button
-                    variant="ghost" size="sm"
-                    onClick={() => { setDuplicateSource(scenario); setShowCreate(true); }}
-                    title="Duplicate"
-                  >
-                    <Copy size={14} />
-                  </Button>
-                  <Button
-                    variant="ghost" size="sm"
-                    className="text-destructive hover:bg-destructive/10"
-                    onClick={() => setDeleteConfirm(scenario)}
-                    title="Delete"
-                  >
-                    <Trash2 size={14} />
-                  </Button>
+                  {canManage && (
+                    <>
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => { setRenamingId(scenario.id); setRenameValue(scenario.name); }}
+                        title="Rename"
+                      >
+                        <Pencil size={14} />
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => { setDuplicateSource(scenario); setShowCreate(true); }}
+                        title="Duplicate"
+                      >
+                        <Copy size={14} />
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm"
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={() => setDeleteConfirm(scenario)}
+                        title="Delete"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -434,8 +445,8 @@ export function Scenarios() {
         );
       })}
 
-      {/* Create / Duplicate modal */}
-      {showCreate && (
+      {/* Create / Duplicate modal — only mount for users who can manage scenarios */}
+      {showCreate && canManage && (
         <CreateModal
           duplicateFrom={duplicateSource}
           onClose={() => { setShowCreate(false); setDuplicateSource(null); }}

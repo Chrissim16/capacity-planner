@@ -17,13 +17,12 @@ interface UserRow {
   last_sign_in_at: string | null;
 }
 
-const ALL_ROLES: AppRole[] = ['system_admin', 'it_manager', 'team_lead', 'stakeholder'];
+const ALL_ROLES: AppRole[] = ['system_admin', 'project_manager', 'read_only'];
 
 const ROLE_LABELS: Record<string, string> = {
-  system_admin: 'System Admin',
-  it_manager: 'IT Manager',
-  team_lead: 'Team Lead',
-  stakeholder: 'Stakeholder',
+  system_admin: 'System Administrator',
+  project_manager: 'Project Manager',
+  read_only: 'Read Only',
 };
 
 function formatDate(iso: string | null): string {

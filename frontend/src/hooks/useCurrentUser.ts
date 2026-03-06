@@ -3,13 +3,15 @@ import type { User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../services/supabase';
 import { withTimeout } from '../utils/withTimeout';
 
-export type AppRole = 'system_admin' | 'it_manager' | 'team_lead' | 'stakeholder';
+export type AppRole = 'system_admin' | 'project_manager' | 'read_only';
 
 export type AppAction =
   | 'view_all'
   | 'edit_assignments'
   | 'edit_projects'
   | 'edit_team_members'
+  | 'manage_scenarios'
+  | 'sync_jira'
   | 'manage_settings'
   | 'manage_users'
   | 'view_audit_log';
@@ -22,24 +24,21 @@ const PERMISSIONS: PermissionMatrix = {
     'edit_assignments',
     'edit_projects',
     'edit_team_members',
+    'manage_scenarios',
+    'sync_jira',
     'manage_settings',
     'manage_users',
     'view_audit_log',
   ],
-  it_manager: [
+  project_manager: [
     'view_all',
     'edit_assignments',
     'edit_projects',
     'edit_team_members',
-    'manage_settings',
+    'manage_scenarios',
+    'sync_jira',
   ],
-  team_lead: [
-    'view_all',
-    'edit_assignments',
-    'edit_projects',
-    'edit_team_members',
-  ],
-  stakeholder: ['view_all'],
+  read_only: ['view_all'],
 };
 
 interface CurrentUserState {
@@ -60,17 +59,17 @@ async function fetchUserRole(userId: string): Promise<AppRole> {
     data = res.data;
     error = res.error;
   } catch (err) {
-    console.warn('[Auth] Role lookup timeout/failure, defaulting to team_lead:', err);
-    return 'team_lead';
+    console.warn('[Auth] Role lookup timeout/failure, defaulting to project_manager:', err);
+    return 'project_manager';
   }
 
   if (error) {
-    console.warn('[Auth] Failed to fetch role, defaulting to team_lead:', error.message);
-    return 'team_lead';
+    console.warn('[Auth] Failed to fetch role, defaulting to project_manager:', error.message);
+    return 'project_manager';
   }
 
   const role = data?.role as AppRole | undefined;
-  return role ?? 'team_lead';
+  return role ?? 'project_manager';
 }
 
 export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) => boolean } {
@@ -121,7 +120,7 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
 
       if (!cancelled) {
         // Never block signed-in state on role lookup.
-        setState({ user: sessionUser, role: 'team_lead', loading: false });
+        setState({ user: sessionUser, role: 'project_manager', loading: false });
       }
       const role = await fetchUserRole(sessionUser.id);
       if (!cancelled) {
@@ -142,7 +141,7 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
 
       // Set session immediately so UI can proceed.
       if (!cancelled) {
-        setState({ user: sessionUser, role: 'team_lead', loading: false });
+        setState({ user: sessionUser, role: 'project_manager', loading: false });
       }
       const role = await fetchUserRole(sessionUser.id);
       if (!cancelled) {
