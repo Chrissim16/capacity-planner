@@ -47,7 +47,7 @@ interface CurrentUserState {
   loading: boolean;
 }
 
-async function fetchUserRole(_userId: string): Promise<AppRole> {
+async function fetchUserRole(_userId: string): Promise<AppRole | null> {
   try {
     const { data, error } = await withTimeout(
       Promise.resolve(supabase.rpc('get_my_role')),
@@ -56,13 +56,14 @@ async function fetchUserRole(_userId: string): Promise<AppRole> {
     );
     if (error) {
       console.error('[Auth] get_my_role RPC error:', (error as { message?: string }).message);
-      return 'project_manager';
+      return null;
     }
-    const role = ((data as string | null) ?? 'project_manager') as AppRole;
-    return role;
+    // data is null only when the RPC itself returned NULL (should not happen given COALESCE in DB)
+    if (data == null) return null;
+    return data as AppRole;
   } catch (err) {
     console.error('[Auth] Role lookup timeout/failure:', err);
-    return 'project_manager';
+    return null;
   }
 }
 
@@ -110,24 +111,41 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
 
       // Fetch role before releasing the loading state so the UI never renders
       // with the wrong permissions (avoids "Access restricted" flash for admins).
-      const role = await fetchUserRole(sessionUser.id);
+      // Retry once on transient failure before giving up.
+      let role = await fetchUserRole(sessionUser.id);
+      if (role == null) {
+        await new Promise(r => setTimeout(r, 1000));
+        role = await fetchUserRole(sessionUser.id);
+      }
       if (!cancelled) setState({ user: sessionUser, role, loading: false });
     };
 
     hydrate();
 
-    const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange(async (event, session) => {
       const sessionUser = session?.user ?? null;
       if (!sessionUser) {
         if (!cancelled) setState({ user: null, role: null, loading: false });
         return;
       }
 
-      // Preserve the existing role during token refreshes and other re-auth events
-      // so the UI never flickers back to the default role mid-session.
-      // Only re-fetch to pick up any actual role change.
+      // Token refreshes never change the role — skip the RPC entirely.
+      if (event === 'TOKEN_REFRESHED') {
+        if (!cancelled) setState(prev => ({ ...prev, user: sessionUser }));
+        return;
+      }
+
+      // For all other events (SIGNED_IN, INITIAL_SESSION, USER_UPDATED) re-fetch
+      // the role so genuine role changes propagate. If the RPC fails transiently,
+      // preserve the existing role rather than falling back to a hardcoded default.
       const role = await fetchUserRole(sessionUser.id);
-      if (!cancelled) setState({ user: sessionUser, role, loading: false });
+      if (!cancelled) {
+        if (role != null) {
+          setState({ user: sessionUser, role, loading: false });
+        } else {
+          setState(prev => ({ ...prev, user: sessionUser }));
+        }
+      }
     });
 
     return () => {
