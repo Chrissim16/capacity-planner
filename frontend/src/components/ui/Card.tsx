@@ -3,7 +3,7 @@ import type { HTMLAttributes } from 'react';
 import { clsx } from 'clsx';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'outlined';
+  variant?: 'default' | 'outlined' | 'elevated';
 }
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
@@ -12,9 +12,10 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={clsx(
-          'rounded-card border bg-white dark:bg-mw-surface-dark',
-          variant === 'default' && 'border-mw-grey-light dark:border-mw-card-border-dark shadow-sm',
-          variant === 'outlined' && 'border-mw-grey dark:border-mw-muted-border-dark',
+          'rounded-card bg-white',
+          variant === 'default'  && 'border border-[#F0EFED]',
+          variant === 'outlined' && 'border border-[#E5E5E3]',
+          variant === 'elevated' && 'shadow-md',
           className
         )}
         {...props}
@@ -31,7 +32,7 @@ export const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEleme
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={clsx('px-5 py-4 border-b border-mw-grey-light dark:border-mw-card-border-dark', className)}
+      className={clsx('px-6 py-4 border-b border-[#F0EFED]', className)}
       {...props}
     />
   )
@@ -43,7 +44,7 @@ export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadi
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={clsx('text-lg font-semibold text-mw-dark dark:text-white', className)}
+      className={clsx('text-base font-semibold text-[#1A1A1A]', className)}
       {...props}
     />
   )
@@ -55,7 +56,7 @@ export const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElem
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={clsx('p-5', className)}
+      className={clsx('p-6', className)}
       {...props}
     />
   )

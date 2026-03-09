@@ -17,10 +17,10 @@ export function NotificationBanners() {
   if (!activeScenario && !isBaselineWithJira) return null;
 
   return (
-    <div className="border-b border-mw-grey-light bg-white dark:bg-[#132133] px-6 py-2.5">
+    <div className="border-b border-[#F0EFED] bg-[#FAF9F7] px-6 py-2.5">
       {!activeScenario && isBaselineWithJira ? (
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
+          <div className="flex items-center gap-2 text-[#92400E] text-sm">
             <ShieldAlert size={16} className="shrink-0" />
             <span>
               <strong>Jira Baseline</strong> — changes here may be overwritten by sync.
@@ -28,29 +28,29 @@ export function NotificationBanners() {
           </div>
           <button
             onClick={() => createScenario(getSmartScenarioName())}
-            className="shrink-0 px-3 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+            className="shrink-0 px-3 py-1.5 rounded-lg bg-[#F97316] hover:opacity-85 text-white text-xs font-semibold transition-opacity duration-150"
           >
             Create Scenario
           </button>
         </div>
       ) : activeScenario ? (
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 text-sm">
-            <GitBranch size={16} className="shrink-0" />
+          <div className="flex items-center gap-2 text-[#1A1A1A] text-sm">
+            <GitBranch size={16} className="shrink-0 text-[#0ED3CF]" />
             <span className="font-medium">{activeScenario.name}</span>
-            <span className="text-blue-500 dark:text-blue-400">· scenario mode</span>
+            <span className="text-[#9CA3AF]">· scenario mode</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => refreshScenarioFromJira(activeScenario.id)}
-              className="px-3 py-1 rounded-md bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-xs font-semibold flex items-center gap-1.5"
+              className="px-3 py-1 rounded-lg bg-[#E8F8F8] hover:bg-[#CCFBF1] text-[#0BB8B5] text-xs font-semibold flex items-center gap-1.5 transition-colors duration-150"
             >
               <RefreshCw size={12} />
               Refresh
             </button>
             <button
               onClick={() => switchScenario(null)}
-              className="px-3 py-1 rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold"
+              className="px-3 py-1 rounded-lg bg-[#F5F3F0] hover:bg-[#E5E5E3] text-[#6B7280] hover:text-[#1A1A1A] text-xs font-semibold transition-colors duration-150"
             >
               Back to Baseline
             </button>
@@ -60,4 +60,3 @@ export function NotificationBanners() {
     </div>
   );
 }
-

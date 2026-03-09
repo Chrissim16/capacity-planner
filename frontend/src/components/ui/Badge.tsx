@@ -24,31 +24,31 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant = 'default', ...props }, ref) => {
-    const variants = {
-      default:     'bg-mw-grey-lighter text-mw-grey border border-mw-grey-light dark:bg-mw-muted-dark dark:text-mw-muted-text-dark dark:border-mw-muted-border-dark',
-      success:     'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700/40',
-      warning:     'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/40',
-      danger:      'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-700/40',
-      primary:     'bg-mw-primary-light text-mw-primary border border-mw-primary/25 dark:bg-mw-primary/20 dark:text-mw-accent-text-dark dark:border-mw-primary/40',
-      outline:     'border border-mw-grey-light text-mw-grey dark:border-mw-muted-border-dark dark:text-mw-muted-text-dark',
-      green:       'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700/40',
-      amber:       'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/40',
-      red:         'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-700/40',
-      blue:        'bg-mw-primary-light text-mw-primary border border-mw-primary/25 dark:bg-mw-primary/20 dark:text-mw-accent-text-dark dark:border-mw-primary/40',
-      grey:        'bg-mw-grey-lighter text-mw-grey border border-mw-grey-light dark:bg-mw-muted-dark dark:text-mw-muted-text-dark dark:border-mw-muted-border-dark',
-      tentative:   'bg-mw-grey-lighter text-mw-grey border border-dashed border-mw-grey dark:bg-mw-muted-dark dark:text-mw-muted-text-dark dark:border-dashed dark:border-mw-muted-text-dark',
-      beginner:    'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/40',
-      intermediate:'bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/40',
-      advanced:    'bg-mw-primary-light text-mw-primary border border-mw-primary/25 dark:bg-mw-primary/20 dark:text-mw-accent-text-dark dark:border-mw-primary/40',
-      expert:      'bg-mw-dark text-white border border-mw-dark dark:bg-white dark:text-mw-dark dark:border-white',
+    const variants: Record<string, string> = {
+      default:      'bg-[#F5F3F0] text-[#6B7280] border border-[#E5E5E3]',
+      success:      'bg-[#DCFCE7] text-[#166534] border border-[#A7F3D0]',
+      warning:      'bg-[#FFF7ED] text-[#92400E] border border-[#FED7AA]',
+      danger:       'bg-[#FFF5F5] text-[#991B1B] border border-[#FECACA]',
+      primary:      'bg-[#CCFBF1] text-[#0BB8B5] border border-[#99F6E4]',
+      outline:      'border border-[#E5E5E3] text-[#6B7280]',
+      green:        'bg-[#DCFCE7] text-[#166534] border border-[#A7F3D0]',
+      amber:        'bg-[#FFF7ED] text-[#92400E] border border-[#FED7AA]',
+      red:          'bg-[#FFF5F5] text-[#991B1B] border border-[#FECACA]',
+      blue:         'bg-[#CCFBF1] text-[#0BB8B5] border border-[#99F6E4]',
+      grey:         'bg-[#F5F3F0] text-[#6B7280] border border-[#E5E5E3]',
+      tentative:    'bg-[#F5F3F0] text-[#6B7280] border border-dashed border-[#9CA3AF]',
+      beginner:     'bg-[#FFF7ED] text-[#92400E] border border-[#FED7AA]',
+      intermediate: 'bg-[#CCFBF1] text-[#0BB8B5] border border-[#99F6E4]',
+      advanced:     'bg-[#E8F8F8] text-[#0ED3CF] border border-[#99F6E4]',
+      expert:       'bg-[#1A1A1A] text-white border border-[#1A1A1A]',
     };
 
     return (
       <span
         ref={ref}
         className={clsx(
-          'inline-flex items-center px-2 py-[3px] rounded-full text-xs font-bold tracking-wide uppercase whitespace-nowrap',
-          variants[variant],
+          'inline-flex items-center px-2 py-[3px] rounded-full text-xs font-semibold tracking-wide whitespace-nowrap',
+          variants[variant] ?? variants.default,
           className
         )}
         {...props}

@@ -7,12 +7,10 @@
   from { opacity: 0; transform: translateX(1rem); }
   to { opacity: 1; transform: translateX(0); }
 }
-.animate-slide-in { animation: slide-in var(--duration-standard) ease-out; }
+.animate-slide-in { animation: slide-in 250ms ease-out; }
 
 /* ══════════════════════════════════════════════════════════════════════════════
    REDUCED-MOTION — honour user preference
-   Collapses all transitions/animations to zero duration when the user has
-   set "Reduce motion" in their OS accessibility settings.
    ══════════════════════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -24,20 +22,82 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   CUSTOM CSS VARIABLES - Design tokens
+   SANA LABS DESIGN TOKENS — CSS custom properties
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --mw-primary:        #0089DD;
-  --mw-primary-dark:   #38b6f5;
-  --mw-dark:           #003E65;
-  --blue:              #2558C9;
-  --blue-light:        #6090E0;
-  --row-hover:         rgba(0, 137, 221, 0.055);
-  --row-hover-dk:      rgba(0, 137, 221, 0.08);
+  /* Backgrounds */
+  --bg-primary:       #FAF9F7;
+  --bg-secondary:     #F5F3F0;
+  --bg-card:          #FFFFFF;
+  --bg-elevated:      #FFFFFF;
+  --bg-highlight:     #E8F8F8;
+  --bg-highlight-alt: #FFF7ED;
+
+  /* Text */
+  --text-primary:   #1A1A1A;
+  --text-secondary: #6B7280;
+  --text-tertiary:  #9CA3AF;
+  --text-inverse:   #FFFFFF;
+
+  /* Accents */
+  --accent-teal:         #0ED3CF;
+  --accent-teal-light:   #CCFBF1;
+  --accent-orange:       #F97316;
+  --accent-orange-light: #FED7AA;
+  --accent-coral:        #FB7185;
+  --accent-magenta:      #D946EF;
+  --accent-green:        #22C55E;
+  --accent-red:          #EF4444;
+
+  /* Borders */
+  --border-subtle: #E5E5E3;
+  --border-light:  #F0EFED;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  /* Radii */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-pill: 9999px;
+
+  /* Typography */
+  --font-heading: 'Source Serif 4', 'Georgia', serif;
+  --font-body:    'DM Sans', 'Inter', -apple-system, sans-serif;
+
+  /* Spacing (8px grid) */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Transitions */
+  --transition-fast:  150ms ease;
+  --transition-base:  250ms ease;
+  --transition-slow:  400ms ease;
+
+  /* Legacy aliases — referenced by index.css row-hover rules */
+  --mw-primary:        #0ED3CF;
+  --mw-primary-dark:   #0ED3CF;
+  --mw-dark:           #FAF9F7;
+  --row-hover:         rgba(14, 211, 207, 0.06);
+  --row-hover-dk:      rgba(14, 211, 207, 0.10);
   --duration-fast:     150ms;
-  --duration-standard: 200ms;
-  --duration-slow:     300ms;
+  --duration-standard: 250ms;
+  --duration-slow:     400ms;
+  --blue:              #0ED3CF;
+  --blue-light:        #CCFBF1;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -51,39 +111,44 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-body);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-mw-grey-lighter dark:bg-mw-dark;
+  background: var(--bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-mw-grey-light dark:bg-mw-muted-border-dark rounded;
+  background: var(--border-subtle);
+  border-radius: var(--radius-pill);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-mw-grey dark:bg-mw-scrollbar-dark;
+  background: var(--text-tertiary);
 }
 
 /* Focus styles */
 *:focus-visible {
-  @apply outline-2 outline-blue-500 outline-offset-2;
+  outline: 2px solid var(--accent-teal);
+  outline-offset: 2px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    HEATMAP CELL TIERS — Green → Amber → Orange → Red (8-tier)
+   These are SEMANTIC — warm off-white replaces pure white for empty cells.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-.cell-empty      { background: #FFFFFF;                   color: #94a3b8; }
+.cell-empty      { background: #FAF9F7;                   color: #94a3b8; }
 .cell-tier1      { background: rgba(74, 181, 100, 0.15);  color: #1A1A1A; }
 .cell-tier2      { background: rgba(74, 181, 100, 0.35);  color: #1A1A1A; }
 .cell-tier3      { background: rgba(255, 210,  60, 0.35); color: #1A1A1A; }
@@ -101,7 +166,7 @@ body {
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    WIDE-SCREEN READABILITY — Row hover highlight + left accent line
-   Uses Mileway blue (#0089DD). No overflow:hidden on gantt rows.
+   Uses Sana teal. No overflow:hidden on gantt rows.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Epic view rows (CSS Grid divs) ───────────────────────────────────────── */
@@ -112,15 +177,12 @@ body {
 .epic-row:hover {
   background: var(--row-hover) !important;
 }
-[data-theme="dark"] .epic-row:hover {
-  background: var(--row-hover-dk) !important;
-}
 .epic-row::before {
   content: '';
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 3px;
-  background: var(--mw-primary);
+  background: var(--accent-teal);
   border-radius: 0 2px 2px 0;
   opacity: 0;
   transition: opacity var(--duration-fast) ease;
@@ -131,10 +193,7 @@ body {
   opacity: 1;
 }
 .epic-row:hover .epic-row-name {
-  color: var(--mw-primary);
-}
-[data-theme="dark"] .epic-row:hover .epic-row-name {
-  color: var(--mw-primary-dark);
+  color: var(--accent-teal);
 }
 
 /* ── Gantt label column rows (flex divs) ──────────────────────────────────── */
@@ -146,7 +205,7 @@ body {
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 3px;
-  background: var(--mw-primary);
+  background: var(--accent-teal);
   border-radius: 0 2px 2px 0;
   opacity: 0;
   transition: opacity var(--duration-fast) ease;
@@ -204,8 +263,8 @@ body {
 }
 .dd-item:hover {
   background: var(--row-hover);
-  border-left-color: var(--blue) !important;
+  border-left-color: var(--accent-teal) !important;
 }
 .dd-item:hover .dd-item-label {
-  color: var(--blue);
+  color: var(--accent-teal);
 }

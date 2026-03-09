@@ -31,10 +31,10 @@ export function Settings() {
 
   if (!can('manage_settings')) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4 text-slate-500 dark:text-slate-400">
-        <Lock size={40} className="text-slate-300 dark:text-slate-600" />
-        <p className="text-lg font-medium text-slate-700 dark:text-slate-200">Access restricted</p>
-        <p className="text-sm">You don't have permission to view Settings.</p>
+      <div className="flex flex-col items-center justify-center h-96 gap-4 text-[#9CA3AF]">
+        <Lock size={40} className="text-[#D1D5DB]" />
+        <p className="text-lg font-medium text-[#1A1A1A]">Access restricted</p>
+        <p className="text-sm text-[#6B7280]">You don't have permission to view Settings.</p>
       </div>
     );
   }
@@ -47,17 +47,17 @@ export function Settings() {
       />
 
       {/* Horizontal tab bar */}
-      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex items-center gap-1 border-b border-[#E5E5E3]">
         {groups.map((group) => {
           const Icon = group.icon;
           return (
             <button
               key={group.id}
               onClick={() => setActiveGroup(group.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${
                 activeGroup === group.id
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  ? 'border-[#0ED3CF] text-[#1A1A1A]'
+                  : 'border-transparent text-[#9CA3AF] hover:text-[#6B7280]'
               }`}
             >
               <Icon size={16} />

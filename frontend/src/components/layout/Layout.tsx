@@ -24,11 +24,13 @@ export function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-mw-grey-lighter dark:bg-[#0D1B2A]">
+    <div className="flex h-screen overflow-hidden bg-[#FAF9F7]">
       <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <NotificationBanners />
-        <main className="flex-1 overflow-auto px-8 py-6">{children}</main>
+        <main className="flex-1 overflow-auto px-10 py-8 max-w-[1440px] w-full mx-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

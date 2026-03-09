@@ -13,10 +13,6 @@ interface ConfirmModalProps {
   variant?: 'danger' | 'warning';
 }
 
-/**
- * Styled confirmation dialog — replaces all browser confirm() calls.
- * Supports "danger" (red) and "warning" (amber) variants.
- */
 export function ConfirmModal({
   isOpen,
   onClose,
@@ -33,12 +29,12 @@ export function ConfirmModal({
   };
 
   const iconColor = variant === 'danger'
-    ? 'text-red-500 bg-red-100 dark:bg-red-900/30'
-    : 'text-amber-500 bg-amber-100 dark:bg-amber-900/30';
+    ? 'text-[#EF4444] bg-[#FFF5F5]'
+    : 'text-[#F97316] bg-[#FFF7ED]';
 
   const confirmButtonClass = variant === 'danger'
-    ? 'bg-red-600 hover:bg-red-700 text-white'
-    : 'bg-amber-500 hover:bg-amber-600 text-white';
+    ? 'bg-[#EF4444] hover:opacity-85 text-white'
+    : 'bg-[#F97316] hover:opacity-85 text-white';
 
   return (
     <Modal
@@ -53,7 +49,7 @@ export function ConfirmModal({
           </Button>
           <button
             onClick={handleConfirm}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${confirmButtonClass}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-opacity duration-150 ${confirmButtonClass}`}
           >
             {confirmLabel}
           </button>
@@ -64,7 +60,7 @@ export function ConfirmModal({
         <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${iconColor}`}>
           <AlertTriangle size={20} />
         </div>
-        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed pt-1.5">
+        <p className="text-sm text-[#6B7280] leading-relaxed pt-1.5">
           {message}
         </p>
       </div>

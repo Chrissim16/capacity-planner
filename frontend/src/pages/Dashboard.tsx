@@ -1,8 +1,8 @@
 import { useMemo, useState, useCallback, Fragment } from 'react';
 import {
-  Users, FolderKanban, AlertTriangle, TrendingUp, X,
-  ChevronRight, CheckCircle2, Circle, Link2, Zap, Globe,
-  Clock, PlayCircle,
+ Users, FolderKanban, AlertTriangle, TrendingUp, X,
+ ChevronRight, CheckCircle2, Circle, Link2, Zap, Globe,
+ Clock, PlayCircle,
 } from 'lucide-react';
 import { useAppStore, useCurrentState, useIsLoading } from '../stores/appStore';
 import type { DashboardPeopleFilter } from '../stores/appStore';
@@ -10,9 +10,9 @@ import { Card, CardContent } from '../components/ui/Card';
 import { SkeletonCard, SkeletonList } from '../components/ui/Skeleton';
 import { PageHeader } from '../components/layout/PageHeader';
 import {
-  calculateCapacity, getWarnings, getTeamUtilizationSummary,
-  calculateBusinessCapacityForQuarter,
-  calculateCapacityBySquad, calculateCapacityByProcessTeam,
+ calculateCapacity, getWarnings, getTeamUtilizationSummary,
+ calculateBusinessCapacityForQuarter,
+ calculateCapacityBySquad, calculateCapacityByProcessTeam,
 } from '../utils/capacity';
 import type { GroupCapacitySummary } from '../utils/capacity';
 import { getCurrentQuarter, getWorkdaysInQuarter } from '../utils/calendar';
@@ -21,44 +21,44 @@ import type { CapacityResult, CapacityBreakdownItem, Project } from '../types';
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+ const parts = name.trim().split(/\s+/);
+ if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+ return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 function getCurrentYearQuarters(): string[] {
-  const year = new Date().getFullYear();
-  return [`Q1 ${year}`, `Q2 ${year}`, `Q3 ${year}`, `Q4 ${year}`];
+ const year = new Date().getFullYear();
+ return [`Q1 ${year}`, `Q2 ${year}`, `Q3 ${year}`, `Q4 ${year}`];
 }
 
 function isPastQuarter(q: string, current: string): boolean {
-  const [ql, qy] = q.split(' ');
-  const [cl, cy] = current.split(' ');
-  if (qy !== cy) return Number(qy) < Number(cy);
-  return Number(ql.slice(1)) < Number(cl.slice(1));
+ const [ql, qy] = q.split(' ');
+ const [cl, cy] = current.split(' ');
+ if (qy !== cy) return Number(qy) < Number(cy);
+ return Number(ql.slice(1)) < Number(cl.slice(1));
 }
 
 // ── Heatmap color scale (8-tier: green → amber → orange → red) ───────────────
 function getCellClass(pct: number): string {
-  if (pct <= 10)  return 'cell-empty';
-  if (pct <= 30)  return 'cell-tier1';
-  if (pct <= 50)  return 'cell-tier2';
-  if (pct <= 70)  return 'cell-tier3';
-  if (pct <= 80)  return 'cell-tier4';
-  if (pct <= 90)  return 'cell-tier5';
-  if (pct < 100)  return 'cell-tier6';
-  return 'cell-overloaded';
+ if (pct <= 10) return 'cell-empty';
+ if (pct <= 30) return 'cell-tier1';
+ if (pct <= 50) return 'cell-tier2';
+ if (pct <= 70) return 'cell-tier3';
+ if (pct <= 80) return 'cell-tier4';
+ if (pct <= 90) return 'cell-tier5';
+ if (pct < 100) return 'cell-tier6';
+ return 'cell-overloaded';
 }
 
 /** Text colour matching each heatmap tier — mirrors the .cell-* CSS classes in index.css */
-const CELL_EMPTY_TEXT    = '#94a3b8';
-const CELL_NORMAL_TEXT   = '#1A1A1A';
+const CELL_EMPTY_TEXT = '#94a3b8';
+const CELL_NORMAL_TEXT = '#1A1A1A';
 const CELL_OVERLOAD_TEXT = '#8B0000';
 
 function getCellColor(pct: number): string {
-  if (pct <= 10)  return CELL_EMPTY_TEXT;
-  if (pct < 100)  return CELL_NORMAL_TEXT;
-  return CELL_OVERLOAD_TEXT;
+ if (pct <= 10) return CELL_EMPTY_TEXT;
+ if (pct < 100) return CELL_NORMAL_TEXT;
+ return CELL_OVERLOAD_TEXT;
 }
 
 /** Inline-style overload accent — matches .cell-overloaded text colour */
@@ -68,1197 +68,1197 @@ const OVERLOAD_COLOR = '#B02030';
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function Dashboard() {
-  const state = useCurrentState();
-  const setCurrentView = useAppStore(s => s.setCurrentView);
-  const peopleFilter = useAppStore(s => s.ui.dashboardPeopleFilter);
-  const setPeopleFilter = useAppStore(s => s.setDashboardPeopleFilter);
-  const isLoading = useIsLoading();
+ const state = useCurrentState();
+ const setCurrentView = useAppStore(s => s.setCurrentView);
+ const peopleFilter = useAppStore(s => s.ui.dashboardPeopleFilter);
+ const setPeopleFilter = useAppStore(s => s.setDashboardPeopleFilter);
+ const isLoading = useIsLoading();
 
-  const currentQuarter = getCurrentQuarter();
-  const yearQuarters = useMemo(() => getCurrentYearQuarters(), []);
+ const currentQuarter = getCurrentQuarter();
+ const yearQuarters = useMemo(() => getCurrentYearQuarters(), []);
 
-  const [selectedCell, setSelectedCell] = useState<{ memberId: string; quarter: string } | null>(null);
-  const [selectedBizCell, setSelectedBizCell] = useState<{ contactId: string; quarter: string } | null>(null);
-  const [timelineView, setTimelineView] = useState<'heatmap' | 'bars'>('heatmap');
-  const [activeTab, setActiveTab] = useState<'overview' | 'squad'>('overview');
-  const [selectedGroupQuarter, setSelectedGroupQuarter] = useState(currentQuarter);
+ const [selectedCell, setSelectedCell] = useState<{ memberId: string; quarter: string } | null>(null);
+ const [selectedBizCell, setSelectedBizCell] = useState<{ contactId: string; quarter: string } | null>(null);
+ const [timelineView, setTimelineView] = useState<'heatmap' | 'bars'>('heatmap');
+ const [activeTab, setActiveTab] = useState<'overview' | 'squad'>('overview');
+ const [selectedGroupQuarter, setSelectedGroupQuarter] = useState(currentQuarter);
 
-  const warnings = useMemo(() => getWarnings(state), [state]);
+ const warnings = useMemo(() => getWarnings(state), [state]);
 
-  const activeMembers = useMemo(
-    () => state.teamMembers.filter(m => !m.needsEnrichment),
-    [state.teamMembers]
-  );
+ const activeMembers = useMemo(
+ () => state.teamMembers.filter(m => !m.needsEnrichment),
+ [state.teamMembers]
+ );
 
-  const activeProjects = state.projects.filter(
-    p => p.status === 'Active' || p.status === 'Planning'
-  ).length;
+ const activeProjects = state.projects.filter(
+ p => p.status === 'Active' || p.status === 'Planning'
+ ).length;
 
-  const currentSummary = useMemo(
-    () => getTeamUtilizationSummary(currentQuarter, state),
-    [currentQuarter, state]
-  );
+ const currentSummary = useMemo(
+ () => getTeamUtilizationSummary(currentQuarter, state),
+ [currentQuarter, state]
+ );
 
-  // Capacity Bank: team-wide totals per quarter
-  const capacityBank = useMemo(() =>
-    yearQuarters.map(q => {
-      let totalWorkdays = 0;
-      let totalUsed = 0;
-      let totalBau = 0;
-      let totalProject = 0;
-      let totalTimeOff = 0;
+ // Capacity Bank: team-wide totals per quarter
+ const capacityBank = useMemo(() =>
+ yearQuarters.map(q => {
+ let totalWorkdays = 0;
+ let totalUsed = 0;
+ let totalBau = 0;
+ let totalProject = 0;
+ let totalTimeOff = 0;
 
-      for (const m of state.teamMembers) {
-        if (m.excludedFromCapacity) continue;
-        const cap = calculateCapacity(m.id, q, state);
-        totalWorkdays += cap.totalWorkdays;
-        totalUsed += cap.usedDays;
-        totalBau += cap.breakdown.find(b => b.type === 'bau')?.days ?? 0;
-        totalTimeOff += cap.breakdown.find(b => b.type === 'timeoff')?.days ?? 0;
-        totalProject += cap.breakdown
-          .filter(b => b.type === 'project' || b.type === 'jira')
-          .reduce((s, b) => s + b.days, 0);
-      }
+ for (const m of state.teamMembers) {
+ if (m.excludedFromCapacity) continue;
+ const cap = calculateCapacity(m.id, q, state);
+ totalWorkdays += cap.totalWorkdays;
+ totalUsed += cap.usedDays;
+ totalBau += cap.breakdown.find(b => b.type === 'bau')?.days ?? 0;
+ totalTimeOff += cap.breakdown.find(b => b.type === 'timeoff')?.days ?? 0;
+ totalProject += cap.breakdown
+ .filter(b => b.type === 'project' || b.type === 'jira')
+ .reduce((s, b) => s + b.days, 0);
+ }
 
-      const remainingDays = Math.round(totalWorkdays - totalUsed);
-      const bauPct = totalWorkdays > 0 ? Math.min(100, (totalBau / totalWorkdays) * 100) : 0;
-      const timeOffPct = totalWorkdays > 0 ? Math.min(100, (totalTimeOff / totalWorkdays) * 100) : 0;
-      const projectPct = totalWorkdays > 0 ? Math.min(100, (totalProject / totalWorkdays) * 100) : 0;
+ const remainingDays = Math.round(totalWorkdays - totalUsed);
+ const bauPct = totalWorkdays > 0 ? Math.min(100, (totalBau / totalWorkdays) * 100) : 0;
+ const timeOffPct = totalWorkdays > 0 ? Math.min(100, (totalTimeOff / totalWorkdays) * 100) : 0;
+ const projectPct = totalWorkdays > 0 ? Math.min(100, (totalProject / totalWorkdays) * 100) : 0;
 
-      const isPast = isPastQuarter(q, currentQuarter);
-      const isCurrent = q === currentQuarter;
-      const isTight = !isPast && remainingDays < 15;
-      const isOpen = !isPast && remainingDays > 80;
+ const isPast = isPastQuarter(q, currentQuarter);
+ const isCurrent = q === currentQuarter;
+ const isTight = !isPast && remainingDays < 15;
+ const isOpen = !isPast && remainingDays > 80;
 
-      return { quarter: q, totalWorkdays, remainingDays, bauPct, timeOffPct, projectPct, isPast, isCurrent, isTight, isOpen };
-    }),
-    [yearQuarters, currentQuarter, state]
-  );
+ return { quarter: q, totalWorkdays, remainingDays, bauPct, timeOffPct, projectPct, isPast, isCurrent, isTight, isOpen };
+ }),
+ [yearQuarters, currentQuarter, state]
+ );
 
-  // Timeline preview data — excluded members are hidden from the heatmap entirely
-  const timelineData = useMemo(() =>
-    activeMembers.filter(m => !m.excludedFromCapacity).map(member => ({
-      member,
-      cells: yearQuarters.map(q => {
-        const cap = calculateCapacity(member.id, q, state);
-        const bauDays = cap.breakdown.find(b => b.type === 'bau')?.days ?? 0;
-        const timeOffDays = cap.breakdown.find(b => b.type === 'timeoff')?.days ?? 0;
-        const projectDays = cap.breakdown
-          .filter(b => b.type === 'project' || b.type === 'jira')
-          .reduce((s, b) => s + b.days, 0);
-        const bauPct = cap.totalWorkdays > 0 ? Math.min(100, (bauDays / cap.totalWorkdays) * 100) : 0;
-        const timeOffPct = cap.totalWorkdays > 0 ? Math.min(100, (timeOffDays / cap.totalWorkdays) * 100) : 0;
-        const projectPct = cap.totalWorkdays > 0 ? Math.min(100, (projectDays / cap.totalWorkdays) * 100) : 0;
-        return { quarter: q, cap, bauDays, timeOffDays, projectDays, bauPct, timeOffPct, projectPct };
-      }),
-    })),
-    [activeMembers, yearQuarters, state]
-  );
+ // Timeline preview data — excluded members are hidden from the heatmap entirely
+ const timelineData = useMemo(() =>
+ activeMembers.filter(m => !m.excludedFromCapacity).map(member => ({
+ member,
+ cells: yearQuarters.map(q => {
+ const cap = calculateCapacity(member.id, q, state);
+ const bauDays = cap.breakdown.find(b => b.type === 'bau')?.days ?? 0;
+ const timeOffDays = cap.breakdown.find(b => b.type === 'timeoff')?.days ?? 0;
+ const projectDays = cap.breakdown
+ .filter(b => b.type === 'project' || b.type === 'jira')
+ .reduce((s, b) => s + b.days, 0);
+ const bauPct = cap.totalWorkdays > 0 ? Math.min(100, (bauDays / cap.totalWorkdays) * 100) : 0;
+ const timeOffPct = cap.totalWorkdays > 0 ? Math.min(100, (timeOffDays / cap.totalWorkdays) * 100) : 0;
+ const projectPct = cap.totalWorkdays > 0 ? Math.min(100, (projectDays / cap.totalWorkdays) * 100) : 0;
+ return { quarter: q, cap, bauDays, timeOffDays, projectDays, bauPct, timeOffPct, projectPct };
+ }),
+ })),
+ [activeMembers, yearQuarters, state]
+ );
 
-  const bizTimelineData = useMemo(() => {
-    if (peopleFilter === 'it_only') return [];
-    return state.businessContacts.filter(c => !c.archived && !c.excludedFromCapacity).map(contact => ({
-      contact,
-      cells: yearQuarters.map(q => {
-        const cell = calculateBusinessCapacityForQuarter(
-          contact, q, state.businessAssignments, state.businessTimeOff,
-          state.publicHolidays, state.projects,
-          state.jiraItemBizAssignments, state.jiraWorkItems
-        );
-        return { quarter: q, cell };
-      }),
-    }));
-  }, [peopleFilter, state, yearQuarters]);
+ const bizTimelineData = useMemo(() => {
+ if (peopleFilter === 'it_only') return [];
+ return state.businessContacts.filter(c => !c.archived && !c.excludedFromCapacity).map(contact => ({
+ contact,
+ cells: yearQuarters.map(q => {
+ const cell = calculateBusinessCapacityForQuarter(
+ contact, q, state.businessAssignments, state.businessTimeOff,
+ state.publicHolidays, state.projects,
+ state.jiraItemBizAssignments, state.jiraWorkItems
+ );
+ return { quarter: q, cell };
+ }),
+ }));
+ }, [peopleFilter, state, yearQuarters]);
 
-  // Group capacity — By Squad / By Process Team tab
-  const squadSummaries = useMemo(() =>
-    state.squads.map(sq => ({
-      id:   sq.id,
-      name: sq.name,
-      data: calculateCapacityBySquad(sq.id, selectedGroupQuarter, state),
-    })),
-    [state, selectedGroupQuarter]
-  );
+ // Group capacity — By Squad / By Process Team tab
+ const squadSummaries = useMemo(() =>
+ state.squads.map(sq => ({
+ id: sq.id,
+ name: sq.name,
+ data: calculateCapacityBySquad(sq.id, selectedGroupQuarter, state),
+ })),
+ [state, selectedGroupQuarter]
+ );
 
-  const processTeamSummaries = useMemo(() =>
-    state.processTeams.map(pt => ({
-      id:   pt.id,
-      name: pt.name,
-      data: calculateCapacityByProcessTeam(pt.id, selectedGroupQuarter, state),
-    })),
-    [state, selectedGroupQuarter]
-  );
+ const processTeamSummaries = useMemo(() =>
+ state.processTeams.map(pt => ({
+ id: pt.id,
+ name: pt.name,
+ data: calculateCapacityByProcessTeam(pt.id, selectedGroupQuarter, state),
+ })),
+ [state, selectedGroupQuarter]
+ );
 
-  const drillDown = useMemo<{ member: typeof state.teamMembers[0]; quarter: string; capacity: CapacityResult } | null>(() => {
-    if (!selectedCell) return null;
-    const member = state.teamMembers.find(m => m.id === selectedCell.memberId);
-    if (!member) return null;
-    return { member, quarter: selectedCell.quarter, capacity: calculateCapacity(member.id, selectedCell.quarter, state) };
-  }, [selectedCell, state]);
+ const drillDown = useMemo<{ member: typeof state.teamMembers[0]; quarter: string; capacity: CapacityResult } | null>(() => {
+ if (!selectedCell) return null;
+ const member = state.teamMembers.find(m => m.id === selectedCell.memberId);
+ if (!member) return null;
+ return { member, quarter: selectedCell.quarter, capacity: calculateCapacity(member.id, selectedCell.quarter, state) };
+ }, [selectedCell, state]);
 
-  const handleCellClick = useCallback((memberId: string, quarter: string) => {
-    setSelectedCell(prev =>
-      prev?.memberId === memberId && prev?.quarter === quarter ? null : { memberId, quarter }
-    );
-  }, []);
+ const handleCellClick = useCallback((memberId: string, quarter: string) => {
+ setSelectedCell(prev =>
+ prev?.memberId === memberId && prev?.quarter === quarter ? null : { memberId, quarter }
+ );
+ }, []);
 
-  const isEmpty = state.teamMembers.length === 0 && state.projects.length === 0;
+ const isEmpty = state.teamMembers.length === 0 && state.projects.length === 0;
 
-  if (isLoading && isEmpty) {
-    return (
-      <div className="space-y-6">
-        <div className="h-10 flex items-center justify-between">
-          <div className="space-y-1.5">
-            <div className="h-6 w-48 rounded-md bg-mw-grey-light dark:bg-mw-muted-dark animate-shimmer bg-[length:200%_100%]" />
-            <div className="h-4 w-64 rounded-md bg-mw-grey-light dark:bg-mw-muted-dark animate-shimmer bg-[length:200%_100%]" />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <SkeletonCard lines={4} />
-          <SkeletonCard lines={4} />
-        </div>
-        <SkeletonList rows={6} />
-      </div>
-    );
-  }
+ if (isLoading && isEmpty) {
+ return (
+ <div className="space-y-6">
+ <div className="h-10 flex items-center justify-between">
+ <div className="space-y-1.5">
+ <div className="h-6 w-48 rounded-md bg-mw-grey-light dark:bg-mw-muted-dark animate-shimmer bg-[length:200%_100%]" />
+ <div className="h-4 w-64 rounded-md bg-mw-grey-light dark:bg-mw-muted-dark animate-shimmer bg-[length:200%_100%]" />
+ </div>
+ </div>
+ <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+ <SkeletonCard lines={4} />
+ <SkeletonCard lines={4} />
+ </div>
+ <SkeletonList rows={6} />
+ </div>
+ );
+ }
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Capacity Overview"
-        subtitle={`VS Finance · ${currentQuarter} · Mileway BV`}
-      />
+ return (
+ <div className="space-y-6">
+ <PageHeader
+ title="Capacity Overview"
+ subtitle={`VS Finance · ${currentQuarter} · Mileway BV`}
+ />
 
-      {/* Tab bar */}
-      {!isEmpty && (
-        <div className="flex border-b border-slate-200 dark:border-slate-700 -mt-2">
-          {([
-            { id: 'overview', label: 'Overview' },
-            { id: 'squad',    label: 'By Squad / Team' },
-          ] as const).map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-mw-primary text-mw-primary'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
+ {/* Tab bar */}
+ {!isEmpty && (
+ <div className="flex border-b border-slate-200 -mt-2">
+ {([
+ { id: 'overview', label: 'Overview' },
+ { id: 'squad', label: 'By Squad / Team' },
+ ] as const).map(tab => (
+ <button
+ key={tab.id}
+ onClick={() => setActiveTab(tab.id)}
+ className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+ activeTab === tab.id
+ ? 'border-[#0ED3CF] text-[#1A1A1A]'
+ : 'border-transparent text-slate-500 hover:text-slate-700 '
+ }`}
+ >
+ {tab.label}
+ </button>
+ ))}
+ </div>
+ )}
 
-      {/* Onboarding */}
-      {isEmpty && <OnboardingChecklist state={state} navigate={setCurrentView} />}
+ {/* Onboarding */}
+ {isEmpty && <OnboardingChecklist state={state} navigate={setCurrentView} />}
 
-      {/* Stats strip */}
-      {!isEmpty && activeTab === 'overview' && (
-        <div className="flex items-center gap-6 px-1">
-          <Stat icon={Users} label="Team" value={activeMembers.length} color="blue" />
-          <Stat icon={FolderKanban} label="Active Epics" value={activeProjects} color="slate" />
-          <Stat icon={TrendingUp} label="Avg utilization" value={`${currentSummary.averageUtilization}%`} color="slate" />
-          {(warnings.overallocated.length + warnings.highUtilization.length) > 0 && (
-            <Stat
-              icon={AlertTriangle}
-              label="Alerts"
-              value={warnings.overallocated.length + warnings.highUtilization.length}
-              color="red"
-            />
-          )}
-          <div className="flex-1" />
-          <span className="text-xs text-slate-400 dark:text-slate-500">{currentQuarter} (current)</span>
-        </div>
-      )}
+ {/* Stats strip */}
+ {!isEmpty && activeTab === 'overview' && (
+ <div className="flex items-center gap-6 px-1">
+ <Stat icon={Users} label="Team" value={activeMembers.length} color="blue" />
+ <Stat icon={FolderKanban} label="Active Epics" value={activeProjects} color="slate" />
+ <Stat icon={TrendingUp} label="Avg utilization" value={`${currentSummary.averageUtilization}%`} color="slate" />
+ {(warnings.overallocated.length + warnings.highUtilization.length) > 0 && (
+ <Stat
+ icon={AlertTriangle}
+ label="Alerts"
+ value={warnings.overallocated.length + warnings.highUtilization.length}
+ color="red"
+ />
+ )}
+ <div className="flex-1" />
+ <span className="text-xs text-slate-400 dark:text-slate-500">{currentQuarter} (current)</span>
+ </div>
+ )}
 
-      {/* ── Section 1: Capacity Bank ──────────────────────────────────────────── */}
-      {!isEmpty && activeTab === 'overview' && (
-        <section>
-          <SectionLabel title="Capacity Bank" subtitle="Team-wide remaining days per quarter" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {capacityBank.map(q => (
-              <CapacityBankCard key={q.quarter} {...q} />
-            ))}
-          </div>
-        </section>
-      )}
+ {/* ── Section 1: Capacity Bank ──────────────────────────────────────────── */}
+ {!isEmpty && activeTab === 'overview' && (
+ <section>
+ <SectionLabel title="Capacity Bank" subtitle="Team-wide remaining days per quarter" />
+ <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+ {capacityBank.map(q => (
+ <CapacityBankCard key={q.quarter} {...q} />
+ ))}
+ </div>
+ </section>
+ )}
 
-      {/* ── Section 2: Alerts ────────────────────────────────────────────────── */}
-      {!isEmpty && activeTab === 'overview' && <AlertsGrid warnings={warnings} projects={state.projects} />}
+ {/* ── Section 2: Alerts ────────────────────────────────────────────────── */}
+ {!isEmpty && activeTab === 'overview' && <AlertsGrid warnings={warnings} projects={state.projects} />}
 
-      {/* ── Section 3: Timeline Preview ──────────────────────────────────────── */}
-      {!isEmpty && activeTab === 'overview' && activeMembers.length > 0 && (
-        <section>
-          <div className="flex items-end justify-between mb-3">
-            <SectionLabel
-              title="Team Timeline"
-              subtitle="Capacity by member · current year"
-              inline
-            />
-            <div className="flex items-center gap-2">
-              {/* Heatmap / Bars toggle */}
-              <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-xs font-medium">
-                <button
-                  onClick={() => setTimelineView('heatmap')}
-                  className={`px-2.5 py-1.5 transition-colors ${timelineView === 'heatmap' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                >
-                  Heatmap
-                </button>
-                <button
-                  onClick={() => setTimelineView('bars')}
-                  className={`px-2.5 py-1.5 border-l border-slate-200 dark:border-slate-700 transition-colors ${timelineView === 'bars' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                >
-                  Bars
-                </button>
-              </div>
-              <select
-                value={peopleFilter}
-                onChange={e => setPeopleFilter(e.target.value as DashboardPeopleFilter)}
-                className="text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="it_only">IT team only</option>
-                <option value="business_only">Business only</option>
-                <option value="both">Both</option>
-              </select>
-              <button
-                onClick={() => setCurrentView('timeline')}
-                className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                Full view <ChevronRight size={13} />
-              </button>
-            </div>
-          </div>
+ {/* ── Section 3: Timeline Preview ──────────────────────────────────────── */}
+ {!isEmpty && activeTab === 'overview' && activeMembers.length > 0 && (
+ <section>
+ <div className="flex items-end justify-between mb-3">
+ <SectionLabel
+ title="Team Timeline"
+ subtitle="Capacity by member · current year"
+ inline
+ />
+ <div className="flex items-center gap-2">
+ {/* Heatmap / Bars toggle */}
+ <div className="flex items-center rounded-lg border border-slate-200 overflow-hidden text-xs font-medium">
+ <button
+ onClick={() => setTimelineView('heatmap')}
+ className={`px-2.5 py-1.5 transition-colors ${timelineView === 'heatmap' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-white text-slate-500 hover:text-slate-700 '}`}
+ >
+ Heatmap
+ </button>
+ <button
+ onClick={() => setTimelineView('bars')}
+ className={`px-2.5 py-1.5 border-l border-slate-200 transition-colors ${timelineView === 'bars' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-white text-slate-500 hover:text-slate-700 '}`}
+ >
+ Bars
+ </button>
+ </div>
+ <select
+ value={peopleFilter}
+ onChange={e => setPeopleFilter(e.target.value as DashboardPeopleFilter)}
+ className="text-xs rounded-lg border border-slate-200 bg-white text-slate-600 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF]"
+ >
+ <option value="it_only">IT team only</option>
+ <option value="business_only">Business only</option>
+ <option value="both">Both</option>
+ </select>
+ <button
+ onClick={() => setCurrentView('timeline')}
+ className="inline-flex items-center gap-1 text-xs font-medium text-[#0ED3CF] hover:underline"
+ >
+ Full view <ChevronRight size={13} />
+ </button>
+ </div>
+ </div>
 
-          <Card>
-            <CardContent className="p-0 overflow-x-auto">
-              {/* Header */}
-              <div className="grid border-b border-slate-100 dark:border-slate-800 bg-slate-800 dark:bg-slate-900"
-                style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}>
-                <div className="px-4 py-3 text-xs font-bold tracking-wide uppercase text-slate-300">
-                  {peopleFilter === 'business_only' ? 'Business contact' : 'Member'}
-                </div>
-                {yearQuarters.map(q => {
-                  const workdays = getWorkdaysInQuarter(q);
-                  const isCurrent = q === currentQuarter;
-                  return (
-                    <div key={q} className={`px-4 py-3 border-l border-white/10 ${isCurrent ? 'bg-blue-700/30' : ''}`}>
-                      <div className={`text-xs font-bold tracking-wide uppercase ${isCurrent ? 'text-blue-300' : 'text-slate-300'}`}>{q}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{workdays} working days</div>
-                    </div>
-                  );
-                })}
-              </div>
-
-
-              {/* IT Member rows */}
-              {peopleFilter !== 'business_only' && timelineData.map(({ member, cells }) => {
-                const country = state.countries.find(c => c.id === member.countryId);
-                const isMemberSelected = selectedCell?.memberId === member.id;
-                return (
-                  <Fragment key={member.id}>
-                    <div
-                      className={`grid border-b border-slate-50 dark:border-slate-800/50 transition-colors hover:bg-blue-50/30 dark:hover:bg-blue-900/5 ${isMemberSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
-                      style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
-                    >
-                      {/* Identity */}
-                      <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
-                          {getInitials(member.name)}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">{member.name}</span>
-                          </div>
-                          <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
-                            {member.role}{country ? ` · ${country.code}` : ''}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Quarter cells */}
-                      {cells.map(({ quarter, cap, bauPct, timeOffPct, projectPct }) => {
-                        const isOver = cap.status === 'overallocated';
-                        const isWarn = cap.status === 'warning';
-                        const isCellSelected = isMemberSelected && selectedCell?.quarter === quarter;
-                        const remainingDays = cap.totalWorkdays - cap.usedDays;
-                        const effectiveCellClass = getCellClass(cap.usedPercent);
-
-                        if (timelineView === 'heatmap') {
-                          return (
-                            <button
-                              key={quarter}
-                              onClick={() => handleCellClick(member.id, quarter)}
-                              className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${effectiveCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
-                              style={{ filter: isCellSelected ? undefined : 'none' }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
-                              title={`${quarter} · ${cap.usedPercent}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
-                            >
-                              <div className="text-sm font-bold tabular-nums leading-tight">
-                                {cap.usedPercent === 0 ? '—' : `${cap.usedPercent}%`}
-                              </div>
-                              <div className="text-[10px] mt-0.5" style={{ color: isOver ? OVERLOAD_COLOR : 'inherit' }}>
-                                {cap.usedPercent === 0 ? '' : isOver
-                                  ? `−${Math.abs(Math.round(remainingDays))}d`
-                                  : `${Math.round(remainingDays)}d free`}
-                              </div>
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <button
-                            key={quarter}
-                            onClick={() => handleCellClick(member.id, quarter)}
-                            className={`px-3 py-3 border-l border-slate-100 dark:border-slate-800 text-left transition-colors
-                              ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}
-                              ${quarter === currentQuarter ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}
-                            `}
-                          >
-                            {/* Stacked bar */}
-                            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex mb-1.5">
-                              <div className="h-full bg-slate-300 dark:bg-slate-600" style={{ width: `${bauPct}%` }} />
-                              <div className="h-full bg-amber-300 dark:bg-amber-600" style={{ width: `${timeOffPct}%` }} />
-                              <div
-                                className={`h-full ${isOver ? 'bg-red-500' : isWarn ? 'bg-amber-400' : 'bg-blue-500'}`}
-                                style={{ width: `${projectPct}%` }}
-                              />
-                            </div>
-                            {/* Label */}
-                            <div className="flex items-center justify-between">
-                              <span className={`text-xs font-semibold ${
-                                isOver ? 'text-red-600 dark:text-red-400'
-                                : remainingDays < 10 ? 'text-amber-600 dark:text-amber-400'
-                                : remainingDays > 30 ? 'text-green-600 dark:text-green-400'
-                                : 'text-slate-700 dark:text-slate-300'
-                              }`}>
-                                {isOver ? `−${Math.abs(Math.round(remainingDays))}d` : `${Math.round(remainingDays)}d free`}
-                              </span>
-                              <span className={`text-[10px] ${isOver ? 'text-red-500 dark:text-red-400' : isWarn ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
-                                {cap.usedPercent}%
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Inline drill-down panel */}
-                    {isMemberSelected && drillDown && (() => {
-                      const cap = drillDown.capacity;
-                      const pct = cap.usedPercent;
-                      const isOver = pct > 100;
-                      const summaryCellColor = getCellColor(pct);
-
-                      // Separate breakdown into work items vs. overhead
-                      const workItems = cap.breakdown.filter(
-                        (b: CapacityBreakdownItem) => b.type === 'jira' || b.type === 'project'
-                      );
-                      const overhead = cap.breakdown.filter(
-                        (b: CapacityBreakdownItem) => b.type === 'bau' || b.type === 'timeoff'
-                      );
-
-                      // Build Epic › Feature breadcrumb for Jira items
-                      const jiraMap = new Map(state.jiraWorkItems.map(i => [i.jiraKey, i]));
-                      const getBreadcrumb = (jiraKey: string): string => {
-                        const item = jiraMap.get(jiraKey);
-                        if (!item) return '';
-                        const parent = item.parentKey ? jiraMap.get(item.parentKey) : undefined;
-                        const grandParent = parent?.parentKey ? jiraMap.get(parent.parentKey) : undefined;
-                        const parts: string[] = [];
-                        if (grandParent) parts.push(grandParent.summary);
-                        else if (parent) parts.push(parent.summary);
-                        if (grandParent && parent) parts.push(parent.summary);
-                        return parts.join(' › ');
-                      };
-
-                      const typePillClass = (type: string) => {
-                        switch (type.toLowerCase()) {
-                          case 'story': return 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800';
-                          case 'uat': return 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/30 dark:text-amber-300';
-                          case 'hypercare': return 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/30 dark:text-purple-300';
-                          default: return 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
-                        }
-                      };
-
-                      const remainingRaw = cap.totalWorkdays - cap.usedDays;
-
-                      return (
-                        <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-                          {/* Panel header */}
-                          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                {drillDown.quarter} — {drillDown.member.name}
-                              </span>
-                              {drillDown.member.role && (
-                                <span className="text-xs text-slate-400">{drillDown.member.role}</span>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => setSelectedCell(null)}
-                              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
-                            >
-                              <X size={15} />
-                            </button>
-                          </div>
-
-                          {/* Two-column body */}
-                          <div className="grid grid-cols-[1fr_180px] gap-0 px-5 py-4 max-w-4xl">
-                            {/* Left — assigned work */}
-                            <div className="pr-6 min-w-0">
-                              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Assigned Work</p>
-                              {workItems.length === 0 && overhead.length === 0 ? (
-                                <p className="text-sm italic text-slate-400">No work assigned this quarter.</p>
-                              ) : (
-                                <div className="space-y-1.5">
-                                  {workItems.map((item: CapacityBreakdownItem, i: number) => {
-                                    const breadcrumb = item.jiraKey ? getBreadcrumb(item.jiraKey) : (item.phaseName ? `${item.projectName} › ${item.phaseName}` : item.projectName ?? '');
-                                    const label = item.jiraSummary ?? item.phaseName ?? item.projectName ?? '—';
-                                    const typeLabel = item.type === 'jira' ? 'Story' : 'Project';
-                                    return (
-                                      <div key={i} className="dd-item flex items-start gap-2 pl-2 border-l-2 border-blue-200 dark:border-blue-800">
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-1.5 flex-wrap">
-                                            {item.jiraKey && (
-                                              <span className="text-[9px] font-mono text-slate-400 shrink-0">{item.jiraKey}</span>
-                                            )}
-                                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${typePillClass(typeLabel)}`}>{typeLabel.toUpperCase()}</span>
-                                          </div>
-                                          <p className="dd-item-label text-xs font-medium text-slate-700 dark:text-slate-200 truncate mt-0.5">{label}</p>
-                                          {breadcrumb && (
-                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{breadcrumb}</p>
-                                          )}
-                                        </div>
-                                        <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0 pt-3 tabular-nums">{item.days.toFixed(1)}d</span>
-                                      </div>
-                                    );
-                                  })}
-                                  {overhead.map((item: CapacityBreakdownItem, i: number) => (
-                                    <div key={`oh-${i}`} className="dd-item flex items-center gap-2 pl-2 border-l-2 border-slate-200 dark:border-slate-700">
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5">
-                                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${typePillClass(item.type)}`}>
-                                            {item.type === 'bau' ? 'BAU' : 'TIME OFF'}
-                                          </span>
-                                        </div>
-                                        <p className="dd-item-label text-xs font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                          {item.type === 'bau' ? 'BAU Reserve' : 'Time Off'}
-                                        </p>
-                                      </div>
-                                      <span className="text-xs text-slate-400 shrink-0 tabular-nums">{item.days.toFixed(1)}d</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Right — quarter summary */}
-                            <div className="border-l border-slate-100 dark:border-slate-800 pl-5">
-                              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Quarter Summary</p>
-                              <div className="space-y-2.5">
-                                {[
-                                  { label: 'Available', value: `${cap.totalWorkdays}d`, color: 'text-slate-600 dark:text-slate-300' },
-                                  { label: 'Allocated', value: `${cap.usedDays.toFixed(1)}d`, color: summaryCellColor },
-                                  {
-                                    label: 'Remaining',
-                                    value: isOver ? `−${Math.abs(Math.round(remainingRaw))}d` : `${Math.round(remainingRaw)}d`,
-                                    color: isOver ? OVERLOAD_COLOR : 'inherit',
-                                  },
-                                  { label: 'Utilization', value: `${pct}%`, color: summaryCellColor },
-                                ].map(row => (
-                                  <div key={row.label} className="flex items-center justify-between">
-                                    <span className="text-xs text-slate-500 dark:text-slate-400">{row.label}</span>
-                                    <span className="text-xs font-semibold tabular-nums" style={{ color: row.color }}>{row.value}</span>
-                                  </div>
-                                ))}
-                              </div>
-                              {/* Mini utilization bar */}
-                              <div className="mt-4 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all"
-                                  style={{
-                                    width: `${Math.min(100, pct)}%`,
-                                    background: summaryCellColor,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </Fragment>
-                );
-              })}
-
-              {/* Business divider */}
-              {peopleFilter === 'both' && bizTimelineData.length > 0 && (
-                <div className="px-4 py-1.5 bg-slate-50 dark:bg-slate-800/50 border-t-2 border-slate-200 dark:border-slate-700">
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400">Business</span>
-                  <span className="ml-2 text-[10px] text-slate-400 italic">(informational only)</span>
-                </div>
-              )}
-
-              {/* Business rows */}
-              {peopleFilter !== 'it_only' && bizTimelineData.map(({ contact, cells }) => {
-                const isBizSelected = selectedBizCell?.contactId === contact.id;
-                return (
-                <Fragment key={contact.id}>
-                  <div
-                    className={`grid border-b border-slate-50 dark:border-slate-800/50 transition-colors hover:bg-purple-50/20 dark:hover:bg-purple-900/5 ${isBizSelected ? 'bg-purple-50/30 dark:bg-purple-900/10' : ''}`}
-                    style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
-                  >
-                    <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
-                      <div className="w-7 h-7 rounded-full bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 flex items-center justify-center text-[10px] font-bold text-purple-600 dark:text-purple-400 shrink-0">
-                        {getInitials(contact.name)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-normal text-slate-600 dark:text-slate-400 truncate">{contact.name}</span>
-                          <span className="text-[9px] font-bold tracking-wide uppercase text-purple-400 shrink-0">BIZ</span>
-                        </div>
-                        <div className="text-xs text-slate-400 truncate">{contact.title ?? contact.department ?? ''}</div>
-                      </div>
-                    </div>
-                    {cells.map(({ quarter, cell }) => {
-                      const pct = cell.usedPercent;
-                      const isOver = pct > 100;
-                      const isWarn = pct >= 90 && !isOver;
-                      const remainingDays = cell.availableDays - cell.allocatedDays;
-                      const effectiveBizCellClass = getCellClass(pct);
-                      const isCellSelected = isBizSelected && selectedBizCell?.quarter === quarter;
-
-                      if (timelineView === 'heatmap') {
-                        return (
-                          <button
-                            key={quarter}
-                            onClick={() => setSelectedBizCell(isCellSelected ? null : { contactId: contact.id, quarter })}
-                            className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${effectiveBizCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-purple-500' : ''}`}
-                            style={{ filter: isCellSelected ? undefined : 'none' }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
-                            title={`${quarter} · ${pct}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
-                          >
-                            <div className="text-sm font-bold tabular-nums leading-tight">
-                              {pct === 0 ? '—' : `${pct}%`}
-                            </div>
-                            <div className="text-[10px] mt-0.5" style={{ color: isOver ? OVERLOAD_COLOR : 'inherit' }}>
-                              {pct === 0 ? '' : isOver
-                                ? `−${Math.abs(Math.round(remainingDays))}d`
-                                : `${Math.round(remainingDays)}d free`}
-                            </div>
-                          </button>
-                        );
-                      }
-
-                      return (
-                        <div
-                          key={quarter}
-                          title={cell.breakdownByProject.map(b => `${b.projectName}${b.phaseName ? ` / ${b.phaseName}` : ''}: ${b.days.toFixed(1)}d`).join('\n')}
-                          className={`px-3 py-3 border-l border-slate-100 dark:border-slate-800 ${quarter === currentQuarter ? 'bg-blue-50/20 dark:bg-blue-900/5' : ''}`}
-                        >
-                          <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden mb-1.5">
-                            <div
-                              className={`h-full ${isOver ? 'bg-red-400' : isWarn ? 'bg-amber-400' : 'bg-purple-400'}`}
-                              style={{ width: `${Math.min(100, pct)}%` }}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-slate-500 dark:text-slate-400">
-                              {pct > 0 ? `${cell.allocatedDays.toFixed(1)}d` : '—'}
-                            </span>
-                            <span className={`text-[10px] ${isOver ? 'text-red-500' : isWarn ? 'text-amber-500' : 'text-slate-400'}`}>
-                              {pct > 0 ? `${pct}%` : ''}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* BIZ inline drill-down panel */}
-                  {isBizSelected && (() => {
-                    const selCellData = cells.find(c => c.quarter === selectedBizCell?.quarter);
-                    if (!selCellData) return null;
-                    const cap = selCellData.cell;
-                    const pct = cap.usedPercent;
-                    const isOver = pct > 100;
-                    const remainingRaw = cap.availableDays - cap.allocatedDays;
-                    const summaryCellColor = getCellColor(pct);
-
-                    const workItems = cap.breakdownByProject.filter(b => b.projectId !== '__bau__');
-                    const bauEntry = cap.breakdownByProject.find(b => b.projectId === '__bau__');
-
-                    return (
-                      <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-                        {/* Panel header */}
-                        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                              {selectedBizCell?.quarter} — {contact.name}
-                            </span>
-                            {(contact.title || contact.department) && (
-                              <span className="text-xs text-slate-400">{contact.title ?? contact.department}</span>
-                            )}
-                            <span className="text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-500 border border-purple-100 dark:border-purple-800">BIZ</span>
-                          </div>
-                          <button
-                            onClick={() => setSelectedBizCell(null)}
-                            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-
-                        {/* Two-column body */}
-                        <div className="grid grid-cols-[1fr_180px] gap-0 px-5 py-4 max-w-4xl">
-                          {/* Left — assigned work */}
-                          <div className="pr-6 min-w-0">
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Assigned Work</p>
-                            {workItems.length === 0 && !bauEntry ? (
-                              <p className="text-sm italic text-slate-400">No work assigned this quarter.</p>
-                            ) : (
-                              <div className="space-y-1.5">
-                                {workItems.map((item, i) => (
-                                  <div key={i} className="dd-item flex items-start gap-2 pl-2 border-l-2 border-purple-200 dark:border-purple-800">
-                                    <div className="flex-1 min-w-0">
-                                      {item.phaseName && (
-                                        <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{item.projectName}</p>
-                                      )}
-                                      <p className="dd-item-label text-xs font-medium text-slate-700 dark:text-slate-200 truncate mt-0.5">
-                                        {item.phaseName ?? item.projectName}
-                                      </p>
-                                    </div>
-                                    <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0 pt-0.5 tabular-nums">{item.days.toFixed(1)}d</span>
-                                  </div>
-                                ))}
-                                {bauEntry && (
-                                  <div className="dd-item flex items-center gap-2 pl-2 border-l-2 border-slate-200 dark:border-slate-700">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded border bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">BAU</span>
-                                      </div>
-                                      <p className="dd-item-label text-xs font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">BAU Reserve</p>
-                                    </div>
-                                    <span className="text-xs text-slate-400 shrink-0 tabular-nums">{bauEntry.days.toFixed(1)}d</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Right — quarter summary */}
-                          <div className="border-l border-slate-100 dark:border-slate-800 pl-5">
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Quarter Summary</p>
-                            <div className="space-y-2.5">
-                              {[
-                                { label: 'Available', value: `${cap.availableDays.toFixed(1)}d`, color: 'text-slate-600 dark:text-slate-300' },
-                                { label: 'Allocated', value: `${cap.allocatedDays.toFixed(1)}d`, color: summaryCellColor },
-                                {
-                                  label: 'Remaining',
-                                  value: isOver ? `−${Math.abs(Math.round(remainingRaw))}d` : `${Math.round(remainingRaw)}d`,
-                                  color: isOver ? OVERLOAD_COLOR : 'inherit',
-                                },
-                                { label: 'Utilization', value: `${pct}%`, color: summaryCellColor },
-                              ].map(row => (
-                                <div key={row.label} className="flex items-center justify-between">
-                                  <span className="text-xs text-slate-500 dark:text-slate-400">{row.label}</span>
-                                  <span className="text-xs font-semibold tabular-nums" style={{ color: row.color }}>{row.value}</span>
-                                </div>
-                              ))}
-                            </div>
-                            {/* Mini utilization bar */}
-                            <div className="mt-4 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all"
-                                style={{ width: `${Math.min(100, pct)}%`, background: summaryCellColor }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </Fragment>
-              );
-              })}
+ <Card>
+ <CardContent className="p-0 overflow-x-auto">
+ {/* Header */}
+ <div className="grid border-b border-slate-100 dark:border-slate-800 bg-slate-800 "
+ style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}>
+ <div className="px-4 py-3 text-xs font-bold tracking-wide uppercase text-slate-300">
+ {peopleFilter === 'business_only' ? 'Business contact' : 'Member'}
+ </div>
+ {yearQuarters.map(q => {
+ const workdays = getWorkdaysInQuarter(q);
+ const isCurrent = q === currentQuarter;
+ return (
+ <div key={q} className={`px-4 py-3 border-l border-white/10 ${isCurrent ? 'bg-blue-700/30' : ''}`}>
+ <div className={`text-xs font-bold tracking-wide uppercase ${isCurrent ? 'text-blue-300' : 'text-slate-300'}`}>{q}</div>
+ <div className="text-[10px] text-slate-400 mt-0.5">{workdays} working days</div>
+ </div>
+ );
+ })}
+ </div>
 
 
-              {/* Legend */}
-              {timelineView === 'heatmap' ? (
-                <div className="flex items-center gap-3 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex-wrap">
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier1" /><span className="text-[10px] text-slate-500">11–30%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier2" /><span className="text-[10px] text-slate-500">31–50%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier3" /><span className="text-[10px] text-slate-500">51–70%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier4" /><span className="text-[10px] text-slate-500">71–80%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier5" /><span className="text-[10px] text-slate-500">81–90%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier6" /><span className="text-[10px] text-slate-500">91–99%</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-overloaded" /><span className="text-[10px] text-slate-500">≥100%</span></div>
-                  <div className="flex-1" />
-                  <span className="text-[10px] text-slate-400">Click any IT cell to drill down</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-5 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                  <LegendDot color="bg-slate-300 dark:bg-slate-600" label="BAU" />
-                  <LegendDot color="bg-amber-300 dark:bg-amber-600" label="Time off" />
-                  <LegendDot color="bg-blue-500" label="Projects" />
-                  <LegendDot color="bg-red-500" label="Over-allocated" />
-                  <div className="flex-1" />
-                  <span className="text-[10px] text-slate-400">Click any cell to drill down</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-      )}
+ {/* IT Member rows */}
+ {peopleFilter !== 'business_only' && timelineData.map(({ member, cells }) => {
+ const country = state.countries.find(c => c.id === member.countryId);
+ const isMemberSelected = selectedCell?.memberId === member.id;
+ return (
+ <Fragment key={member.id}>
+ <div
+ className={`grid border-b border-slate-50 dark:border-slate-800/50 transition-colors hover:bg-[#E8F8F8]/40 dark:hover:bg-blue-900/5 ${isMemberSelected ? 'bg-[#E8F8F8]/60 dark:bg-blue-900/10' : ''}`}
+ style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
+ >
+ {/* Identity */}
+ <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
+ <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0">
+ {getInitials(member.name)}
+ </div>
+ <div className="min-w-0">
+ <div className="flex items-center gap-1.5">
+ <span className="text-sm font-semibold text-slate-900 truncate">{member.name}</span>
+ </div>
+ <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
+ {member.role}{country ? ` · ${country.code}` : ''}
+ </div>
+ </div>
+ </div>
 
-      {/* ── By Squad / Team tab ──────────────────────────────────────────────── */}
-      {!isEmpty && activeTab === 'squad' && (
-        <SquadTeamTab
-          yearQuarters={yearQuarters}
-          selectedQuarter={selectedGroupQuarter}
-          onSelectQuarter={setSelectedGroupQuarter}
-          squadSummaries={squadSummaries}
-          processTeamSummaries={processTeamSummaries}
-        />
-      )}
+ {/* Quarter cells */}
+ {cells.map(({ quarter, cap, bauPct, timeOffPct, projectPct }) => {
+ const isOver = cap.status === 'overallocated';
+ const isWarn = cap.status === 'warning';
+ const isCellSelected = isMemberSelected && selectedCell?.quarter === quarter;
+ const remainingDays = cap.totalWorkdays - cap.usedDays;
+ const effectiveCellClass = getCellClass(cap.usedPercent);
 
-    </div>
-  );
+ if (timelineView === 'heatmap') {
+ return (
+ <button
+ key={quarter}
+ onClick={() => handleCellClick(member.id, quarter)}
+ className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${effectiveCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
+ style={{ filter: isCellSelected ? undefined : 'none' }}
+ onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
+ onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
+ title={`${quarter} · ${cap.usedPercent}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
+ >
+ <div className="text-sm font-bold tabular-nums leading-tight">
+ {cap.usedPercent === 0 ? '—' : `${cap.usedPercent}%`}
+ </div>
+ <div className="text-[10px] mt-0.5" style={{ color: isOver ? OVERLOAD_COLOR : 'inherit' }}>
+ {cap.usedPercent === 0 ? '' : isOver
+ ? `−${Math.abs(Math.round(remainingDays))}d`
+ : `${Math.round(remainingDays)}d free`}
+ </div>
+ </button>
+ );
+ }
+
+ return (
+ <button
+ key={quarter}
+ onClick={() => handleCellClick(member.id, quarter)}
+ className={`px-3 py-3 border-l border-slate-100 dark:border-slate-800 text-left transition-colors
+ ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}
+ ${quarter === currentQuarter ? 'bg-[#E8F8F8]/40 dark:bg-blue-900/5' : ''}
+ `}
+ >
+ {/* Stacked bar */}
+ <div className="h-2 rounded-full bg-slate-100 overflow-hidden flex mb-1.5">
+ <div className="h-full bg-slate-300 dark:bg-slate-600" style={{ width: `${bauPct}%` }} />
+ <div className="h-full bg-amber-300 dark:bg-amber-600" style={{ width: `${timeOffPct}%` }} />
+ <div
+ className={`h-full ${isOver ? 'bg-red-500' : isWarn ? 'bg-amber-400' : 'bg-[#0ED3CF]'}`}
+ style={{ width: `${projectPct}%` }}
+ />
+ </div>
+ {/* Label */}
+ <div className="flex items-center justify-between">
+ <span className={`text-xs font-semibold ${
+ isOver ? 'text-red-600 dark:text-red-400'
+ : remainingDays < 10 ? 'text-amber-600 dark:text-amber-400'
+ : remainingDays > 30 ? 'text-green-600 dark:text-green-400'
+ : 'text-slate-700 '
+ }`}>
+ {isOver ? `−${Math.abs(Math.round(remainingDays))}d` : `${Math.round(remainingDays)}d free`}
+ </span>
+ <span className={`text-[10px] ${isOver ? 'text-red-500 dark:text-red-400' : isWarn ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
+ {cap.usedPercent}%
+ </span>
+ </div>
+ </button>
+ );
+ })}
+ </div>
+
+ {/* Inline drill-down panel */}
+ {isMemberSelected && drillDown && (() => {
+ const cap = drillDown.capacity;
+ const pct = cap.usedPercent;
+ const isOver = pct > 100;
+ const summaryCellColor = getCellColor(pct);
+
+ // Separate breakdown into work items vs. overhead
+ const workItems = cap.breakdown.filter(
+ (b: CapacityBreakdownItem) => b.type === 'jira' || b.type === 'project'
+ );
+ const overhead = cap.breakdown.filter(
+ (b: CapacityBreakdownItem) => b.type === 'bau' || b.type === 'timeoff'
+ );
+
+ // Build Epic › Feature breadcrumb for Jira items
+ const jiraMap = new Map(state.jiraWorkItems.map(i => [i.jiraKey, i]));
+ const getBreadcrumb = (jiraKey: string): string => {
+ const item = jiraMap.get(jiraKey);
+ if (!item) return '';
+ const parent = item.parentKey ? jiraMap.get(item.parentKey) : undefined;
+ const grandParent = parent?.parentKey ? jiraMap.get(parent.parentKey) : undefined;
+ const parts: string[] = [];
+ if (grandParent) parts.push(grandParent.summary);
+ else if (parent) parts.push(parent.summary);
+ if (grandParent && parent) parts.push(parent.summary);
+ return parts.join(' › ');
+ };
+
+ const typePillClass = (type: string) => {
+ switch (type.toLowerCase()) {
+ case 'story': return 'bg-[#E8F8F8] text-[#0BB8B5] border-[#99F6E4]';
+ case 'uat': return 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/30 dark:text-amber-300';
+ case 'hypercare': return 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/30 dark:text-purple-300';
+ default: return 'bg-[#F5F3F0] text-slate-600 border-slate-200 ';
+ }
+ };
+
+ const remainingRaw = cap.totalWorkdays - cap.usedDays;
+
+ return (
+ <div className="border-b border-slate-200 bg-white ">
+ {/* Panel header */}
+ <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+ <div className="flex items-center gap-2">
+ <span className="text-sm font-semibold text-slate-800 ">
+ {drillDown.quarter} — {drillDown.member.name}
+ </span>
+ {drillDown.member.role && (
+ <span className="text-xs text-slate-400">{drillDown.member.role}</span>
+ )}
+ </div>
+ <button
+ onClick={() => setSelectedCell(null)}
+ className="p-1 rounded hover:bg-slate-100 text-slate-400 transition-colors"
+ >
+ <X size={15} />
+ </button>
+ </div>
+
+ {/* Two-column body */}
+ <div className="grid grid-cols-[1fr_180px] gap-0 px-5 py-4 max-w-4xl">
+ {/* Left — assigned work */}
+ <div className="pr-6 min-w-0">
+ <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Assigned Work</p>
+ {workItems.length === 0 && overhead.length === 0 ? (
+ <p className="text-sm italic text-slate-400">No work assigned this quarter.</p>
+ ) : (
+ <div className="space-y-1.5">
+ {workItems.map((item: CapacityBreakdownItem, i: number) => {
+ const breadcrumb = item.jiraKey ? getBreadcrumb(item.jiraKey) : (item.phaseName ? `${item.projectName} › ${item.phaseName}` : item.projectName ?? '');
+ const label = item.jiraSummary ?? item.phaseName ?? item.projectName ?? '—';
+ const typeLabel = item.type === 'jira' ? 'Story' : 'Project';
+ return (
+ <div key={i} className="dd-item flex items-start gap-2 pl-2 border-l-2 border-blue-200 dark:border-blue-800">
+ <div className="flex-1 min-w-0">
+ <div className="flex items-center gap-1.5 flex-wrap">
+ {item.jiraKey && (
+ <span className="text-[9px] font-mono text-slate-400 shrink-0">{item.jiraKey}</span>
+ )}
+ <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${typePillClass(typeLabel)}`}>{typeLabel.toUpperCase()}</span>
+ </div>
+ <p className="dd-item-label text-xs font-medium text-slate-700 truncate mt-0.5">{label}</p>
+ {breadcrumb && (
+ <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{breadcrumb}</p>
+ )}
+ </div>
+ <span className="text-xs text-slate-500 shrink-0 pt-3 tabular-nums">{item.days.toFixed(1)}d</span>
+ </div>
+ );
+ })}
+ {overhead.map((item: CapacityBreakdownItem, i: number) => (
+ <div key={`oh-${i}`} className="dd-item flex items-center gap-2 pl-2 border-l-2 border-slate-200 ">
+ <div className="flex-1 min-w-0">
+ <div className="flex items-center gap-1.5">
+ <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${typePillClass(item.type)}`}>
+ {item.type === 'bau' ? 'BAU' : 'TIME OFF'}
+ </span>
+ </div>
+ <p className="dd-item-label text-xs font-medium text-slate-500 truncate mt-0.5">
+ {item.type === 'bau' ? 'BAU Reserve' : 'Time Off'}
+ </p>
+ </div>
+ <span className="text-xs text-slate-400 shrink-0 tabular-nums">{item.days.toFixed(1)}d</span>
+ </div>
+ ))}
+ </div>
+ )}
+ </div>
+
+ {/* Right — quarter summary */}
+ <div className="border-l border-slate-100 dark:border-slate-800 pl-5">
+ <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Quarter Summary</p>
+ <div className="space-y-2.5">
+ {[
+ { label: 'Available', value: `${cap.totalWorkdays}d`, color: 'text-slate-600 ' },
+ { label: 'Allocated', value: `${cap.usedDays.toFixed(1)}d`, color: summaryCellColor },
+ {
+ label: 'Remaining',
+ value: isOver ? `−${Math.abs(Math.round(remainingRaw))}d` : `${Math.round(remainingRaw)}d`,
+ color: isOver ? OVERLOAD_COLOR : 'inherit',
+ },
+ { label: 'Utilization', value: `${pct}%`, color: summaryCellColor },
+ ].map(row => (
+ <div key={row.label} className="flex items-center justify-between">
+ <span className="text-xs text-slate-500 ">{row.label}</span>
+ <span className="text-xs font-semibold tabular-nums" style={{ color: row.color }}>{row.value}</span>
+ </div>
+ ))}
+ </div>
+ {/* Mini utilization bar */}
+ <div className="mt-4 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+ <div
+ className="h-full rounded-full transition-all"
+ style={{
+ width: `${Math.min(100, pct)}%`,
+ background: summaryCellColor,
+ }}
+ />
+ </div>
+ </div>
+ </div>
+ </div>
+ );
+ })()}
+ </Fragment>
+ );
+ })}
+
+ {/* Business divider */}
+ {peopleFilter === 'both' && bizTimelineData.length > 0 && (
+ <div className="px-4 py-1.5 bg-[#F5F3F0] /50 border-t-2 border-slate-200 ">
+ <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400">Business</span>
+ <span className="ml-2 text-[10px] text-slate-400 italic">(informational only)</span>
+ </div>
+ )}
+
+ {/* Business rows */}
+ {peopleFilter !== 'it_only' && bizTimelineData.map(({ contact, cells }) => {
+ const isBizSelected = selectedBizCell?.contactId === contact.id;
+ return (
+ <Fragment key={contact.id}>
+ <div
+ className={`grid border-b border-slate-50 dark:border-slate-800/50 transition-colors hover:bg-purple-50/20 dark:hover:bg-purple-900/5 ${isBizSelected ? 'bg-purple-50/30 dark:bg-purple-900/10' : ''}`}
+ style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
+ >
+ <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
+ <div className="w-7 h-7 rounded-full bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 flex items-center justify-center text-[10px] font-bold text-purple-600 dark:text-purple-400 shrink-0">
+ {getInitials(contact.name)}
+ </div>
+ <div className="min-w-0">
+ <div className="flex items-center gap-1.5">
+ <span className="text-sm font-normal text-slate-600 truncate">{contact.name}</span>
+ <span className="text-[9px] font-bold tracking-wide uppercase text-purple-400 shrink-0">BIZ</span>
+ </div>
+ <div className="text-xs text-slate-400 truncate">{contact.title ?? contact.department ?? ''}</div>
+ </div>
+ </div>
+ {cells.map(({ quarter, cell }) => {
+ const pct = cell.usedPercent;
+ const isOver = pct > 100;
+ const isWarn = pct >= 90 && !isOver;
+ const remainingDays = cell.availableDays - cell.allocatedDays;
+ const effectiveBizCellClass = getCellClass(pct);
+ const isCellSelected = isBizSelected && selectedBizCell?.quarter === quarter;
+
+ if (timelineView === 'heatmap') {
+ return (
+ <button
+ key={quarter}
+ onClick={() => setSelectedBizCell(isCellSelected ? null : { contactId: contact.id, quarter })}
+ className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${effectiveBizCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-purple-500' : ''}`}
+ style={{ filter: isCellSelected ? undefined : 'none' }}
+ onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
+ onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
+ title={`${quarter} · ${pct}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
+ >
+ <div className="text-sm font-bold tabular-nums leading-tight">
+ {pct === 0 ? '—' : `${pct}%`}
+ </div>
+ <div className="text-[10px] mt-0.5" style={{ color: isOver ? OVERLOAD_COLOR : 'inherit' }}>
+ {pct === 0 ? '' : isOver
+ ? `−${Math.abs(Math.round(remainingDays))}d`
+ : `${Math.round(remainingDays)}d free`}
+ </div>
+ </button>
+ );
+ }
+
+ return (
+ <div
+ key={quarter}
+ title={cell.breakdownByProject.map(b => `${b.projectName}${b.phaseName ? ` / ${b.phaseName}` : ''}: ${b.days.toFixed(1)}d`).join('\n')}
+ className={`px-3 py-3 border-l border-slate-100 dark:border-slate-800 ${quarter === currentQuarter ? 'bg-[#E8F8F8]/30 dark:bg-blue-900/5' : ''}`}
+ >
+ <div className="h-2 rounded-full bg-slate-100 overflow-hidden mb-1.5">
+ <div
+ className={`h-full ${isOver ? 'bg-red-400' : isWarn ? 'bg-amber-400' : 'bg-purple-400'}`}
+ style={{ width: `${Math.min(100, pct)}%` }}
+ />
+ </div>
+ <div className="flex items-center justify-between">
+ <span className="text-xs text-slate-500 ">
+ {pct > 0 ? `${cell.allocatedDays.toFixed(1)}d` : '—'}
+ </span>
+ <span className={`text-[10px] ${isOver ? 'text-red-500' : isWarn ? 'text-amber-500' : 'text-slate-400'}`}>
+ {pct > 0 ? `${pct}%` : ''}
+ </span>
+ </div>
+ </div>
+ );
+ })}
+ </div>
+
+ {/* BIZ inline drill-down panel */}
+ {isBizSelected && (() => {
+ const selCellData = cells.find(c => c.quarter === selectedBizCell?.quarter);
+ if (!selCellData) return null;
+ const cap = selCellData.cell;
+ const pct = cap.usedPercent;
+ const isOver = pct > 100;
+ const remainingRaw = cap.availableDays - cap.allocatedDays;
+ const summaryCellColor = getCellColor(pct);
+
+ const workItems = cap.breakdownByProject.filter(b => b.projectId !== '__bau__');
+ const bauEntry = cap.breakdownByProject.find(b => b.projectId === '__bau__');
+
+ return (
+ <div className="border-b border-slate-200 bg-white ">
+ {/* Panel header */}
+ <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+ <div className="flex items-center gap-2">
+ <span className="text-sm font-semibold text-slate-800 ">
+ {selectedBizCell?.quarter} — {contact.name}
+ </span>
+ {(contact.title || contact.department) && (
+ <span className="text-xs text-slate-400">{contact.title ?? contact.department}</span>
+ )}
+ <span className="text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-500 border border-purple-100 dark:border-purple-800">BIZ</span>
+ </div>
+ <button
+ onClick={() => setSelectedBizCell(null)}
+ className="p-1 rounded hover:bg-slate-100 text-slate-400 transition-colors"
+ >
+ <X size={15} />
+ </button>
+ </div>
+
+ {/* Two-column body */}
+ <div className="grid grid-cols-[1fr_180px] gap-0 px-5 py-4 max-w-4xl">
+ {/* Left — assigned work */}
+ <div className="pr-6 min-w-0">
+ <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Assigned Work</p>
+ {workItems.length === 0 && !bauEntry ? (
+ <p className="text-sm italic text-slate-400">No work assigned this quarter.</p>
+ ) : (
+ <div className="space-y-1.5">
+ {workItems.map((item, i) => (
+ <div key={i} className="dd-item flex items-start gap-2 pl-2 border-l-2 border-purple-200 dark:border-purple-800">
+ <div className="flex-1 min-w-0">
+ {item.phaseName && (
+ <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{item.projectName}</p>
+ )}
+ <p className="dd-item-label text-xs font-medium text-slate-700 truncate mt-0.5">
+ {item.phaseName ?? item.projectName}
+ </p>
+ </div>
+ <span className="text-xs text-slate-500 shrink-0 pt-0.5 tabular-nums">{item.days.toFixed(1)}d</span>
+ </div>
+ ))}
+ {bauEntry && (
+ <div className="dd-item flex items-center gap-2 pl-2 border-l-2 border-slate-200 ">
+ <div className="flex-1 min-w-0">
+ <div className="flex items-center gap-1.5">
+ <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded border bg-[#F5F3F0] text-slate-600 border-slate-200 ">BAU</span>
+ </div>
+ <p className="dd-item-label text-xs font-medium text-slate-500 truncate mt-0.5">BAU Reserve</p>
+ </div>
+ <span className="text-xs text-slate-400 shrink-0 tabular-nums">{bauEntry.days.toFixed(1)}d</span>
+ </div>
+ )}
+ </div>
+ )}
+ </div>
+
+ {/* Right — quarter summary */}
+ <div className="border-l border-slate-100 dark:border-slate-800 pl-5">
+ <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Quarter Summary</p>
+ <div className="space-y-2.5">
+ {[
+ { label: 'Available', value: `${cap.availableDays.toFixed(1)}d`, color: 'text-slate-600 ' },
+ { label: 'Allocated', value: `${cap.allocatedDays.toFixed(1)}d`, color: summaryCellColor },
+ {
+ label: 'Remaining',
+ value: isOver ? `−${Math.abs(Math.round(remainingRaw))}d` : `${Math.round(remainingRaw)}d`,
+ color: isOver ? OVERLOAD_COLOR : 'inherit',
+ },
+ { label: 'Utilization', value: `${pct}%`, color: summaryCellColor },
+ ].map(row => (
+ <div key={row.label} className="flex items-center justify-between">
+ <span className="text-xs text-slate-500 ">{row.label}</span>
+ <span className="text-xs font-semibold tabular-nums" style={{ color: row.color }}>{row.value}</span>
+ </div>
+ ))}
+ </div>
+ {/* Mini utilization bar */}
+ <div className="mt-4 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+ <div
+ className="h-full rounded-full transition-all"
+ style={{ width: `${Math.min(100, pct)}%`, background: summaryCellColor }}
+ />
+ </div>
+ </div>
+ </div>
+ </div>
+ );
+ })()}
+ </Fragment>
+ );
+ })}
+
+
+ {/* Legend */}
+ {timelineView === 'heatmap' ? (
+ <div className="flex items-center gap-3 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-[#F5F3F0]/50 /30 flex-wrap">
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier1" /><span className="text-[10px] text-slate-500">11–30%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier2" /><span className="text-[10px] text-slate-500">31–50%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier3" /><span className="text-[10px] text-slate-500">51–70%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier4" /><span className="text-[10px] text-slate-500">71–80%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier5" /><span className="text-[10px] text-slate-500">81–90%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier6" /><span className="text-[10px] text-slate-500">91–99%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-overloaded" /><span className="text-[10px] text-slate-500">≥100%</span></div>
+ <div className="flex-1" />
+ <span className="text-[10px] text-slate-400">Click any IT cell to drill down</span>
+ </div>
+ ) : (
+ <div className="flex items-center gap-5 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-[#F5F3F0]/50 /30">
+ <LegendDot color="bg-slate-300 dark:bg-slate-600" label="BAU" />
+ <LegendDot color="bg-amber-300 dark:bg-amber-600" label="Time off" />
+ <LegendDot color="bg-[#0ED3CF]" label="Projects" />
+ <LegendDot color="bg-red-500" label="Over-allocated" />
+ <div className="flex-1" />
+ <span className="text-[10px] text-slate-400">Click any cell to drill down</span>
+ </div>
+ )}
+ </CardContent>
+ </Card>
+ </section>
+ )}
+
+ {/* ── By Squad / Team tab ──────────────────────────────────────────────── */}
+ {!isEmpty && activeTab === 'squad' && (
+ <SquadTeamTab
+ yearQuarters={yearQuarters}
+ selectedQuarter={selectedGroupQuarter}
+ onSelectQuarter={setSelectedGroupQuarter}
+ squadSummaries={squadSummaries}
+ processTeamSummaries={processTeamSummaries}
+ />
+ )}
+
+ </div>
+ );
 }
 
 /* ─── By Squad / Team tab ────────────────────────────────────────────────────── */
 
 function getBarColor(utilization: number): string {
-  const pct = utilization * 100;
-  if (pct <= 0)   return '#E2ECF5';
-  if (pct <= 30)  return 'rgba(74,181,100,0.30)';
-  if (pct <= 50)  return 'rgba(74,181,100,0.55)';
-  if (pct <= 70)  return 'rgba(255,210,60,0.60)';
-  if (pct <= 80)  return 'rgba(255,175,40,0.70)';
-  if (pct <= 100) return 'rgba(255,130,50,0.70)';
-  return 'rgba(220,53,69,0.50)';
+ const pct = utilization * 100;
+ if (pct <= 0) return '#E2ECF5';
+ if (pct <= 30) return 'rgba(74,181,100,0.30)';
+ if (pct <= 50) return 'rgba(74,181,100,0.55)';
+ if (pct <= 70) return 'rgba(255,210,60,0.60)';
+ if (pct <= 80) return 'rgba(255,175,40,0.70)';
+ if (pct <= 100) return 'rgba(255,130,50,0.70)';
+ return 'rgba(220,53,69,0.50)';
 }
 
 function GroupBar({ name, data }: { name: string; data: GroupCapacitySummary }) {
-  const pct = Math.round(data.utilization * 100);
-  const isOverloaded = data.utilization > 1;
-  const barFill = getBarColor(data.utilization);
-  const barWidth = `${Math.min(100, pct)}%`;
+ const pct = Math.round(data.utilization * 100);
+ const isOverloaded = data.utilization > 1;
+ const barFill = getBarColor(data.utilization);
+ const barWidth = `${Math.min(100, pct)}%`;
 
-  return (
-    <div
-      className="py-3 border-b border-slate-100 dark:border-slate-800 last:border-0"
-      style={isOverloaded ? { borderLeft: '2px solid #DC3545', paddingLeft: '8px' } : undefined}
-    >
-      <div className="flex items-center gap-3 mb-1.5">
-        <span className="text-sm font-medium text-slate-800 dark:text-slate-100 w-28 shrink-0 truncate">{name}</span>
-        <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-          <div className="h-full rounded-full transition-all" style={{ width: barWidth, backgroundColor: barFill }} />
-        </div>
-        <span className={`text-xs font-semibold tabular-nums w-10 text-right ${isOverloaded ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
-          {data.totalDays === 0 ? '—' : `${pct}%`}
-        </span>
-      </div>
-      {data.totalDays > 0 && (
-        <div className="text-xs text-slate-400 dark:text-slate-500 pl-[112px]">
-          {data.usedDays}d used · {data.availableDays}d free
-        </div>
-      )}
-      {data.totalDays === 0 && (
-        <div className="text-xs text-slate-400 dark:text-slate-500 pl-[112px]">No members assigned</div>
-      )}
-    </div>
-  );
+ return (
+ <div
+ className="py-3 border-b border-slate-100 dark:border-slate-800 last:border-0"
+ style={isOverloaded ? { borderLeft: '2px solid #DC3545', paddingLeft: '8px' } : undefined}
+ >
+ <div className="flex items-center gap-3 mb-1.5">
+ <span className="text-sm font-medium text-slate-800 w-28 shrink-0 truncate">{name}</span>
+ <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+ <div className="h-full rounded-full transition-all" style={{ width: barWidth, backgroundColor: barFill }} />
+ </div>
+ <span className={`text-xs font-semibold tabular-nums w-10 text-right ${isOverloaded ? 'text-red-600 dark:text-red-400' : 'text-slate-700 '}`}>
+ {data.totalDays === 0 ? '—' : `${pct}%`}
+ </span>
+ </div>
+ {data.totalDays > 0 && (
+ <div className="text-xs text-slate-400 dark:text-slate-500 pl-[112px]">
+ {data.usedDays}d used · {data.availableDays}d free
+ </div>
+ )}
+ {data.totalDays === 0 && (
+ <div className="text-xs text-slate-400 dark:text-slate-500 pl-[112px]">No members assigned</div>
+ )}
+ </div>
+ );
 }
 
 function SquadTeamTab({
-  yearQuarters,
-  selectedQuarter,
-  onSelectQuarter,
-  squadSummaries,
-  processTeamSummaries,
+ yearQuarters,
+ selectedQuarter,
+ onSelectQuarter,
+ squadSummaries,
+ processTeamSummaries,
 }: {
-  yearQuarters: string[];
-  selectedQuarter: string;
-  onSelectQuarter: (q: string) => void;
-  squadSummaries: { id: string; name: string; data: GroupCapacitySummary }[];
-  processTeamSummaries: { id: string; name: string; data: GroupCapacitySummary }[];
+ yearQuarters: string[];
+ selectedQuarter: string;
+ onSelectQuarter: (q: string) => void;
+ squadSummaries: { id: string; name: string; data: GroupCapacitySummary }[];
+ processTeamSummaries: { id: string; name: string; data: GroupCapacitySummary }[];
 }) {
-  return (
-    <div className="space-y-4">
-      {/* Quarter pills */}
-      <div className="flex items-center gap-2">
-        {yearQuarters.map(q => (
-          <button
-            key={q}
-            onClick={() => onSelectQuarter(q)}
-            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              selectedQuarter === q
-                ? 'bg-mw-primary text-white'
-                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-mw-primary hover:text-mw-primary'
-            }`}
-          >
-            {q.split(' ')[0]}
-          </button>
-        ))}
-        <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">{selectedQuarter}</span>
-      </div>
+ return (
+ <div className="space-y-4">
+ {/* Quarter pills */}
+ <div className="flex items-center gap-2">
+ {yearQuarters.map(q => (
+ <button
+ key={q}
+ onClick={() => onSelectQuarter(q)}
+ className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+ selectedQuarter === q
+ ? 'bg-[#1A1A1A] text-white'
+ : 'bg-white border border-slate-200 text-slate-600 hover:border-[#0ED3CF] hover:text-[#0ED3CF]'
+ }`}
+ >
+ {q.split(' ')[0]}
+ </button>
+ ))}
+ <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">{selectedQuarter}</span>
+ </div>
 
-      {/* Two-column grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* By Squad */}
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">By Squad</p>
-            {squadSummaries.length === 0 ? (
-              <p className="text-sm text-slate-400 dark:text-slate-500 italic">No squads configured.</p>
-            ) : (
-              squadSummaries.map(s => <GroupBar key={s.id} name={s.name} data={s.data} />)
-            )}
-          </CardContent>
-        </Card>
+ {/* Two-column grid */}
+ <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+ {/* By Squad */}
+ <Card>
+ <CardContent className="pt-4">
+ <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">By Squad</p>
+ {squadSummaries.length === 0 ? (
+ <p className="text-sm text-slate-400 dark:text-slate-500 italic">No squads configured.</p>
+ ) : (
+ squadSummaries.map(s => <GroupBar key={s.id} name={s.name} data={s.data} />)
+ )}
+ </CardContent>
+ </Card>
 
-        {/* By Process Team */}
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">By Process Team</p>
-            {processTeamSummaries.length === 0 ? (
-              <p className="text-sm text-slate-400 dark:text-slate-500 italic">No process teams configured.</p>
-            ) : (
-              processTeamSummaries.map(pt => <GroupBar key={pt.id} name={pt.name} data={pt.data} />)
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+ {/* By Process Team */}
+ <Card>
+ <CardContent className="pt-4">
+ <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">By Process Team</p>
+ {processTeamSummaries.length === 0 ? (
+ <p className="text-sm text-slate-400 dark:text-slate-500 italic">No process teams configured.</p>
+ ) : (
+ processTeamSummaries.map(pt => <GroupBar key={pt.id} name={pt.name} data={pt.data} />)
+ )}
+ </CardContent>
+ </Card>
+ </div>
+ </div>
+ );
 }
 
 /* ─── Section 1: Capacity Bank card ─────────────────────────────────────────── */
 
 function CapacityBankCard({ quarter, remainingDays, bauPct, timeOffPct, projectPct, isPast, isCurrent, isTight, isOpen }: {
-  quarter: string;
-  remainingDays: number;
-  bauPct: number;
-  timeOffPct: number;
-  projectPct: number;
-  isPast: boolean;
-  isCurrent: boolean;
-  isTight: boolean;
-  isOpen: boolean;
+ quarter: string;
+ remainingDays: number;
+ bauPct: number;
+ timeOffPct: number;
+ projectPct: number;
+ isPast: boolean;
+ isCurrent: boolean;
+ isTight: boolean;
+ isOpen: boolean;
 }) {
-  const badgeLabel = isPast ? 'Closed' : isCurrent ? 'Current' : isTight ? 'Tight' : isOpen ? 'Open' : 'Planned';
-  const badgeCls = isPast
-    ? 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
-    : isCurrent
-    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-    : isTight
-    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-    : isOpen
-    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400';
+ const badgeLabel = isPast ? 'Closed' : isCurrent ? 'Current' : isTight ? 'Tight' : isOpen ? 'Open' : 'Planned';
+ const badgeCls = isPast
+ ? 'bg-slate-100 text-slate-500 '
+ : isCurrent
+ ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+ : isTight
+ ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+ : isOpen
+ ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+ : 'bg-slate-100 text-slate-500 ';
 
-  const daysCls = isPast
-    ? 'text-slate-400 dark:text-slate-500'
-    : isTight
-    ? 'text-amber-600 dark:text-amber-400'
-    : isOpen
-    ? 'text-green-600 dark:text-green-400'
-    : 'text-blue-600 dark:text-blue-400';
+ const daysCls = isPast
+ ? 'text-slate-400 dark:text-slate-500'
+ : isTight
+ ? 'text-amber-600 dark:text-amber-400'
+ : isOpen
+ ? 'text-green-600 dark:text-green-400'
+ : 'text-[#0ED3CF]';
 
-  return (
-    <div className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 ${isCurrent ? 'border-t-2 border-t-blue-500' : ''}`}>
-      {/* Quarter + badge */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-bold tracking-wide uppercase text-slate-500 dark:text-slate-400">{quarter}</span>
-        <span className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-full ${badgeCls}`}>
-          {badgeLabel}
-        </span>
-      </div>
+ return (
+ <div className={`bg-white rounded-xl border border-slate-200 shadow-sm p-5 ${isCurrent ? 'border-t-2 border-t-blue-500' : ''}`}>
+ {/* Quarter + badge */}
+ <div className="flex items-center justify-between mb-3">
+ <span className="text-xs font-bold tracking-wide uppercase text-slate-500 ">{quarter}</span>
+ <span className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-full ${badgeCls}`}>
+ {badgeLabel}
+ </span>
+ </div>
 
-      {/* Big number */}
-      <div className={`text-3xl font-bold leading-none tracking-tight ${daysCls}`}>
-        {remainingDays < 0 ? `−${Math.abs(remainingDays)}` : remainingDays}
-      </div>
-      <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-        {remainingDays < 0 ? 'days over capacity' : 'days remaining'}
-      </div>
+ {/* Big number */}
+ <div className={`text-3xl font-bold leading-none tracking-tight ${daysCls}`}>
+ {remainingDays < 0 ? `−${Math.abs(remainingDays)}` : remainingDays}
+ </div>
+ <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+ {remainingDays < 0 ? 'days over capacity' : 'days remaining'}
+ </div>
 
-      {/* Stacked bar */}
-      <div className="mt-4 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex">
-        <div className="h-full bg-slate-300 dark:bg-slate-500" style={{ width: `${bauPct}%` }} />
-        <div className="h-full bg-amber-300 dark:bg-amber-600" style={{ width: `${timeOffPct}%` }} />
-        <div className="h-full bg-blue-500" style={{ width: `${projectPct}%` }} />
-      </div>
+ {/* Stacked bar */}
+ <div className="mt-4 h-1.5 rounded-full bg-slate-100 overflow-hidden flex">
+ <div className="h-full bg-slate-300 dark:bg-[#F5F3F0]0" style={{ width: `${bauPct}%` }} />
+ <div className="h-full bg-amber-300 dark:bg-amber-600" style={{ width: `${timeOffPct}%` }} />
+ <div className="h-full bg-[#0ED3CF]" style={{ width: `${projectPct}%` }} />
+ </div>
 
-      {/* Legend */}
-      <div className="flex items-center gap-3 mt-2.5">
-        <LegendDot color="bg-slate-300 dark:bg-slate-500" label="BAU" />
-        <LegendDot color="bg-amber-300 dark:bg-amber-600" label="Leave" />
-        <LegendDot color="bg-blue-500" label="Projects" />
-      </div>
-    </div>
-  );
+ {/* Legend */}
+ <div className="flex items-center gap-3 mt-2.5">
+ <LegendDot color="bg-slate-300 dark:bg-[#F5F3F0]0" label="BAU" />
+ <LegendDot color="bg-amber-300 dark:bg-amber-600" label="Leave" />
+ <LegendDot color="bg-[#0ED3CF]" label="Projects" />
+ </div>
+ </div>
+ );
 }
 
 /* ─── Section 2: Alerts grid ──────────────────────────────────────────────── */
 
 function AlertsGrid({ warnings, projects }: {
-  warnings: ReturnType<typeof getWarnings>;
-  projects: Project[];
+ warnings: ReturnType<typeof getWarnings>;
+ projects: Project[];
 }) {
-  // Build alert items from existing warnings + go-live check
-  const alerts: { id: string; icon: React.ReactNode; iconBg: string; title: string; detail: string; badgeCls: string; badgeLabel: string }[] = [];
+ // Build alert items from existing warnings + go-live check
+ const alerts: { id: string; icon: React.ReactNode; iconBg: string; title: string; detail: string; badgeCls: string; badgeLabel: string }[] = [];
 
-  for (const w of warnings.overallocated.slice(0, 2)) {
-    alerts.push({
-      id: `over-${w.member.id}-${w.quarter}`,
-      icon: <AlertTriangle size={15} className="text-red-500" />,
-      iconBg: 'bg-red-50 dark:bg-red-900/20',
-      title: `${w.member.name} over-allocated`,
-      detail: `${w.usedDays}d used / ${w.totalDays}d available in ${w.quarter}`,
-      badgeCls: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
-      badgeLabel: 'Fix',
-    });
-  }
+ for (const w of warnings.overallocated.slice(0, 2)) {
+ alerts.push({
+ id: `over-${w.member.id}-${w.quarter}`,
+ icon: <AlertTriangle size={15} className="text-red-500" />,
+ iconBg: 'bg-red-50 dark:bg-red-900/20',
+ title: `${w.member.name} over-allocated`,
+ detail: `${w.usedDays}d used / ${w.totalDays}d available in ${w.quarter}`,
+ badgeCls: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+ badgeLabel: 'Fix',
+ });
+ }
 
-  for (const w of warnings.highUtilization.slice(0, 2)) {
-    if (alerts.length >= 4) break;
-    alerts.push({
-      id: `warn-${w.member.id}-${w.quarter}`,
-      icon: <Clock size={15} className="text-amber-500" />,
-      iconBg: 'bg-amber-50 dark:bg-amber-900/20',
-      title: `${w.member.name} at ${w.usedPercent}%`,
-      detail: `High utilization in ${w.quarter} — ${w.usedDays}d / ${w.totalDays}d`,
-      badgeCls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
-      badgeLabel: 'Review',
-    });
-  }
+ for (const w of warnings.highUtilization.slice(0, 2)) {
+ if (alerts.length >= 4) break;
+ alerts.push({
+ id: `warn-${w.member.id}-${w.quarter}`,
+ icon: <Clock size={15} className="text-amber-500" />,
+ iconBg: 'bg-amber-50 dark:bg-amber-900/20',
+ title: `${w.member.name} at ${w.usedPercent}%`,
+ detail: `High utilization in ${w.quarter} — ${w.usedDays}d / ${w.totalDays}d`,
+ badgeCls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+ badgeLabel: 'Review',
+ });
+ }
 
-  // Go-live milestones within 30 days
-  const now = new Date();
-  const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  for (const project of projects) {
-    if (alerts.length >= 4) break;
-    for (const phase of project.phases) {
-      if (alerts.length >= 4) break;
-      const endDate = phase.endDate;
-      if (!endDate) continue;
-      const d = new Date(endDate + 'T00:00:00');
-      if (d >= now && d <= soon) {
-        const daysLeft = Math.ceil((d.getTime() - now.getTime()) / 86400000);
-        alerts.push({
-          id: `milestone-${phase.id}`,
-          icon: <PlayCircle size={15} className="text-blue-500" />,
-          iconBg: 'bg-blue-50 dark:bg-blue-900/20',
-          title: `Go-live: ${phase.name}`,
-          detail: `${project.name} · in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} (${endDate})`,
-          badgeCls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
-          badgeLabel: 'Plan',
-        });
-      }
-    }
-  }
+ // Go-live milestones within 30 days
+ const now = new Date();
+ const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+ for (const project of projects) {
+ if (alerts.length >= 4) break;
+ for (const phase of project.phases) {
+ if (alerts.length >= 4) break;
+ const endDate = phase.endDate;
+ if (!endDate) continue;
+ const d = new Date(endDate + 'T00:00:00');
+ if (d >= now && d <= soon) {
+ const daysLeft = Math.ceil((d.getTime() - now.getTime()) / 86400000);
+ alerts.push({
+ id: `milestone-${phase.id}`,
+ icon: <PlayCircle size={15} className="text-blue-500" />,
+ iconBg: 'bg-[#E8F8F8]',
+ title: `Go-live: ${phase.name}`,
+ detail: `${project.name} · in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} (${endDate})`,
+ badgeCls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+ badgeLabel: 'Plan',
+ });
+ }
+ }
+ }
 
-  for (const w of warnings.tooManyProjects.slice(0, 2)) {
-    if (alerts.length >= 4) break;
-    alerts.push({
-      id: `projects-${w.member.id}`,
-      icon: <FolderKanban size={15} className="text-amber-500" />,
-      iconBg: 'bg-amber-50 dark:bg-amber-900/20',
-      title: `${w.member.name}: too many projects`,
-      detail: `${w.count} active projects (max ${w.max})`,
-      badgeCls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
-      badgeLabel: 'Review',
-    });
-  }
+ for (const w of warnings.tooManyProjects.slice(0, 2)) {
+ if (alerts.length >= 4) break;
+ alerts.push({
+ id: `projects-${w.member.id}`,
+ icon: <FolderKanban size={15} className="text-amber-500" />,
+ iconBg: 'bg-amber-50 dark:bg-amber-900/20',
+ title: `${w.member.name}: too many projects`,
+ detail: `${w.count} active projects (max ${w.max})`,
+ badgeCls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+ badgeLabel: 'Review',
+ });
+ }
 
-  if (alerts.length === 0) {
-    return (
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800">
-        <CheckCircle2 size={16} className="text-green-500 shrink-0" />
-        <span className="text-sm text-green-700 dark:text-green-300 font-medium">All clear — no capacity alerts</span>
-      </div>
-    );
-  }
+ if (alerts.length === 0) {
+ return (
+ <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800">
+ <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+ <span className="text-sm text-green-700 dark:text-green-300 font-medium">All clear — no capacity alerts</span>
+ </div>
+ );
+ }
 
-  return (
-    <section>
-      <SectionLabel title="Alerts" subtitle={`${alerts.length} item${alerts.length !== 1 ? 's' : ''} require attention`} />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {alerts.map(a => (
-          <div key={a.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${a.iconBg}`}>
-              {a.icon}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-slate-800 dark:text-white truncate">{a.title}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{a.detail}</div>
-            </div>
-            <span className={`shrink-0 text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full ${a.badgeCls}`}>
-              {a.badgeLabel}
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
+ return (
+ <section>
+ <SectionLabel title="Alerts" subtitle={`${alerts.length} item${alerts.length !== 1 ? 's' : ''} require attention`} />
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+ {alerts.map(a => (
+ <div key={a.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-slate-200 shadow-sm">
+ <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${a.iconBg}`}>
+ {a.icon}
+ </div>
+ <div className="min-w-0 flex-1">
+ <div className="text-sm font-semibold text-slate-800 truncate">{a.title}</div>
+ <div className="text-xs text-slate-500 mt-0.5 truncate">{a.detail}</div>
+ </div>
+ <span className={`shrink-0 text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full ${a.badgeCls}`}>
+ {a.badgeLabel}
+ </span>
+ </div>
+ ))}
+ </div>
+ </section>
+ );
 }
 
 /* ─── Small helpers ──────────────────────────────────────────────────────── */
 
 function SectionLabel({ title, subtitle, inline = false }: {
-  title: string;
-  subtitle: string;
-  inline?: boolean;
+ title: string;
+ subtitle: string;
+ inline?: boolean;
 }) {
-  if (inline) {
-    return (
-      <div>
-        <span className="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wide">{title}</span>
-        <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">{subtitle}</span>
-      </div>
-    );
-  }
-  return (
-    <div className="mb-3">
-      <div className="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wide">{title}</div>
-      <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{subtitle}</div>
-    </div>
-  );
+ if (inline) {
+ return (
+ <div>
+ <span className="text-sm font-bold text-slate-800 uppercase tracking-wide">{title}</span>
+ <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">{subtitle}</span>
+ </div>
+ );
+ }
+ return (
+ <div className="mb-3">
+ <div className="text-sm font-bold text-slate-800 uppercase tracking-wide">{title}</div>
+ <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{subtitle}</div>
+ </div>
+ );
 }
 
 function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500">
-      <span className={`w-2 h-2 rounded-sm inline-block shrink-0 ${color}`} />
-      {label}
-    </span>
-  );
+ return (
+ <span className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500">
+ <span className={`w-2 h-2 rounded-sm inline-block shrink-0 ${color}`} />
+ {label}
+ </span>
+ );
 }
 
 function Stat({ icon: Icon, label, value, color }: {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-  color: 'blue' | 'slate' | 'red';
+ icon: React.ElementType;
+ label: string;
+ value: string | number;
+ color: 'blue' | 'slate' | 'red';
 }) {
-  const iconColors = { blue: 'text-blue-500', slate: 'text-slate-400', red: 'text-red-500' };
-  return (
-    <div className="flex items-center gap-2">
-      <Icon size={16} className={iconColors[color]} />
-      <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
-      <span className="text-sm font-bold text-slate-900 dark:text-white">{value}</span>
-    </div>
-  );
+ const iconColors = { blue: 'text-blue-500', slate: 'text-slate-400', red: 'text-red-500' };
+ return (
+ <div className="flex items-center gap-2">
+ <Icon size={16} className={iconColors[color]} />
+ <span className="text-sm text-slate-500 ">{label}</span>
+ <span className="text-sm font-bold text-slate-900 ">{value}</span>
+ </div>
+ );
 }
 
 // ─── Onboarding Checklist ────────────────────────────────────────────────────
 
 function OnboardingChecklist({ state, navigate }: {
-  state: ReturnType<typeof useCurrentState>;
-  navigate: (view: 'team' | 'projects' | 'settings') => void;
+ state: ReturnType<typeof useCurrentState>;
+ navigate: (view: 'team' | 'projects' | 'settings') => void;
 }) {
-  const steps = [
-    {
-      done: state.teamMembers.length > 0,
-      label: 'Add team members',
-      detail: state.teamMembers.length > 0
-        ? `${state.teamMembers.length} member${state.teamMembers.length !== 1 ? 's' : ''} added`
-        : 'Define who is available for project work',
-      icon: Users,
-      onClick: () => navigate('team'),
-    },
-    {
-      done: state.projects.length > 0,
-      label: 'Create your first epic',
-      detail: state.projects.length > 0
-        ? `${state.projects.length} epic${state.projects.length !== 1 ? 's' : ''} created`
-        : 'Epics group features and stories into deliverables',
-      icon: FolderKanban,
-      onClick: () => navigate('projects'),
-    },
-    {
-      done: state.jiraConnections.length > 0,
-      label: 'Connect to Jira',
-      detail: state.jiraConnections.length > 0
-        ? `${state.jiraConnections.length} connection${state.jiraConnections.length !== 1 ? 's' : ''} configured`
-        : 'Optional — sync epics and stories from Jira',
-      icon: Link2,
-      onClick: () => navigate('settings'),
-    },
-    {
-      done: state.sprints.length > 0,
-      label: 'Set up sprints',
-      detail: state.sprints.length > 0
-        ? `${state.sprints.length} sprint${state.sprints.length !== 1 ? 's' : ''} generated`
-        : 'Auto-generate sprints for the year',
-      icon: Zap,
-      onClick: () => navigate('settings'),
-    },
-    {
-      done: state.countries.length > 0 && state.publicHolidays.length > 0,
-      label: 'Add countries & holidays',
-      detail: state.countries.length > 0
-        ? `${state.countries.length} countr${state.countries.length !== 1 ? 'ies' : 'y'}, ${state.publicHolidays.length} holidays`
-        : 'Import public holidays so capacity reflects time off',
-      icon: Globe,
-      onClick: () => navigate('settings'),
-    },
-  ];
+ const steps = [
+ {
+ done: state.teamMembers.length > 0,
+ label: 'Add team members',
+ detail: state.teamMembers.length > 0
+ ? `${state.teamMembers.length} member${state.teamMembers.length !== 1 ? 's' : ''} added`
+ : 'Define who is available for project work',
+ icon: Users,
+ onClick: () => navigate('team'),
+ },
+ {
+ done: state.projects.length > 0,
+ label: 'Create your first epic',
+ detail: state.projects.length > 0
+ ? `${state.projects.length} epic${state.projects.length !== 1 ? 's' : ''} created`
+ : 'Epics group features and stories into deliverables',
+ icon: FolderKanban,
+ onClick: () => navigate('projects'),
+ },
+ {
+ done: state.jiraConnections.length > 0,
+ label: 'Connect to Jira',
+ detail: state.jiraConnections.length > 0
+ ? `${state.jiraConnections.length} connection${state.jiraConnections.length !== 1 ? 's' : ''} configured`
+ : 'Optional — sync epics and stories from Jira',
+ icon: Link2,
+ onClick: () => navigate('settings'),
+ },
+ {
+ done: state.sprints.length > 0,
+ label: 'Set up sprints',
+ detail: state.sprints.length > 0
+ ? `${state.sprints.length} sprint${state.sprints.length !== 1 ? 's' : ''} generated`
+ : 'Auto-generate sprints for the year',
+ icon: Zap,
+ onClick: () => navigate('settings'),
+ },
+ {
+ done: state.countries.length > 0 && state.publicHolidays.length > 0,
+ label: 'Add countries & holidays',
+ detail: state.countries.length > 0
+ ? `${state.countries.length} countr${state.countries.length !== 1 ? 'ies' : 'y'}, ${state.publicHolidays.length} holidays`
+ : 'Import public holidays so capacity reflects time off',
+ icon: Globe,
+ onClick: () => navigate('settings'),
+ },
+ ];
 
-  const completed = steps.filter(s => s.done).length;
+ const completed = steps.filter(s => s.done).length;
 
-  return (
-    <Card>
-      <CardContent className="py-10 px-8">
-        <div className="max-w-lg mx-auto">
-          <div className="text-center mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mx-auto mb-4">
-              <TrendingUp className="w-7 h-7 text-blue-500" />
-            </div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-              Welcome to the Capacity Planner
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Complete these steps to get your capacity heatmap up and running.
-            </p>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-              {completed} of {steps.length} complete
-            </p>
-          </div>
-          <div className="space-y-1">
-            {steps.map((step, i) => {
-              const StepIcon = step.icon;
-              return (
-                <button
-                  key={i}
-                  onClick={step.onClick}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 group"
-                >
-                  {step.done
-                    ? <CheckCircle2 size={20} className="text-green-500 shrink-0" />
-                    : <Circle size={20} className="text-slate-300 dark:text-slate-600 shrink-0" />
-                  }
-                  <StepIcon size={16} className="text-slate-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${step.done ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}>
-                      {step.label}
-                    </p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{step.detail}</p>
-                  </div>
-                  <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+ return (
+ <Card>
+ <CardContent className="py-10 px-8">
+ <div className="max-w-lg mx-auto">
+ <div className="text-center mb-8">
+ <div className="w-14 h-14 rounded-2xl bg-[#E8F8F8] flex items-center justify-center mx-auto mb-4">
+ <TrendingUp className="w-7 h-7 text-blue-500" />
+ </div>
+ <h2 className="text-xl font-bold text-slate-900 ">
+ Welcome to the Capacity Planner
+ </h2>
+ <p className="text-sm text-slate-500 mt-1">
+ Complete these steps to get your capacity heatmap up and running.
+ </p>
+ <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+ {completed} of {steps.length} complete
+ </p>
+ </div>
+ <div className="space-y-1">
+ {steps.map((step, i) => {
+ const StepIcon = step.icon;
+ return (
+ <button
+ key={i}
+ onClick={step.onClick}
+ className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors hover:bg-[#F5F3F0] /50 group"
+ >
+ {step.done
+ ? <CheckCircle2 size={20} className="text-green-500 shrink-0" />
+ : <Circle size={20} className="text-slate-300 dark:text-slate-600 shrink-0" />
+ }
+ <StepIcon size={16} className="text-slate-400 shrink-0" />
+ <div className="flex-1 min-w-0">
+ <p className={`text-sm font-medium ${step.done ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 '}`}>
+ {step.label}
+ </p>
+ <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{step.detail}</p>
+ </div>
+ <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+ </button>
+ );
+ })}
+ </div>
+ </div>
+ </CardContent>
+ </Card>
+ );
 }
 

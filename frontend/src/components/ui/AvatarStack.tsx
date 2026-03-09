@@ -47,6 +47,9 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
   className,
 }) => {
   const isIt = variant === 'it';
+  // IT track uses teal, BIZ track keeps purple (functional data distinction)
+  const avatarBg = isIt ? 'bg-[#0ED3CF]' : 'bg-[#7C3AED]';
+  const labelColor = isIt ? 'text-[#0BB8B5]' : 'text-[#7C3AED]';
 
   if (unassigned || people.length === 0) {
     return (
@@ -54,15 +57,15 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
         type="button"
         onClick={onClick}
         className={clsx(
-          'flex items-center gap-1.5 text-xs rounded px-2 py-1 transition-colors',
+          'flex items-center gap-1.5 text-xs rounded-full px-2 py-1 transition-colors duration-150',
           onClick
-            ? 'text-amber-600 hover:bg-amber-50 cursor-pointer border border-dashed border-amber-300'
-            : 'text-gray-400 border border-dashed border-gray-200 cursor-default',
+            ? 'text-[#F97316] hover:bg-[#FFF7ED] cursor-pointer border border-dashed border-[#FED7AA]'
+            : 'text-[#9CA3AF] border border-dashed border-[#E5E5E3] cursor-default',
           className
         )}
         disabled={!onClick}
       >
-        <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', onClick ? 'bg-amber-400' : 'bg-gray-300')} />
+        <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', onClick ? 'bg-[#F97316]' : 'bg-[#D1D5DB]')} />
         <span>{onClick ? '+ Assign' : 'Unassigned'}</span>
       </button>
     );
@@ -77,21 +80,20 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
       type="button"
       onClick={onClick}
       className={clsx(
-        'flex items-center gap-1.5 text-xs rounded px-2 py-1 transition-colors',
-        onClick ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default',
+        'flex items-center gap-1.5 text-xs rounded-full px-2 py-1 transition-colors duration-150',
+        onClick ? 'hover:bg-[#F5F3F0] cursor-pointer' : 'cursor-default',
         className
       )}
       disabled={!onClick}
       title={people.map(p => p.name).join(', ')}
     >
-      {/* Avatar stack */}
       <span className="flex items-center">
         {visible.map((person, i) => (
           <span
             key={person.id}
             className={clsx(
               'inline-flex items-center justify-center w-6 h-6 rounded-full text-white font-semibold border-2 border-white',
-              isIt ? 'bg-[#0089DD]' : 'bg-[#7C3AED]',
+              avatarBg,
               i > 0 && '-ml-1.5'
             )}
             style={{ fontSize: '9px', lineHeight: 1 }}
@@ -102,16 +104,15 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
         ))}
         {overflow > 0 && (
           <span
-            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-500 font-medium border-2 border-white -ml-1.5"
+            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#F5F3F0] text-[#6B7280] font-medium border-2 border-white -ml-1.5"
             style={{ fontSize: '9px', lineHeight: 1 }}
           >
             +{overflow}
           </span>
         )}
       </span>
-      {/* Name label */}
       {displayLabel && (
-        <span className={clsx('truncate max-w-[96px]', isIt ? 'text-[#0089DD]' : 'text-[#7C3AED]')}>
+        <span className={clsx('truncate max-w-[96px]', labelColor)}>
           {displayLabel}
         </span>
       )}

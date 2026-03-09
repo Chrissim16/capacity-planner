@@ -45,12 +45,12 @@ function isoDate(d: Date) {
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 const PROJECT_COLORS = [
-  'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-  'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
-  'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-  'bg-blue-200 text-blue-800 dark:bg-blue-800/40 dark:text-blue-200',
+  'bg-[#E8F8F8] text-[#0BB8B5]',
+  'bg-[#DCFCE7] text-[#166534]',
+  'bg-[#FFF7ED] text-[#92400E]',
+  'bg-[#F5F3F0] text-[#6B7280]',
+  'bg-[#FFF5F5] text-[#991B1B]',
+  'bg-[#EDE9FE] text-[#5B21B6]',
 ];
 
 export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarModalProps) {
@@ -135,17 +135,17 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
     <Modal isOpen={isOpen} onClose={onClose} title="" size="lg">
       <div className="space-y-4">
         {/* Member header */}
-        <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold text-sm">
+        <div className="flex items-center gap-3 pb-3 border-b border-[#F0EFED]">
+          <div className="w-10 h-10 rounded-full bg-[#E8F8F8] border border-[#0ED3CF]/30 flex items-center justify-center text-[#0BB8B5] font-semibold text-sm">
             {member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <h2 className="font-semibold text-slate-900 dark:text-white">{member.name}</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{member.role}</p>
+            <h2 className="font-semibold text-[#1A1A1A]">{member.name}</h2>
+            <p className="text-xs text-[#9CA3AF]">{member.role}</p>
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <Calendar size={14} className="text-slate-400" />
-            <span className="text-xs text-slate-500 dark:text-slate-400">Availability Calendar</span>
+            <Calendar size={14} className="text-[#9CA3AF]" />
+            <span className="text-xs text-[#9CA3AF]">Availability Calendar</span>
           </div>
         </div>
 
@@ -153,30 +153,30 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
         <div className="flex items-center justify-between">
           <button
             onClick={prevMonth}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+            className="p-1.5 rounded-lg hover:bg-[#F5F3F0] text-[#6B7280] transition-colors duration-150"
           >
             <ChevronLeft size={16} />
           </button>
-          <h3 className="font-semibold text-slate-900 dark:text-white">
+          <h3 className="font-semibold text-[#1A1A1A]">
             {MONTHS[viewMonth]} {viewYear}
           </h3>
           <button
             onClick={nextMonth}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+            className="p-1.5 rounded-lg hover:bg-[#F5F3F0] text-[#6B7280] transition-colors duration-150"
           >
             <ChevronRight size={16} />
           </button>
         </div>
 
         {/* Day-of-week headers */}
-        <div className="grid grid-cols-7 text-center text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+        <div className="grid grid-cols-7 text-center text-xs font-medium uppercase tracking-wider text-[#9CA3AF]">
           {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
             <div key={d} className="py-1">{d}</div>
           ))}
         </div>
 
         {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-px bg-slate-200 dark:bg-slate-700 rounded-lg overflow-hidden">
+        <div className="grid grid-cols-7 gap-px bg-[#E5E5E3] rounded-lg overflow-hidden">
           {days.map((d, idx) => {
             const isCurrentMonth = d.getMonth() === viewMonth;
             const dateStr = isoDate(d);
@@ -186,13 +186,13 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
             const timeOff = getTimeOff(dateStr);
             const activeProjects = isCurrentMonth && !isWeekend ? getProjectsForDate(d) : [];
 
-            let bg = 'bg-white dark:bg-slate-900';
-            let dateColor = isCurrentMonth ? 'text-slate-700 dark:text-slate-300' : 'text-slate-300 dark:text-slate-600';
+            let bg = 'bg-white';
+            let dateColor = isCurrentMonth ? 'text-[#6B7280]' : 'text-[#D1D5DB]';
 
-            if (isWeekend)  bg = 'bg-slate-50 dark:bg-slate-800/40';
-            if (isHoliday)  bg = 'bg-amber-50 dark:bg-amber-900/20';
-            if (timeOff)    bg = 'bg-red-50 dark:bg-red-900/20';
-            if (isToday)    dateColor = 'text-blue-600 dark:text-blue-400 font-bold';
+            if (isWeekend)  bg = 'bg-[#FAF9F7]';
+            if (isHoliday)  bg = 'bg-[#FFF7ED]';
+            if (timeOff)    bg = 'bg-[#FFF5F5]';
+            if (isToday)    dateColor = 'text-[#0ED3CF] font-bold';
 
             return (
               <div
@@ -206,13 +206,13 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
                 {isCurrentMonth && (
                   <div className="flex-1 flex flex-col gap-0.5 overflow-hidden">
                     {isHoliday && (
-                      <span className="text-[9px] leading-tight px-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-800/50 dark:text-amber-300 truncate">
-                        🏖️ Holiday
+                      <span className="text-[9px] leading-tight px-1 rounded bg-[#FED7AA] text-[#92400E] truncate">
+                        Holiday
                       </span>
                     )}
                     {timeOff && (
-                      <span className="text-[9px] leading-tight px-1 rounded bg-red-100 text-red-700 dark:bg-red-800/40 dark:text-red-300 truncate">
-                        🏠 Off
+                      <span className="text-[9px] leading-tight px-1 rounded bg-[#FECACA] text-[#991B1B] truncate">
+                        Time off
                       </span>
                     )}
                     {!isWeekend && !timeOff && activeProjects.slice(0, 2).map(p => (
@@ -225,7 +225,7 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
                       </span>
                     ))}
                     {activeProjects.length > 2 && (
-                      <span className="text-[9px] text-slate-400">+{activeProjects.length - 2} more</span>
+                      <span className="text-[9px] text-[#9CA3AF]">+{activeProjects.length - 2} more</span>
                     )}
                   </div>
                 )}
@@ -235,27 +235,27 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+        <div className="flex flex-wrap gap-3 pt-2 border-t border-[#F0EFED] text-xs">
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700" />
-            <span className="text-slate-600 dark:text-slate-400">Public holiday</span>
+            <div className="w-3 h-3 rounded bg-[#FED7AA] border border-[#F97316]/20" />
+            <span className="text-[#6B7280]">Public holiday</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-700" />
-            <span className="text-slate-600 dark:text-slate-400">Time off</span>
+            <div className="w-3 h-3 rounded bg-[#FECACA] border border-[#EF4444]/20" />
+            <span className="text-[#6B7280]">Time off</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700" />
-            <span className="text-slate-600 dark:text-slate-400">Weekend</span>
+            <div className="w-3 h-3 rounded bg-[#FAF9F7] border border-[#E5E5E3]" />
+            <span className="text-[#6B7280]">Weekend</span>
           </div>
           {legendProjects.map(p => (
             <div key={p.projectId} className="flex items-center gap-1.5">
               <div className={`w-3 h-3 rounded ${PROJECT_COLORS[p.colorIdx].split(' ')[0]}`} />
-              <span className="text-slate-600 dark:text-slate-400 truncate max-w-[120px]">{p.projectName}</span>
+              <span className="text-[#6B7280] truncate max-w-[120px]">{p.projectName}</span>
             </div>
           ))}
           {legendProjects.length === 0 && (
-            <span className="text-slate-400 dark:text-slate-500 italic">No project assignments recorded</span>
+            <span className="text-[#9CA3AF] italic">No project assignments recorded</span>
           )}
         </div>
       </div>

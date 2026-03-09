@@ -8,13 +8,17 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="flex items-start justify-between gap-4 mb-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-mw-dark dark:text-white">{title}</h1>
-        <p className="text-base text-mw-grey dark:text-[#8BA8BF] mt-1">{subtitle}</p>
+        <h1
+          className="text-4xl font-bold tracking-tight text-[#1A1A1A] leading-tight"
+          style={{ fontFamily: "'Source Serif 4', Georgia, serif", letterSpacing: '-0.02em' }}
+        >
+          {title}
+        </h1>
+        <p className="text-base text-[#6B7280] mt-1.5">{subtitle}</p>
       </div>
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex items-center gap-2 shrink-0 pt-1">{actions}</div> : null}
     </div>
   );
 }
-

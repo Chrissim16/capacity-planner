@@ -17,10 +17,6 @@ interface EmptyStateProps {
   children?: ReactNode;
 }
 
-/**
- * Consistent empty state with icon, title, description, and optional CTA button.
- * Used across all pages when lists have no data to display.
- */
 export function EmptyState({
   icon: Icon,
   title,
@@ -32,13 +28,13 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className={`flex flex-col items-center justify-center py-16 px-6 text-center ${className}`}>
-      <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-        <Icon className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+      <div className="w-14 h-14 rounded-2xl bg-[#F5F3F0] flex items-center justify-center mb-5">
+        <Icon className="w-7 h-7 text-[#9CA3AF]" />
       </div>
-      <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">
+      <h3 className="text-base font-semibold text-[#1A1A1A] mb-1.5">
         {title}
       </h3>
-      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed mb-5">
+      <p className="text-sm text-[#6B7280] max-w-sm leading-relaxed mb-6">
         {description}
       </p>
       {(action || secondaryAction || children) && (
@@ -46,7 +42,7 @@ export function EmptyState({
           {action && (
             <button
               onClick={action.onClick}
-              className="px-4 py-2 text-sm font-medium text-white bg-mw-primary hover:bg-mw-primary-hover rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-[#1A1A1A] hover:opacity-85 rounded-lg transition-opacity duration-150"
             >
               {action.label}
             </button>
@@ -54,7 +50,7 @@ export function EmptyState({
           {secondaryAction && (
             <button
               onClick={secondaryAction.onClick}
-              className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-[#1A1A1A] bg-white border border-[#E5E5E3] hover:bg-[#F5F3F0] rounded-lg transition-colors duration-150"
             >
               {secondaryAction.label}
             </button>
