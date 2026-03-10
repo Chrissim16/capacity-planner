@@ -81,8 +81,8 @@ export function ConfidenceSection() {
  key={level.id}
  className={`flex items-center gap-4 rounded-lg border p-4 ${level.bg} ${level.border}`}
  >
- {/* Badge */}
- <div className={`w-20 shrink-0`}>
+              {/* Badge */}
+              <div className="flex-1 min-w-0">
  <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${level.color}`}>
  {level.label}
  {defaultLevel === level.id && (
