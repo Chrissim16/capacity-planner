@@ -275,7 +275,7 @@ const CONF_COLORS: Record<string, string> = {
  low: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
 };
 
-function DaysCell({ item, defaultConfidenceLevel, onConfidence, confidenceSettings }: {
+export function DaysCell({ item, defaultConfidenceLevel, onConfidence, confidenceSettings }: {
  item: JiraWorkItem;
  defaultConfidenceLevel: ConfidenceLevel;
  onConfidence: (v: string) => void;

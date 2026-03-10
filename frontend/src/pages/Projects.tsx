@@ -12,7 +12,9 @@ import { useCurrentState } from '../stores/appStore';
 import {
   upsertJiraItemBizAssignment,
   removeJiraItemBizAssignment,
+  updateJiraWorkItemConfidence,
 } from '../stores/actions';
+import { DaysCell } from '../components/JiraHierarchyTree';
 import { fetchSyncPreview, applySync } from '../application/jiraSync';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useToast } from '../components/ui/Toast';
@@ -22,6 +24,7 @@ import type {
   JiraItemBizAssignment,
   BusinessContact,
   JiraSyncDiff,
+  ConfidenceLevel,
 } from '../types';
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -665,9 +668,18 @@ export function Projects() {
                                   {child.sprintName ?? '—'}
                                 </span>
 
-                                {/* IT days */}
-                                <div className="text-xs text-right text-mw-blue font-medium shrink-0 min-w-14">
-                                  {daysFmt(childItDays)}
+                                {/* IT days + confidence */}
+                                <div className="shrink-0 min-w-20 flex justify-end">
+                                  {child.storyPoints != null ? (
+                                    <DaysCell
+                                      item={child}
+                                      defaultConfidenceLevel={state.jiraSettings.defaultConfidenceLevel}
+                                      onConfidence={v => updateJiraWorkItemConfidence(child.id, (v as ConfidenceLevel) || null)}
+                                      confidenceSettings={state.settings.confidenceLevels}
+                                    />
+                                  ) : (
+                                    <span className="text-xs text-mw-blue font-medium">{daysFmt(childItDays)}</span>
+                                  )}
                                 </div>
 
                                 {/* BIZ days popover */}
@@ -727,7 +739,18 @@ export function Projects() {
                             )}
                           </div>
                           <span className="hidden md:block text-xs text-gray-400 shrink-0 min-w-20 text-center truncate">{child.sprintName ?? '—'}</span>
-                          <div className="text-xs text-right text-mw-blue font-medium shrink-0 min-w-14">{daysFmt(childItDays)}</div>
+                          <div className="shrink-0 min-w-20 flex justify-end">
+                            {child.storyPoints != null ? (
+                              <DaysCell
+                                item={child}
+                                defaultConfidenceLevel={state.jiraSettings.defaultConfidenceLevel}
+                                onConfidence={v => updateJiraWorkItemConfidence(child.id, (v as ConfidenceLevel) || null)}
+                                confidenceSettings={state.settings.confidenceLevels}
+                              />
+                            ) : (
+                              <span className="text-xs text-mw-blue font-medium">{daysFmt(childItDays)}</span>
+                            )}
+                          </div>
                           <div className="relative shrink-0 min-w-14">
                             <button
                               onClick={() => setOpenBizPopover(openBizPopover === child.jiraKey ? null : child.jiraKey)}
