@@ -919,43 +919,8 @@ export function JiraSection() {
  <strong>{pendingDiff.toRemove.length}</strong> items no longer in Jira
  </div>
  )}
- {pendingDiff.toKeepStale.length > 0 && (
- <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm">
- <span className="w-2 h-2 rounded-full bg-amber-500" />
- <strong>{pendingDiff.toKeepStale.length}</strong> mapped items kept (not in current query)
- </div>
- )}
- {pendingDiff.mappingsToPreserve > 0 && (
- <div className="flex items-center gap-2 px-3 py-2 bg-[#E8F8F8] dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
- <span className="w-2 h-2 rounded-full bg-[#E8F8F8]0" />
- <strong>{pendingDiff.mappingsToPreserve}</strong> local mappings will be kept
- </div>
- )}
  </div>
 
- {/* Stale mapped items — kept, not deleted */}
- {pendingDiff.toKeepStale.length > 0 && (
- <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
- <p className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-1">
- Mapped items not returned by current sync query — kept safe:
- </p>
- <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
- These items have project/phase mappings so they will <strong>not</strong> be deleted. They may have changed type, moved to Done, or their type is currently disabled in sync settings. Re-enable their type (e.g. Tasks) or check their status in Jira to bring them back into active sync.
- </p>
- <ul className="space-y-1">
- {pendingDiff.toKeepStale.slice(0, 10).map((item) => (
- <li key={item.id} className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
- <span className="font-mono text-xs bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">{item.jiraKey}</span>
- <span className="truncate">{item.summary}</span>
- <span className="text-xs text-amber-500 dark:text-amber-400 shrink-0">⚠ mapped · stale</span>
- </li>
- ))}
- {pendingDiff.toKeepStale.length > 10 && (
- <li className="text-xs text-amber-500">… and {pendingDiff.toKeepStale.length - 10} more</li>
- )}
- </ul>
- </div>
- )}
 
  {/* Truly removed items — no mappings, gone from Jira */}
  {pendingDiff.toRemove.length > 0 && (

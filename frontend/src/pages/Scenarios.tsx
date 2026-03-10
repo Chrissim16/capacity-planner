@@ -25,14 +25,11 @@ import type { Scenario, ScenarioColor } from '../types';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function scenarioStats(scenario: Scenario) {
- const projects = scenario.projects.length;
+ const epics = scenario.jiraWorkItems.filter(w => w.type === 'epic').length;
  const members = scenario.teamMembers.length;
  const timeOff = scenario.timeOff.length;
- const assignments = scenario.projects.reduce(
- (sum, p) => sum + p.phases.reduce((ps, ph) => ps + ph.assignments.length, 0),
- 0
- );
- return { projects, members, timeOff, assignments };
+ const bizAssignments = scenario.jiraItemBizAssignments.length;
+ return { epics, members, timeOff, bizAssignments };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -58,13 +55,10 @@ function CreateModal({ duplicateFrom, onClose }: CreateModalProps) {
  const stats = source
  ? scenarioStats(source)
  : {
- projects: state.projects.length,
+ epics: state.jiraWorkItems.filter(w => w.type === 'epic').length,
  members: state.teamMembers.length,
  timeOff: state.timeOff.length,
- assignments: state.projects.reduce(
- (sum, p) => sum + p.phases.reduce((ps, ph) => ps + ph.assignments.length, 0),
- 0
- ),
+ bizAssignments: state.jiraItemBizAssignments.length,
  };
 
  const handleCreate = () => {
@@ -105,10 +99,10 @@ function CreateModal({ duplicateFrom, onClose }: CreateModalProps) {
  <span>This scenario will include a snapshot of:</span>
  </div>
  <ul className="space-y-1 text-blue-700 dark:text-blue-300 text-xs">
- <li className="flex items-center gap-2">
+   <li className="flex items-center gap-2">
  <Check size={12} className="text-[#0ED3CF] shrink-0" />
  <FolderKanban size={12} className="shrink-0" />
- <span><strong>{stats.projects}</strong> epic{stats.projects !== 1 ? 's' : ''} (with features &amp; {stats.assignments} assignment{stats.assignments !== 1 ? 's' : ''})</span>
+ <span><strong>{stats.epics}</strong> epic{stats.epics !== 1 ? 's' : ''} · <strong>{stats.bizAssignments}</strong> BIZ assignment{stats.bizAssignments !== 1 ? 's' : ''}</span>
  </li>
  <li className="flex items-center gap-2">
  <Check size={12} className="text-[#0ED3CF] shrink-0" />
@@ -207,9 +201,8 @@ export function Scenarios() {
  const [renameValue, setRenameValue] = useState('');
  const [diffScenario, setDiffScenario] = useState<Scenario | null>(null);
 
- // Baseline stats
  const baselineStats = useMemo(() => ({
- projects: data.projects.length,
+ epics: data.jiraWorkItems.filter(w => w.type === 'epic').length,
  members: data.teamMembers.length,
  timeOff: data.timeOff.length,
  lastSync: data.jiraConnections.reduce<string | undefined>((latest, c) => {
@@ -246,7 +239,7 @@ export function Scenarios() {
  <div className="flex items-start gap-3 p-3 rounded-lg bg-[#F5F3F0] border border-slate-200 text-sm text-slate-600 ">
  <Info size={16} className="text-[#0ED3CF] shrink-0 mt-0.5" />
  <span>
- Each scenario independently snapshots <strong className="text-slate-800 ">Epics, Features, Assignments, Team Members and Time Off</strong>.
+ Each scenario independently snapshots <strong className="text-slate-800 ">Jira Work Items, BIZ Assignments, Team Members and Time Off</strong>.
  &nbsp;Settings, Public Holidays and Sprints are shared across all scenarios.
  </span>
  </div>
@@ -291,7 +284,7 @@ export function Scenarios() {
  <div className="flex items-center gap-6 text-sm text-slate-600 ">
  <span className="flex items-center gap-1.5">
  <FolderKanban size={14} className="text-slate-400" />
- <strong className="text-slate-800 ">{baselineStats.projects}</strong> epics
+   <strong className="text-slate-800 ">{baselineStats.epics}</strong> epics
  </span>
  <span className="flex items-center gap-1.5">
  <Users size={14} className="text-slate-400" />
@@ -424,9 +417,9 @@ export function Scenarios() {
  </CardHeader>
  <CardContent>
  <div className="flex items-center gap-6 text-sm text-slate-600 ">
- <span className="flex items-center gap-1.5">
+   <span className="flex items-center gap-1.5">
  <FolderKanban size={14} className="text-slate-400" />
- <strong className="text-slate-800 ">{stats.projects}</strong> epics
+ <strong className="text-slate-800 ">{stats.epics}</strong> epics
  </span>
  <span className="flex items-center gap-1.5">
  <Users size={14} className="text-slate-400" />
@@ -437,7 +430,8 @@ export function Scenarios() {
  <strong className="text-slate-800 ">{stats.timeOff}</strong> time-off entries
  </span>
  <span className="flex items-center gap-1.5">
- <strong className="text-slate-800 ">{stats.assignments}</strong> assignments
+ <Link2 size={14} className="text-slate-400" />
+ <strong className="text-slate-800 ">{stats.bizAssignments}</strong> BIZ assignments
  </span>
  </div>
  </CardContent>

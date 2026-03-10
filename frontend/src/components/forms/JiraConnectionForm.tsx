@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { testJiraConnection, getJiraProjects, validateJiraUrl } from '../../services/jira';
-import type { JiraConnection, JiraHierarchyMode } from '../../types';
+import type { JiraConnection } from '../../types';
 
 interface JiraConnectionFormProps {
  connection?: JiraConnection;
@@ -41,10 +41,6 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  const [errors, setErrors] = useState<Record<string, string>>({});
  const [isSaving, setIsSaving] = useState(false);
 
- // Import behaviour settings
- const [hierarchyMode, setHierarchyMode] = useState<JiraHierarchyMode>(connection?.hierarchyMode ?? 'auto');
- const [autoCreateProjects, setAutoCreateProjects] = useState(connection?.autoCreateProjects ?? true);
- const [autoCreateAssignments, setAutoCreateAssignments] = useState(connection?.autoCreateAssignments ?? true);
  const [defaultDaysPerItem, setDefaultDaysPerItem] = useState(connection?.defaultDaysPerItem ?? 1);
  const [jqlFilter, setJqlFilter] = useState(connection?.jqlFilter || '');
  const [importBehaviourOpen, setImportBehaviourOpen] = useState(false);
@@ -112,9 +108,6 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  userEmail: userEmail.trim(), isActive: connection?.isActive ?? true,
  lastSyncStatus: connection?.lastSyncStatus || 'idle', lastSyncAt: connection?.lastSyncAt, lastSyncError: connection?.lastSyncError,
  syncHistory: connection?.syncHistory,
- hierarchyMode,
- autoCreateProjects,
- autoCreateAssignments,
  defaultDaysPerItem,
  jqlFilter: jqlFilter.trim() || undefined,
  customFieldIds: (cfEpicLink || cfEpicLinkAlt || cfStartDate || cfSprint) ? {
@@ -191,70 +184,6 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  </button>
  {importBehaviourOpen && (
  <div className="px-4 pb-4 pt-1 space-y-4 border-t border-slate-200 ">
- {/* Hierarchy mode */}
- <div>
- <label className="block text-sm font-medium text-slate-700 mb-2">
- Project hierarchy
- </label>
- <div className="space-y-2">
- {([
- ['auto', 'Auto-detect', 'Uses Epics as projects when available, otherwise Features'],
- ['epic_as_project', 'Epic = Project', 'Each Epic becomes a project; Features become phases within it'],
- ['feature_as_project', 'Feature = Project', 'Each Feature becomes a project; no phases created'],
- ] as [JiraHierarchyMode, string, string][]).map(([value, label, hint]) => (
- <label key={value} className="flex items-start gap-3 cursor-pointer">
- <input
- type="radio"
- name="hierarchyMode"
- value={value}
- checked={hierarchyMode === value}
- onChange={() => setHierarchyMode(value)}
- className="mt-0.5"
- />
- <div>
- <p className="text-sm font-medium text-slate-700 ">{label}</p>
- <p className="text-xs text-slate-500 ">{hint}</p>
- </div>
- </label>
- ))}
- </div>
- </div>
-
- {/* Auto-create toggles */}
- <div className="space-y-3">
- <label className="flex items-center justify-between gap-4 cursor-pointer">
- <div>
- <p className="text-sm font-medium text-slate-700 ">Auto-create projects &amp; phases</p>
- <p className="text-xs text-slate-500 ">Sync automatically creates Projects and Phases from Jira structure</p>
- </div>
- <button
- type="button"
- role="switch"
- aria-checked={autoCreateProjects}
- onClick={() => setAutoCreateProjects(v => !v)}
- className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${autoCreateProjects ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
- >
- <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5 ${autoCreateProjects ? 'translate-x-4' : 'translate-x-0.5'}`}/>
- </button>
- </label>
-
- <label className="flex items-center justify-between gap-4 cursor-pointer">
- <div>
- <p className="text-sm font-medium text-slate-700 ">Auto-suggest assignments</p>
- <p className="text-xs text-slate-500 ">Creates assignment suggestions from sprint + story points (you can edit or remove them)</p>
- </div>
- <button
- type="button"
- role="switch"
- aria-checked={autoCreateAssignments}
- onClick={() => setAutoCreateAssignments(v => !v)}
- className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${autoCreateAssignments ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
- >
- <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5 ${autoCreateAssignments ? 'translate-x-4' : 'translate-x-0.5'}`}/>
- </button>
- </label>
- </div>
-
  {/* Default days fallback */}
  <div>
  <label className="block text-sm font-medium text-slate-700 mb-1">

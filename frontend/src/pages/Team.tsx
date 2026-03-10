@@ -185,7 +185,6 @@ export function Team() {
  const confirmDelete = () => {
  if (!deleteConfirm) return;
  const snapshotMembers = JSON.parse(JSON.stringify(state.teamMembers));
- const snapshotProjects = JSON.parse(JSON.stringify(state.projects));
  const deleted = deleteConfirm;
  deleteTeamMember(deleteConfirm.id);
  setDeleteConfirm(null);
@@ -580,7 +579,7 @@ export function Team() {
  {/* Max projects */}
  <div className="mt-2 pt-2 border-t border-slate-100 ">
  <p className="text-xs text-slate-400">
- Max {member.maxConcurrentProjects} concurrent projects
+ Max {member.maxConcurrentProjects} concurrent epics
  </p>
  </div>
  </CardContent>
@@ -1245,8 +1244,7 @@ function BizContactCard({
  const country = countries.find(c => c.id === contact.countryId);
  const cap = useMemo(() => calculateBusinessCapacityForQuarter(
  contact, currentQuarter,
- state.businessAssignments, state.businessTimeOff, state.publicHolidays, state.projects,
- state.jiraItemBizAssignments, state.jiraWorkItems
+ state.jiraItemBizAssignments, state.businessTimeOff, state.publicHolidays, state.jiraWorkItems
  ), [contact, currentQuarter, state]);
 
  const pct = cap.usedPercent;

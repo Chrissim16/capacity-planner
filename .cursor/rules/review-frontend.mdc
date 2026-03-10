@@ -1,0 +1,61 @@
+---
+description: Best-practice guardrails for the frontend layer of the Capacity Planner app — React components, Zustand store, UX/UI patterns, performance, accessibility, and general code quality. Apply when editing any .tsx/.ts file in frontend/src/.
+globs: frontend/src/**/*.tsx,frontend/src/**/*.ts
+alwaysApply: false
+---
+
+# Frontend Review Standards
+
+## State Management (Zustand / appStore.ts)
+
+- All state mutations go through `actions.ts` helpers. **Never** call `useAppStore.getState().updateData()` directly from a component.
+- Use the typed selectors exported from `appStore.ts` (e.g. `useSettings`, `useTeamMembers`). Never call `useAppStore(state => state.data.X)` inline in a component for objects — use `useShallow` to prevent infinite re-render loops (React 19 / `useSyncExternalStore`).
+- UI-only state (modals open, local form values) must stay in component `useState` — do not hoist it into the Zustand store.
+- `getCurrentState()` merges scenario data on every call. Avoid calling it in render-hot paths; use `useCurrentState()` selector instead.
+
+## Component Patterns
+
+- Prefer small, focused components. A component over ~200 lines is a signal to extract sub-components or a custom hook.
+- Custom hooks go in `hooks/`. If a piece of logic is used in two or more components, extract it.
+- Never use inline arrow functions as event handlers on elements that re-render frequently (e.g. Gantt rows). Use `useCallback`.
+- The dual IT/BIZ track model is **non-negotiable**. Every feature that displays team members or assignments must render both tracks.
+
+## Gantt / Timeline Rules
+
+- Gantt rows must **never** have `overflow: hidden` — it hides the clip-left/clip-right pseudo-element arrows.
+- Bar colours are defined in the `BAR` constant in `JiraGantt.tsx`, not CSS variables. Update there, not in `index.css`.
+- `barLayout()` returns values in the range `0.0–1.0`; apply as `${value * 100}%` inline styles. Do not convert to pixels.
+- Date resolution uses a three-pass fallback (Jira date → sprint object dates → sprint name lookup). All three passes must remain intact.
+
+## Styling
+
+- Use Tailwind utility classes first. Only add custom CSS in `index.css` for things Tailwind cannot express (e.g. Gantt pseudo-elements, scrollbar styles).
+- Brand colours must use the Tailwind token names: `mw-blue` (IT / primary), `mw-purple` (BIZ / scenarios). Never hardcode `#0089DD` or `#7C3AED` in component code.
+- Dark mode is toggled via `settings.darkMode`. Respect it with the `dark:` Tailwind variant; do not use `document.body.classList` directly in components.
+
+## UX / Accessibility
+
+- Every interactive element must have a visible focus ring (`focus:ring-2 focus:ring-mw-blue`).
+- Modal dialogs must trap focus and close on `Escape`. Use the `Modal` primitive from `components/ui/`.
+- Loading states must show a skeleton or spinner — never a blank area. Use the `ProgressBar` or a `div animate-pulse` skeleton.
+- Error states must offer a recovery action (retry button, dismiss). Do not show raw error messages from Supabase or Jira to the user.
+- Keyboard navigation: views 1–6 are bound to number keys; `Ctrl+K` opens the command palette. Do not shadow these shortcuts in new components.
+
+## TypeScript
+
+- All TypeScript interfaces are defined in `types/index.ts` — the single source of truth. Do not create local interface definitions that duplicate or partially mirror those in `types/`.
+- Avoid `as unknown as X` casts. If a cast is truly necessary, add a comment explaining why.
+- Prefer `type` over `interface` for union/intersection types; use `interface` for object shapes that may be extended.
+
+## Performance
+
+- `JiraGantt.tsx` and `JiraHierarchyTree.tsx` render potentially hundreds of rows. Memoize row data with `useMemo`; memoize callbacks with `useCallback`.
+- Avoid deriving computed data (capacity totals, rollup dates) inside render. Move derivations to `useMemo` or utility functions.
+- Do not add new synchronous `localStorage.getItem` calls in render paths — they block the main thread.
+
+## Testing (future standard)
+
+- There is currently no test coverage. When adding tests:
+  - Unit tests for utils (`sprints.ts`, `capacity.ts`, `confidence.ts`) with Vitest.
+  - Integration tests for `supabaseSync.ts` against a local Supabase instance.
+  - E2E tests for critical flows (login, Jira sync, scenario creation) with Playwright.

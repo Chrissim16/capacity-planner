@@ -16,7 +16,7 @@ import {
 } from '../utils/capacity';
 import type { GroupCapacitySummary } from '../utils/capacity';
 import { getCurrentQuarter, getWorkdaysInQuarter } from '../utils/calendar';
-import type { CapacityResult, CapacityBreakdownItem, Project } from '../types';
+import type { CapacityResult, CapacityBreakdownItem } from '../types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -90,8 +90,8 @@ export function Dashboard() {
  [state.teamMembers]
  );
 
- const activeProjects = state.projects.filter(
- p => p.status === 'Active' || p.status === 'Planning'
+ const activeProjects = state.jiraWorkItems.filter(
+ w => w.type === 'epic' && w.statusCategory !== 'done'
  ).length;
 
  const currentSummary = useMemo(
@@ -160,11 +160,11 @@ export function Dashboard() {
  return state.businessContacts.filter(c => !c.archived && !c.excludedFromCapacity).map(contact => ({
  contact,
  cells: yearQuarters.map(q => {
- const cell = calculateBusinessCapacityForQuarter(
- contact, q, state.businessAssignments, state.businessTimeOff,
- state.publicHolidays, state.projects,
- state.jiraItemBizAssignments, state.jiraWorkItems
- );
+     const cell = calculateBusinessCapacityForQuarter(
+     contact, q,
+     state.jiraItemBizAssignments, state.businessTimeOff,
+     state.publicHolidays, state.jiraWorkItems
+     );
  return { quarter: q, cell };
  }),
  }));
@@ -202,7 +202,7 @@ export function Dashboard() {
  );
  }, []);
 
- const isEmpty = state.teamMembers.length === 0 && state.projects.length === 0;
+ const isEmpty = state.teamMembers.length === 0 && state.jiraWorkItems.length === 0;
 
  if (isLoading && isEmpty) {
  return (
@@ -286,7 +286,7 @@ export function Dashboard() {
  )}
 
  {/* ── Section 2: Alerts ────────────────────────────────────────────────── */}
- {!isEmpty && activeTab === 'overview' && <AlertsGrid warnings={warnings} projects={state.projects} />}
+ {!isEmpty && activeTab === 'overview' && <AlertsGrid warnings={warnings} />}
 
  {/* ── Section 3: Timeline Preview ──────────────────────────────────────── */}
  {!isEmpty && activeTab === 'overview' && activeMembers.length > 0 && (
@@ -804,7 +804,7 @@ export function Dashboard() {
  <div className="flex items-center gap-5 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-[#F5F3F0]/50 /30">
  <LegendDot color="bg-slate-300 dark:bg-slate-600" label="BAU" />
  <LegendDot color="bg-amber-300 dark:bg-amber-600" label="Time off" />
- <LegendDot color="bg-[#0ED3CF]" label="Projects" />
+ <LegendDot color="bg-[#0ED3CF]" label="Epics" />
  <LegendDot color="bg-red-500" label="Over-allocated" />
  <div className="flex-1" />
  <span className="text-[10px] text-slate-400">Click any cell to drill down</span>
@@ -999,7 +999,7 @@ function CapacityBankCard({ quarter, remainingDays, bauPct, timeOffPct, projectP
  <div className="flex items-center gap-3 mt-2.5">
  <LegendDot color="bg-slate-300 dark:bg-[#F5F3F0]0" label="BAU" />
  <LegendDot color="bg-amber-300 dark:bg-amber-600" label="Leave" />
- <LegendDot color="bg-[#0ED3CF]" label="Projects" />
+ <LegendDot color="bg-[#0ED3CF]" label="Epics" />
  </div>
  </div>
  );
@@ -1007,11 +1007,9 @@ function CapacityBankCard({ quarter, remainingDays, bauPct, timeOffPct, projectP
 
 /* ─── Section 2: Alerts grid ──────────────────────────────────────────────── */
 
-function AlertsGrid({ warnings, projects }: {
+function AlertsGrid({ warnings }: {
  warnings: ReturnType<typeof getWarnings>;
- projects: Project[];
 }) {
- // Build alert items from existing warnings + go-live check
  const alerts: { id: string; icon: React.ReactNode; iconBg: string; title: string; detail: string; badgeCls: string; badgeLabel: string }[] = [];
 
  for (const w of warnings.overallocated.slice(0, 2)) {
@@ -1037,31 +1035,6 @@ function AlertsGrid({ warnings, projects }: {
  badgeCls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
  badgeLabel: 'Review',
  });
- }
-
- // Go-live milestones within 30 days
- const now = new Date();
- const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
- for (const project of projects) {
- if (alerts.length >= 4) break;
- for (const phase of project.phases) {
- if (alerts.length >= 4) break;
- const endDate = phase.endDate;
- if (!endDate) continue;
- const d = new Date(endDate + 'T00:00:00');
- if (d >= now && d <= soon) {
- const daysLeft = Math.ceil((d.getTime() - now.getTime()) / 86400000);
- alerts.push({
- id: `milestone-${phase.id}`,
- icon: <PlayCircle size={15} className="text-blue-500" />,
- iconBg: 'bg-[#E8F8F8]',
- title: `Go-live: ${phase.name}`,
- detail: `${project.name} · in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} (${endDate})`,
- badgeCls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
- badgeLabel: 'Plan',
- });
- }
- }
  }
 
  for (const w of warnings.tooManyProjects.slice(0, 2)) {
@@ -1174,11 +1147,11 @@ function OnboardingChecklist({ state, navigate }: {
  onClick: () => navigate('team'),
  },
  {
- done: state.projects.length > 0,
- label: 'Create your first epic',
- detail: state.projects.length > 0
- ? `${state.projects.length} epic${state.projects.length !== 1 ? 's' : ''} created`
- : 'Epics group features and stories into deliverables',
+     done: state.jiraWorkItems.some(w => w.type === 'epic'),
+     label: 'Sync your first epic',
+     detail: state.jiraWorkItems.some(w => w.type === 'epic')
+     ? `${state.jiraWorkItems.filter(w => w.type === 'epic').length} epic${state.jiraWorkItems.filter(w => w.type === 'epic').length !== 1 ? 's' : ''} synced`
+     : 'Connect Jira and run a sync to import epics',
  icon: FolderKanban,
  onClick: () => navigate('projects'),
  },
