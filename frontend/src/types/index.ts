@@ -65,6 +65,7 @@ export interface TeamMember {
   syncedFromJira?: boolean;
   needsEnrichment?: boolean;
   excludedFromCapacity?: boolean;
+  nameManuallyEdited?: boolean;
 }
 
 export interface TimeOff {

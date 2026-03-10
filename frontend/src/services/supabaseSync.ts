@@ -182,6 +182,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       syncedFromJira: m.synced_from_jira ?? false,
       needsEnrichment: m.needs_enrichment ?? false,
       excludedFromCapacity: m.excluded_from_capacity ?? false,
+      nameManuallyEdited: m.name_manually_edited ?? false,
     }));
 
     const timeOff: TimeOff[] = (timeOffRes.data ?? []).map(t => ({
@@ -459,6 +460,7 @@ const BASE_MEMBER_ROW = (m: TeamMember) => ({
   synced_from_jira: m.syncedFromJira ?? false,
   needs_enrichment: m.needsEnrichment ?? false, is_active: true,
   excluded_from_capacity: m.excludedFromCapacity ?? false,
+  name_manually_edited: m.nameManuallyEdited ?? false,
 });
 
 const EXTENDED_MEMBER_ROW = (m: TeamMember) => ({
@@ -473,6 +475,13 @@ const LEGACY_MEMBER_ROW = (m: TeamMember) => ({
   email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
   synced_from_jira: m.syncedFromJira ?? false,
   needs_enrichment: m.needsEnrichment ?? false, is_active: true,
+});
+
+const MEMBER_ROW_NO_NAME_OVERRIDE = (m: TeamMember) => ({
+  ...LEGACY_MEMBER_ROW(m),
+  squad_id: m.squadId ?? null,
+  process_team_ids: m.processTeamIds ?? [],
+  excluded_from_capacity: m.excludedFromCapacity ?? false,
 });
 
 const MEMBER_ROW_NO_EXCLUDED = (m: TeamMember) => ({
@@ -492,7 +501,18 @@ async function syncTeamMembers(members: TeamMember[]): Promise<void> {
     await upsertAndPrune('team_members', members, EXTENDED_MEMBER_ROW, softDeleteMembers);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('excluded_from_capacity')) {
+    if (msg.includes('name_manually_edited')) {
+      try {
+        await upsertAndPrune('team_members', members, MEMBER_ROW_NO_NAME_OVERRIDE, softDeleteMembers);
+      } catch (err2) {
+        const msg2 = err2 instanceof Error ? err2.message : String(err2);
+        if (msg2.includes('excluded_from_capacity')) {
+          await upsertAndPrune('team_members', members, MEMBER_ROW_NO_EXCLUDED, softDeleteMembers);
+        } else if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
+          await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
+        } else { throw err2; }
+      }
+    } else if (msg.includes('excluded_from_capacity')) {
       try {
         await upsertAndPrune('team_members', members, MEMBER_ROW_NO_EXCLUDED, softDeleteMembers);
       } catch (err2) {

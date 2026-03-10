@@ -47,6 +47,9 @@ export function updateTeamMember(memberId: string, updates: Partial<TeamMember>)
     if (m.id !== memberId) return m;
     const updated = { ...m, ...updates };
     if (updated.role && updated.countryId) updated.needsEnrichment = false;
+    if (m.syncedFromJira && updates.name !== undefined && updates.name !== m.name) {
+      updated.nameManuallyEdited = true;
+    }
     return updated;
   });
   state.updateData({ teamMembers });
@@ -101,7 +104,7 @@ export function syncTeamMembersFromJira(): TeamMemberSyncResult {
     const existingMember = existingMembers.find(m => m.email?.toLowerCase() === emailKey);
 
     if (existingMember) {
-      if (existingMember.name !== assignee.name && existingMember.syncedFromJira) {
+      if (existingMember.name !== assignee.name && existingMember.syncedFromJira && !existingMember.nameManuallyEdited) {
         updatedMembers.push({ ...existingMember, name: assignee.name });
         result.updated++;
       } else {
