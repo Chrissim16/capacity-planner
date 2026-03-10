@@ -279,14 +279,13 @@ export function Timeline() {
  </Card>
  ) : (
 <JiraGantt
- items={filteredJiraItems}
- bizAssignments={state.jiraItemBizAssignments ?? []}
- businessContacts={state.businessContacts ?? []}
- teamMembers={teamMembers}
- savedSprints={state.sprints ?? []}
- settings={settings}
- quarters={quarters}
- jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}
+  items={filteredJiraItems}
+  bizAssignments={state.jiraItemBizAssignments ?? []}
+  businessContacts={state.businessContacts ?? []}
+  savedSprints={state.sprints ?? []}
+  settings={settings}
+  quarters={quarters}
+  jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}
 />
  )
  )}

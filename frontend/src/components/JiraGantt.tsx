@@ -11,7 +11,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { ChevronRight, ExternalLink, X } from 'lucide-react';
 import { generateSprints, getSprintsForQuarter, parseSprint, formatDateRange } from '../utils/sprints';
 import type {
- JiraWorkItem, JiraItemBizAssignment, BusinessContact, Settings, Sprint, TeamMember,
+ JiraWorkItem, JiraItemBizAssignment, BusinessContact, Settings, Sprint,
 } from '../types';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -61,7 +61,6 @@ export interface JiraGanttProps {
  savedSprints?: Sprint[];
  quarters: string[];
  jiraBaseUrl: string;
- teamMembers?: import('../types').TeamMember[];
 }
 
 // ── Helper functions ─────────────────────────────────────────────────────────
@@ -358,8 +357,7 @@ function SlidePanel({
 // ── Main component ───────────────────────────────────────────────────────────
 
 export function JiraGantt({
- items, bizAssignments, businessContacts, settings, savedSprints = [], quarters, jiraBaseUrl,
- teamMembers = [],
+  items, bizAssignments, businessContacts, settings, savedSprints = [], quarters, jiraBaseUrl,
 }: JiraGanttProps) {
  // Merge generated + saved sprints so sprint-name lookups can match both sources
  const allSprints = useMemo(() => {
@@ -682,13 +680,9 @@ export function JiraGantt({
  <div className="w-0.5 h-full bg-slate-200 group-hover:bg-[#0ED3CF] group-active:bg-[#0ED3CF] transition-colors" />
  </div>
 
- {/* Label rows */}
- {rows.map((row) => {
- </div>
- );
- }
-
- // ── Jira item row ───────────────────────────────────────────────
+{/* Label rows */}
+{rows.map((row) => {
+// ── Jira item row ───────────────────────────────────────────────
  const { item, level } = row;
  const h = level === 0 ? ROW_EPIC : ROW_SUB;
  const pl = level === 0 ? 14 : level === 1 ? 32 : 48;

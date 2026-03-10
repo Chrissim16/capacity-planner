@@ -131,11 +131,11 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
     }
   };
 
-  const typeLabel = (type: SearchResult['type']) => {
+  const typeLabel = (type: SearchResult['type']): string => {
     switch (type) {
-      case 'project': return 'Epic';
-      case 'member':  return 'Member';
-      case 'jira':    return 'Jira';
+      case 'epic':   return 'Epic';
+      case 'member': return 'Member';
+      case 'jira':   return 'Jira';
     }
   };
 

@@ -1,15 +1,14 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search, ChevronDown, ChevronRight, ExternalLink,
   RefreshCw, Loader2, X, Check, Filter, Users,
   AlertCircle, UserCircle2, Building2,
 } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/layout/PageHeader';
-import { useCurrentState, useAppStore } from '../stores/appStore';
+import { useCurrentState } from '../stores/appStore';
 import {
   upsertJiraItemBizAssignment,
   removeJiraItemBizAssignment,
@@ -453,13 +452,13 @@ export function Projects() {
       <div className="flex-1 overflow-auto px-6 pb-6 space-y-3">
         {jiraWorkItems.length === 0 ? (
           <EmptyState
-            icon={<AlertCircle className="w-10 h-10 text-gray-400" />}
+            icon={AlertCircle}
             title="No Jira data yet"
             description="Connect your Jira project in Settings → Jira and run a sync to import epics, features, and stories."
           />
         ) : filteredEpics.length === 0 ? (
           <EmptyState
-            icon={<Filter className="w-10 h-10 text-gray-400" />}
+            icon={Filter}
             title="No epics match your filters"
             description="Try adjusting your search or filter criteria."
           />

@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, Fragment } from 'react';
 import {
  Users, FolderKanban, AlertTriangle, TrendingUp, X,
  ChevronRight, CheckCircle2, Circle, Link2, Zap, Globe,
- Clock, PlayCircle,
+  Clock,
 } from 'lucide-react';
 import { useAppStore, useCurrentState, useIsLoading } from '../stores/appStore';
 import type { DashboardPeopleFilter } from '../stores/appStore';
@@ -115,9 +115,9 @@ export function Dashboard() {
  totalUsed += cap.usedDays;
  totalBau += cap.breakdown.find(b => b.type === 'bau')?.days ?? 0;
  totalTimeOff += cap.breakdown.find(b => b.type === 'timeoff')?.days ?? 0;
- totalProject += cap.breakdown
- .filter(b => b.type === 'project' || b.type === 'jira')
- .reduce((s, b) => s + b.days, 0);
+  totalProject += cap.breakdown
+    .filter(b => b.type === 'jira')
+    .reduce((s, b) => s + b.days, 0);
  }
 
  const remainingDays = Math.round(totalWorkdays - totalUsed);
@@ -143,9 +143,9 @@ export function Dashboard() {
  const cap = calculateCapacity(member.id, q, state);
  const bauDays = cap.breakdown.find(b => b.type === 'bau')?.days ?? 0;
  const timeOffDays = cap.breakdown.find(b => b.type === 'timeoff')?.days ?? 0;
- const projectDays = cap.breakdown
- .filter(b => b.type === 'project' || b.type === 'jira')
- .reduce((s, b) => s + b.days, 0);
+  const projectDays = cap.breakdown
+    .filter(b => b.type === 'jira')
+    .reduce((s, b) => s + b.days, 0);
  const bauPct = cap.totalWorkdays > 0 ? Math.min(100, (bauDays / cap.totalWorkdays) * 100) : 0;
  const timeOffPct = cap.totalWorkdays > 0 ? Math.min(100, (timeOffDays / cap.totalWorkdays) * 100) : 0;
  const projectPct = cap.totalWorkdays > 0 ? Math.min(100, (projectDays / cap.totalWorkdays) * 100) : 0;
@@ -453,9 +453,9 @@ export function Dashboard() {
  const summaryCellColor = getCellColor(pct);
 
  // Separate breakdown into work items vs. overhead
- const workItems = cap.breakdown.filter(
- (b: CapacityBreakdownItem) => b.type === 'jira' || b.type === 'project'
- );
+  const workItems = cap.breakdown.filter(
+    (b: CapacityBreakdownItem) => b.type === 'jira'
+  );
  const overhead = cap.breakdown.filter(
  (b: CapacityBreakdownItem) => b.type === 'bau' || b.type === 'timeoff'
  );
@@ -515,9 +515,9 @@ export function Dashboard() {
  ) : (
  <div className="space-y-1.5">
  {workItems.map((item: CapacityBreakdownItem, i: number) => {
- const breadcrumb = item.jiraKey ? getBreadcrumb(item.jiraKey) : (item.phaseName ? `${item.projectName} › ${item.phaseName}` : item.projectName ?? '');
- const label = item.jiraSummary ?? item.phaseName ?? item.projectName ?? '—';
- const typeLabel = item.type === 'jira' ? 'Story' : 'Project';
+              const breadcrumb = item.jiraKey ? getBreadcrumb(item.jiraKey) : '';
+              const label = item.jiraSummary ?? item.reason ?? '—';
+              const typeLabel = 'Story';
  return (
  <div key={i} className="dd-item flex items-start gap-2 pl-2 border-l-2 border-blue-200 dark:border-blue-800">
  <div className="flex-1 min-w-0">

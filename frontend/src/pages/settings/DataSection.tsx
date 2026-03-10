@@ -77,9 +77,8 @@ export function DataSection() {
  roles: [...current.roles, ...(importPreview.data.roles || [])],
  skills: [...current.skills, ...(importPreview.data.skills || [])],
  systems: [...current.systems, ...(importPreview.data.systems || [])],
- teamMembers: [...current.teamMembers, ...(importPreview.data.teamMembers || [])],
- projects: [...current.projects, ...(importPreview.data.projects || [])],
- timeOff: [...current.timeOff, ...(importPreview.data.timeOff || [])],
+      teamMembers: [...current.teamMembers, ...(importPreview.data.teamMembers || [])],
+      timeOff: [...current.timeOff, ...(importPreview.data.timeOff || [])],
  lastModified: new Date().toISOString(),
  });
  }

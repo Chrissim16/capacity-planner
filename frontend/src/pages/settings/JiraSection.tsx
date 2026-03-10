@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
- Plus, Trash2, Edit2, RefreshCw, Loader2, Power, Download, Link2, Zap, ChevronDown, ChevronRight, Search, CheckCircle, AlertCircle, Copy,
+  Plus, Trash2, Edit2, RefreshCw, Loader2, Power, Download, Link2, ChevronDown, ChevronRight, Search, CheckCircle, AlertCircle, Copy,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -15,7 +15,7 @@ import {
 } from '../../stores/actions';
 import { testJiraConnection, buildJQL, getJiraIssueTypes, diagnoseJiraKey } from '../../services/jira';
 import type { JiraIssueType, JiraKeyDiagnostic } from '../../services/jira';
-import { fetchSyncPreview, applySync, buildAssignmentsNow } from '../../application/jiraSync';
+import { fetchSyncPreview, applySync } from '../../application/jiraSync';
 import { useToast } from '../../components/ui/Toast';
 import type { JiraConnection, JiraSyncDiff } from '../../types';
 
@@ -30,7 +30,6 @@ export function JiraSection() {
  // Per-connection UI state
  const [testingId, setTestingId] = useState<string | null>(null);
  const [syncingId, setSyncingId] = useState<string | null>(null);
- const [buildingId, setBuildingId] = useState<string | null>(null);
  const [syncProgress, setSyncProgress] = useState('');
  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
  const [expandedSettingsId, setExpandedSettingsId] = useState<string | null>(null);
@@ -121,9 +120,7 @@ export function JiraSection() {
  // Step 2: user confirmed the diff → apply via application layer
  const handleConfirmSync = () => {
  if (!pendingDiff) return;
- const conn = jiraConnections.find(c => c.id === pendingDiff.connectionId);
- if (!conn) return;
- const { message } = applySync(pendingDiff, conn, jiraSettings);
+  const { message } = applySync(pendingDiff);
  showToast(message, 'success');
  setPendingDiff(null);
  advanceQueue();
@@ -134,14 +131,7 @@ export function JiraSection() {
  advanceQueue();
  };
 
- const handleBuildAssignments = (conn: JiraConnection) => {
- setBuildingId(conn.id);
- const { message } = buildAssignmentsNow(conn.id, jiraSettings);
- showToast(message, 'success');
- setBuildingId(null);
- };
-
- const handleCheckIssueTypes = async (conn: JiraConnection) => {
+  const handleCheckIssueTypes = async (conn: JiraConnection) => {
  setIssueTypeCheckConnId(conn.id);
  setIssueTypeCheckLoading(true);
  setIssueTypeCheckResult(null);
@@ -278,76 +268,33 @@ export function JiraSection() {
  </div>
  </div>
 
- {/* Automation settings panel */}
- {expandedSettingsId === conn.id && (
- <div className="border-t bg-[#F5F3F0] /50 px-4 py-4 space-y-4">
- <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
- Automation Settings
- </p>
- <label className="flex items-start gap-3 cursor-pointer">
- <input
- type="checkbox"
- checked={conn.autoCreateProjects}
- onChange={(e) => updateJiraConnection(conn.id, { autoCreateProjects: e.target.checked })}
- className="mt-0.5 rounded border-gray-300"
- />
- <div>
- <span className="text-sm font-medium text-slate-800 ">Auto-create epics &amp; features</span>
- <p className="text-xs text-slate-500 mt-0.5">
- When syncing, automatically create or update Epics and Features in the planner based on Jira epics and features.
- </p>
- </div>
- </label>
- <label className="flex items-start gap-3 cursor-pointer">
- <input
- type="checkbox"
- checked={conn.autoCreateAssignments}
- onChange={(e) => updateJiraConnection(conn.id, { autoCreateAssignments: e.target.checked })}
- className="mt-0.5 rounded border-gray-300"
- />
- <div>
- <span className="text-sm font-medium text-slate-800 ">Auto-build capacity assignments</span>
- <p className="text-xs text-slate-500 mt-0.5">
- When syncing, create capacity allocations for team members based on their Jira assignments and story points.
- </p>
- </div>
- </label>
- <div className="flex items-center gap-4">
- <div className="flex-1">
- <label className="text-sm font-medium text-slate-800 ">
- Fallback days per item
- </label>
- <p className="text-xs text-slate-500 mt-0.5">
- Days to allocate for items without story points.
- </p>
- </div>
- <input
- type="number"
- min="0"
- max="30"
- step="0.5"
- value={conn.defaultDaysPerItem}
- onChange={(e) => updateJiraConnection(conn.id, { defaultDaysPerItem: parseFloat(e.target.value) || 1 })}
- className="w-20 text-sm border border-input rounded px-2 py-1 bg-background text-right"
- />
- </div>
- <div className="pt-1 border-t border-slate-200 ">
- <Button
- variant="secondary"
- size="sm"
- onClick={() => handleBuildAssignments(conn)}
- disabled={buildingId === conn.id}
- >
- {buildingId === conn.id
- ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />Building…</>
- : <><Zap className="w-4 h-4 mr-1" />Build assignments from Jira now</>}
- </Button>
- <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
- Builds capacity assignments from already-synced items without running a full sync.
- </p>
- </div>
- </div>
- )}
+        {/* Sync settings panel */}
+        {expandedSettingsId === conn.id && (
+          <div className="border-t bg-[#F5F3F0] /50 px-4 py-4 space-y-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Sync Settings
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <label className="text-sm font-medium text-slate-800 ">
+                  Fallback days per item
+                </label>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Days to allocate for items without story points.
+                </p>
+              </div>
+              <input
+                type="number"
+                min="0"
+                max="30"
+                step="0.5"
+                value={conn.defaultDaysPerItem}
+                onChange={(e) => updateJiraConnection(conn.id, { defaultDaysPerItem: parseFloat(e.target.value) || 1 })}
+                className="w-20 text-sm border border-input rounded px-2 py-1 bg-background text-right"
+              />
+            </div>
+          </div>
+        )}
 
  {/* Sync history panel (US-011) */}
  {expandedHistoryId === conn.id && conn.syncHistory && conn.syncHistory.length > 0 && (
@@ -363,10 +310,9 @@ export function JiraSection() {
  {new Date(entry.timestamp).toLocaleString()}
  </span>
  {entry.status === 'success' ? (
- <span className="text-slate-700 ">
- {entry.itemsSynced} synced — {entry.itemsCreated} new, {entry.itemsUpdated} updated, {entry.itemsRemoved} removed
- {entry.mappingsPreserved > 0 && `, ${entry.mappingsPreserved} mappings kept`}
- </span>
+                  <span className="text-slate-700 ">
+                    {entry.itemsSynced} synced — {entry.itemsCreated} new, {entry.itemsUpdated} updated, {entry.itemsRemoved} removed
+                  </span>
  ) : (
  <span className="text-red-600 dark:text-red-400">{entry.error || 'Failed'}</span>
  )}

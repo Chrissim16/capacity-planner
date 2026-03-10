@@ -23,9 +23,8 @@ const blankContact = (): Omit<BusinessContact, 'id'> => ({
  countryId: '',
  workingDaysPerWeek: 5,
  workingHoursPerDay: 8,
- notes: '',
- archived: false,
- projectIds: [],
+  notes: '',
+  archived: false,
 });
 
 export function BusinessContactsSection() {
