@@ -37,6 +37,7 @@ export function Timeline() {
  const [memberSearch, setMemberSearch] = useState('');
  const [bizSearch, setBizSearch] = useState('');
  const [showCompleted, setShowCompleted] = useState(false);
+ const [filterLabel, setFilterLabel] = useState('');
 
  const startLabelResize = (e: React.MouseEvent) => {
  e.preventDefault();
@@ -94,6 +95,14 @@ export function Timeline() {
  ...state.processTeams.map(t => ({ value: t.id, label: t.name })),
  ], [state.processTeams]);
 
+ const allLabels = useMemo(() => {
+   const s = new Set<string>();
+   for (const item of state.jiraWorkItems ?? []) {
+     item.labels?.forEach(l => s.add(l));
+   }
+   return [...s].sort();
+ }, [state.jiraWorkItems]);
+
  // Pre-filter team members for Team view
  const filteredTeamMembers = useMemo(() => {
  let result = teamMembers;
@@ -117,30 +126,45 @@ export function Timeline() {
  bizAssignmentsByKey.set(a.jiraKey, list);
  }
 
- return items.filter(item => {
- if (!showCompleted && item.statusCategory === 'done') return false;
+ // When filtering by label, resolve all epic/feature/story keys that qualify
+ const filteredEpicKeys = filterLabel
+   ? new Set(items.filter(i => i.type === 'epic' && i.labels?.includes(filterLabel)).map(i => i.jiraKey))
+   : null;
+ const filteredFeatureKeys = filteredEpicKeys
+   ? new Set(items.filter(i => i.type === 'feature' && filteredEpicKeys!.has(i.parentKey ?? '')).map(i => i.jiraKey))
+   : null;
 
- if (squadFilter || processTeamFilter || memberSearch) {
- const member = teamMembers.find(m => m.email && item.assigneeEmail && m.email.toLowerCase() === item.assigneeEmail.toLowerCase());
- if (squadFilter && member?.squadId !== squadFilter) return false;
- if (processTeamFilter && !member?.processTeamIds?.includes(processTeamFilter)) return false;
- if (memberSearch) {
- const q = memberSearch.toLowerCase();
- if (!(item.assigneeName ?? '').toLowerCase().includes(q) && !(member?.name ?? '').toLowerCase().includes(q)) return false;
- }
- }
- if (bizSearch) {
- const q = bizSearch.toLowerCase();
- const contactIds = bizAssignmentsByKey.get(item.jiraKey) ?? [];
- const bizMatch = contactIds.some(id => {
- const c = state.businessContacts.find(bc => bc.id === id);
- return c && c.name.toLowerCase().includes(q);
+ return items.filter(item => {
+   if (!showCompleted && item.statusCategory === 'done') return false;
+
+   if (filteredEpicKeys) {
+     const isFilteredEpic = filteredEpicKeys.has(item.jiraKey);
+     const isChildOfFilteredEpic = filteredEpicKeys.has(item.parentKey ?? '');
+     const isChildOfFilteredFeature = filteredFeatureKeys!.has(item.parentKey ?? '');
+     if (!isFilteredEpic && !isChildOfFilteredEpic && !isChildOfFilteredFeature) return false;
+   }
+
+   if (squadFilter || processTeamFilter || memberSearch) {
+     const member = teamMembers.find(m => m.email && item.assigneeEmail && m.email.toLowerCase() === item.assigneeEmail.toLowerCase());
+     if (squadFilter && member?.squadId !== squadFilter) return false;
+     if (processTeamFilter && !member?.processTeamIds?.includes(processTeamFilter)) return false;
+     if (memberSearch) {
+       const q = memberSearch.toLowerCase();
+       if (!(item.assigneeName ?? '').toLowerCase().includes(q) && !(member?.name ?? '').toLowerCase().includes(q)) return false;
+     }
+   }
+   if (bizSearch) {
+     const q = bizSearch.toLowerCase();
+     const contactIds = bizAssignmentsByKey.get(item.jiraKey) ?? [];
+     const bizMatch = contactIds.some(id => {
+       const c = state.businessContacts.find(bc => bc.id === id);
+       return c && c.name.toLowerCase().includes(q);
+     });
+     if (!bizMatch) return false;
+   }
+   return true;
  });
- if (!bizMatch) return false;
- }
- return true;
- });
- }, [state.jiraWorkItems, state.jiraItemBizAssignments, state.businessContacts, teamMembers, showCompleted, squadFilter, processTeamFilter, memberSearch, bizSearch]);
+ }, [state.jiraWorkItems, state.jiraItemBizAssignments, state.businessContacts, teamMembers, showCompleted, squadFilter, processTeamFilter, memberSearch, bizSearch, filterLabel]);
 
  return (
  <div className="space-y-6">
@@ -216,9 +240,17 @@ export function Timeline() {
  </div>
  )}
 
- {/* Person filters */}
- {state.squads.length > 0 && (
- <select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF] cursor-pointer">
+         {/* Label filter — Gantt only */}
+         {viewMode === 'gantt' && allLabels.length > 0 && (
+           <select value={filterLabel} onChange={e => setFilterLabel(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF] cursor-pointer">
+             <option value="">All Labels</option>
+             {allLabels.map(l => <option key={l} value={l}>{l}</option>)}
+           </select>
+         )}
+
+         {/* Person filters */}
+         {state.squads.length > 0 && (
+           <select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF] cursor-pointer">
  {squadOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
  </select>
  )}
@@ -269,11 +301,11 @@ export function Timeline() {
  description="Sync your Jira board to populate the timeline. Go to Settings → Jira to connect and sync."
  />
  ) : (
- <EmptyState
- icon={BarChart2}
- title="No items match your filters"
- description="Try clearing the squad, process team, or assignee filters to see all timeline items."
- />
+           <EmptyState
+             icon={BarChart2}
+             title="No items match your filters"
+             description="Try clearing the label, squad, process team, or assignee filters to see all timeline items."
+           />
  )}
  </CardContent>
  </Card>
