@@ -166,12 +166,34 @@ export function calculateBusinessCapacityForQuarter(
   );
 }
 
-/** Map a Jira sprint name to a quarter string ("Q1 2026") using configured sprints. */
-export function sprintNameToQuarter(sprintName: string | undefined, sprints: Sprint[]): string | null {
-  if (!sprintName) return null;
-  const lower = sprintName.toLowerCase();
-  const match = sprints.find(s => lower.includes(s.name.toLowerCase()));
-  return match ? match.quarter : null;
+/**
+ * Map a Jira sprint name to a quarter string ("Q1 2026") using configured sprints.
+ * Falls back to deriving the quarter from sprintStartDate when name matching fails —
+ * this handles cases where Jira sprint names don't match any configured sprint name.
+ */
+export function sprintNameToQuarter(
+  sprintName: string | undefined,
+  sprints: Sprint[],
+  sprintStartDate?: string,
+): string | null {
+  if (!sprintName && !sprintStartDate) return null;
+
+  if (sprintName) {
+    const lower = sprintName.toLowerCase();
+    const match = sprints.find(s => lower.includes(s.name.toLowerCase()));
+    if (match) return match.quarter;
+  }
+
+  // Fallback: derive quarter from sprint start date when name matching fails
+  if (sprintStartDate) {
+    const d = new Date(sprintStartDate + 'T00:00:00');
+    if (!isNaN(d.getTime())) {
+      const q = Math.ceil((d.getMonth() + 1) / 3);
+      return `Q${q} ${d.getFullYear()}`;
+    }
+  }
+
+  return null;
 }
 
 // ─── IT CAPACITY ──────────────────────────────────────────────────────────────
@@ -231,7 +253,7 @@ export function calculateCapacity(
       if (!item.assigneeEmail || item.assigneeEmail.toLowerCase() !== memberEmail) continue;
       if (item.type === 'epic' || item.type === 'feature') continue; // Epics/features aggregate children
 
-      const itemQuarter = sprintNameToQuarter(item.sprintName, state.sprints);
+      const itemQuarter = sprintNameToQuarter(item.sprintName, state.sprints, item.sprintStartDate);
       if (itemQuarter !== quarter) continue;
 
       const confidence = item.confidenceLevel ?? defaultConfidence;
@@ -289,7 +311,7 @@ export function getMemberEpicCount(
     if (item.statusCategory === 'done') continue;
     if (!item.assigneeEmail || item.assigneeEmail.toLowerCase() !== memberEmail) continue;
     if (item.type === 'epic' || item.type === 'feature') continue;
-    const itemQuarter = sprintNameToQuarter(item.sprintName, state.sprints);
+    const itemQuarter = sprintNameToQuarter(item.sprintName, state.sprints, item.sprintStartDate);
     if (itemQuarter !== quarter) continue;
     const epicKey = epicByKey.get(item.jiraKey);
     if (epicKey) epicKeys.add(epicKey);

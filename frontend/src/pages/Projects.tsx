@@ -247,7 +247,11 @@ export function Projects() {
     return { epics, featuresByEpic, childrenByParent };
   }, [jiraWorkItems]);
 
-  // Rollup IT days (confidence-adjusted)
+  // Rollup IT days (confidence-adjusted) for display on the Epics page.
+  // NOTE: computeRollup includes ALL items regardless of quarter or status (including done).
+  // This intentionally shows total scope per epic, not remaining capacity.
+  // The capacity bank (Dashboard) uses calculateCapacity() instead, which filters
+  // to non-done leaf items in a specific quarter with story points and a matched sprint.
   const rollupMap = useMemo(() => computeRollup(
     jiraWorkItems,
     state.jiraSettings.defaultConfidenceLevel,
