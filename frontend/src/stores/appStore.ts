@@ -9,32 +9,30 @@ import type {
   AppState,
   ViewType,
   Filters,
-  ProjectFilters,
+  EpicFilters,
   SortConfig,
   TeamViewMode,
-  ProjectViewMode,
   TimelineViewMode,
   Settings,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
-import { flattenAssignmentsFromProjects } from '../utils/projects';
 import { loadFromSupabase, saveToSupabase, scheduleSyncToSupabase } from '../services/supabaseSync';
 import { isSupabaseConfigured } from '../services/supabase';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SYNC STATUS TYPES (US-001, US-004)
+// SYNC STATUS TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error' | 'offline';
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// STORAGE KEY - Must match the original app!
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
+// STORAGE KEY
+// ═══════════════════════════════════════════════════════════════════════════
 
 const STORAGE_KEY = 'capacity-planner-data';
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
 // DEFAULT STATE
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
 
 const defaultSettings: Settings = {
   bauReserveDays: 5,
@@ -78,8 +76,6 @@ const defaultJiraSettings = {
   syncTasks: false,
   syncBugs: false,
   includeSubtasks: false,
-  // Sensible defaults: Epics/Features include anything not Done (they span long periods),
-  // Stories/Tasks/Bugs only include active work (To Do + In Progress).
   statusFilterEpics: 'exclude_done' as const,
   statusFilterFeatures: 'exclude_done' as const,
   statusFilterStories: 'active_only' as const,
@@ -89,7 +85,7 @@ const defaultJiraSettings = {
 };
 
 const defaultAppState: AppState = {
-  version: 10,
+  version: 11,
   lastModified: new Date().toISOString(),
   settings: defaultSettings,
   countries: [],
@@ -100,8 +96,6 @@ const defaultAppState: AppState = {
   squads: [],
   processTeams: [],
   teamMembers: [],
-  projects: [],
-  assignments: [],
   timeOff: [],
   quarters: generateQuarters(8),
   sprints: [],
@@ -112,42 +106,21 @@ const defaultAppState: AppState = {
   activeScenarioId: null,
   businessContacts: [],
   businessTimeOff: [],
-  businessAssignments: [],
   jiraItemBizAssignments: [],
-  localPhases: [],
 };
-
-
-function quarterToIsoRange(quarter: string): { startDate: string; endDate: string } | null {
-  const match = quarter.match(/^Q([1-4])\s+(\d{4})$/);
-  if (!match) return null;
-  const q = Number(match[1]);
-  const year = Number(match[2]);
-  const startMonth = (q - 1) * 3;
-  const start = new Date(Date.UTC(year, startMonth, 1));
-  const end = new Date(Date.UTC(year, startMonth + 3, 0));
-  const toIso = (d: Date) => d.toISOString().slice(0, 10);
-  return { startDate: toIso(start), endDate: toIso(end) };
-}
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
     promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
+      .then((value) => { clearTimeout(timer); resolve(value); })
+      .catch((error) => { clearTimeout(timer); reject(error); });
   });
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
 // UI STATE
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
 
 export type DashboardPeopleFilter = 'it_only' | 'business_only' | 'both';
 
@@ -155,11 +128,9 @@ interface UIState {
   currentView: ViewType;
   currentSettingsSection: string;
   teamViewMode: TeamViewMode;
-  projectViewMode: ProjectViewMode;
   timelineViewMode: TimelineViewMode;
   filters: Filters;
-  projectFilters: ProjectFilters;
-  projectSort: SortConfig;
+  epicFilters: EpicFilters;
   epicsSortConfig: SortConfig;
   dashboardPeopleFilter: DashboardPeopleFilter;
 }
@@ -168,68 +139,48 @@ const defaultUIState: UIState = {
   currentView: 'dashboard',
   currentSettingsSection: 'general',
   teamViewMode: 'current',
-  projectViewMode: 'list',
   timelineViewMode: 'quarter',
   filters: { member: [], system: [], status: [] },
-  projectFilters: { search: '', priority: '', status: '', system: '' },
-  projectSort: { field: 'name', direction: 'asc' },
+  epicFilters: { search: '', priority: '', status: '', label: '', squad: '', processTeam: '', itMember: '', bizContact: '' },
   epicsSortConfig: { field: '', direction: 'asc' },
   dashboardPeopleFilter: 'both',
 };
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// LOAD EXISTING DATA FROM ORIGINAL APP
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA LOADING
+// ═══════════════════════════════════════════════════════════════════════════
 
-function migrate(data: Partial<AppState>, fromVersion: number): AppState {
+function migrate(data: Partial<AppState>): AppState {
   const d = { ...data } as Partial<AppState> & Record<string, unknown>;
-
-  if (fromVersion < 10) {
-    if (!Array.isArray(d.processTeams)) d.processTeams = [];
-    if (!Array.isArray(d.squads)) d.squads = [];
-  }
-
-  const migratedProjects = Array.isArray(d.projects)
-    ? (d.projects as AppState['projects']).map((project) => ({
-        ...project,
-        phases: (project.phases ?? []).map((phase) => {
-          const next = { ...phase };
-          if ((!next.startDate || !next.endDate) && next.startQuarter && next.endQuarter) {
-            const startRange = quarterToIsoRange(next.startQuarter);
-            const endRange = quarterToIsoRange(next.endQuarter);
-            if (startRange && endRange) {
-              if (!next.startDate) next.startDate = startRange.startDate;
-              if (!next.endDate) next.endDate = endRange.endDate;
-            }
-          }
-          return next;
-        }),
-      }))
-    : [];
-
   return {
     ...defaultAppState,
     ...d,
-    projects: migratedProjects,
     settings: mergeSettingsWithDefaults((d.settings as Partial<Settings>) ?? {}),
     jiraSettings: {
       ...defaultJiraSettings,
       ...((d.jiraSettings as typeof defaultJiraSettings) ?? {}),
     },
-    quarters: Array.isArray(d.quarters) && d.quarters.length > 0 ? d.quarters : generateQuarters(8),
-    sprints: Array.isArray(d.sprints) ? d.sprints : [],
-    jiraConnections: Array.isArray(d.jiraConnections) ? d.jiraConnections : [],
-    jiraWorkItems: Array.isArray(d.jiraWorkItems) ? d.jiraWorkItems : [],
-    scenarios: Array.isArray(d.scenarios) ? d.scenarios : [],
-    assignments: Array.isArray(d.assignments)
-      ? (d.assignments as AppState['assignments'])
-      : flattenAssignmentsFromProjects(migratedProjects),
+    quarters: Array.isArray(d.quarters) && (d.quarters as string[]).length > 0
+      ? d.quarters as string[]
+      : generateQuarters(8),
+    sprints: Array.isArray(d.sprints) ? d.sprints as AppState['sprints'] : [],
+    jiraConnections: Array.isArray(d.jiraConnections)
+      ? d.jiraConnections as AppState['jiraConnections']
+      : [],
+    jiraWorkItems: Array.isArray(d.jiraWorkItems)
+      ? d.jiraWorkItems as AppState['jiraWorkItems']
+      : [],
+    scenarios: Array.isArray(d.scenarios) ? d.scenarios as AppState['scenarios'] : [],
     activeScenarioId: (d.activeScenarioId as string | null | undefined) ?? null,
-    businessContacts: Array.isArray(d.businessContacts) ? (d.businessContacts as AppState['businessContacts']) : [],
-    businessTimeOff: Array.isArray(d.businessTimeOff) ? (d.businessTimeOff as AppState['businessTimeOff']) : [],
-    businessAssignments: Array.isArray(d.businessAssignments) ? (d.businessAssignments as AppState['businessAssignments']) : [],
-    jiraItemBizAssignments: Array.isArray(d.jiraItemBizAssignments) ? (d.jiraItemBizAssignments as AppState['jiraItemBizAssignments']) : [],
-    localPhases: Array.isArray(d.localPhases) ? (d.localPhases as AppState['localPhases']) : [],
+    businessContacts: Array.isArray(d.businessContacts)
+      ? d.businessContacts as AppState['businessContacts']
+      : [],
+    businessTimeOff: Array.isArray(d.businessTimeOff)
+      ? d.businessTimeOff as AppState['businessTimeOff']
+      : [],
+    jiraItemBizAssignments: Array.isArray(d.jiraItemBizAssignments)
+      ? d.jiraItemBizAssignments as AppState['jiraItemBizAssignments']
+      : [],
   };
 }
 
@@ -239,11 +190,10 @@ function hasCachedData(): boolean {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return false;
     const parsed = JSON.parse(stored);
-    // Data may be stored at root level (original format) or under state.data (new format)
     const data = parsed?.state?.data ?? parsed;
     return (
       (Array.isArray(data?.teamMembers) && data.teamMembers.length > 0) ||
-      (Array.isArray(data?.projects) && data.projects.length > 0)
+      (Array.isArray(data?.jiraWorkItems) && data.jiraWorkItems.length > 0)
     );
   } catch {
     return false;
@@ -255,11 +205,8 @@ function loadExistingData(): AppState {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // The original app stores data directly, not wrapped in { state: { data: ... } }
-      // So we need to check the structure
       if (parsed && parsed.teamMembers) {
-        console.log('[Store] Loaded existing data from localStorage');
-        return migrate(parsed, parsed.version ?? 0);
+        return migrate(parsed);
       }
     }
   } catch (e) {
@@ -268,86 +215,59 @@ function loadExistingData(): AppState {
   return defaultAppState;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
 // STORE INTERFACE
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
 
 interface AppStore {
-  // Data state
   data: AppState;
   isLoading: boolean;
-  isInitializing: boolean;  // True during first Supabase load (US-002)
+  isInitializing: boolean;
   error: string | null;
 
-  // Sync status (US-001, US-004)
   syncStatus: SyncStatus;
   syncError: string | null;
 
-  // UI state
   ui: UIState;
 
-  // Data actions
   setData: (data: AppState) => void;
   updateData: (updates: Partial<AppState>) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
-  // Sync actions
   setSyncStatus: (status: SyncStatus, error?: string | null) => void;
   initializeFromSupabase: () => Promise<void>;
   retrySyncToSupabase: () => Promise<void>;
 
-  // UI actions
   setCurrentView: (view: ViewType) => void;
   setSettingsSection: (section: string) => void;
   setTeamViewMode: (mode: TeamViewMode) => void;
-  setProjectViewMode: (mode: ProjectViewMode) => void;
   setTimelineViewMode: (mode: TimelineViewMode) => void;
   setFilters: (filters: Partial<Filters>) => void;
-  setProjectFilters: (filters: Partial<ProjectFilters>) => void;
-  setProjectSort: (sort: SortConfig) => void;
+  setEpicFilters: (filters: Partial<EpicFilters>) => void;
   setEpicsSort: (sort: SortConfig) => void;
   toggleDarkMode: () => void;
   setDashboardPeopleFilter: (filter: DashboardPeopleFilter) => void;
 
-  // Helper to get current state (respects scenarios)
   getCurrentState: () => AppState;
-
-  // Sync with localStorage (for compatibility with original app)
   syncToStorage: () => void;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// CUSTOM STORAGE - Compatible with original app format
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
+// CUSTOM STORAGE
+// ═══════════════════════════════════════════════════════════════════════════
 
 const customStorage = {
   getItem: (_name: string): string | null => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) return null;
-      
       const parsed = JSON.parse(stored);
-      
-      // If it's already in the new format (has state.data), return as-is
-      if (parsed.state?.data) {
-        return stored;
-      }
-      
-      // Merge settings with defaults to handle new fields
+      if (parsed.state?.data) return stored;
       const mergedSettings = mergeSettingsWithDefaults(parsed.settings || {});
-      
-      // Convert old format to new format with merged settings
       const converted = {
         state: {
-          data: {
-            ...defaultAppState,
-            ...parsed,
-            settings: mergedSettings,
-            assignments: Array.isArray(parsed.assignments)
-              ? parsed.assignments
-              : flattenAssignmentsFromProjects(parsed.projects || []),
-          },
+          data: { ...defaultAppState, ...parsed, settings: mergedSettings },
           ui: defaultUIState,
         },
         version: 0,
@@ -358,12 +278,9 @@ const customStorage = {
       return null;
     }
   },
-  
   setItem: (_name: string, value: string): void => {
     try {
       const parsed = JSON.parse(value);
-      // Save the data in original app format (just the data object)
-      // This keeps compatibility with the original app
       if (parsed.state?.data) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed.state.data));
       }
@@ -371,33 +288,26 @@ const customStorage = {
       console.error('[Storage] setItem error:', e);
     }
   },
-  
   removeItem: (_name: string): void => {
     localStorage.removeItem(STORAGE_KEY);
   },
 };
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
 // STORE IMPLEMENTATION
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
 
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      // Initial state - load from existing localStorage
       data: loadExistingData(),
       isLoading: false,
-      // Only block the UI with the loading screen when Supabase is configured AND we
-      // have no cached data yet (first-ever visit). If localStorage already has team
-      // members or projects we let the app render immediately from cache and sync
-      // Supabase silently in the background — prevents the reload-on-tab-focus flicker.
-      isInitializing: isSupabaseConfigured() && !hasCachedData(), // true until Supabase load completes
+      isInitializing: isSupabaseConfigured() && !hasCachedData(),
       error: null,
       syncStatus: isSupabaseConfigured() ? 'idle' : 'offline',
       syncError: null,
       ui: defaultUIState,
 
-      // Sync actions (US-001, US-004)
       setSyncStatus: (status, error = null) =>
         set({ syncStatus: status, syncError: error ?? null }),
 
@@ -406,40 +316,26 @@ export const useAppStore = create<AppStore>()(
           set({ isInitializing: false, syncStatus: 'offline' });
           return;
         }
-
-        // Only show the full-screen loading spinner when there is nothing cached locally.
-        // If we already have data, sync silently in the background.
-        if (!hasCachedData()) {
-          set({ isInitializing: true });
-        }
+        if (!hasCachedData()) set({ isInitializing: true });
         try {
           const cloudData = await withTimeout(loadFromSupabase(), 15000, 'Supabase initial load');
           if (cloudData) {
-            // Merge with defaults to handle any new fields added since last save
-            const mergedSettings = mergeSettingsWithDefaults(cloudData.settings);
-            const mergedJiraSettings = { ...defaultJiraSettings, ...(cloudData.jiraSettings || {}) };
             const hydratedData: AppState = {
               ...defaultAppState,
               ...cloudData,
-              settings: mergedSettings,
-              jiraSettings: mergedJiraSettings,
+              settings: mergeSettingsWithDefaults(cloudData.settings),
+              jiraSettings: { ...defaultJiraSettings, ...(cloudData.jiraSettings || {}) },
               quarters: cloudData.quarters?.length ? cloudData.quarters : generateQuarters(8),
               sprints: cloudData.sprints || [],
               jiraConnections: cloudData.jiraConnections || [],
               jiraWorkItems: cloudData.jiraWorkItems || [],
               scenarios: cloudData.scenarios || [],
-              assignments: cloudData.assignments?.length
-                ? cloudData.assignments
-                : flattenAssignmentsFromProjects(cloudData.projects || []),
               activeScenarioId: cloudData.activeScenarioId ?? null,
             };
             set({ data: hydratedData });
-            // Mirror to localStorage as offline cache
             localStorage.setItem(STORAGE_KEY, JSON.stringify(hydratedData));
             set({ isInitializing: false, syncStatus: 'saved' });
           } else {
-            // No cloud data — using localStorage as-is; show idle (not "Saved") so
-            // any new changes will still get pushed to Supabase on next updateData.
             set({ isInitializing: false, syncStatus: 'idle' });
           }
         } catch (err) {
@@ -461,24 +357,16 @@ export const useAppStore = create<AppStore>()(
         }
       },
 
-      // Data actions
       setData: (data) => set({ data, error: null }),
 
       updateData: (updates) => {
         const state = get();
         const data = state.data;
-        const normalizedUpdates: Partial<AppState> =
-          updates.projects && !updates.assignments
-            ? {
-                ...updates,
-                assignments: flattenAssignmentsFromProjects(updates.projects),
-              }
-            : updates;
-        const scenarioFields = ['projects', 'teamMembers', 'assignments', 'timeOff', 'jiraWorkItems'] as const;
-        const hasScenarioFieldUpdates = scenarioFields.some(field => field in normalizedUpdates);
-        
-        // If a scenario is active and we're updating scenario-specific fields,
-        // update the scenario instead of the baseline
+
+        // Scenario-specific fields: overlay into the active scenario if one is set
+        const scenarioFields = ['jiraWorkItems', 'jiraItemBizAssignments', 'teamMembers', 'timeOff'] as const;
+        const hasScenarioFieldUpdates = scenarioFields.some(field => field in updates);
+
         if (data.activeScenarioId && hasScenarioFieldUpdates) {
           const scenarioIndex = data.scenarios.findIndex(s => s.id === data.activeScenarioId);
           if (scenarioIndex !== -1) {
@@ -486,25 +374,19 @@ export const useAppStore = create<AppStore>()(
               ...data.scenarios[scenarioIndex],
               updatedAt: new Date().toISOString(),
             };
-            
-            // Apply scenario-specific updates to the scenario
             for (const field of scenarioFields) {
-              if (field in normalizedUpdates) {
-                (updatedScenario as Record<string, unknown>)[field] = normalizedUpdates[field as keyof typeof normalizedUpdates];
+              if (field in updates) {
+                (updatedScenario as Record<string, unknown>)[field] = updates[field as keyof typeof updates];
               }
             }
-            
-            // Build baseline updates (non-scenario fields only)
             const baselineUpdates: Partial<AppState> = {};
-            for (const key in normalizedUpdates) {
+            for (const key in updates) {
               if (!scenarioFields.includes(key as typeof scenarioFields[number])) {
-                (baselineUpdates as Record<string, unknown>)[key] = normalizedUpdates[key as keyof typeof normalizedUpdates];
+                (baselineUpdates as Record<string, unknown>)[key] = updates[key as keyof typeof updates];
               }
             }
-            
             const updatedScenarios = [...data.scenarios];
             updatedScenarios[scenarioIndex] = updatedScenario;
-            
             const newData = {
               ...data,
               ...baselineUpdates,
@@ -520,10 +402,9 @@ export const useAppStore = create<AppStore>()(
           }
         }
 
-        // No active scenario or no scenario-specific updates - update baseline normally
         const newData = {
           ...data,
-          ...normalizedUpdates,
+          ...updates,
           lastModified: new Date().toISOString(),
         };
         set({ data: newData });
@@ -532,70 +413,40 @@ export const useAppStore = create<AppStore>()(
           get().setSyncStatus(status as SyncStatus, error)
         );
       },
-      
+
       setLoading: (isLoading) => set({ isLoading }),
       setError: (error) => set({ error }),
-      
-      // UI actions
+
       setCurrentView: (view) =>
-        set((state) => ({
-          ui: { ...state.ui, currentView: view },
-        })),
-      
+        set((state) => ({ ui: { ...state.ui, currentView: view } })),
+
       setSettingsSection: (section) =>
-        set((state) => ({
-          ui: { ...state.ui, currentSettingsSection: section },
-        })),
-      
+        set((state) => ({ ui: { ...state.ui, currentSettingsSection: section } })),
+
       setTeamViewMode: (mode) =>
-        set((state) => ({
-          ui: { ...state.ui, teamViewMode: mode },
-        })),
-      
-      setProjectViewMode: (mode) =>
-        set((state) => ({
-          ui: { ...state.ui, projectViewMode: mode },
-        })),
-      
+        set((state) => ({ ui: { ...state.ui, teamViewMode: mode } })),
+
       setTimelineViewMode: (mode) =>
-        set((state) => ({
-          ui: { ...state.ui, timelineViewMode: mode },
-        })),
-      
+        set((state) => ({ ui: { ...state.ui, timelineViewMode: mode } })),
+
       setFilters: (filters) =>
         set((state) => ({
-          ui: {
-            ...state.ui,
-            filters: { ...state.ui.filters, ...filters },
-          },
+          ui: { ...state.ui, filters: { ...state.ui.filters, ...filters } },
         })),
-      
-      setProjectFilters: (filters) =>
+
+      setEpicFilters: (filters) =>
         set((state) => ({
-          ui: {
-            ...state.ui,
-            projectFilters: { ...state.ui.projectFilters, ...filters },
-          },
-        })),
-      
-      setProjectSort: (sort) =>
-        set((state) => ({
-          ui: { ...state.ui, projectSort: sort },
+          ui: { ...state.ui, epicFilters: { ...state.ui.epicFilters, ...filters } },
         })),
 
       setEpicsSort: (sort) =>
-        set((state) => ({
-          ui: { ...state.ui, epicsSortConfig: sort },
-        })),
-      
+        set((state) => ({ ui: { ...state.ui, epicsSortConfig: sort } })),
+
       toggleDarkMode: () => {
         const state = get();
         const newData = {
           ...state.data,
-          settings: {
-            ...state.data.settings,
-            darkMode: !state.data.settings.darkMode,
-          },
+          settings: { ...state.data.settings, darkMode: !state.data.settings.darkMode },
         };
         set({ data: newData });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
@@ -607,34 +458,24 @@ export const useAppStore = create<AppStore>()(
       setDashboardPeopleFilter: (filter) =>
         set((state) => ({ ui: { ...state.ui, dashboardPeopleFilter: filter } })),
 
-      // Helper - returns current state respecting active scenario
       getCurrentState: () => {
         const state = get();
         const data = state.data;
-        
-        // If a scenario is active, merge scenario data with baseline
         if (data.activeScenarioId) {
           const activeScenario = data.scenarios.find(s => s.id === data.activeScenarioId);
           if (activeScenario) {
-            const scenarioAssignments = activeScenario.assignments?.length
-              ? activeScenario.assignments
-              : flattenAssignmentsFromProjects(activeScenario.projects);
             return {
               ...data,
-              // Override with scenario-specific data
-              projects: activeScenario.projects,
-              teamMembers: activeScenario.teamMembers,
-              assignments: scenarioAssignments,
-              timeOff: activeScenario.timeOff,
               jiraWorkItems: activeScenario.jiraWorkItems,
+              jiraItemBizAssignments: activeScenario.jiraItemBizAssignments,
+              teamMembers: activeScenario.teamMembers,
+              timeOff: activeScenario.timeOff,
             };
           }
         }
-        
         return data;
       },
-      
-      // Sync to localStorage (for manual sync)
+
       syncToStorage: () => {
         const state = get();
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
@@ -648,7 +489,6 @@ export const useAppStore = create<AppStore>()(
         ui: {
           currentView: state.ui.currentView,
           teamViewMode: state.ui.teamViewMode,
-          projectViewMode: state.ui.projectViewMode,
           timelineViewMode: state.ui.timelineViewMode,
           dashboardPeopleFilter: state.ui.dashboardPeopleFilter,
         },
@@ -657,11 +497,10 @@ export const useAppStore = create<AppStore>()(
   )
 );
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// SELECTORS (for optimized re-renders)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
+// SELECTORS
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Selectors that return primitives — safe as-is with React 19 useSyncExternalStore
 export const useCurrentView = () => useAppStore((state) => state.ui.currentView);
 export const useIsLoading = () => useAppStore((state) => state.isLoading);
 export const useIsInitializing = () => useAppStore((state) => state.isInitializing);
@@ -672,13 +511,8 @@ export const useIsBaselineWithJira = () => useAppStore((state) =>
   !state.data.activeScenarioId && state.data.jiraConnections.length > 0
 );
 
-// Selectors that return objects — use useShallow so React 19's useSyncExternalStore
-// snapshot comparisons use shallow equality instead of Object.is, which would
-// otherwise detect "new object = new snapshot" on every render and force infinite
-// re-renders (React error #185).
 export const useSettings = () => useAppStore(useShallow((state) => state.data.settings));
 export const useTeamMembers = () => useAppStore(useShallow((state) => state.getCurrentState().teamMembers));
-export const useProjects = () => useAppStore(useShallow((state) => state.getCurrentState().projects));
 export const useSyncStatus = () => useAppStore(useShallow((state) => ({ status: state.syncStatus, error: state.syncError })));
 export const useActiveScenario = () => useAppStore(useShallow((state) => {
   const { activeScenarioId, scenarios } = state.data;
@@ -686,7 +520,4 @@ export const useActiveScenario = () => useAppStore(useShallow((state) => {
   return scenarios.find(s => s.id === activeScenarioId) || null;
 }));
 
-// useCurrentState — when a scenario is active, getCurrentState() builds a merged
-// object from scratch on every call. useShallow ensures React 19 treats two
-// shallowly-equal snapshots as the same, preventing the re-render loop.
 export const useCurrentState = () => useAppStore(useShallow((state) => state.getCurrentState()));

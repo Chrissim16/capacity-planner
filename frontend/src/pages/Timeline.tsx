@@ -8,8 +8,7 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { SkeletonGantt } from '../components/ui/Skeleton';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useAppStore, useCurrentState, useIsLoading } from '../stores/appStore';
-import { addLocalPhase, removeLocalPhase, generateId } from '../stores/actions';
-import type { LocalPhase } from '../types';
+import { getForecastedDays } from '../utils/confidence';
 import { calculateCapacity } from '../utils/capacity';
 import {
  getCurrentQuarter, getWorkdaysInQuarter, getWorkdaysInDateRangeForQuarter,
@@ -279,19 +278,15 @@ export function Timeline() {
  </CardContent>
  </Card>
  ) : (
- <JiraGantt
- items={filteredJiraItems}
- bizAssignments={state.jiraItemBizAssignments ?? []}
- businessContacts={state.businessContacts ?? []}
- teamMembers={teamMembers}
- localPhases={state.localPhases ?? []}
- savedSprints={state.sprints ?? []}
- settings={settings}
- quarters={quarters}
- jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}
- onAddLocalPhase={(p: Omit<LocalPhase, 'id'>) => addLocalPhase({ ...p, id: generateId('lp') })}
- onRemoveLocalPhase={(id: string) => removeLocalPhase(id)}
- />
+<JiraGantt
+  items={filteredJiraItems}
+  bizAssignments={state.jiraItemBizAssignments ?? []}
+  businessContacts={state.businessContacts ?? []}
+  savedSprints={state.sprints ?? []}
+  settings={settings}
+  quarters={quarters}
+  jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}
+/>
  )
  )}
 
@@ -466,18 +461,20 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
  return sprintsInQ.map(sprint => {
  const sprintWorkdays = sprint.isByeWeek ? 0 : getWorkdaysInSprint(sprint, memberHolidays);
  let sprintDays = 0;
- state.projects.forEach(project => {
- project.phases.forEach(phase => {
- phase.assignments.forEach(a => {
- if (a.memberId !== member.id) return;
- if (a.sprint === `${sprint.name} ${sprint.year}`) {
- sprintDays += a.days;
- } else if (a.quarter === quarter && !a.sprint && !sprint.isByeWeek) {
- sprintDays += a.days / activeSprintCount;
+ if (member.email && !sprint.isByeWeek) {
+ const memberEmail = member.email.toLowerCase();
+ const defaultConfidence = state.jiraSettings?.defaultConfidenceLevel ?? 'medium';
+ for (const item of state.jiraWorkItems) {
+ if (item.statusCategory === 'done') continue;
+ if (item.storyPoints == null) continue;
+ if (item.type === 'epic' || item.type === 'feature') continue;
+ if (!item.assigneeEmail || item.assigneeEmail.toLowerCase() !== memberEmail) continue;
+ if (item.sprintName && item.sprintName.toLowerCase().includes(sprint.name.toLowerCase())) {
+ const confidence = item.confidenceLevel ?? defaultConfidence;
+ sprintDays += getForecastedDays(item.storyPoints, confidence, state.settings.confidenceLevels);
  }
- });
- });
- });
+ }
+ }
  const bauPerSprint = sprint.isByeWeek
  ? 0
  : (quarterCapacity.breakdown.find(b => b.type === 'bau')?.days || 0) / activeSprintCount;

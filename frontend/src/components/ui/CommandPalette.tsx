@@ -14,10 +14,10 @@ export interface CommandPayload {
 }
 
 interface SearchResult {
-  id: string;
-  type: 'project' | 'member' | 'jira';
-  label: string;
-  sublabel?: string;
+ id: string;
+ type: 'epic' | 'member' | 'jira';
+ label: string;
+ sublabel?: string;
   view: ViewType;
   payload?: CommandPayload;
 }
@@ -43,18 +43,18 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
 
     const out: SearchResult[] = [];
 
-    // Projects
-    state.projects
-      .filter(p => !p.archived && p.name.toLowerCase().includes(q))
-      .slice(0, 5)
-      .forEach(p => out.push({
-        id: `project-${p.id}`,
-        type: 'project',
-        label: p.name,
-        sublabel: `${p.status} · ${p.phases.length} feature${p.phases.length !== 1 ? 's' : ''}`,
-        view: 'projects',
-        payload: { highlightId: p.id },
-      }));
+   // Epics
+ state.jiraWorkItems
+ .filter(w => w.type === 'epic' && w.statusCategory !== 'done' && w.summary.toLowerCase().includes(q))
+ .slice(0, 5)
+ .forEach(w => out.push({
+ id: `epic-${w.id}`,
+ type: 'epic',
+ label: w.summary,
+ sublabel: `${w.jiraKey} · ${w.status}`,
+ view: 'projects',
+ payload: { highlightId: w.id },
+ }));
 
     // Team members
     state.teamMembers
@@ -91,7 +91,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
       }));
 
     return out;
-  }, [query, state.projects, state.teamMembers, state.jiraWorkItems]);
+  }, [query, state.jiraWorkItems, state.teamMembers]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -125,17 +125,17 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
 
   const typeIcon = (type: SearchResult['type']) => {
     switch (type) {
-      case 'project': return <FolderKanban size={14} className="text-[#0ED3CF] shrink-0" />;
+      case 'epic': return <FolderKanban size={14} className="text-[#0ED3CF] shrink-0" />;
       case 'member':  return <Users size={14} className="text-[#9CA3AF] shrink-0" />;
       case 'jira':    return <ExternalLink size={14} className="text-[#9CA3AF] shrink-0" />;
     }
   };
 
-  const typeLabel = (type: SearchResult['type']) => {
+  const typeLabel = (type: SearchResult['type']): string => {
     switch (type) {
-      case 'project': return 'Epic';
-      case 'member':  return 'Member';
-      case 'jira':    return 'Jira';
+      case 'epic':   return 'Epic';
+      case 'member': return 'Member';
+      case 'jira':   return 'Jira';
     }
   };
 

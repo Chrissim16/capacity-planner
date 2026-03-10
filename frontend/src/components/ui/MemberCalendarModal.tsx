@@ -83,44 +83,54 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
     return new Set(holidays.map(h => h.date));
   }, [member, state.countries, state.publicHolidays]);
 
-  // Active projects/phases for member (by quarter)
-  const memberProjects = useMemo(() => {
-    if (!member) return [];
-    const result: { projectId: string; projectName: string; colorIdx: number; startQuarter: string; endQuarter: string }[] = [];
-    let colorIdx = 0;
-    state.projects.forEach(project => {
-      project.phases.forEach(phase => {
-        const hasAssignment = phase.assignments.some(a => a.memberId === member.id);
-        if (hasAssignment) {
-          result.push({
-            projectId: project.id,
-            projectName: project.name,
-            colorIdx: colorIdx % PROJECT_COLORS.length,
-            startQuarter: phase.startQuarter ?? '',
-            endQuarter: phase.endQuarter ?? '',
-          });
-          colorIdx++;
-        }
-      });
-    });
-    return result;
-  }, [member, state.projects]);
+ // Active epics for member — derived from Jira work items with sprint dates
+ const memberProjects = useMemo(() => {
+ if (!member?.email) return [];
+ const memberEmail = member.email.toLowerCase();
+ const epicMap = new Map<string, { epicKey: string; epicName: string; startDate?: string; endDate?: string }>();
+
+ // Collect epics/features the member is assigned to
+ for (const item of state.jiraWorkItems) {
+ if (!item.assigneeEmail || item.assigneeEmail.toLowerCase() !== memberEmail) continue;
+ if (item.statusCategory === 'done') continue;
+ const sprintStart = item.sprintStartDate ?? item.startDate;
+ const sprintEnd = item.sprintEndDate ?? item.dueDate;
+ if (!sprintStart || !sprintEnd) continue;
+
+ // Find root epic
+ let epicKey = item.type === 'epic' ? item.jiraKey : (item.parentKey ?? item.jiraKey);
+ const epic = state.jiraWorkItems.find(w => w.jiraKey === epicKey && w.type === 'epic');
+ const epicName = epic ? epic.summary : item.summary;
+ if (!epicMap.has(epicKey)) {
+ epicMap.set(epicKey, { epicKey, epicName, startDate: sprintStart, endDate: sprintEnd });
+ } else {
+ const existing = epicMap.get(epicKey)!;
+ if (!existing.startDate || sprintStart < existing.startDate) existing.startDate = sprintStart;
+ if (!existing.endDate || sprintEnd > existing.endDate) existing.endDate = sprintEnd;
+ }
+ }
+
+ return Array.from(epicMap.values()).map((e, i) => ({
+ projectId: e.epicKey,
+ projectName: `${e.epicKey}: ${e.epicName}`,
+ colorIdx: i % PROJECT_COLORS.length,
+ startDate: e.startDate ?? '',
+ endDate: e.endDate ?? '',
+ }));
+ }, [member, state.jiraWorkItems]);
 
   // For a given date, check if it's in a time-off range
   const getTimeOff = (dateStr: string) =>
     memberTimeOff.find(t => dateStr >= t.startDate && dateStr <= t.endDate);
 
-  // For a given date, check which projects are active (by quarter)
-  const getProjectsForDate = (d: Date) => {
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const quarter = `Q${Math.ceil((month + 1) / 3)} ${year}`;
-    return memberProjects.filter(p => {
-      // Check if this quarter falls within the phase range
-      if (p.startQuarter > quarter || p.endQuarter < quarter) return false;
-      return true;
-    });
-  };
+ // For a given date, check which epics are active (by sprint date range)
+ const getProjectsForDate = (d: Date) => {
+ const dateStr = isoDate(d);
+ return memberProjects.filter(p => {
+ if (!p.startDate || !p.endDate) return false;
+ return dateStr >= p.startDate && dateStr <= p.endDate;
+ });
+ };
 
   const days = useMemo(() => getCalendarDays(viewYear, viewMonth), [viewYear, viewMonth]);
 
@@ -254,9 +264,9 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
               <span className="text-[#6B7280] truncate max-w-[120px]">{p.projectName}</span>
             </div>
           ))}
-          {legendProjects.length === 0 && (
-            <span className="text-[#9CA3AF] italic">No project assignments recorded</span>
-          )}
+   {legendProjects.length === 0 && (
+ <span className="text-[#9CA3AF] italic">No Jira assignments found</span>
+ )}
         </div>
       </div>
     </Modal>

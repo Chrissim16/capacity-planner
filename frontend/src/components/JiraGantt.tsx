@@ -8,10 +8,10 @@
  */
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { ChevronRight, ExternalLink, X, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, ExternalLink, X } from 'lucide-react';
 import { generateSprints, getSprintsForQuarter, parseSprint, formatDateRange } from '../utils/sprints';
 import type {
- JiraWorkItem, JiraItemBizAssignment, BusinessContact, Settings, Sprint, LocalPhase, TeamMember,
+ JiraWorkItem, JiraItemBizAssignment, BusinessContact, Settings, Sprint,
 } from '../types';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -56,15 +56,11 @@ export interface JiraGanttProps {
  items: JiraWorkItem[];
  bizAssignments: JiraItemBizAssignment[];
  businessContacts: BusinessContact[];
- localPhases: LocalPhase[];
  settings: Settings;
  /** Saved sprints from the store — used as an additional sprint-date source */
  savedSprints?: Sprint[];
  quarters: string[];
  jiraBaseUrl: string;
- onAddLocalPhase: (phase: Omit<LocalPhase, 'id'>) => void;
- onRemoveLocalPhase: (id: string) => void;
- teamMembers?: import('../types').TeamMember[];
 }
 
 // ── Helper functions ─────────────────────────────────────────────────────────
@@ -361,8 +357,7 @@ function SlidePanel({
 // ── Main component ───────────────────────────────────────────────────────────
 
 export function JiraGantt({
- items, bizAssignments, businessContacts, localPhases, settings, savedSprints = [], quarters, jiraBaseUrl,
- onAddLocalPhase, onRemoveLocalPhase, teamMembers = [],
+  items, bizAssignments, businessContacts, settings, savedSprints = [], quarters, jiraBaseUrl,
 }: JiraGanttProps) {
  // Merge generated + saved sprints so sprint-name lookups can match both sources
  const allSprints = useMemo(() => {
@@ -550,13 +545,9 @@ export function JiraGantt({
  }, [viewMode, qtrIdx, quarters, allSprints, jiraSprintCols, colCount]);
 
  // Track which epic has the "+ Add Phase" form open
- const [addPhaseForEpic, setAddPhaseForEpic] = useState<string | null>(null);
 
  // Flat row list for parallel label + gantt rendering
- type RowEntry =
- | { kind: 'jira'; item: JiraWorkItem; level: 0 | 1 | 2 }
- | { kind: 'phase'; phase: LocalPhase; epicKey: string }
- | { kind: 'add-phase'; epicKey: string };
+ type RowEntry = { kind: 'jira'; item: JiraWorkItem; level: 0 | 1 | 2 };
 
  const rows: RowEntry[] = useMemo(() => {
  const result: RowEntry[] = [];
@@ -572,17 +563,9 @@ export function JiraGantt({
  .filter(i => i.parentKey === feat.jiraKey && i.type !== 'feature')
  .forEach(child => result.push({ kind: 'jira', item: child, level: 2 }));
  });
- // Local phase rows (UAT / Hypercare) — shown after all features
- (localPhases ?? [])
- .filter(p => p.jiraKey === epic.jiraKey)
- .forEach(p => result.push({ kind: 'phase', phase: p, epicKey: epic.jiraKey }));
- // Add-phase form row (shown when that epic's form is open)
- if (addPhaseForEpic === epic.jiraKey) {
- result.push({ kind: 'add-phase', epicKey: epic.jiraKey });
- }
  });
  return result;
- }, [epics, features, items, expandedEpics, expandedFeatures, localPhases, addPhaseForEpic]);
+ }, [epics, features, items, expandedEpics, expandedFeatures]);
 
  const handleExpandAll = () => {
  if (allExpanded) {
@@ -697,86 +680,9 @@ export function JiraGantt({
  <div className="w-0.5 h-full bg-slate-200 group-hover:bg-[#0ED3CF] group-active:bg-[#0ED3CF] transition-colors" />
  </div>
 
- {/* Label rows */}
- {rows.map((row) => {
- // ── Add-phase form row ──────────────────────────────────────────
- if (row.kind === 'add-phase') {
- return (
- <AddPhaseForm
- key={`add-phase-${row.epicKey}`}
- epicKey={row.epicKey}
- teamMembers={teamMembers}
- businessContacts={businessContacts}
- onAdd={(phase) => { onAddLocalPhase(phase); setAddPhaseForEpic(null); }}
- onCancel={() => setAddPhaseForEpic(null)}
- />
- );
- }
-
- // ── Local phase row ─────────────────────────────────────────────
- if (row.kind === 'phase') {
- const { phase } = row;
- const phaseChipStyle = phase.type === 'uat'
- ? { bg: '#F3EEFF', color: '#6B2EC2' }
- : phase.type === 'hypercare'
- ? { bg: '#EEFAF5', color: '#1A7A52' }
- : { bg: '#F1F5F9', color: '#475569' }; // custom — slate
- const itMember = phase.assigneeEmail
- ? teamMembers.find(m => m.email?.toLowerCase() === phase.assigneeEmail!.toLowerCase())
- : undefined;
- const bizContacts = (phase.bizContactIds ?? [])
- .map(id => businessContacts.find(c => c.id === id))
- .filter(Boolean) as BusinessContact[];
- return (
- <div
- key={phase.id}
- className="flex items-center gap-2 border-b border-slate-100 /50 bg-slate-50/80 /30 hover:bg-slate-100 /60 group select-none"
- style={{ height: ROW_SUB, paddingLeft: 32 }}
- >
- <span
- style={{ background: phaseChipStyle.bg, color: phaseChipStyle.color }}
- className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded flex-shrink-0"
- >
- {phase.type === 'custom' ? 'phase' : phase.type}
- </span>
- <span className="text-xs text-slate-700 truncate flex-1" title={phase.name}>
- {phase.name}
- </span>
- {/* IT assignee */}
- {itMember && (
- <span
- title={itMember.name}
- className="shrink-0 w-5 h-5 rounded-full bg-[#0ED3CF]/15 text-[#0ED3CF] text-[9px] font-bold flex items-center justify-center"
- >
- {itMember.name.slice(0, 2).toUpperCase()}
- </span>
- )}
- {/* BIZ assignees */}
- {bizContacts.map(c => (
- <span
- key={c.id}
- title={c.name}
- className="shrink-0 w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[9px] font-bold flex items-center justify-center"
- >
- {c.name.slice(0, 2).toUpperCase()}
- </span>
- ))}
- <span className="text-[10px] font-mono text-slate-400 shrink-0">
- {phase.startDate.slice(5)} – {phase.endDate.slice(5)}
- </span>
- <button
- className="w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0 mr-2"
- onClick={() => onRemoveLocalPhase(phase.id)}
- title="Remove phase"
- aria-label={`Remove phase: ${phase.name}`}
- >
- <Trash2 size={11} />
- </button>
- </div>
- );
- }
-
- // ── Jira item row ───────────────────────────────────────────────
+{/* Label rows */}
+{rows.map((row) => {
+// ── Jira item row ───────────────────────────────────────────────
  const { item, level } = row;
  const h = level === 0 ? ROW_EPIC : ROW_SUB;
  const pl = level === 0 ? 14 : level === 1 ? 32 : 48;
@@ -833,25 +739,9 @@ export function JiraGantt({
  >
  {item.summary}
  </span>
- {/* Jira ID (epic level) + Add Phase button */}
+ {/* Jira key (epic level) */}
  {level === 0 && item.jiraKey && (
- <>
- <button
- className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider transition-all flex-shrink-0 border border-dashed border-[#C4B5FD] text-[#7C3AED] bg-[#F5F3FF] hover:bg-[#EDE9FE] hover:border-[#7C3AED]"
- onClick={e => {
- e.stopPropagation();
- if (!expandedEpics.has(item.jiraKey)) {
- setExpandedEpics(prev => { const n = new Set(prev); n.add(item.jiraKey); return n; });
- }
- setAddPhaseForEpic(prev => prev === item.jiraKey ? null : item.jiraKey);
- }}
- title="Add phase"
- aria-label={`Add phase to ${item.summary}`}
- >
- <Plus size={9} />Phase
- </button>
  <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 shrink-0 pr-2">{item.jiraKey}</span>
- </>
  )}
  </div>
  );
@@ -913,56 +803,6 @@ export function JiraGantt({
 
  {/* Gantt rows */}
  {rows.map((row) => {
- // Add-phase form: empty gantt row (form is in the label column)
- if (row.kind === 'add-phase') {
- return (
- <div
- key={`add-phase-gantt-${row.epicKey}`}
- className="relative border-b border-slate-100 /50 bg-[#FAF5FF] dark:bg-[#7C3AED]/5"
- style={{ height: ROW_SUB, overflow: 'visible' }}
- />
- );
- }
-
- // Local phase bar
- if (row.kind === 'phase') {
- const { phase } = row;
- const start = new Date(phase.startDate + 'T00:00:00');
- const end = new Date(phase.endDate + 'T00:00:00');
- const layout = barLayout(start, end, vStart, vEnd);
- const bs = BAR[phase.type] ?? BAR.uat;
- const clipCls = [
- layout.clipLeft ? 'gantt-bar-clip-left' : '',
- layout.clipRight ? 'gantt-bar-clip-right' : '',
- ].filter(Boolean).join(' ');
- return (
- <div
- key={phase.id}
- className="relative border-b border-slate-100 /50 bg-slate-50/80 /30"
- style={{ height: ROW_SUB, overflow: 'visible' }}
- >
- {!layout.hidden && (
- <div
- className={`absolute transition-[filter,transform] duration-150 hover:brightness-90 ${clipCls}`}
- style={{
- left: `${(layout.left * 100).toFixed(2)}%`,
- width: `${(layout.width * 100).toFixed(2)}%`,
- height: 22,
- top: '50%',
- transform: 'translateY(-50%)',
- background: bs.bg,
- border: `${bs.borderW}px solid ${bs.border}`,
- borderRadius: bs.radius,
- zIndex: 5,
- overflow: 'visible',
- minWidth: 4,
- }}
- />
- )}
- </div>
- );
- }
-
  // Jira item bar
  const { item, level } = row;
  const h = level === 0 ? ROW_EPIC : ROW_SUB;
@@ -1035,148 +875,3 @@ export function JiraGantt({
  );
 }
 
-// ── Add Phase inline form ────────────────────────────────────────────────────
-
-function AddPhaseForm({
- epicKey,
- teamMembers,
- businessContacts,
- onAdd,
- onCancel,
-}: {
- epicKey: string;
- teamMembers: TeamMember[];
- businessContacts: BusinessContact[];
- onAdd: (phase: Omit<LocalPhase, 'id'>) => void;
- onCancel: () => void;
-}) {
- const [type, setType] = useState<'uat' | 'hypercare' | 'custom'>('uat');
- const [name, setName] = useState('UAT');
- const [startDate, setStartDate] = useState('');
- const [endDate, setEndDate] = useState('');
- const [assigneeEmail, setAssigneeEmail] = useState('');
- const [bizContactIds, setBizContactIds] = useState<string[]>([]);
-
- const canSubmit = name.trim() && startDate && endDate && endDate >= startDate;
-
- const submit = () => {
- if (!canSubmit) return;
- onAdd({
- jiraKey: epicKey, type, name: name.trim(), startDate, endDate,
- assigneeEmail: assigneeEmail || undefined,
- bizContactIds: bizContactIds.length > 0 ? bizContactIds : undefined,
- });
- };
-
- const handleTypeChange = (val: 'uat' | 'hypercare' | 'custom') => {
- setType(val);
- if (val === 'uat') setName('UAT');
- else if (val === 'hypercare') setName('Hypercare');
- else setName('');
- };
-
- const toggleBizContact = (id: string) => {
- setBizContactIds(prev =>
- prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
- );
- };
-
- const activeBiz = businessContacts.filter(c => !c.archived);
-
- return (
- <div
- className="flex flex-wrap items-center gap-2 border-b border-slate-100 /50 bg-[#FAF5FF] dark:bg-[#7C3AED]/5 px-4 py-1.5"
- style={{ paddingLeft: 32 }}
- >
- {/* Type */}
- <select
- value={type}
- onChange={e => handleTypeChange(e.target.value as 'uat' | 'hypercare' | 'custom')}
- className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-[#DDD6FE] bg-[#F3EEFF] text-[#6B2EC2] cursor-pointer focus:outline-none"
- >
- <option value="uat">UAT</option>
- <option value="hypercare">Hypercare</option>
- <option value="custom">Other…</option>
- </select>
- {/* Name */}
- <input
- type="text"
- value={name}
- onChange={e => setName(e.target.value)}
- placeholder={type === 'custom' ? 'Phase name…' : 'Label…'}
- className="text-xs border border-slate-200 rounded px-2 py-0.5 w-28 bg-white text-slate-800 focus:outline-none focus:border-[#9B6EE2]"
- onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onCancel(); }}
- />
- {/* Start */}
- <input
- type="date"
- value={startDate}
- onChange={e => setStartDate(e.target.value)}
- className="text-[10px] border border-slate-200 rounded px-1.5 py-0.5 bg-white text-slate-700 focus:outline-none focus:border-[#9B6EE2]"
- />
- <span className="text-[10px] text-slate-400">–</span>
- {/* End */}
- <input
- type="date"
- value={endDate}
- min={startDate}
- onChange={e => setEndDate(e.target.value)}
- className="text-[10px] border border-slate-200 rounded px-1.5 py-0.5 bg-white text-slate-700 focus:outline-none focus:border-[#9B6EE2]"
- />
- {/* IT assignee */}
- {teamMembers.length > 0 && (
- <select
- value={assigneeEmail}
- onChange={e => setAssigneeEmail(e.target.value)}
- className="text-[10px] border border-slate-200 rounded px-1.5 py-0.5 bg-white text-slate-700 focus:outline-none focus:border-[#0089DD] max-w-[120px]"
- title="IT assignee"
- >
- <option value="">IT: Unassigned</option>
- {teamMembers.filter(m => m.email).map(m => (
- <option key={m.id} value={m.email!}>{m.name}</option>
- ))}
- </select>
- )}
- {/* BIZ contacts */}
- {activeBiz.length > 0 && (
- <div className="relative group/biz">
- <button
- type="button"
- className="text-[10px] border border-slate-200 rounded px-1.5 py-0.5 bg-white text-purple-600 dark:text-purple-400 focus:outline-none hover:border-purple-300 whitespace-nowrap"
- >
- {bizContactIds.length > 0 ? `BIZ: ${bizContactIds.length}` : 'BIZ: none'}
- </button>
- <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 min-w-[160px] hidden group-hover/biz:block">
- {activeBiz.map(c => (
- <label key={c.id} className="flex items-center gap-2 px-3 py-1 hover:bg-slate-50 /50 cursor-pointer text-xs text-slate-700 ">
- <input
- type="checkbox"
- checked={bizContactIds.includes(c.id)}
- onChange={() => toggleBizContact(c.id)}
- className="rounded accent-purple-600"
- />
- {c.name}
- </label>
- ))}
- </div>
- </div>
- )}
- {/* Add */}
- <button
- disabled={!canSubmit}
- onClick={submit}
- className="px-2.5 py-0.5 rounded text-[10px] font-semibold bg-[#7C3AED] text-white hover:bg-[#6D28D9] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
- >
- Add
- </button>
- {/* Cancel */}
- <button
- onClick={onCancel}
- aria-label="Cancel adding phase"
- className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors flex-shrink-0"
- >
- <X size={11} />
- </button>
- </div>
- );
-}

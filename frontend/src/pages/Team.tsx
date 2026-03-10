@@ -182,25 +182,24 @@ export function Team() {
  setDeleteConfirm(member);
  };
 
- const confirmDelete = () => {
- if (!deleteConfirm) return;
- const snapshotMembers = JSON.parse(JSON.stringify(state.teamMembers));
- const snapshotProjects = JSON.parse(JSON.stringify(state.projects));
- const deleted = deleteConfirm;
- deleteTeamMember(deleteConfirm.id);
- setDeleteConfirm(null);
- showToast(`"${deleted.name}" deleted`, {
- type: 'warning',
- duration: 10000,
- action: {
- label: 'Undo',
- onClick: () => {
- useAppStore.getState().updateData({ teamMembers: snapshotMembers, projects: snapshotProjects });
- showToast('Delete undone', 'success');
- },
- },
- });
- };
+  const confirmDelete = () => {
+    if (!deleteConfirm) return;
+    const snapshotMembers = JSON.parse(JSON.stringify(state.teamMembers));
+    const deleted = deleteConfirm;
+    deleteTeamMember(deleteConfirm.id);
+    setDeleteConfirm(null);
+    showToast(`"${deleted.name}" deleted`, {
+      type: 'warning',
+      duration: 10000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          useAppStore.getState().updateData({ teamMembers: snapshotMembers });
+          showToast('Delete undone', 'success');
+        },
+      },
+    });
+  };
 
  const handleAddTimeOff = (memberId: string) => {
  setTimeOffMemberId(memberId);
@@ -580,7 +579,7 @@ export function Team() {
  {/* Max projects */}
  <div className="mt-2 pt-2 border-t border-slate-100 ">
  <p className="text-xs text-slate-400">
- Max {member.maxConcurrentProjects} concurrent projects
+ Max {member.maxConcurrentProjects} concurrent epics
  </p>
  </div>
  </CardContent>
@@ -1245,8 +1244,7 @@ function BizContactCard({
  const country = countries.find(c => c.id === contact.countryId);
  const cap = useMemo(() => calculateBusinessCapacityForQuarter(
  contact, currentQuarter,
- state.businessAssignments, state.businessTimeOff, state.publicHolidays, state.projects,
- state.jiraItemBizAssignments, state.jiraWorkItems
+ state.jiraItemBizAssignments, state.businessTimeOff, state.publicHolidays, state.jiraWorkItems
  ), [contact, currentQuarter, state]);
 
  const pct = cap.usedPercent;
@@ -1582,10 +1580,9 @@ function ConvertToBizModal({
  workingDaysPerWeek: 5,
  workingHoursPerDay: 8,
  bauReserveDays: parseFloat(bauReserveDays) || 5,
- processTeamIds: selectedProcessTeamIds,
- archived: false,
- projectIds: [],
- }, Array.from(checkedKeys));
+      processTeamIds: selectedProcessTeamIds,
+      archived: false,
+    }, Array.from(checkedKeys));
  };
 
  return (
@@ -1767,10 +1764,9 @@ function BizContactFormModal({
  workingDaysPerWeek: parseFloat(workingDaysPerWeek) || 5,
  workingHoursPerDay: parseFloat(workingHoursPerDay) || 8,
  bauReserveDays: parseFloat(bauReserveDays) || 5,
- processTeamIds: selectedProcessTeamIds,
- archived: contact?.archived ?? false,
- projectIds: contact?.projectIds ?? [],
- excludedFromCapacity,
+      processTeamIds: selectedProcessTeamIds,
+      archived: contact?.archived ?? false,
+      excludedFromCapacity,
  });
  };
 

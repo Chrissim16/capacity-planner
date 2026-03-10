@@ -11,16 +11,15 @@
  */
 import { useState, useMemo } from 'react';
 import {
- Link2, RefreshCw, Zap, AlertCircle, CheckCircle2,
- ChevronDown, ChevronRight, ExternalLink, Settings,
- FolderKanban, GitBranch, EyeOff, Eye,
+  Link2, AlertCircle,
+  ChevronDown, ChevronRight, ExternalLink, Settings,
+  GitBranch, EyeOff, Eye,
 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { JiraHierarchyTree } from '../components/JiraHierarchyTree';
 import { useCurrentState, useAppStore } from '../stores/appStore';
-import { autoLinkNow } from '../application/jiraSync';
 import type { JiraItemType } from '../types';
 
 // ─── type-badge colours — neutral slate for everything, red for bugs ────────
@@ -35,29 +34,25 @@ const TYPE_COUNT_COLORS: Record<JiraItemType, string> = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function Jira() {
- const state = useCurrentState();
- const { jiraWorkItems, jiraConnections, projects, jiraSettings } = state;
+  const state = useCurrentState();
+  const { jiraWorkItems, jiraConnections, jiraSettings } = state;
  const setView = useAppStore(s => s.setCurrentView);
 
- const [expandedEpics, setExpandedEpics] = useState<Set<string>>(new Set());
- const [autoLinkMsg, setAutoLinkMsg] = useState<Record<string, string>>({});
- const [autoLinking, setAutoLinking] = useState<string | null>(null);
- const [hideClosedEpics, setHideClosedEpics] = useState(true);
+  const [expandedEpics, setExpandedEpics] = useState<Set<string>>(new Set());
+  const [hideClosedEpics, setHideClosedEpics] = useState(true);
 
  const activeConnection = jiraConnections.find(c => c.isActive);
  const activeBaseUrl = activeConnection?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
 
  // ── Stats ─────────────────────────────────────────────────────────────────
 
- const stats = useMemo(() => {
- const counts: Partial<Record<JiraItemType, number>> = {};
- let linked = 0;
- for (const item of jiraWorkItems) {
- counts[item.type] = (counts[item.type] ?? 0) + 1;
- if (item.mappedProjectId) linked++;
- }
- return { total: jiraWorkItems.length, linked, unlinked: jiraWorkItems.length - linked, counts };
- }, [jiraWorkItems]);
+  const stats = useMemo(() => {
+    const counts: Partial<Record<JiraItemType, number>> = {};
+    for (const item of jiraWorkItems) {
+      counts[item.type] = (counts[item.type] ?? 0) + 1;
+    }
+    return { total: jiraWorkItems.length, counts };
+  }, [jiraWorkItems]);
 
  // ── Group items: by epic subtree + leftover ───────────────────────────────
 
@@ -101,15 +96,7 @@ export function Jira() {
  return next;
  });
 
- const handleAutoLink = async (connectionId: string) => {
- setAutoLinking(connectionId);
- const jiraSettings = state.jiraSettings;
- const result = autoLinkNow(connectionId, jiraSettings);
- setAutoLinkMsg(prev => ({ ...prev, [connectionId]: result.message }));
- setAutoLinking(null);
- };
-
- // ── Empty state ───────────────────────────────────────────────────────────
+  // ── Empty state ───────────────────────────────────────────────────────────
 
  if (jiraWorkItems.length === 0) {
  return (
@@ -175,46 +162,6 @@ export function Jira() {
  ))}
  </div>
 
- {/* Auto-link banner per connection */}
- {jiraConnections.filter(c => c.isActive).map(conn => (
- <div key={conn.id} className={`flex items-start gap-3 px-4 py-3 rounded-lg border ${
- conn.autoCreateProjects
- ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700/50'
- : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700/50'
- }`}>
- {conn.autoCreateProjects
- ? <CheckCircle2 size={18} className="text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
- : <AlertCircle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
- }
- <div className="flex-1 min-w-0">
- <p className={`text-sm font-medium ${conn.autoCreateProjects ? 'text-green-800 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}>
- {conn.autoCreateProjects
- ? `Auto-import active for ${conn.name}`
- : `Auto-import is off for ${conn.name}`}
- </p>
- <p className={`text-xs mt-0.5 ${conn.autoCreateProjects ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
- {conn.autoCreateProjects
- ? 'Epics and features are created automatically in the planner on every sync. View them in the Epics tab.'
- : 'Enable "Auto-create epics & features" in Settings → Jira Integration to let Jira drive your planner automatically.'}
- </p>
- {autoLinkMsg[conn.id] && (
- <p className="text-xs mt-1 font-medium text-slate-700 ">{autoLinkMsg[conn.id]}</p>
- )}
- </div>
- <div className="flex items-center gap-2 shrink-0">
- <Button
- variant="secondary"
- size="sm"
- onClick={() => handleAutoLink(conn.id)}
- disabled={autoLinking === conn.id}
- >
- {autoLinking === conn.id
- ? <><RefreshCw size={13} className="animate-spin mr-1" />Linking…</>
- : <><Zap size={13} className="mr-1" />Auto-link now</>}
- </Button>
- </div>
- </div>
- ))}
 
  {/* Items — grouped by epic, read-only tree */}
  {epicGroups.length > 0 && (() => {
@@ -241,9 +188,8 @@ export function Jira() {
  </button>
  )}
  </div>
- {visibleGroups.map(({ epic, items }) => {
- const project = projects.find(p => p.jiraSourceKey === epic.jiraKey || p.id === epic.mappedProjectId);
- const isOpen = expandedEpics.has(epic.jiraKey);
+          {visibleGroups.map(({ epic, items }) => {
+            const isOpen = expandedEpics.has(epic.jiraKey);
  return (
  <Card key={epic.id} className="overflow-hidden">
  <div
@@ -269,13 +215,7 @@ export function Jira() {
  {epic.statusCategory === 'done' && (
  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">Closed</span>
  )}
- {project && (
- <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 shrink-0">
- <FolderKanban size={12} />
- {project.name}
- </span>
- )}
- <Badge variant="default" className="shrink-0 text-xs">{items.length - 1} items</Badge>
+              <Badge variant="default" className="shrink-0 text-xs">{items.length - 1} items</Badge>
  </div>
  {isOpen && (
  <div className="border-t border-slate-100 dark:border-slate-800 px-4 py-3">

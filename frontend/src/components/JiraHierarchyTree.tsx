@@ -8,13 +8,11 @@
  */
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
- ChevronDown, ChevronRight, ExternalLink,
- CheckCircle2, AlertCircle, Edit2, X, User,
+  ChevronDown, ChevronRight, ExternalLink, User,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Badge } from './ui/Badge';
-import { Select } from './ui/Select';
-import { updateJiraWorkItemMapping } from '../stores/actions';
+import { updateJiraWorkItemConfidence } from '../stores/actions';
 import type { JiraWorkItem, JiraItemType, ConfidenceLevel, Settings } from '../types';
 import { computeRollup, getForecastedDays, getConfidenceLabel, type RollupResult } from '../utils/confidence';
 
@@ -69,15 +67,8 @@ export interface JiraHierarchyTreeProps {
  /** Default confidence level from JiraSettings — used for rollup and display */
  defaultConfidenceLevel?: ConfidenceLevel;
  confidenceSettings?: Settings['confidenceLevels'];
- // Edit-mode props (Jira page)
- projectOptions?: { value: string; label: string }[];
- getPhaseOptions?: (pid: string | undefined) => { value: string; label: string }[];
- memberOptions?: { value: string; label: string }[];
- selectedItems?: Set<string>;
- onToggleSelect?: (id: string) => void;
- editingItemId?: string | null;
- onEditItem?: (id: string | null) => void;
- alwaysShowControls?: boolean;
+  selectedItems?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 // ─── main component ───────────────────────────────────────────────────────────
@@ -89,14 +80,8 @@ export function JiraHierarchyTree({
  defaultCollapsedDepth,
  defaultConfidenceLevel = 'medium',
  confidenceSettings,
- projectOptions = [],
- getPhaseOptions = () => [],
- memberOptions = [],
- selectedItems = new Set(),
- onToggleSelect,
- editingItemId = null,
- onEditItem,
- alwaysShowControls = false,
+  selectedItems = new Set(),
+  onToggleSelect,
 }: JiraHierarchyTreeProps) {
  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
  // Pre-collapse items at or beyond defaultCollapsedDepth
@@ -144,15 +129,9 @@ export function JiraHierarchyTree({
  onToggleCollapse={() => toggle(item.jiraKey)}
  jiraBaseUrl={jiraBaseUrl}
  readOnly={readOnly}
- isSelected={selectedItems.has(item.id)}
- onToggleSelect={onToggleSelect ? () => onToggleSelect(item.id) : undefined}
- isEditing={editingItemId === item.id}
- onEdit={onEditItem ? () => onEditItem(editingItemId === item.id ? null : item.id) : undefined}
- projectOptions={projectOptions}
- getPhaseOptions={getPhaseOptions}
- memberOptions={memberOptions}
- alwaysShowControls={alwaysShowControls}
- rollup={rollup}
+      isSelected={selectedItems.has(item.id)}
+      onToggleSelect={onToggleSelect ? () => onToggleSelect(item.id) : undefined}
+      rollup={rollup}
  defaultConfidenceLevel={defaultConfidenceLevel}
  confidenceSettings={confidenceSettings}
  />
@@ -175,45 +154,30 @@ export function JiraHierarchyTree({
 // ─── tree row ────────────────────────────────────────────────────────────────
 
 interface TreeRowProps {
- item: JiraWorkItem;
- depth: number;
- children: JiraWorkItem[];
- isCollapsed: boolean;
- onToggleCollapse: () => void;
- jiraBaseUrl: string;
- readOnly: boolean;
- isSelected: boolean;
- onToggleSelect?: () => void;
- isEditing: boolean;
- onEdit?: () => void;
- projectOptions: { value: string; label: string }[];
- getPhaseOptions: (pid: string | undefined) => { value: string; label: string }[];
- memberOptions: { value: string; label: string }[];
- alwaysShowControls: boolean;
- rollup?: RollupResult;
- defaultConfidenceLevel: ConfidenceLevel;
- confidenceSettings?: Settings['confidenceLevels'];
+  item: JiraWorkItem;
+  depth: number;
+  children: JiraWorkItem[];
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  jiraBaseUrl: string;
+  readOnly: boolean;
+  isSelected: boolean;
+  onToggleSelect?: () => void;
+  rollup?: RollupResult;
+  defaultConfidenceLevel: ConfidenceLevel;
+  confidenceSettings?: Settings['confidenceLevels'];
 }
 
 function TreeRow({
- item, depth, children, isCollapsed, onToggleCollapse,
- jiraBaseUrl, readOnly, isSelected, onToggleSelect,
- isEditing, onEdit, projectOptions, getPhaseOptions, memberOptions, alwaysShowControls,
- rollup, defaultConfidenceLevel, confidenceSettings,
+  item, depth, children, isCollapsed, onToggleCollapse,
+  jiraBaseUrl, readOnly, isSelected, onToggleSelect,
+  rollup, defaultConfidenceLevel, confidenceSettings,
 }: TreeRowProps) {
- const isMapped = !!item.mappedProjectId;
- const showControls = !readOnly && (alwaysShowControls || isEditing);
- const hasChildren = children.length > 0;
- const isLeaf = !hasChildren;
+  const hasChildren = children.length > 0;
+  const isLeaf = !hasChildren;
 
- const handleMapProject = (v: string) =>
- updateJiraWorkItemMapping(item.id, { mappedProjectId: v || undefined, mappedPhaseId: undefined });
- const handleMapPhase = (v: string) =>
- updateJiraWorkItemMapping(item.id, { mappedPhaseId: v || undefined });
- const handleMapMember = (v: string) =>
- updateJiraWorkItemMapping(item.id, { mappedMemberId: v || undefined });
- const handleConfidence = (v: string) =>
- updateJiraWorkItemMapping(item.id, { confidenceLevel: (v as ConfidenceLevel) || null });
+  const handleConfidence = (v: string) =>
+    updateJiraWorkItemConfidence(item.id, (v as ConfidenceLevel) || null);
 
  return (
  <div
@@ -234,14 +198,7 @@ function TreeRow({
  />
  )}
 
- {/* Mapped indicator */}
- {!readOnly && (
- isMapped
- ? <CheckCircle2 className="mt-0.5 w-4 h-4 text-green-500 shrink-0" />
- : <AlertCircle className="mt-0.5 w-4 h-4 text-amber-500 shrink-0" />
- )}
-
- {/* Chevron (always rendered to preserve alignment; invisible when no children) */}
+    {/* Chevron (always rendered to preserve alignment; invisible when no children) */}
  <button
  onClick={onToggleCollapse}
  className={clsx('mt-0.5 shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200', !hasChildren && 'invisible')}
@@ -297,51 +254,15 @@ function TreeRow({
  {/* Line 2: Summary */}
  <p className="text-sm text-slate-700 truncate mt-0.5">{item.summary}</p>
 
- {/* Assignee (read-only mode or not editing) */}
- {item.assigneeName && !showControls && (
+    {/* Assignee */}
+    {item.assigneeName && (
  <div className="flex items-center gap-1 mt-1">
  <User size={11} className="text-slate-400 shrink-0" />
  <span className="text-xs text-slate-600 font-medium">{item.assigneeName}</span>
  </div>
  )}
 
- {/* Mapping controls */}
- {showControls && (
- <div className="flex flex-wrap items-center gap-2 mt-2">
- <Select
- value={item.mappedProjectId ?? ''}
- onChange={e => handleMapProject(e.target.value)}
- options={projectOptions}
- className="text-xs w-44"
- />
- {item.mappedProjectId && (
- <Select
- value={item.mappedPhaseId ?? ''}
- onChange={e => handleMapPhase(e.target.value)}
- options={getPhaseOptions(item.mappedProjectId)}
- className="text-xs w-40"
- />
- )}
- <Select
- value={item.mappedMemberId ?? ''}
- onChange={e => handleMapMember(e.target.value)}
- options={memberOptions}
- className="text-xs w-36"
- />
- </div>
- )}
- </div>
-
- {/* Edit / close button */}
- {!readOnly && !alwaysShowControls && onEdit && (
- <button
- onClick={onEdit}
- className="shrink-0 p-1.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 transition-colors"
- title={isEditing ? 'Close' : 'Override mapping'}
- >
- {isEditing ? <X size={14} /> : <Edit2 size={14} />}
- </button>
- )}
+      </div>
  </div>
  );
 }

@@ -243,7 +243,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
 
  <Input
  id="max-projects"
- label="Max Concurrent Projects"
+ label="Max Concurrent Epics"
  type="number"
  min={1}
  max={10}

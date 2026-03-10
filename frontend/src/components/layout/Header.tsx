@@ -23,25 +23,19 @@ function useScenarioDiff(scenarioId: string | null) {
     const scenario = data.scenarios.find(s => s.id === scenarioId);
     if (!scenario) return null;
 
-    const baseProjectIds  = new Set(data.projects.map(p => p.id));
-    const scenProjectIds  = new Set(scenario.projects.map(p => p.id));
-    const baseMemberIds   = new Set(data.teamMembers.map(m => m.id));
-    const scenMemberIds   = new Set(scenario.teamMembers.map(m => m.id));
+    const baseEpicKeys  = new Set(data.jiraWorkItems.filter(w => w.type === 'epic').map(w => w.jiraKey));
+    const scenEpicKeys  = new Set((scenario.jiraWorkItems ?? []).filter(w => w.type === 'epic').map(w => w.jiraKey));
+    const baseMemberIds = new Set(data.teamMembers.map(m => m.id));
+    const scenMemberIds = new Set(scenario.teamMembers.map(m => m.id));
 
-    const projectsAdded   = scenario.projects.filter(p => !baseProjectIds.has(p.id)).length;
-    const projectsRemoved = data.projects.filter(p => !scenProjectIds.has(p.id)).length;
-    const projectsEdited  = scenario.projects.filter(p => {
-      const base = data.projects.find(b => b.id === p.id);
-      if (!base) return false;
-      return p.name !== base.name || p.status !== base.status || p.phases.length !== base.phases.length;
-    }).length;
+    const epicsAdded    = (scenario.jiraWorkItems ?? []).filter(w => w.type === 'epic' && !baseEpicKeys.has(w.jiraKey)).length;
+    const epicsRemoved  = data.jiraWorkItems.filter(w => w.type === 'epic' && !scenEpicKeys.has(w.jiraKey)).length;
+    const membersAdded  = scenario.teamMembers.filter(m => !baseMemberIds.has(m.id)).length;
+    const membersRemoved = data.teamMembers.filter(m => !scenMemberIds.has(m.id)).length;
 
-    const membersAdded    = scenario.teamMembers.filter(m => !baseMemberIds.has(m.id)).length;
-    const membersRemoved  = data.teamMembers.filter(m => !scenMemberIds.has(m.id)).length;
-
-    const total = projectsAdded + projectsRemoved + projectsEdited + membersAdded + membersRemoved;
-    return { total, projectsAdded, projectsRemoved, projectsEdited, membersAdded, membersRemoved };
-  }, [scenarioId, data.scenarios, data.projects, data.teamMembers]);
+    const total = epicsAdded + epicsRemoved + membersAdded + membersRemoved;
+    return { total, epicsAdded, epicsRemoved, membersAdded, membersRemoved };
+  }, [scenarioId, data.scenarios, data.jiraWorkItems, data.teamMembers]);
 }
 
 function SyncIndicator() {

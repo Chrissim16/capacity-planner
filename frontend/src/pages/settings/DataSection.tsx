@@ -77,9 +77,8 @@ export function DataSection() {
  roles: [...current.roles, ...(importPreview.data.roles || [])],
  skills: [...current.skills, ...(importPreview.data.skills || [])],
  systems: [...current.systems, ...(importPreview.data.systems || [])],
- teamMembers: [...current.teamMembers, ...(importPreview.data.teamMembers || [])],
- projects: [...current.projects, ...(importPreview.data.projects || [])],
- timeOff: [...current.timeOff, ...(importPreview.data.timeOff || [])],
+      teamMembers: [...current.teamMembers, ...(importPreview.data.teamMembers || [])],
+      timeOff: [...current.timeOff, ...(importPreview.data.timeOff || [])],
  lastModified: new Date().toISOString(),
  });
  }
@@ -110,7 +109,8 @@ export function DataSection() {
  <li>{roles.length} roles and {skills.length} skills</li>
  <li>{systems.length} systems</li>
  <li>{state.teamMembers.length} team members</li>
- <li>{state.projects.length} projects with phases and assignments</li>
+ <li>{state.jiraWorkItems.filter(w => w.type === 'epic').length} epics with features and stories</li>
+ <li>{state.jiraItemBizAssignments.length} BIZ assignments</li>
  <li>{state.timeOff.length} time off entries</li>
  </ul>
  </div>
@@ -156,20 +156,20 @@ export function DataSection() {
  <p className="text-sm text-slate-500">Team Members</p>
  </div>
  <div className="bg-[#F5F3F0] /50 p-4 rounded-lg text-center">
- <p className="text-2xl font-bold text-slate-900 ">{state.projects.length}</p>
- <p className="text-sm text-slate-500">Projects</p>
+ <p className="text-2xl font-bold text-slate-900 ">{state.jiraWorkItems.filter(w => w.type === 'epic').length}</p>
+ <p className="text-sm text-slate-500">Epics</p>
  </div>
  <div className="bg-[#F5F3F0] /50 p-4 rounded-lg text-center">
  <p className="text-2xl font-bold text-slate-900 ">
- {state.projects.reduce((sum, p) => sum + p.phases.length, 0)}
+ {state.jiraWorkItems.filter(w => w.type === 'feature').length}
  </p>
- <p className="text-sm text-slate-500">Phases</p>
+ <p className="text-sm text-slate-500">Features</p>
  </div>
  <div className="bg-[#F5F3F0] /50 p-4 rounded-lg text-center">
  <p className="text-2xl font-bold text-slate-900 ">
- {state.projects.reduce((sum, p) => sum + p.phases.reduce((s, ph) => s + ph.assignments.length, 0), 0)}
+ {state.jiraItemBizAssignments.length}
  </p>
- <p className="text-sm text-slate-500">Assignments</p>
+ <p className="text-sm text-slate-500">BIZ Assignments</p>
  </div>
  </div>
  <p className="text-xs text-slate-400 mt-4 text-center">
@@ -244,7 +244,7 @@ export function DataSection() {
  { label: 'Skills', value: importPreview.data?.skills?.length || 0 },
  { label: 'Systems', value: importPreview.data?.systems?.length || 0 },
  { label: 'Team Members', value: importPreview.data?.teamMembers?.length || 0 },
- { label: 'Projects', value: importPreview.data?.projects?.length || 0 },
+ { label: 'Jira Items', value: importPreview.data?.jiraWorkItems?.length || 0 },
  { label: 'Time Off', value: importPreview.data?.timeOff?.length || 0 },
  ].map(({ label, value }) => (
  <div key={label} className="bg-slate-100 p-3 rounded">
@@ -262,7 +262,8 @@ export function DataSection() {
  <div className="text-sm text-red-700 dark:text-red-300">
  <p className="font-semibold mb-1">This will permanently delete all your existing data.</p>
  <ul className="list-disc ml-4 space-y-0.5 text-red-600 dark:text-red-400">
- <li>{state.projects.length} project{state.projects.length !== 1 ? 's' : ''} and all their phases &amp; assignments</li>
+   <li>{state.jiraWorkItems.filter(w => w.type === 'epic').length} epic{state.jiraWorkItems.filter(w => w.type === 'epic').length !== 1 ? 's' : ''} and all their features &amp; stories</li>
+ <li>{state.jiraItemBizAssignments.length} BIZ assignment{state.jiraItemBizAssignments.length !== 1 ? 's' : ''}</li>
  <li>{state.teamMembers.length} team member{state.teamMembers.length !== 1 ? 's' : ''}</li>
  <li>{state.timeOff.length} time off record{state.timeOff.length !== 1 ? 's' : ''}</li>
  <li>All scenarios</li>
