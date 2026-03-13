@@ -131,24 +131,15 @@ function BizPopover({ jiraKey, existingAssignments, contacts, onClose }: BizPopo
         ))}
       </select>
 
-      <div className="flex gap-2">
-        <input
-          type="number"
-          min="0"
-          step="0.5"
-          placeholder="Days"
-          value={days}
-          onChange={e => setDays(e.target.value)}
-          className="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-        />
-        <button
-          onClick={handleSave}
-          disabled={!contactId || !days}
-          className="px-2 py-1 rounded bg-mw-purple text-white text-xs disabled:opacity-40 hover:bg-purple-700"
-        >
-          <Check size={12} />
-        </button>
-      </div>
+      <input
+        type="number"
+        min="0"
+        step="0.5"
+        placeholder="Days"
+        value={days}
+        onChange={e => setDays(e.target.value)}
+        className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+      />
 
       <input
         type="text"
@@ -157,6 +148,15 @@ function BizPopover({ jiraKey, existingAssignments, contacts, onClose }: BizPopo
         onChange={e => setNotes(e.target.value)}
         className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
       />
+
+      <button
+        onClick={handleSave}
+        disabled={!contactId || !days}
+        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-mw-purple text-white text-xs font-medium disabled:opacity-40 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-mw-purple"
+      >
+        <Check size={12} />
+        Save
+      </button>
     </div>
   );
 }
