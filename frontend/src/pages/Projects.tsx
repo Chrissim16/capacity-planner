@@ -152,7 +152,7 @@ function BizPopover({ jiraKey, existingAssignments, contacts, onClose }: BizPopo
       <button
         onClick={handleSave}
         disabled={!contactId || !days}
-        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-mw-purple text-white text-xs font-medium disabled:opacity-40 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-mw-purple"
+        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-purple-600 text-white text-xs font-medium disabled:opacity-40 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
       >
         <Check size={12} />
         Save

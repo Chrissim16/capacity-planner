@@ -5,6 +5,13 @@ Newest entry at the top. Format: `[YYYY-MM-DD] — Short title`.
 
 ---
 
+## [2026-03-13] — BizPopover Save button always visible
+
+### Fixed
+- `BizPopover` Save button was invisible until hover — `bg-mw-purple` is an unregistered Tailwind token producing no background; replaced with `bg-purple-600`
+
+---
+
 ## [2026-03-13] — BizPopover overflow fix
 
 ### Fixed
