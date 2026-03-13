@@ -480,7 +480,7 @@ export function Projects() {
             const link = jiraLink(epic.jiraKey);
 
             return (
-              <div key={epic.jiraKey} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+              <div key={epic.jiraKey} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm">
                 {/* Epic header */}
                 <div
                   className="flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 select-none"
