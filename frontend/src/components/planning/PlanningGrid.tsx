@@ -9,7 +9,6 @@
  */
 import { useState, useMemo, useCallback } from 'react';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
-import { clsx } from 'clsx';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore, useCurrentState } from '../../stores/appStore';
 import {
@@ -22,7 +21,7 @@ import { useToast } from '../ui/Toast';
 import { PlanningBar, CapacityBar, StaffingBar } from './PlanningBar';
 import { AssignPopover, ITBizBadge } from './AssignPopover';
 import type { Assignment, Project } from '../../types';
-import { Accent, Background, Border, Text, Semantic } from '../../theme/tokens';
+import { Accent, Background, Border, Text } from '../../theme/tokens';
 
 const LABEL_WIDTH = 240;
 const QUARTER_COL_WIDTH = 200;
@@ -215,7 +214,7 @@ function PeopleRow({ memberId, quarters, assignments, projects }: PeopleRowProps
               className="flex items-center pl-8 pr-3 py-1.5 relative"
               style={{ width: LABEL_WIDTH, borderRight: `1px solid ${Border.light}` }}
             >
-              {quarters.map((q, i) =>
+              {quarters.map((q) =>
                 assigningQuarter === q ? (
                   <AssignPopover
                     key={q}

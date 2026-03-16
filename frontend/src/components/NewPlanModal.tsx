@@ -179,7 +179,7 @@ interface BaseOptionProps {
   description: string;
 }
 
-function BaseOption({ id, selected, onSelect, title, description }: BaseOptionProps) {
+function BaseOption({ selected, onSelect, title, description }: BaseOptionProps) {
   return (
     <button
       role="radio"
