@@ -175,11 +175,11 @@ Top-level modals and banners rendered outside the layout tree:
 
 | Page | File | Sub-modes |
 |---|---|---|
-| Dashboard | `Dashboard.tsx` | Capacity heatmap + utilization summary |
+| Dashboard | `Dashboard.tsx` | Capacity heatmap + utilization summary + contextual nudge banner (≥2 members at high utilisation) |
 | Timeline | `Timeline.tsx` | Gantt sub-mode / Team capacity sub-mode |
-| Projects (Epics) | `Projects.tsx` | JiraHierarchyTree + BIZ assignment management |
+| Projects (Epics) | `Projects.tsx` | JiraHierarchyTree + BIZ assignment management + SmartAssignmentPanel slide-out |
 | Team | `Team.tsx` | IT members tab / Business Contacts tab |
-| Scenarios | `Scenarios.tsx` | Scenario cards + create/diff/promote |
+| Scenarios | `Scenarios.tsx` | Scenario cards + create/diff/promote + **Board** sub-mode (visible only when a scenario is active; lazy-loaded) |
 | Settings | `Settings.tsx` | Tabbed sections (see below) |
 | Login | `Login.tsx` | Supabase email sign-in |
 
@@ -776,14 +776,16 @@ Authentication is provided by Supabase Auth (GoTrue). The guard is `isSupabaseCo
 
 ### 13.2 Brand Tokens
 
-| Token | Value | Usage |
-|---|---|---|
-| `mw-blue` / `mw.primary` | `#0089DD` | IT track, primary actions, Gantt bars, active states |
-| `mw-purple` / `biz.DEFAULT` | `#7C3AED` | BIZ track, scenario labels, LocalPhase form |
-| `mw-grey` | medium grey | Borders, muted text |
-| `mw-grey-light` | light grey | Scrollbar thumb |
-| `mw-grey-lighter` | lightest grey | Scrollbar track, surface-2 background |
-| `mw-dark` | dark bg | Dark mode background |
+> **Naming note:** New components must use `sana-*` Tailwind token names (e.g. `sana-teal`, `sana-text`), not the legacy `mw-*` namespace. Named exports from `frontend/src/theme/tokens.ts` must be used for inline styles. See `.cursor/rules/review-frontend.mdc` for the full rule.
+
+| Token (legacy `mw-*`) | Token (current `sana-*`) | Value | Usage |
+|---|---|---|---|
+| `mw-blue` / `mw.primary` | `sana-teal` | `#0089DD` | IT track, primary actions, Gantt bars, active states |
+| `mw-purple` / `biz.DEFAULT` | `biz-purple` | `#7C3AED` | BIZ track, scenario labels, LocalPhase form |
+| `mw-grey` | `sana-border` | medium grey | Borders, muted text |
+| `mw-grey-light` | `sana-muted` | light grey | Scrollbar thumb |
+| `mw-grey-lighter` | `sana-surface` | lightest grey | Scrollbar track, surface-2 background |
+| `mw-dark` | `sana-bg` | dark bg | Dark mode background |
 
 ### 13.3 Gantt Bar Colours
 
@@ -811,7 +813,8 @@ Key global CSS custom properties (declared in `index.css`):
 
 | File | Purpose |
 |---|---|
-| `utils/capacity.ts` | IT + BIZ capacity calculations per quarter/sprint, overallocation warnings |
+| `utils/capacity.ts` | IT + BIZ capacity calculations per quarter/sprint, overallocation warnings. `calculateCapacity()` deducts BAU reserve, time-off, Jira story-point days, **and manual Assignment.days**. |
+| `utils/staffing.ts` | Fit scoring engine: `scoreMember()`, `scoreBusinessContact()`, `rankMemberFits()`, `FIT_COLOURS`. Used by SmartAssignmentPanel, ScenarioWizard, and PlanningBoard. |
 | `utils/calendar.ts` | `getWorkdaysInQuarter()`, `getWorkdaysInDateRange()`, `getCurrentQuarter()`, `generateQuarters()`, `parseQuarter()`, `prorateDaysToWeek()`, `getPhaseRange()`, `formatDisplayDate()` |
 | `utils/confidence.ts` | `getForecastedDays(rawDays, level)`, `computeRollup()` |
 | `utils/sprints.ts` | Sprint generation, `getWorkdaysInSprint()`, quarter → sprint lookup |

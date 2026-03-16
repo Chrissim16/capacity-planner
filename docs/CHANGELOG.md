@@ -5,6 +5,15 @@ Newest entry at the top. Format: `[YYYY-MM-DD] — Short title`.
 
 ---
 
+## [2026-03-16] — Smart Staffing & Planning Board — plan review + docs
+
+### Docs updated
+- `docs/plans/2026-03-13-smart-staffing-planning-board-design.md` — full rewrite following a Mega Plan Review (EXPANSION mode). Incorporates 14 decisions: `calculateCapacity` fix to deduct `Assignment.days` (D1), dual-track BIZ section in SmartAssignmentPanel (D2), `tentativeAssignments` param for live wizard re-scoring (D3), "Base on" toggle in wizard Step 1 (D4), 7-day localStorage dismiss TTL for Dashboard nudge (D5), lazy-load PlanningBoard + @dnd-kit (D6), already-assigned badge (D7), mini capacity bar (D8), animated capacity bar on drop (D9), RBAC gate on Board (D10), `useReducer` for wizard state (D11), `createScenarioWithPlan()` atomic helper (D12), `getWarnings()` reuse for nudge (D13), architecture.md updated in same PR (D14). Full error handling map, test specs, observability logging, and state machine diagram included.
+- `docs/TODOS.md` — new file. Five deferred items with full What/Why/Pros/Cons/Context/Effort/Priority: cross-quarter drag (P2), BIZ board drag (P2), quarterly capacity risk report (P2), skill gap analysis view (P3), contextual wizard entry from existing project (P3).
+- `docs/architecture.md` — three targeted updates: Scenarios page Board sub-mode added to §4.3, `staffing.ts` added to §14 Utilities, brand token table in §13.2 updated to show `sana-*` names alongside legacy `mw-*` names.
+
+---
+
 ## [2026-03-13] — BizPopover Save button always visible
 
 ### Fixed
