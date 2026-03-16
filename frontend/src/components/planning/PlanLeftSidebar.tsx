@@ -220,6 +220,8 @@ function SidebarProjectCard({ id, name, subtitle, isSelected, isDraggable, onSel
   return (
     <div
       ref={setNodeRef}
+      {...(isDraggable ? listeners : {})}
+      {...(isDraggable ? attributes : {})}
       style={{
         ...style,
         borderRadius: 8,
@@ -234,14 +236,12 @@ function SidebarProjectCard({ id, name, subtitle, isSelected, isDraggable, onSel
         isDraggable && 'cursor-grab active:cursor-grabbing',
       )}
     >
-      {/* Drag handle — visible on hover when draggable */}
+      {/* Drag handle — visual affordance only */}
       {isDraggable && (
         <div
-          {...listeners}
-          {...attributes}
-          className="mt-0.5 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity shrink-0 cursor-grab"
+          className="mt-0.5 opacity-0 group-hover:opacity-40 transition-opacity shrink-0 pointer-events-none"
           style={{ color: Text.tertiary }}
-          aria-label="Drag to assign"
+          aria-hidden="true"
         >
           <GripVertical size={13} />
         </div>

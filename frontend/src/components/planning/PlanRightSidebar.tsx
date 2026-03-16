@@ -187,6 +187,8 @@ function DraggableMemberCard({ member, availableDays, selectedQuarter, isDimmed 
   return (
     <div
       ref={setNodeRef}
+      {...listeners}
+      {...attributes}
       style={{
         ...style,
         borderRadius: 8,
@@ -194,15 +196,13 @@ function DraggableMemberCard({ member, availableDays, selectedQuarter, isDimmed 
         backgroundColor: Background.primary,
         opacity: isDragging ? 0 : isDimmed ? 0.35 : 1,
       }}
-      className="flex items-center gap-2 px-3 py-2.5 select-none transition-opacity group hover:shadow-sm"
+      className="flex items-center gap-2 px-3 py-2.5 select-none transition-opacity group hover:shadow-sm cursor-grab active:cursor-grabbing"
     >
-      {/* Drag handle */}
+      {/* Drag handle — visual affordance only */}
       <div
-        {...listeners}
-        {...attributes}
-        className="opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity shrink-0 cursor-grab active:cursor-grabbing"
+        className="opacity-0 group-hover:opacity-40 transition-opacity shrink-0 pointer-events-none"
         style={{ color: Text.tertiary }}
-        aria-label="Drag to assign"
+        aria-hidden="true"
       >
         <GripVertical size={13} />
       </div>

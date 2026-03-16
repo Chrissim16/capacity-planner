@@ -35,6 +35,8 @@ import {
   deleteScenario,
   addProject,
   deleteProject,
+  removeJiraWorkItemFromPlan,
+  restoreJiraWorkItemToPlan,
   promoteScenarioToBaseline,
   openPlan,
   addAssignment,
@@ -247,30 +249,51 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
       const projectName = (data?.projectName as string | undefined) ?? projectId ?? 'project';
       if (!projectId) return;
 
-      // Capture current project + assignments for undo
+      // Determine whether this is a native project or a Jira epic
+      const isNativeProject = (state.projects ?? []).some(p => p.id === projectId);
       const affectedAssignments = (state.assignments ?? []).filter(a => a.projectId === projectId);
-      const affectedProject = (state.projects ?? []).find(p => p.id === projectId);
 
-      deleteProject(projectId);
-
-      showToast(
-        `"${projectName}" removed from plan`,
-        {
-          type: 'info',
-          action: {
-            label: 'Undo',
-            onClick: () => {
-              if (affectedProject) {
+      if (isNativeProject) {
+        const affectedProject = (state.projects ?? []).find(p => p.id === projectId)!;
+        deleteProject(projectId);
+        showToast(
+          `"${projectName}" removed from plan`,
+          {
+            type: 'info',
+            action: {
+              label: 'Undo',
+              onClick: () => {
                 const { id: _id, createdAt: _c, ...projectData } = affectedProject;
                 const restored = addProject(projectData);
                 for (const a of affectedAssignments) {
                   addAssignment({ ...a, projectId: restored.id });
                 }
-              }
+              },
             },
-          },
-        }
-      );
+          }
+        );
+      } else {
+        // Jira epic — remove from jiraWorkItems in this scenario + cascade assignments
+        const affectedEpic = (state.jiraWorkItems ?? []).find(w => w.jiraKey === projectId);
+        removeJiraWorkItemFromPlan(projectId);
+        showToast(
+          `"${projectName}" removed from plan`,
+          {
+            type: 'info',
+            action: {
+              label: 'Undo',
+              onClick: () => {
+                if (affectedEpic) {
+                  restoreJiraWorkItemToPlan(affectedEpic);
+                  for (const a of affectedAssignments) {
+                    addAssignment({ ...a });
+                  }
+                }
+              },
+            },
+          }
+        );
+      }
 
     } else if (type === 'canvas-member') {
       // Person child-row dragged to right sidebar removal zone

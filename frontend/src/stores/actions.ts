@@ -837,6 +837,35 @@ export function removeAssignment(id: string): void {
   });
 }
 
+/**
+ * Remove a Jira work item from the active scenario's jiraWorkItems array and
+ * cascade-delete all assignments that reference it.
+ * Used by the drag-to-remove interaction when the user drops a Jira epic onto the
+ * left sidebar removal zone.
+ */
+export function removeJiraWorkItemFromPlan(jiraKey: string): void {
+  const state = useAppStore.getState();
+  const cs = state.getCurrentState();
+  state.updateData({
+    jiraWorkItems: (cs.jiraWorkItems ?? []).filter(w => w.jiraKey !== jiraKey),
+    assignments: (cs.assignments ?? []).filter(a => a.projectId !== jiraKey),
+  });
+}
+
+/**
+ * Re-add a Jira work item back to the active scenario's jiraWorkItems array.
+ * Used as the undo target after removeJiraWorkItemFromPlan.
+ */
+export function restoreJiraWorkItemToPlan(item: JiraWorkItem): void {
+  const state = useAppStore.getState();
+  const cs = state.getCurrentState();
+  // Avoid duplicates if called twice
+  if ((cs.jiraWorkItems ?? []).some(w => w.jiraKey === item.jiraKey)) return;
+  state.updateData({
+    jiraWorkItems: [...(cs.jiraWorkItems ?? []), item],
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SCENARIO WIZARD HELPER (Decision D12)
 // ═══════════════════════════════════════════════════════════════════════════
