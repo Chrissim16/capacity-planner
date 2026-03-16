@@ -182,6 +182,9 @@ export interface AppState {
   businessContacts: BusinessContact[];
   businessTimeOff: BusinessTimeOff[];
   jiraItemBizAssignments: JiraItemBizAssignment[];
+  // Baseline-level planning data (scenario overrides live in Scenario.projects / Scenario.assignments)
+  projects: Project[];
+  assignments: Assignment[];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -191,7 +194,7 @@ export interface AppState {
 export type CapacityStatus = 'normal' | 'warning' | 'overallocated';
 
 export interface CapacityBreakdownItem {
-  type: 'bau' | 'timeoff' | 'jira';
+  type: 'bau' | 'timeoff' | 'jira' | 'assignment';
   days: number;
   reason?: string;
   jiraKey?: string;
@@ -417,6 +420,40 @@ export interface JiraSyncDiff {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PROJECTS & ASSIGNMENTS (Scenario-native planning)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type ProjectPriority = 'critical' | 'high' | 'medium' | 'low';
+
+/**
+ * A scenario-native project created via the Scenario Wizard or Planning Board.
+ * Not derived from Jira — represents work that is being planned in what-if mode.
+ */
+export interface Project {
+  id: string;
+  name: string;
+  priority: ProjectPriority;
+  requiredSkillIds: string[];
+  /** Target effort in days per quarter, e.g. { "Q2 2026": 20 } */
+  daysPerQuarter: Record<string, number>;
+  createdAt: string;
+}
+
+/**
+ * A manual assignment of a team member (IT or BIZ) to a project or Jira work item.
+ * `projectId` is either a Project.id or a JiraWorkItem.jiraKey depending on context.
+ */
+export interface Assignment {
+  id: string;
+  memberId: string;
+  projectId: string;
+  quarter: string;
+  days: number;
+  /** True when memberId refers to a BusinessContact rather than a TeamMember */
+  isBizContact?: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SCENARIOS (What-If Planning)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -436,4 +473,7 @@ export interface Scenario {
   jiraItemBizAssignments: JiraItemBizAssignment[];
   teamMembers: TeamMember[];
   timeOff: TimeOff[];
+  // Scenario-native planning data (not Jira-derived)
+  projects: Project[];
+  assignments: Assignment[];
 }

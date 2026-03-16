@@ -107,6 +107,8 @@ const defaultAppState: AppState = {
   businessContacts: [],
   businessTimeOff: [],
   jiraItemBizAssignments: [],
+  projects: [],
+  assignments: [],
 };
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -181,6 +183,8 @@ function migrate(data: Partial<AppState>): AppState {
     jiraItemBizAssignments: Array.isArray(d.jiraItemBizAssignments)
       ? d.jiraItemBizAssignments as AppState['jiraItemBizAssignments']
       : [],
+    projects: Array.isArray(d.projects) ? d.projects as AppState['projects'] : [],
+    assignments: Array.isArray(d.assignments) ? d.assignments as AppState['assignments'] : [],
   };
 }
 
@@ -364,7 +368,7 @@ export const useAppStore = create<AppStore>()(
         const data = state.data;
 
         // Scenario-specific fields: overlay into the active scenario if one is set
-        const scenarioFields = ['jiraWorkItems', 'jiraItemBizAssignments', 'teamMembers', 'timeOff'] as const;
+        const scenarioFields = ['jiraWorkItems', 'jiraItemBizAssignments', 'teamMembers', 'timeOff', 'projects', 'assignments'] as const;
         const hasScenarioFieldUpdates = scenarioFields.some(field => field in updates);
 
         if (data.activeScenarioId && hasScenarioFieldUpdates) {
@@ -470,6 +474,8 @@ export const useAppStore = create<AppStore>()(
               jiraItemBizAssignments: activeScenario.jiraItemBizAssignments,
               teamMembers: activeScenario.teamMembers,
               timeOff: activeScenario.timeOff,
+              projects: activeScenario.projects ?? [],
+              assignments: activeScenario.assignments ?? [],
             };
           }
         }

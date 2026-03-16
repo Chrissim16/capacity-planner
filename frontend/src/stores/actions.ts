@@ -16,6 +16,8 @@ import type {
   JiraWorkItem,
   Scenario,
   JiraSyncResult,
+  Project,
+  Assignment,
 } from '../types';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -548,6 +550,8 @@ export function createScenario(name: string, description?: string): Scenario {
     jiraItemBizAssignments: JSON.parse(JSON.stringify(currentState.jiraItemBizAssignments)),
     teamMembers: JSON.parse(JSON.stringify(currentState.teamMembers)),
     timeOff: JSON.parse(JSON.stringify(currentState.timeOff)),
+    projects: [],
+    assignments: [],
   };
 
   const scenarios = [...currentState.scenarios, newScenario];
@@ -728,5 +732,56 @@ export function removeJiraItemBizAssignment(id: string): void {
   const state = useAppStore.getState();
   state.updateData({
     jiraItemBizAssignments: state.getCurrentState().jiraItemBizAssignments.filter(a => a.id !== id),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROJECT ACTIONS (scenario-native planning)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function addProject(data: Omit<Project, 'id' | 'createdAt'>): Project {
+  const state = useAppStore.getState();
+  const project: Project = {
+    ...data,
+    id: generateId('project'),
+    createdAt: new Date().toISOString(),
+  };
+  state.updateData({ projects: [...(state.getCurrentState().projects ?? []), project] });
+  return project;
+}
+
+export function updateProject(id: string, updates: Partial<Omit<Project, 'id' | 'createdAt'>>): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    projects: (state.getCurrentState().projects ?? []).map(p =>
+      p.id === id ? { ...p, ...updates } : p
+    ),
+  });
+}
+
+export function deleteProject(id: string): void {
+  const state = useAppStore.getState();
+  const cs = state.getCurrentState();
+  state.updateData({
+    projects: (cs.projects ?? []).filter(p => p.id !== id),
+    assignments: (cs.assignments ?? []).filter(a => a.projectId !== id),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ASSIGNMENT ACTIONS (scenario-native planning)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function addAssignment(data: Omit<Assignment, 'id'>): Assignment {
+  const state = useAppStore.getState();
+  const assignment: Assignment = { ...data, id: generateId('assignment') };
+  state.updateData({ assignments: [...(state.getCurrentState().assignments ?? []), assignment] });
+  return assignment;
+}
+
+export function removeAssignment(id: string): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    assignments: (state.getCurrentState().assignments ?? []).filter(a => a.id !== id),
   });
 }
