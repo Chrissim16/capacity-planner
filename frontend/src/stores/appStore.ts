@@ -135,6 +135,8 @@ interface UIState {
   epicFilters: EpicFilters;
   epicsSortConfig: SortConfig;
   dashboardPeopleFilter: DashboardPeopleFilter;
+  /** Controls whether the Planning page shows the hub (card grid) or the active board */
+  planningSubView: 'hub' | 'board';
 }
 
 const defaultUIState: UIState = {
@@ -146,6 +148,7 @@ const defaultUIState: UIState = {
   epicFilters: { search: '', priority: '', status: '', label: '', squad: '', processTeam: '', itMember: '', bizContact: '' },
   epicsSortConfig: { field: '', direction: 'asc' },
   dashboardPeopleFilter: 'both',
+  planningSubView: 'hub',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -252,6 +255,7 @@ interface AppStore {
   setEpicsSort: (sort: SortConfig) => void;
   toggleDarkMode: () => void;
   setDashboardPeopleFilter: (filter: DashboardPeopleFilter) => void;
+  setPlanningSubView: (view: 'hub' | 'board') => void;
 
   getCurrentState: () => AppState;
   syncToStorage: () => void;
@@ -462,6 +466,9 @@ export const useAppStore = create<AppStore>()(
       setDashboardPeopleFilter: (filter) =>
         set((state) => ({ ui: { ...state.ui, dashboardPeopleFilter: filter } })),
 
+      setPlanningSubView: (view) =>
+        set((state) => ({ ui: { ...state.ui, planningSubView: view } })),
+
       getCurrentState: () => {
         const state = get();
         const data = state.data;
@@ -527,3 +534,4 @@ export const useActiveScenario = () => useAppStore(useShallow((state) => {
 }));
 
 export const useCurrentState = () => useAppStore(useShallow((state) => state.getCurrentState()));
+export const usePlanningSubView = () => useAppStore((state) => state.ui.planningSubView);

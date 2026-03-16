@@ -530,8 +530,39 @@ export function updateJiraWorkItemConfidence(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SCENARIO ACTIONS
+// SCENARIO / PLAN ACTIONS
 // ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create a new plan (scenario) with either a full data snapshot or a blank canvas.
+ *
+ * @param name - Display name for the plan.
+ * @param description - Optional notes.
+ * @param mode - 'current' copies baseline data; 'blank' starts with empty team/Jira/time-off.
+ * @param lastEditedBy - Optional email of the creating user, stored for hub display.
+ */
+export function createPlan(
+  name: string,
+  description?: string,
+  mode: 'current' | 'blank' = 'current',
+  lastEditedBy?: string,
+): Scenario {
+  const scenario = createScenario(name, description);
+  if (mode === 'blank') {
+    const state = useAppStore.getState();
+    // Clear snapshotted arrays — writes go into the active scenario overlay
+    state.updateData({
+      jiraWorkItems: [],
+      jiraItemBizAssignments: [],
+      teamMembers: [],
+      timeOff: [],
+    });
+  }
+  if (lastEditedBy) {
+    updateScenario(scenario.id, { lastEditedBy });
+  }
+  return scenario;
+}
 
 export function createScenario(name: string, description?: string): Scenario {
   const state = useAppStore.getState();
@@ -579,7 +610,7 @@ export function duplicateScenario(scenarioId: string, newName: string): Scenario
   return newScenario;
 }
 
-export function updateScenario(scenarioId: string, updates: Partial<Pick<Scenario, 'name' | 'description' | 'color'>>): void {
+export function updateScenario(scenarioId: string, updates: Partial<Pick<Scenario, 'name' | 'description' | 'color' | 'lastEditedBy'>>): void {
   const state = useAppStore.getState();
   state.updateData({
     scenarios: state.getCurrentState().scenarios.map(s =>
@@ -598,6 +629,26 @@ export function deleteScenario(scenarioId: string): void {
 
 export function switchScenario(scenarioId: string | null): void {
   useAppStore.getState().updateData({ activeScenarioId: scenarioId });
+}
+
+/**
+ * Open a plan in the Planning Board view.
+ * Sets the scenario as active and switches the planning sub-view to 'board'.
+ */
+export function openPlan(scenarioId: string): void {
+  const store = useAppStore.getState();
+  store.updateData({ activeScenarioId: scenarioId });
+  store.setPlanningSubView('board');
+}
+
+/**
+ * Close the active plan and return to the Planning Hub.
+ * Clears the active scenario and switches the planning sub-view to 'hub'.
+ */
+export function closePlan(): void {
+  const store = useAppStore.getState();
+  store.updateData({ activeScenarioId: null });
+  store.setPlanningSubView('hub');
 }
 
 /**

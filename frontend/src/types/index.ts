@@ -223,7 +223,7 @@ export interface MemberCapacitySummary {
 // UI STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'settings';
+export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'planning' | 'settings';
 export type TeamViewMode = 'current' | 'all';
 export type TimelineViewMode = 'week' | 'month' | 'quarter' | 'year';
 
@@ -466,6 +466,8 @@ export interface Scenario {
   color?: ScenarioColor;
   createdAt: string;
   updatedAt: string;
+  /** Email or display name of the user who last edited this plan */
+  lastEditedBy?: string;
   basedOnSyncAt?: string;
   isBaseline: boolean;
   // Scenario-specific data (copied from baseline, then editable)

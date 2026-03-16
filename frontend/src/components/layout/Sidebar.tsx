@@ -2,7 +2,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
-  Layers,
   Loader2,
   Settings,
   Users,
@@ -12,12 +11,14 @@ import {
   LayoutDashboard,
   AlertCircle,
   LogOut,
+  Map,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ScenarioSelector } from '../ScenarioSelector';
 import { useAppStore, useSyncStatus } from '../../stores/appStore';
+import { closePlan } from '../../stores/actions';
 import type { ViewType } from '../../types';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { supabase, isSupabaseConfigured } from '../../services/supabase';
@@ -29,6 +30,7 @@ const VIEW_TO_PATH: Record<ViewType, string> = {
   jira:      '/epics',
   team:      '/team',
   scenarios: '/scenarios',
+  planning:  '/planning',
   settings:  '/settings',
 };
 
@@ -38,6 +40,7 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
   '/epics':     'projects',
   '/team':      'team',
   '/scenarios': 'scenarios',
+  '/planning':  'planning',
   '/settings':  'settings',
 };
 
@@ -46,7 +49,7 @@ const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string }[
   { view: 'timeline',  icon: Calendar,        label: 'Timeline' },
   { view: 'projects',  icon: FolderKanban,    label: 'Epics' },
   { view: 'team',      icon: Users,           label: 'Team' },
-  { view: 'scenarios', icon: Layers,          label: 'Scenarios' },
+  { view: 'planning',  icon: Map,             label: 'Planning' },
   { view: 'settings',  icon: Settings,        label: 'Settings' },
 ];
 
@@ -146,6 +149,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           <Link
             key={view}
             to={VIEW_TO_PATH[view]}
+            onClick={view === 'planning' ? () => closePlan() : undefined}
             className={clsx(
               'w-full flex items-center transition-colors duration-150 border-l-[3px]',
               collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-4 py-2.5',
