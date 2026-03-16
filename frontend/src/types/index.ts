@@ -372,6 +372,8 @@ export interface JiraWorkItem {
   staleFromJira?: boolean;
   /** Per-item confidence override. Falls back to JiraSettings.defaultConfidenceLevel. */
   confidenceLevel?: ConfidenceLevel;
+  /** Hierarchy level — used by the Planning Board to build the Epic → Feature → Story tree. */
+  hierarchyLevel?: 'epic' | 'feature' | 'story' | 'subtask';
 }
 
 /**
@@ -451,6 +453,10 @@ export interface Assignment {
   days: number;
   /** True when memberId refers to a BusinessContact rather than a TeamMember */
   isBizContact?: boolean;
+  /** ISO 8601 start date for sub-quarter precision. When set, `quarter` is derived from this date. */
+  startDate?: string;
+  /** ISO 8601 end date for sub-quarter precision. `days` is recomputed from the range when set. */
+  endDate?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1,14 +1,18 @@
 /**
- * AssignPopover — search + days input for "+ Assign person/project" actions.
+ * AssignPopover — search + days/dates input for assignment actions.
  *
  * In People view: searches projects (IT or BIZ) to assign to a person.
  * In Projects view: searches members (IT) ranked by available capacity using scoreMember.
+ *
+ * v2.1: Adds "By days" / "By dates" mode toggle. In "By dates" mode the user picks
+ * start + end dates, and days are computed automatically from the working-day range.
  */
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Search, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useCurrentState } from '../../stores/appStore';
 import { scoreMember } from '../../utils/staffing';
+import { getWorkdaysInDateRange } from '../../utils/calendar';
 import { Accent, Background, Border, Text, Semantic, Biz } from '../../theme/tokens';
 import type { JiraWorkItem, Project, TeamMember } from '../../types';
 
@@ -17,6 +21,7 @@ import type { JiraWorkItem, Project, TeamMember } from '../../types';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type AssignMode = 'project' | 'person';
+export type AssignInputMode = 'days' | 'dates';
 
 interface AssignProjectResult {
   type: 'project';
@@ -37,22 +42,34 @@ interface AssignPersonResult {
 
 type AssignResult = AssignProjectResult | AssignJiraResult | AssignPersonResult;
 
-interface AssignPopoverProps {
+export interface AssignPopoverProps {
   mode: AssignMode;
   quarter: string;
-  /** In People view: the memberId this will be assigned to (used to filter out already-assigned projects) */
+  /** In People view: the memberId this will be assigned to */
   memberId?: string;
-  /** In Projects view: the projectId this will be assigned from (used to filter out already-assigned members) */
+  /** In Projects view: the projectId this will be assigned from */
   projectId?: string;
   /** IDs of projects already assigned in this quarter for this member (People view) */
   assignedProjectIds?: Set<string>;
   /** IDs of members already assigned in this quarter for this project (Projects view) */
   assignedMemberIds?: Set<string>;
-  onAssign: (targetId: string, days: number) => void;
+  onAssign: (targetId: string, days: number, startDate?: string, endDate?: string) => void;
   onClose: () => void;
 }
 
 const DEFAULT_DAYS = 10;
+
+/** Derives a quarter string from an ISO date, e.g. "2026-03-15" → "Q1 2026" */
+function dateToQuarter(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const q = Math.floor(d.getMonth() / 3) + 1;
+  return `Q${q} ${d.getFullYear()}`;
+}
+
+/** Today's date as YYYY-MM-DD */
+function todayIso(): string {
+  return new Date().toISOString().split('T')[0];
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
@@ -70,8 +87,27 @@ export function AssignPopover({
   const [search, setSearch] = useState('');
   const [days, setDays] = useState(DEFAULT_DAYS);
   const [selected, setSelected] = useState<AssignResult | null>(null);
+  const [inputMode, setInputMode] = useState<AssignInputMode>('days');
+  const [startDate, setStartDate] = useState(todayIso);
+  const [endDate, setEndDate] = useState(() => {
+    // Default end = 2 weeks after start
+    const d = new Date();
+    d.setDate(d.getDate() + 13);
+    return d.toISOString().split('T')[0];
+  });
   const popoverRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Computed days from date range (read-only in "by dates" mode)
+  const computedDays = useMemo(() => {
+    if (inputMode !== 'dates' || !startDate || !endDate) return days;
+    return getWorkdaysInDateRange(startDate, endDate);
+  }, [inputMode, startDate, endDate, days]);
+
+  const derivedQuarter = useMemo(() => {
+    if (inputMode === 'dates' && startDate) return dateToQuarter(startDate);
+    return quarter;
+  }, [inputMode, startDate, quarter]);
 
   // Focus search on mount
   useEffect(() => { searchRef.current?.focus(); }, []);
@@ -99,7 +135,6 @@ export function AssignPopover({
     const q = search.toLowerCase();
 
     if (mode === 'project') {
-      // Native plan projects
       const nativeResults: AssignResult[] = (state.projects ?? [])
         .filter(p => {
           if (assignedProjectIds?.has(p.id)) return false;
@@ -108,7 +143,6 @@ export function AssignPopover({
         })
         .map(p => ({ type: 'project' as const, project: p }));
 
-      // Jira epics from the scenario snapshot (not-done only)
       const jiraResults: AssignResult[] = (state.jiraWorkItems ?? [])
         .filter(w => {
           if (w.type !== 'epic') return false;
@@ -121,7 +155,6 @@ export function AssignPopover({
 
       return [...nativeResults, ...jiraResults];
     } else {
-      // Show members ranked by available capacity
       const members = state.teamMembers.filter(m => {
         if (m.excludedFromCapacity) return false;
         if (assignedMemberIds?.has(m.id)) return false;
@@ -144,14 +177,21 @@ export function AssignPopover({
   }, [mode, search, state, assignedProjectIds, assignedMemberIds, quarter]);
 
   const handleConfirm = useCallback(() => {
-    if (!selected || days <= 0) return;
+    if (!selected) return;
+    const effectiveDays = inputMode === 'dates' ? computedDays : days;
+    if (effectiveDays <= 0) return;
     let targetId: string;
     if (selected.type === 'project') targetId = selected.project.id;
     else if (selected.type === 'jira') targetId = selected.item.jiraKey;
     else targetId = selected.member.id;
-    onAssign(targetId, days);
+    onAssign(
+      targetId,
+      effectiveDays,
+      inputMode === 'dates' ? startDate : undefined,
+      inputMode === 'dates' ? endDate : undefined,
+    );
     onClose();
-  }, [selected, days, onAssign, onClose]);
+  }, [selected, days, inputMode, computedDays, startDate, endDate, onAssign, onClose]);
 
   return (
     <div
@@ -160,7 +200,7 @@ export function AssignPopover({
       style={{
         backgroundColor: Background.card,
         borderColor: Border.subtle,
-        width: 280,
+        width: 300,
         top: '100%',
         left: 0,
         marginTop: 4,
@@ -253,30 +293,113 @@ export function AssignPopover({
         )}
       </div>
 
-      {/* Days + confirm */}
+      {/* Days / dates input */}
       {selected && (
         <div
-          className="flex items-center gap-2 px-3 py-2.5 border-t"
+          className="border-t"
           style={{ borderColor: Border.subtle, backgroundColor: Background.secondary }}
         >
-          <span className="text-xs shrink-0" style={{ color: Text.secondary }}>Days</span>
-          <input
-            type="number"
-            min={1}
-            max={999}
-            value={days}
-            onChange={(e) => setDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
-            className="w-16 border rounded px-2 py-1 text-sm text-center outline-none focus:ring-2 focus:ring-sana-teal"
-            style={{ borderColor: Border.subtle, color: Text.primary }}
-          />
-          <button
-            className="ml-auto px-3 py-1 rounded-lg text-xs font-medium text-white focus:ring-2 focus:ring-sana-teal"
-            style={{ backgroundColor: Accent.teal }}
-            onClick={handleConfirm}
-          >
-            Assign
-          </button>
+          {/* Input mode toggle */}
+          <div className="flex items-center gap-0 px-3 pt-2.5 pb-1">
+            <button
+              className={clsx(
+                'px-2.5 py-1 text-[11px] font-medium rounded-l-md border transition-colors focus:ring-2 focus:ring-inset focus:ring-sana-teal',
+                inputMode === 'days'
+                  ? 'text-white'
+                  : 'hover:bg-[#F5F3F0]'
+              )}
+              style={
+                inputMode === 'days'
+                  ? { backgroundColor: Accent.teal, borderColor: Accent.teal, color: '#fff' }
+                  : { borderColor: Border.subtle, color: Text.secondary, backgroundColor: Background.card }
+              }
+              onClick={() => setInputMode('days')}
+              aria-pressed={inputMode === 'days'}
+            >
+              By days
+            </button>
+            <button
+              className={clsx(
+                'px-2.5 py-1 text-[11px] font-medium rounded-r-md border-t border-b border-r transition-colors focus:ring-2 focus:ring-inset focus:ring-sana-teal',
+                inputMode === 'dates'
+                  ? 'text-white'
+                  : 'hover:bg-[#F5F3F0]'
+              )}
+              style={
+                inputMode === 'dates'
+                  ? { backgroundColor: Accent.teal, borderColor: Accent.teal, color: '#fff' }
+                  : { borderColor: Border.subtle, color: Text.secondary, backgroundColor: Background.card }
+              }
+              onClick={() => setInputMode('dates')}
+              aria-pressed={inputMode === 'dates'}
+            >
+              By dates
+            </button>
+          </div>
+
+          {/* By days inputs */}
+          {inputMode === 'days' && (
+            <div className="flex items-center gap-2 px-3 pb-2.5">
+              <span className="text-xs shrink-0" style={{ color: Text.secondary }}>Days</span>
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={days}
+                onChange={(e) => setDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
+                className="w-16 border rounded px-2 py-1 text-sm text-center outline-none focus:ring-2 focus:ring-sana-teal"
+                style={{ borderColor: Border.subtle, color: Text.primary, backgroundColor: Background.card }}
+              />
+              <button
+                className="ml-auto px-3 py-1 rounded-lg text-xs font-medium text-white focus:ring-2 focus:ring-sana-teal"
+                style={{ backgroundColor: Accent.teal }}
+                onClick={handleConfirm}
+              >
+                Assign
+              </button>
+            </div>
+          )}
+
+          {/* By dates inputs */}
+          {inputMode === 'dates' && (
+            <div className="px-3 pb-2.5 flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs shrink-0 w-12" style={{ color: Text.secondary }}>Start</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="flex-1 border rounded px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-sana-teal"
+                  style={{ borderColor: Border.subtle, color: Text.primary, backgroundColor: Background.card }}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs shrink-0 w-12" style={{ color: Text.secondary }}>End</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="flex-1 border rounded px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-sana-teal"
+                  style={{ borderColor: Border.subtle, color: Text.primary, backgroundColor: Background.card }}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-0.5">
+                <span className="text-[10px]" style={{ color: Text.tertiary }}>
+                  {computedDays}d workdays · {derivedQuarter}
+                </span>
+                <button
+                  className="px-3 py-1 rounded-lg text-xs font-medium text-white focus:ring-2 focus:ring-sana-teal"
+                  style={{ backgroundColor: Accent.teal }}
+                  onClick={handleConfirm}
+                  disabled={computedDays <= 0}
+                >
+                  Assign
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

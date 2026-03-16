@@ -1,15 +1,18 @@
 /**
  * PlanningBoardV2 — Three-panel Gantt-style Planning Board.
  *
- * Left panel:  PlanLeftSidebar  — collapsible project list
+ * Left panel:  PlanLeftSidebar  — collapsible project list (draggable in People view)
  * Center:      PlanningGrid     — Gantt grid (hero surface)
  * Right panel: PlanRightSidebar — collapsible draggable team list
  *
  * Top bar: plan name (inline editable), quarter selector, People/Projects toggle,
- * Promote to Baseline, dot menu.
+ * Quarter|Month|Week granularity toggle, Promote to Baseline, dot menu.
  *
- * Drag-and-drop (via @dnd-kit/core): drag a team member from the right sidebar
- * onto a project row in the center grid → DropDaysModal asks for days → addAssignment.
+ * Drag-and-drop (via @dnd-kit/core):
+ *  - type 'member':         right sidebar → project row → DropDaysModal → addAssignment
+ *  - type 'sidebar-project': left sidebar → person row → DropDaysModal → addAssignment
+ *  - type 'canvas-project': project row header → left sidebar remove zone → deleteProject (+ cascade assignments)
+ *  - type 'canvas-member':  person child-row → right sidebar remove zone → remove all assignments for member on that project
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import {
@@ -30,9 +33,12 @@ import {
   updateScenario,
   duplicateScenario,
   deleteScenario,
+  addProject,
+  deleteProject,
   promoteScenarioToBaseline,
   openPlan,
   addAssignment,
+  removeAssignment,
 } from '../stores/actions';
 import { scoreMember } from '../utils/staffing';
 import type { FitLevel } from '../utils/staffing';
@@ -41,10 +47,21 @@ import { ConfirmModal } from './ui/ConfirmModal';
 import { useToast } from './ui/Toast';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { PlanningGrid } from './planning/PlanningGrid';
-import type { PlanningViewMode } from './planning/PlanningGrid';
-import { PlanLeftSidebar } from './planning/PlanLeftSidebar';
-import { PlanRightSidebar } from './planning/PlanRightSidebar';
+import type { PlanningViewMode, PlanningGranularity } from './planning/PlanningGrid';
+import { PlanLeftSidebar, LEFT_SIDEBAR_REMOVE_ZONE_ID } from './planning/PlanLeftSidebar';
+import type { ActiveDragType } from './planning/PlanLeftSidebar';
+import { PlanRightSidebar, RIGHT_SIDEBAR_REMOVE_ZONE_ID } from './planning/PlanRightSidebar';
 import { Accent, Background, Border, Text, Semantic } from '../theme/tokens';
+
+const GRANULARITY_KEY = 'planningBoard.granularity';
+
+function loadGranularity(): PlanningGranularity {
+  try {
+    const stored = localStorage.getItem(GRANULARITY_KEY);
+    if (stored === 'month' || stored === 'week' || stored === 'quarter') return stored;
+  } catch { /* ignore */ }
+  return 'quarter';
+}
 
 interface PlanningBoardV2Props {
   onBack: () => void;
@@ -56,6 +73,8 @@ interface DropTarget {
   memberId: string;
   memberName: string;
   defaultDays: number;
+  /** When set, the target is a person row (sidebar-project drag) */
+  targetType: 'project-row' | 'person-row';
 }
 
 export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
@@ -72,6 +91,7 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
 
   // ── View state ────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<PlanningViewMode>('projects');
+  const [granularity, setGranularity] = useState<PlanningGranularity>(loadGranularity);
   const [boardQuarter, setBoardQuarter] = useState<string>(() => quarters[0] ?? '');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
@@ -81,7 +101,9 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
 
   // ── Drag-and-drop state ───────────────────────────────────────────────────
   const [activeDragMemberId, setActiveDragMemberId] = useState<string | null>(null);
+  const [activeDragType, setActiveDragType] = useState<ActiveDragType>(null);
   const [dragScores, setDragScores] = useState<Record<string, FitLevel>>({});
+  const [memberDragScores, setMemberDragScores] = useState<Record<string, FitLevel>>({});
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
 
   // ── Top bar edit state ────────────────────────────────────────────────────
@@ -125,55 +147,166 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
     return () => document.removeEventListener('mousedown', handler);
   }, [menuOpen]);
 
+  // Persist granularity to localStorage
+  const handleGranularityChange = useCallback((g: PlanningGranularity) => {
+    setGranularity(g);
+    try { localStorage.setItem(GRANULARITY_KEY, g); } catch { /* ignore */ }
+  }, []);
+
   // ── DnD sensors ──────────────────────────────────────────────────────────
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor),
   );
 
-  // Pre-score all projects for the dragged member once on drag start
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const memberId = event.active.id as string;
-    const member = state.teamMembers.find(m => m.id === memberId);
-    if (!member) return;
+    const data = event.active.data.current as Record<string, unknown> | undefined;
+    const type = data?.type as ActiveDragType | undefined;
 
-    setActiveDragMemberId(memberId);
+    setActiveDragType(type ?? null);
 
-    const scores: Record<string, FitLevel> = {};
-    for (const project of state.projects ?? []) {
-      const fit = scoreMember(member, boardQuarter, project.requiredSkillIds ?? [], project.id, state);
-      scores[project.id] = fit.fitLevel;
+    if (type === 'member') {
+      // Right-sidebar member being dragged → score projects
+      const memberId = event.active.id as string;
+      const member = state.teamMembers.find(m => m.id === memberId);
+      if (!member) return;
+
+      setActiveDragMemberId(memberId);
+      const scores: Record<string, FitLevel> = {};
+      for (const project of state.projects ?? []) {
+        const fit = scoreMember(member, boardQuarter, project.requiredSkillIds ?? [], project.id, state);
+        scores[project.id] = fit.fitLevel;
+      }
+      for (const epic of (state.jiraWorkItems ?? []).filter(w => w.type === 'epic' && w.statusCategory !== 'done')) {
+        const fit = scoreMember(member, boardQuarter, [], epic.jiraKey, state);
+        scores[epic.jiraKey] = fit.fitLevel;
+      }
+      setDragScores(scores);
+    } else if (type === 'sidebar-project') {
+      // Left-sidebar project being dragged (People view) → score members
+      const scores: Record<string, FitLevel> = {};
+      for (const member of (state.teamMembers ?? []).filter(m => !m.excludedFromCapacity)) {
+        const fit = scoreMember(member, boardQuarter, [], '', state, []);
+        scores[member.id] = fit.fitLevel;
+      }
+      setMemberDragScores(scores);
     }
-    for (const epic of (state.jiraWorkItems ?? []).filter(w => w.type === 'epic' && w.statusCategory !== 'done')) {
-      const fit = scoreMember(member, boardQuarter, [], epic.jiraKey, state);
-      scores[epic.jiraKey] = fit.fitLevel;
-    }
-    setDragScores(scores);
   }, [state, boardQuarter]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const data = event.active.data.current as Record<string, unknown> | undefined;
+    const type = data?.type as string | undefined;
+    const overId = event.over?.id as string | undefined;
+
+    // Reset all drag state
     setActiveDragMemberId(null);
+    setActiveDragType(null);
     setDragScores({});
+    setMemberDragScores({});
 
-    const memberId = event.active.id as string;
-    const projectId = event.over?.id as string | undefined;
-    if (!projectId) return;
+    if (!overId) return;
 
-    const member = state.teamMembers.find(m => m.id === memberId);
-    if (!member) return;
+    if (type === 'member') {
+      // Member dropped on a project row
+      const memberId = event.active.id as string;
+      const projectId = overId;
+      if (!projectId || projectId === LEFT_SIDEBAR_REMOVE_ZONE_ID || projectId === RIGHT_SIDEBAR_REMOVE_ZONE_ID) return;
 
-    const cap = calculateCapacity(memberId, boardQuarter, state);
-    const defaultDays = Math.min(5, Math.max(1, Math.round(cap.availableDays)));
+      const member = state.teamMembers.find(m => m.id === memberId);
+      if (!member) return;
 
-    const project = (state.projects ?? []).find(p => p.id === projectId);
-    const jiraEpic = !project
-      ? (state.jiraWorkItems ?? []).find(w => w.jiraKey === projectId)
-      : null;
-    const projectName = project?.name
-      ?? (jiraEpic ? `${jiraEpic.jiraKey}: ${jiraEpic.summary}` : projectId);
+      const cap = calculateCapacity(memberId, boardQuarter, state);
+      const defaultDays = Math.min(5, Math.max(1, Math.round(cap.availableDays)));
 
-    setDropTarget({ projectId, projectName, memberId, memberName: member.name, defaultDays });
-  }, [state, boardQuarter]);
+      const project = (state.projects ?? []).find(p => p.id === projectId);
+      const jiraEpic = !project ? (state.jiraWorkItems ?? []).find(w => w.jiraKey === projectId) : null;
+      const projectName = project?.name ?? (jiraEpic ? `${jiraEpic.jiraKey}: ${jiraEpic.summary}` : projectId);
+
+      setDropTarget({ projectId, projectName, memberId, memberName: member.name, defaultDays, targetType: 'project-row' });
+
+    } else if (type === 'sidebar-project') {
+      // Project dragged from left sidebar → dropped on a person row
+      if (!overId.startsWith('person-row-')) return;
+      const memberId = overId.replace('person-row-', '');
+      const projectId = data?.projectId as string | undefined;
+      const projectName = (data?.projectName as string | undefined) ?? projectId ?? '';
+      if (!memberId || !projectId) return;
+
+      const member = state.teamMembers.find(m => m.id === memberId);
+      if (!member) return;
+
+      const cap = calculateCapacity(memberId, boardQuarter, state);
+      const defaultDays = Math.min(5, Math.max(1, Math.round(cap.availableDays)));
+
+      setDropTarget({ projectId, projectName, memberId, memberName: member.name, defaultDays, targetType: 'person-row' });
+
+    } else if (type === 'canvas-project') {
+      // Project row dragged to left sidebar removal zone
+      if (overId !== LEFT_SIDEBAR_REMOVE_ZONE_ID) return;
+      const projectId = data?.projectId as string | undefined;
+      const projectName = (data?.projectName as string | undefined) ?? projectId ?? 'project';
+      if (!projectId) return;
+
+      // Capture current project + assignments for undo
+      const affectedAssignments = (state.assignments ?? []).filter(a => a.projectId === projectId);
+      const affectedProject = (state.projects ?? []).find(p => p.id === projectId);
+
+      deleteProject(projectId);
+
+      showToast(
+        `"${projectName}" removed from plan`,
+        {
+          type: 'info',
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              if (affectedProject) {
+                const { id: _id, createdAt: _c, ...projectData } = affectedProject;
+                const restored = addProject(projectData);
+                for (const a of affectedAssignments) {
+                  addAssignment({ ...a, projectId: restored.id });
+                }
+              }
+            },
+          },
+        }
+      );
+
+    } else if (type === 'canvas-member') {
+      // Person child-row dragged to right sidebar removal zone
+      if (overId !== RIGHT_SIDEBAR_REMOVE_ZONE_ID) return;
+      const memberId = data?.memberId as string | undefined;
+      const memberName = (data?.memberName as string | undefined) ?? 'member';
+      const fromProjectId = data?.fromProjectId as string | undefined;
+      if (!memberId || !fromProjectId) return;
+
+      const toRemove = (state.assignments ?? []).filter(
+        a => a.memberId === memberId && a.projectId === fromProjectId
+      );
+      const projectDisplay = (state.projects ?? []).find(p => p.id === fromProjectId)?.name
+        ?? (state.jiraWorkItems ?? []).find(w => w.jiraKey === fromProjectId)?.summary
+        ?? fromProjectId;
+
+      for (const a of toRemove) {
+        removeAssignment(a.id);
+      }
+
+      showToast(
+        `${memberName} removed from ${projectDisplay}`,
+        {
+          type: 'info',
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              for (const a of toRemove) {
+                addAssignment({ ...a });
+              }
+            },
+          },
+        }
+      );
+    }
+  }, [state, boardQuarter, showToast]);
 
   // ── Top bar actions ───────────────────────────────────────────────────────
   const handleSaveName = useCallback(() => {
@@ -238,7 +371,7 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
 
       {/* ── Top bar ──────────────────────────────────────────────────────────── */}
       <div
-        className="flex items-center gap-3 px-5 py-3 border-b shrink-0"
+        className="flex items-center gap-3 px-5 py-3 border-b shrink-0 flex-wrap"
         style={{ borderColor: Border.subtle, backgroundColor: Background.card }}
       >
         {/* Back button */}
@@ -303,9 +436,9 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
           ))}
         </select>
 
-        {/* View toggle */}
+        {/* View toggle (People / Projects) */}
         <div
-          className="flex rounded-lg overflow-hidden border ml-auto"
+          className="flex rounded-lg overflow-hidden border"
           style={{ borderColor: Border.subtle }}
           role="group"
           aria-label="View toggle"
@@ -319,6 +452,30 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
             label="Projects"
             active={viewMode === 'projects'}
             onClick={() => setViewMode('projects')}
+          />
+        </div>
+
+        {/* Granularity toggle (Quarter / Month / Week) */}
+        <div
+          className="flex rounded-lg overflow-hidden border ml-auto"
+          style={{ borderColor: Border.subtle }}
+          role="group"
+          aria-label="Timeline granularity"
+        >
+          <ViewToggleButton
+            label="Quarter"
+            active={granularity === 'quarter'}
+            onClick={() => handleGranularityChange('quarter')}
+          />
+          <ViewToggleButton
+            label="Month"
+            active={granularity === 'month'}
+            onClick={() => handleGranularityChange('month')}
+          />
+          <ViewToggleButton
+            label="Week"
+            active={granularity === 'week'}
+            onClick={() => handleGranularityChange('week')}
           />
         </div>
 
@@ -387,14 +544,19 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
             onProjectSelect={setSelectedProjectId}
             collapsed={leftCollapsed}
             onToggleCollapse={() => setLeftCollapsed(v => !v)}
+            activeDragType={activeDragType}
+            viewMode={viewMode}
           />
 
           {/* Center — Gantt grid (hero) */}
           <div className="flex-1 overflow-hidden">
             <PlanningGrid
               viewMode={viewMode}
+              granularity={granularity}
               dragScores={dragScores}
+              memberDragScores={memberDragScores}
               selectedProjectId={selectedProjectId}
+              isBaseline={activeScenario.isBaseline}
             />
           </div>
 
@@ -404,38 +566,20 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
             activeDragMemberId={activeDragMemberId}
             collapsed={rightCollapsed}
             onToggleCollapse={() => setRightCollapsed(v => !v)}
+            activeDragType={activeDragType}
           />
         </div>
 
         {/* Floating drag overlay */}
         <DragOverlay dropAnimation={null}>
           {activeDragMember ? (
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-xl border shadow-lg select-none"
-              style={{
-                backgroundColor: Background.card,
-                borderColor: Accent.teal,
-                transform: CSS.Transform.toString({ x: 0, y: 0, scaleX: 1.02, scaleY: 1.02 }),
-              }}
-            >
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold text-white shrink-0"
-                style={{ backgroundColor: Accent.teal }}
-              >
-                {activeDragMember.name.slice(0, 1).toUpperCase()}
-              </div>
-              <div>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-medium" style={{ color: Text.primary }}>
-                    {activeDragMember.name}
-                  </span>
-                  <span className="text-[9px] font-semibold" style={{ color: Accent.teal }}>IT</span>
-                </div>
-                <span className="text-[10px]" style={{ color: Text.tertiary }}>
-                  Drop on a project to assign
-                </span>
-              </div>
-            </div>
+            <MemberDragOverlay member={activeDragMember} />
+          ) : activeDragType === 'sidebar-project' ? (
+            <ProjectDragOverlay />
+          ) : activeDragType === 'canvas-project' ? (
+            <CanvasDragOverlay label="Remove from plan" />
+          ) : activeDragType === 'canvas-member' ? (
+            <CanvasDragOverlay label="Remove from project" />
           ) : null}
         </DragOverlay>
       </DndContext>
@@ -445,12 +589,17 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
         <DropDaysModal
           target={dropTarget}
           quarter={boardQuarter}
-          onConfirm={(days) => {
+          onConfirm={(days, startDate, endDate) => {
+            const effectiveQuarter = startDate
+              ? deriveQuarter(startDate)
+              : boardQuarter;
             addAssignment({
               memberId: dropTarget.memberId,
               projectId: dropTarget.projectId,
-              quarter: boardQuarter,
+              quarter: effectiveQuarter,
               days,
+              startDate,
+              endDate,
             });
             showToast(
               `Assigned ${days}d to ${dropTarget.memberName} on ${dropTarget.projectName}`,
@@ -490,20 +639,29 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DropDaysModal — lightweight modal shown after dropping a member on a project
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function deriveQuarter(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const q = Math.floor(d.getMonth() / 3) + 1;
+  return `Q${q} ${d.getFullYear()}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DropDaysModal — shown after dropping a member/project
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface DropDaysModalProps {
   target: DropTarget;
   quarter: string;
-  onConfirm: (days: number) => void;
+  onConfirm: (days: number, startDate?: string, endDate?: string) => void;
   onClose: () => void;
 }
 
 function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalProps) {
   const [days, setDays] = useState(target.defaultDays);
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
@@ -523,7 +681,6 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
         aria-modal="true"
         aria-labelledby="drop-days-title"
       >
-        {/* Header */}
         <div className="px-5 pt-5 pb-4">
           <h3
             id="drop-days-title"
@@ -537,7 +694,6 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
           </p>
         </div>
 
-        {/* Days input */}
         <div className="px-5 pb-5">
           <label
             htmlFor="drop-days-input"
@@ -564,7 +720,6 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
           />
         </div>
 
-        {/* Actions */}
         <div
           className="flex justify-end gap-2 px-5 py-3 border-t"
           style={{ borderColor: Border.subtle, backgroundColor: Background.secondary }}
@@ -586,6 +741,59 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Drag overlay sub-components
+// ─────────────────────────────────────────────────────────────────────────────
+
+function MemberDragOverlay({ member }: { member: { name: string } }) {
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded-xl border shadow-lg select-none"
+      style={{
+        backgroundColor: Background.card,
+        borderColor: Accent.teal,
+        transform: CSS.Transform.toString({ x: 0, y: 0, scaleX: 1.02, scaleY: 1.02 }),
+      }}
+    >
+      <div
+        className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-semibold text-white shrink-0"
+        style={{ backgroundColor: Accent.teal }}
+      >
+        {member.name.slice(0, 1).toUpperCase()}
+      </div>
+      <div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium" style={{ color: Text.primary }}>{member.name}</span>
+          <span className="text-[9px] font-semibold" style={{ color: Accent.teal }}>IT</span>
+        </div>
+        <span className="text-[10px]" style={{ color: Text.tertiary }}>Drop on a project to assign</span>
+      </div>
+    </div>
+  );
+}
+
+function ProjectDragOverlay() {
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded-xl border shadow-lg select-none"
+      style={{ backgroundColor: Background.card, borderColor: Accent.teal }}
+    >
+      <span className="text-xs font-medium" style={{ color: Text.primary }}>Drop on a person row to assign</span>
+    </div>
+  );
+}
+
+function CanvasDragOverlay({ label }: { label: string }) {
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded-xl border shadow-lg select-none"
+      style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B' }}
+    >
+      <span className="text-xs font-medium" style={{ color: '#92400E' }}>↩ {label}</span>
     </div>
   );
 }
