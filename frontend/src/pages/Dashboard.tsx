@@ -4,7 +4,9 @@ import {
  ChevronRight, CheckCircle2, Circle, Link2, Zap, Globe,
   Clock,
 } from 'lucide-react';
-import { useAppStore, useCurrentState, useIsLoading } from '../stores/appStore';
+import { useAppStore, useCurrentState, useIsLoading, useIsInitializing } from '../stores/appStore';
+import { useCurrentUser } from '../hooks/useCurrentUser';
+import { ScenarioWizard } from '../components/ScenarioWizard';
 import type { DashboardPeopleFilter } from '../stores/appStore';
 import { Card, CardContent } from '../components/ui/Card';
 import { SkeletonCard, SkeletonList } from '../components/ui/Skeleton';
@@ -82,8 +84,47 @@ export function Dashboard() {
  const [timelineView, setTimelineView] = useState<'heatmap' | 'bars'>('heatmap');
  const [activeTab, setActiveTab] = useState<'overview' | 'squad'>('overview');
  const [selectedGroupQuarter, setSelectedGroupQuarter] = useState(currentQuarter);
+ const [showWizard, setShowWizard] = useState(false);
+ const isInitializing = useIsInitializing();
+ const { can } = useCurrentUser();
 
  const warnings = useMemo(() => getWarnings(state), [state]);
+
+ // Nudge banner logic (D5 + D13) — localStorage dismiss with 7-day TTL
+ const NUDGE_KEY = 'nudge_high_util_dismissed';
+ const [nudgeDismissed, setNudgeDismissed] = useState(false);
+ const highUtilMemberIds = useMemo(() => {
+   const ids = new Set<string>();
+   warnings.overallocated.forEach(w => ids.add(w.member.id));
+   warnings.highUtilization.forEach(w => ids.add(w.member.id));
+   return ids;
+ }, [warnings]);
+ const showNudge = useMemo(() => {
+   if (nudgeDismissed || isInitializing || highUtilMemberIds.size < 2) return false;
+   try {
+     const raw = localStorage.getItem(NUDGE_KEY);
+     if (raw) {
+       const { dismissedAt, memberIds } = JSON.parse(raw) as { dismissedAt: number; memberIds: string[] };
+       const sevenDays = 7 * 24 * 60 * 60 * 1000;
+       if (Date.now() - dismissedAt < sevenDays) {
+         const storedSet = new Set(memberIds);
+         // Re-show if a new member not in the stored set has tipped over
+         const hasNewMember = [...highUtilMemberIds].some(id => !storedSet.has(id));
+         if (!hasNewMember) return false;
+       }
+     }
+   } catch { /* ignore corrupt localStorage */ }
+   return true;
+ }, [nudgeDismissed, isInitializing, highUtilMemberIds]);
+ const dismissNudge = useCallback(() => {
+   try {
+     localStorage.setItem(NUDGE_KEY, JSON.stringify({
+       dismissedAt: Date.now(),
+       memberIds: [...highUtilMemberIds],
+     }));
+   } catch { /* ignore */ }
+   setNudgeDismissed(true);
+ }, [highUtilMemberIds]);
 
  const activeMembers = useMemo(
  () => state.teamMembers.filter(m => !m.needsEnrichment),
@@ -253,6 +294,37 @@ export function Dashboard() {
 
  {/* Onboarding */}
  {isEmpty && <OnboardingChecklist state={state} navigate={setCurrentView} />}
+
+ {/* Utilisation nudge banner (D5 + D13) */}
+ {showNudge && activeTab === 'overview' && (
+   <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+     <div className="flex items-center gap-2.5">
+       <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+       <p className="text-sm text-amber-800">
+         <strong>{highUtilMemberIds.size} team members</strong> are at high utilisation this quarter. Plan ahead safely before committing.
+       </p>
+     </div>
+     <div className="flex items-center gap-2 shrink-0">
+       {can('edit_assignments') ? (
+         <button
+           onClick={() => setShowWizard(true)}
+           className="text-xs font-medium text-amber-700 hover:text-amber-900 underline whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded"
+         >
+           Plan it safely →
+         </button>
+       ) : (
+         <span className="text-xs text-amber-600">Contact your IT manager</span>
+       )}
+       <button
+         onClick={dismissNudge}
+         className="p-1 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+         aria-label="Dismiss"
+       >
+         <X size={14} />
+       </button>
+     </div>
+   </div>
+ )}
 
  {/* Stats strip */}
  {!isEmpty && activeTab === 'overview' && (
@@ -825,6 +897,9 @@ export function Dashboard() {
  processTeamSummaries={processTeamSummaries}
  />
  )}
+
+ {/* Scenario Wizard triggered by nudge banner CTA */}
+ {showWizard && <ScenarioWizard onClose={() => setShowWizard(false)} />}
 
  </div>
  );

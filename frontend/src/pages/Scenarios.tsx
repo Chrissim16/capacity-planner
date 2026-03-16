@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import {
  Plus, Database, GitBranch, Layers, Check, Copy, Trash2, Pencil,
- Users, FolderKanban, CalendarOff, Link2, Info, ArrowRight,
+ Users, FolderKanban, CalendarOff, Link2, Info, ArrowRight, Sparkles,
 } from 'lucide-react';
+import { ScenarioWizard } from '../components/ScenarioWizard';
 import { clsx } from 'clsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -195,6 +196,7 @@ export function Scenarios() {
  const canManage = can('manage_scenarios');
 
  const [showCreate, setShowCreate] = useState(false);
+ const [showWizard, setShowWizard] = useState(false);
  const [duplicateSource, setDuplicateSource] = useState<Scenario | null>(null);
  const [deleteConfirm, setDeleteConfirm] = useState<Scenario | null>(null);
  const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -228,10 +230,16 @@ export function Scenarios() {
  title="Scenarios"
  subtitle="What-if planning workspace"
  actions={canManage ? (
- <Button onClick={() => { setDuplicateSource(null); setShowCreate(true); }}>
- <Plus size={16} className="mr-1" />
- New Scenario
- </Button>
+   <div className="flex gap-2">
+     <Button variant="secondary" onClick={() => setShowWizard(true)}>
+       <Sparkles size={16} className="mr-1 text-[#0ED3CF]" />
+       What if…
+     </Button>
+     <Button onClick={() => { setDuplicateSource(null); setShowCreate(true); }}>
+       <Plus size={16} className="mr-1" />
+       New Scenario
+     </Button>
+   </div>
  ) : undefined}
  />
 
@@ -461,6 +469,11 @@ export function Scenarios() {
  {/* Diff modal */}
  {diffScenario && (
  <ScenarioDiffModal scenario={diffScenario} onClose={() => setDiffScenario(null)} />
+ )}
+
+ {/* Scenario Wizard — narrative what-if planning */}
+ {showWizard && canManage && (
+   <ScenarioWizard onClose={() => setShowWizard(false)} />
  )}
  </div>
  );

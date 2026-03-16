@@ -785,3 +785,90 @@ export function removeAssignment(id: string): void {
     assignments: (state.getCurrentState().assignments ?? []).filter(a => a.id !== id),
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCENARIO WIZARD HELPER (Decision D12)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ScenarioPlan {
+  name: string;
+  description?: string;
+  baseOn: 'baseline' | 'active';
+  activeScenarioId: string | null;
+  project: Omit<Project, 'id' | 'createdAt'>;
+  tentativeAssignments: Array<{ memberId: string; days: number; isBizContact?: boolean }>;
+  quarter: string;
+}
+
+/**
+ * Atomically create a scenario with a new project and a set of assignments.
+ * If any assignment write fails after the scenario has been created, the
+ * scenario is deleted as a rollback so the user can retry cleanly.
+ *
+ * @returns { scenarioId } on success, { error } on failure.
+ */
+export function createScenarioWithPlan(plan: ScenarioPlan): { scenarioId: string } | { error: string } {
+  const { name, description, baseOn, activeScenarioId, project, tentativeAssignments, quarter } = plan;
+
+  // Guard: 'active' path must have an activeScenarioId
+  if (baseOn === 'active' && !activeScenarioId) {
+    console.error('[wizard] createScenarioWithPlan: baseOn=active but activeScenarioId is null');
+    return { error: 'No active scenario to base on. Please select a scenario first.' };
+  }
+
+  console.info('[wizard] creating scenario', { name, baseOn, tentativeCount: tentativeAssignments.length });
+
+  let newScenario: Scenario | null = null;
+  try {
+    // Step 1: create or duplicate the scenario
+    if (baseOn === 'active') {
+      newScenario = duplicateScenario(activeScenarioId!, name, description);
+      if (!newScenario) {
+        return { error: 'Could not duplicate the active scenario. Please try again.' };
+      }
+      // Switch to the new scenario
+      switchScenario(newScenario.id);
+    } else {
+      newScenario = createScenario(name, description);
+    }
+
+    const scenarioId = newScenario.id;
+
+    // Step 2: create the project inside the new scenario
+    const newProject = addProject(project);
+
+    // Step 3: add all tentative assignments
+    const errors: string[] = [];
+    for (const ta of tentativeAssignments) {
+      try {
+        addAssignment({
+          memberId: ta.memberId,
+          projectId: newProject.id,
+          quarter,
+          days: ta.days,
+          isBizContact: ta.isBizContact ?? false,
+        });
+      } catch (err) {
+        errors.push(`Assignment for ${ta.memberId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      // Rollback: delete the scenario
+      console.error('[wizard] scenario creation failed — rolling back', { scenarioId, errors });
+      deleteScenario(scenarioId);
+      return { error: 'Failed to create scenario. Please try again.' };
+    }
+
+    console.info('[wizard] scenario created', { scenarioId });
+    return { scenarioId };
+  } catch (err) {
+    // Rollback if the scenario was created but something else failed
+    if (newScenario?.id) {
+      try { deleteScenario(newScenario.id); } catch { /* best-effort */ }
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[wizard] scenario creation failed', { error: message });
+    return { error: 'Failed to create scenario. Please try again.' };
+  }
+}
