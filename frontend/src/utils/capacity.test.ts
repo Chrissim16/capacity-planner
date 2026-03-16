@@ -4,7 +4,7 @@ import {
   calculateBusinessCapacity,
   sprintNameToQuarter,
 } from './capacity';
-import type { AppState, BusinessContact, JiraItemBizAssignment, JiraWorkItem } from '../types';
+import type { AppState, Assignment, BusinessContact, JiraItemBizAssignment, JiraWorkItem } from '../types';
 
 // ── Minimal AppState fixture ──────────────────────────────────────────────────
 
@@ -20,6 +20,8 @@ function makeState(overrides: Partial<AppState> = {}): AppState {
     jiraItemBizAssignments: [],
     scenarios: [],
     activeScenarioId: null,
+    projects: [],
+    assignments: [],
     quarters: ['Q1 2026', 'Q2 2026', 'Q3 2026', 'Q4 2026'],
     skills: [],
     systems: [],
@@ -119,6 +121,78 @@ describe('calculateCapacity', () => {
     const timeOffItem = result.breakdown.find(b => b.type === 'timeoff');
     expect(timeOffItem).toBeDefined();
     expect(timeOffItem!.days).toBe(5); // Mon–Fri = 5 workdays
+  });
+});
+
+describe('calculateCapacity — Assignment.days deduction', () => {
+  const member = { id: 'm1', name: 'Alice', role: 'Dev', countryId: 'country-nl', skillIds: [], maxConcurrentProjects: 3 };
+
+  function makeAssignment(overrides: Partial<Assignment> = {}): Assignment {
+    return { id: 'a1', memberId: 'm1', projectId: 'proj-1', quarter: 'Q1 2026', days: 10, ...overrides };
+  }
+
+  it('deducts assignment days for the given member and quarter', () => {
+    const base = makeState({ teamMembers: [member] });
+    const withAssignment = makeState({ teamMembers: [member], assignments: [makeAssignment()] });
+    const baseResult = calculateCapacity('m1', 'Q1 2026', base);
+    const result = calculateCapacity('m1', 'Q1 2026', withAssignment);
+    expect(result.usedDays).toBe(baseResult.usedDays + 10);
+    expect(result.breakdown.some(b => b.type === 'assignment' && b.days === 10)).toBe(true);
+  });
+
+  it('ignores assignments for other members', () => {
+    const state = makeState({
+      teamMembers: [member],
+      assignments: [makeAssignment({ memberId: 'other-member' })],
+    });
+    const result = calculateCapacity('m1', 'Q1 2026', state);
+    expect(result.breakdown.some(b => b.type === 'assignment')).toBe(false);
+  });
+
+  it('ignores assignments in other quarters', () => {
+    const state = makeState({
+      teamMembers: [member],
+      assignments: [makeAssignment({ quarter: 'Q3 2026' })],
+    });
+    const result = calculateCapacity('m1', 'Q1 2026', state);
+    expect(result.breakdown.some(b => b.type === 'assignment')).toBe(false);
+  });
+
+  it('handles state.assignments = undefined gracefully (treats as 0)', () => {
+    const state = makeState({ teamMembers: [member] });
+    // Cast to simulate an old persisted state that lacks the field
+    (state as unknown as Record<string, unknown>).assignments = undefined;
+    expect(() => calculateCapacity('m1', 'Q1 2026', state)).not.toThrow();
+    const result = calculateCapacity('m1', 'Q1 2026', state);
+    expect(result.breakdown.some(b => b.type === 'assignment')).toBe(false);
+  });
+
+  it('does not double-count: manual assignment days and Jira story points are separate', () => {
+    const sprint = { id: 's1', name: 'Sprint 1', number: 1, year: 2026, startDate: '2026-01-05', endDate: '2026-01-23', quarter: 'Q1 2026', isByeWeek: false };
+    const jiraItem: JiraWorkItem = {
+      id: 'wi1', connectionId: 'c1', jiraKey: 'ERP-1', jiraId: '1',
+      summary: 'Story', description: undefined,
+      type: 'story', typeName: 'Story',
+      status: 'In Progress', statusCategory: 'in_progress',
+      storyPoints: 3,
+      assigneeEmail: 'alice@example.com', assigneeName: 'Alice',
+      sprintId: 's1', sprintName: 'Sprint 1',
+      labels: [], components: [],
+      created: '2026-01-01', updated: '2026-01-01',
+    };
+    const state = makeState({
+      teamMembers: [{ ...member, email: 'alice@example.com' }],
+      sprints: [sprint],
+      jiraWorkItems: [jiraItem],
+      assignments: [makeAssignment({ days: 5 })],
+    });
+    const result = calculateCapacity('m1', 'Q1 2026', state);
+    const jiraBreakdown = result.breakdown.filter(b => b.type === 'jira');
+    const assignmentBreakdown = result.breakdown.filter(b => b.type === 'assignment');
+    expect(jiraBreakdown.length).toBeGreaterThan(0);
+    expect(assignmentBreakdown.length).toBeGreaterThan(0);
+    // Both tracked separately — no collapsing
+    expect(jiraBreakdown[0].days).not.toBe(assignmentBreakdown[0].days);
   });
 });
 

@@ -265,6 +265,15 @@ export function calculateCapacity(
     }
   }
 
+  // Manual project assignments (not Jira-derived — Decision D1)
+  const assignmentDays = (state.assignments ?? [])
+    .filter(a => a.memberId === memberId && a.quarter === quarter)
+    .reduce((sum, a) => sum + (a.days ?? 0), 0);
+  if (assignmentDays > 0) {
+    usedDays += assignmentDays;
+    breakdown.push({ type: 'assignment', days: assignmentDays });
+  }
+
   const availableDaysRaw = totalWorkdays - usedDays;
   const availableDays = Math.max(0, availableDaysRaw);
   const usedPercent = totalWorkdays > 0 ? Math.round((usedDays / totalWorkdays) * 100) : 0;
