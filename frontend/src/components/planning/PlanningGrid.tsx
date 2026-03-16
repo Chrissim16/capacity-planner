@@ -12,7 +12,7 @@
  *  - Person rows in People view are droppable for sidebar-project drags
  *  - Granularity toggle: Quarter / Month / Week column headers
  */
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Plus, GripVertical } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
@@ -24,7 +24,7 @@ import {
   removeAssignment,
   addProject,
 } from '../../stores/actions';
-import { getWorkdaysInQuarter, getHolidaysByCountry } from '../../utils/calendar';
+import { getWorkdaysInQuarter, getWorkdaysInDateRange, getHolidaysByCountry } from '../../utils/calendar';
 import type { PublicHoliday } from '../../types';
 import { FIT_GLOW } from '../../utils/staffing';
 import type { FitLevel } from '../../utils/staffing';
@@ -55,6 +55,8 @@ interface TimelineColumn {
   groupLabel?: string;
   /** Whether this column is the first in its group — triggers group label rendering */
   isGroupStart?: boolean;
+  /** True for the first column that belongs to each quarter — used to render quarter-level assignments once in sub-quarter views */
+  isQuarterStart?: boolean;
   width: number;
 }
 
@@ -81,6 +83,7 @@ function buildMonthColumns(quarters: string[]): TimelineColumn[] {
         quarter: q,
         groupLabel: q,
         isGroupStart: i === 0,
+        isQuarterStart: i === 0,
         width: MONTH_COL_WIDTH,
       });
     });
@@ -100,6 +103,7 @@ function buildWeekColumns(): TimelineColumn[] {
 
   const cols: TimelineColumn[] = [];
   let prevMonth = -1;
+  let prevQuarter = '';
 
   for (let i = 0; i < 16; i++) {
     const weekStart = new Date(monday);
@@ -124,9 +128,11 @@ function buildWeekColumns(): TimelineColumn[] {
       quarter,
       groupLabel: monthStr,
       isGroupStart: m !== prevMonth,
+      isQuarterStart: quarter !== prevQuarter,
       width: WEEK_COL_WIDTH,
     });
     prevMonth = m;
+    prevQuarter = quarter;
   }
   return cols;
 }
@@ -136,6 +142,7 @@ function buildQuarterColumns(quarters: string[]): TimelineColumn[] {
     key: q,
     label: q,
     quarter: q,
+    isQuarterStart: true,
     width: QUARTER_COL_WIDTH,
   }));
 }
@@ -161,6 +168,74 @@ function projectColor(projectId: string): string {
     hash = (hash * 31 + projectId.charCodeAt(i)) & 0xffffffff;
   }
   return PROJECT_COLORS[Math.abs(hash) % PROJECT_COLORS.length];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-quarter bar helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function toIsoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Returns the ISO start/end dates for a given timeline column, or null for quarter view. */
+function getColumnDateRange(col: TimelineColumn, granularity: PlanningGranularity): { start: string; end: string } | null {
+  if (granularity === 'week') {
+    const match = col.key.match(/^week-(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const yr = parseInt(match[1], 10);
+    const mo = parseInt(match[2], 10) - 1; // 0-indexed
+    const dy = parseInt(match[3], 10);
+    const start = new Date(yr, mo, dy);
+    const end = new Date(yr, mo, dy + 6); // Sunday of the week
+    return { start: toIsoDate(start), end: toIsoDate(end) };
+  }
+  if (granularity === 'month') {
+    // key = "Q1 2026::Jan 26"
+    const parts = col.key.split('::');
+    if (parts.length < 2) return null;
+    const label = parts[1]; // "Jan 26"
+    const labelParts = label.split(' ');
+    if (labelParts.length < 2) return null;
+    const monthIdx = MONTH_NAMES_SHORT.indexOf(labelParts[0]);
+    const year = 2000 + parseInt(labelParts[1], 10);
+    if (monthIdx < 0 || isNaN(year)) return null;
+    const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+    return {
+      start: `${year}-${String(monthIdx + 1).padStart(2, '0')}-01`,
+      end: `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`,
+    };
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Jira hierarchy helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface JiraTreeNode {
+  item: JiraWorkItem;
+  children: JiraTreeNode[];
+}
+
+function buildJiraTree(items: JiraWorkItem[]): JiraTreeNode[] {
+  const byKey = new Map<string, JiraTreeNode>();
+  for (const item of items) {
+    if (item.statusCategory === 'done') continue;
+    byKey.set(item.jiraKey, { item, children: [] });
+  }
+  const roots: JiraTreeNode[] = [];
+  for (const node of byKey.values()) {
+    const parentKey = node.item.parentKey;
+    if (parentKey && byKey.has(parentKey)) {
+      byKey.get(parentKey)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -337,9 +412,8 @@ function PeopleRow({ memberId, columns, granularity, assignments, projects, jira
                 {/* Label cell */}
                 <div
                   className="flex items-center gap-2 pl-8 pr-3 py-2"
-                  style={{ width: LABEL_WIDTH, borderRight: `1px solid ${Border.light}` }}
+                  style={{ width: LABEL_WIDTH, borderRight: `1px solid ${Border.light}`, borderLeft: `3px solid ${color}` }}
                 >
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
                   <span className="text-xs truncate" style={{ color: Text.secondary }}>{displayName}</span>
                 </div>
 
@@ -350,13 +424,10 @@ function PeopleRow({ memberId, columns, granularity, assignments, projects, jira
                   );
                   const totalDays = getWorkdaysInQuarter(col.quarter, memberHolidays);
 
-                  return (
-                    <div
-                      key={col.key}
-                      className="flex items-center px-3 py-2"
-                      style={{ width: col.width, minWidth: col.width, borderRight: `1px solid ${Border.light}` }}
-                    >
-                      {assignment && granularity === 'quarter' && (
+                  let barNode: ReactNode = null;
+                  if (assignment) {
+                    if (granularity === 'quarter') {
+                      barNode = (
                         <PlanningBar
                           days={assignment.days}
                           quarter={col.quarter}
@@ -367,10 +438,52 @@ function PeopleRow({ memberId, columns, granularity, assignments, projects, jira
                           onEdit={(newDays) => handleEditAssignment(assignment, newDays)}
                           onRemove={() => handleRemoveAssignment(assignment)}
                         />
-                      )}
-                      {assignment && granularity !== 'quarter' && (
-                        <span className="text-[10px]" style={{ color: Text.tertiary }}>{assignment.days}d</span>
-                      )}
+                      );
+                    } else if (assignment.startDate && assignment.endDate) {
+                      const colRange = getColumnDateRange(col, granularity);
+                      if (colRange) {
+                        const oStart = colRange.start > assignment.startDate ? colRange.start : assignment.startDate;
+                        const oEnd = colRange.end < assignment.endDate ? colRange.end : assignment.endDate;
+                        if (oStart <= oEnd) {
+                          const colWd = getWorkdaysInDateRange(colRange.start, colRange.end, memberHolidays);
+                          const oWd = getWorkdaysInDateRange(oStart, oEnd, memberHolidays);
+                          barNode = (
+                            <PlanningBar
+                              days={assignment.days}
+                              quarter={col.quarter}
+                              personName={member.name}
+                              projectName={displayName}
+                              color={color}
+                              widthFraction={colWd > 0 ? oWd / colWd : 0.1}
+                              onEdit={(newDays) => handleEditAssignment(assignment, newDays)}
+                              onRemove={() => handleRemoveAssignment(assignment)}
+                            />
+                          );
+                        }
+                      }
+                    } else if (col.isQuarterStart) {
+                      barNode = (
+                        <PlanningBar
+                          days={assignment.days}
+                          quarter={col.quarter}
+                          personName={member.name}
+                          projectName={displayName}
+                          color={color}
+                          widthFraction={totalDays > 0 ? assignment.days / totalDays : 0.1}
+                          onEdit={(newDays) => handleEditAssignment(assignment, newDays)}
+                          onRemove={() => handleRemoveAssignment(assignment)}
+                        />
+                      );
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={col.key}
+                      className="flex items-center px-3 py-2"
+                      style={{ width: col.width, minWidth: col.width, borderRight: `1px solid ${Border.light}` }}
+                    >
+                      {barNode}
                     </div>
                   );
                 })}
@@ -489,7 +602,6 @@ function ProjectRow({ project, columns, granularity, assignments, dragScore, isS
             <span style={{ color: Text.tertiary }}>
               {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </span>
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
             <span className="text-sm font-medium truncate" style={{ color: Text.primary }}>{project.name}</span>
           </button>
 
@@ -646,13 +758,10 @@ function PersonChildRow({
         );
         const totalDays = getWorkdaysInQuarter(col.quarter, memberHolidays);
 
-        return (
-          <div
-            key={col.key}
-            className="flex items-center px-3 py-2"
-            style={{ width: col.width, minWidth: col.width, borderRight: `1px solid ${Border.light}` }}
-          >
-            {assignment && granularity === 'quarter' && (
+        let barNode: ReactNode = null;
+        if (assignment) {
+          if (granularity === 'quarter') {
+            barNode = (
               <PlanningBar
                 days={assignment.days}
                 quarter={col.quarter}
@@ -663,10 +772,52 @@ function PersonChildRow({
                 onEdit={(newDays) => onEdit(assignment, newDays)}
                 onRemove={() => onRemove(assignment)}
               />
-            )}
-            {assignment && granularity !== 'quarter' && (
-              <span className="text-[10px]" style={{ color: Text.tertiary }}>{assignment.days}d</span>
-            )}
+            );
+          } else if (assignment.startDate && assignment.endDate) {
+            const colRange = getColumnDateRange(col, granularity);
+            if (colRange) {
+              const oStart = colRange.start > assignment.startDate ? colRange.start : assignment.startDate;
+              const oEnd = colRange.end < assignment.endDate ? colRange.end : assignment.endDate;
+              if (oStart <= oEnd) {
+                const colWd = getWorkdaysInDateRange(colRange.start, colRange.end, memberHolidays);
+                const oWd = getWorkdaysInDateRange(oStart, oEnd, memberHolidays);
+                barNode = (
+                  <PlanningBar
+                    days={assignment.days}
+                    quarter={col.quarter}
+                    personName={memberName}
+                    projectName={projectName}
+                    color={color}
+                    widthFraction={colWd > 0 ? oWd / colWd : 0.1}
+                    onEdit={(newDays) => onEdit(assignment, newDays)}
+                    onRemove={() => onRemove(assignment)}
+                  />
+                );
+              }
+            }
+          } else if (col.isQuarterStart) {
+            barNode = (
+              <PlanningBar
+                days={assignment.days}
+                quarter={col.quarter}
+                personName={memberName}
+                projectName={projectName}
+                color={color}
+                widthFraction={totalDays > 0 ? assignment.days / totalDays : 0.1}
+                onEdit={(newDays) => onEdit(assignment, newDays)}
+                onRemove={() => onRemove(assignment)}
+              />
+            );
+          }
+        }
+
+        return (
+          <div
+            key={col.key}
+            className="flex items-center px-3 py-2"
+            style={{ width: col.width, minWidth: col.width, borderRight: `1px solid ${Border.light}` }}
+          >
+            {barNode}
           </div>
         );
       })}
@@ -680,18 +831,23 @@ function PersonChildRow({
 
 interface JiraEpicRowProps {
   item: JiraWorkItem;
+  /** Child Jira items (features, stories) to render when this row is expanded */
+  childNodes?: JiraTreeNode[];
   columns: TimelineColumn[];
   granularity: PlanningGranularity;
   assignments: Assignment[];
   dragScore?: FitLevel;
   isSelected?: boolean;
+  /** Left indent in px — 0 for epics, 24 for features, 48 for stories */
+  indentPx?: number;
 }
 
-function JiraEpicRow({ item, columns, granularity, assignments, dragScore, isSelected }: JiraEpicRowProps) {
+function JiraEpicRow({ item, childNodes = [], columns, granularity, assignments, dragScore, isSelected, indentPx = 0 }: JiraEpicRowProps) {
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: item.jiraKey });
   const state = useCurrentState();
   const publicHolidays = useAppStore(useShallow(s => s.data.publicHolidays));
-  const [expanded, setExpanded] = useState(true);
+  // Epics (indentPx=0) start expanded; features/stories start collapsed
+  const [expanded, setExpanded] = useState(indentPx === 0);
   const [assigningQuarter, setAssigningQuarter] = useState<string | null>(null);
   const { showToast } = useToast();
   const color = projectColor(item.jiraKey);
@@ -755,7 +911,7 @@ function JiraEpicRow({ item, columns, granularity, assignments, dragScore, isSel
         <div
           ref={setDragRef}
           className="flex items-center gap-2 px-3 py-2.5 shrink-0 select-none group/label relative"
-          style={{ width: LABEL_WIDTH, borderRight: `1px solid ${Border.subtle}` }}
+          style={{ width: LABEL_WIDTH, borderRight: `1px solid ${Border.subtle}`, paddingLeft: indentPx > 0 ? indentPx + 8 : undefined }}
         >
           {/* Canvas drag handle */}
           <div
@@ -776,9 +932,10 @@ function JiraEpicRow({ item, columns, granularity, assignments, dragScore, isSel
             aria-label={`${expanded ? 'Collapse' : 'Expand'} ${displayName}`}
           >
             <span style={{ color: Text.tertiary }}>
-              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              {(childNodes.length > 0 || assignedMemberIds.size > 0)
+                ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)
+                : <span style={{ display: 'inline-block', width: 14 }} />}
             </span>
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
             <div className="flex flex-col min-w-0">
               <span className="text-sm font-medium truncate" style={{ color: Text.primary }}>{item.summary}</span>
               <span className="text-[10px]" style={{ color: Text.tertiary }}>{item.jiraKey}</span>
@@ -830,28 +987,43 @@ function JiraEpicRow({ item, columns, granularity, assignments, dragScore, isSel
 
       {/* Child rows */}
       {expanded && (
-        Array.from(assignedMemberIds).map(memberId => {
-          const member = state.teamMembers.find(m => m.id === memberId);
-          if (!member) return null;
-          const memberHolidays = getHolidaysByCountry(member.countryId, publicHolidays);
-
-          return (
-            <PersonChildRow
-              key={memberId}
-              memberId={memberId}
-              memberName={member.name}
-              memberHolidays={memberHolidays}
-              projectId={item.jiraKey}
-              projectName={displayName}
+        <>
+          {/* Jira sub-items (features → stories) rendered recursively */}
+          {childNodes.map(child => (
+            <JiraEpicRow
+              key={child.item.jiraKey}
+              item={child.item}
+              childNodes={child.children}
               columns={columns}
               granularity={granularity}
-              color={color}
-              assignments={epicAssignments}
-              onEdit={handleEditAssignment}
-              onRemove={handleRemoveAssignment}
+              assignments={assignments}
+              indentPx={indentPx + 24}
             />
-          );
-        })
+          ))}
+          {/* People assigned directly to this item */}
+          {Array.from(assignedMemberIds).map(memberId => {
+            const member = state.teamMembers.find(m => m.id === memberId);
+            if (!member) return null;
+            const memberHolidays = getHolidaysByCountry(member.countryId, publicHolidays);
+
+            return (
+              <PersonChildRow
+                key={memberId}
+                memberId={memberId}
+                memberName={member.name}
+                memberHolidays={memberHolidays}
+                projectId={item.jiraKey}
+                projectName={displayName}
+                columns={columns}
+                granularity={granularity}
+                color={color}
+                assignments={epicAssignments}
+                onEdit={handleEditAssignment}
+                onRemove={handleRemoveAssignment}
+              />
+            );
+          })}
+        </>
       )}
     </>
   );
@@ -1001,10 +1173,13 @@ export function PlanningGrid({
   );
   const projects = state.projects ?? [];
   const assignments = state.assignments ?? [];
-  const jiraEpics = useMemo(
-    () => (state.jiraWorkItems ?? []).filter(w => w.type === 'epic' && w.statusCategory !== 'done'),
+  // All non-done Jira items (epics + features + stories if synced)
+  const jiraItems = useMemo(
+    () => (state.jiraWorkItems ?? []).filter(w => w.statusCategory !== 'done'),
     [state.jiraWorkItems]
   );
+  // Hierarchical tree — roots are epics (or any item without a parent in the set)
+  const jiraTree = useMemo(() => buildJiraTree(jiraItems), [jiraItems]);
 
   const columns = useMemo(
     () => buildColumns(granularity, quarters),
@@ -1088,7 +1263,7 @@ export function PlanningGrid({
                   granularity={granularity}
                   assignments={assignments}
                   projects={projects}
-                  jiraWorkItems={jiraEpics}
+                  jiraWorkItems={jiraItems}
                   dragScore={memberDragScores?.[m.id]}
                 />
               ))
@@ -1096,12 +1271,12 @@ export function PlanningGrid({
           </>
         ) : (
           <>
-            {projects.length === 0 && jiraEpics.length === 0 && (
+            {projects.length === 0 && jiraTree.length === 0 && (
               <div className="flex items-center justify-center h-24">
                 <span className="text-sm" style={{ color: Text.tertiary }}>No projects in this plan yet.</span>
               </div>
             )}
-            {jiraEpics.length > 0 && (
+            {jiraTree.length > 0 && (
               <>
                 <div
                   className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b"
@@ -1109,22 +1284,23 @@ export function PlanningGrid({
                 >
                   Jira Epics
                 </div>
-                {jiraEpics.map(item => (
+                {jiraTree.map(node => (
                   <JiraEpicRow
-                    key={item.jiraKey}
-                    item={item}
+                    key={node.item.jiraKey}
+                    item={node.item}
+                    childNodes={node.children}
                     columns={columns}
                     granularity={granularity}
                     assignments={assignments}
-                    dragScore={dragScores?.[item.jiraKey]}
-                    isSelected={selectedProjectId === item.jiraKey}
+                    dragScore={dragScores?.[node.item.jiraKey]}
+                    isSelected={selectedProjectId === node.item.jiraKey}
                   />
                 ))}
               </>
             )}
             {projects.length > 0 && (
               <>
-                {jiraEpics.length > 0 && (
+                {jiraTree.length > 0 && (
                   <div
                     className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b"
                     style={{ color: Text.tertiary, borderColor: Border.subtle, backgroundColor: Background.secondary }}
