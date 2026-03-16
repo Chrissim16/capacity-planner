@@ -2,8 +2,9 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search, ChevronDown, ChevronRight, ExternalLink,
   RefreshCw, Loader2, X, Check, Filter, Users,
-  AlertCircle, UserCircle2, Building2,
+  AlertCircle, UserCircle2, Building2, UserPlus,
 } from 'lucide-react';
+import { SmartAssignmentPanel } from '../components/SmartAssignmentPanel';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -214,6 +215,9 @@ export function Projects() {
 
   // BIZ assignment popover
   const [openBizPopover, setOpenBizPopover] = useState<string | null>(null);
+
+  // SmartAssignmentPanel slide-out
+  const [staffingEpic, setStaffingEpic] = useState<{ jiraKey: string; summary: string } | null>(null);
 
   // Build hierarchy
   const { epics, featuresByEpic, childrenByParent } = useMemo(() => {
@@ -549,6 +553,14 @@ export function Projects() {
                         {memberEmails.length}
                       </div>
                     )}
+                    <button
+                      onClick={e => { e.stopPropagation(); setStaffingEpic({ jiraKey: epic.jiraKey, summary: epic.summary }); }}
+                      className="p-1.5 rounded-lg text-[#0ED3CF] hover:bg-[#F0EFED] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0ED3CF]"
+                      title="Staff this epic"
+                      aria-label={`Staff ${epic.summary}`}
+                    >
+                      <UserPlus size={15} />
+                    </button>
                   </div>
                 </div>
 
@@ -787,6 +799,16 @@ export function Projects() {
           })
         )}
       </div>
+
+      {/* SmartAssignmentPanel slide-out */}
+      {staffingEpic && (
+        <SmartAssignmentPanel
+          variant="slideOut"
+          projectId={staffingEpic.jiraKey}
+          projectName={staffingEpic.summary}
+          onClose={() => setStaffingEpic(null)}
+        />
+      )}
 
       {/* Sync confirmation modal */}
       {pendingDiff && (
