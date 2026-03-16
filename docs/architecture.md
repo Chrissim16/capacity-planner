@@ -830,10 +830,11 @@ Test files are co-located with their utility modules:
 
 | Test file | Covers |
 |---|---|
-| `utils/capacity.test.ts` | IT capacity calculations, overallocation detection |
+| `utils/capacity.test.ts` | IT capacity calculations, overallocation detection, Assignment.days deduction |
 | `utils/calendar.test.ts` | Working day math, quarter date bounds |
 | `utils/confidence.test.ts` | Confidence buffer application and rollup |
 | `utils/sprints.test.ts` | Sprint generation, quarter lookups |
+| `utils/staffing.test.ts` | `scoreMember`, `scoreBusinessContact`, `rankMemberFits` — fit scoring engine |
 
 Run tests:
 
