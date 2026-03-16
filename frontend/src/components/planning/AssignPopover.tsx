@@ -10,7 +10,7 @@ import { clsx } from 'clsx';
 import { useCurrentState } from '../../stores/appStore';
 import { scoreMember } from '../../utils/staffing';
 import { Accent, Background, Border, Text, Semantic, Biz } from '../../theme/tokens';
-import type { Project, TeamMember } from '../../types';
+import type { JiraWorkItem, Project, TeamMember } from '../../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -23,6 +23,11 @@ interface AssignProjectResult {
   project: Project;
 }
 
+interface AssignJiraResult {
+  type: 'jira';
+  item: JiraWorkItem;
+}
+
 interface AssignPersonResult {
   type: 'person';
   member: TeamMember;
@@ -30,7 +35,7 @@ interface AssignPersonResult {
   usedPercent: number;
 }
 
-type AssignResult = AssignProjectResult | AssignPersonResult;
+type AssignResult = AssignProjectResult | AssignJiraResult | AssignPersonResult;
 
 interface AssignPopoverProps {
   mode: AssignMode;
@@ -94,14 +99,27 @@ export function AssignPopover({
     const q = search.toLowerCase();
 
     if (mode === 'project') {
-      // Show projects not yet assigned to this member in this quarter
-      return (state.projects ?? [])
+      // Native plan projects
+      const nativeResults: AssignResult[] = (state.projects ?? [])
         .filter(p => {
           if (assignedProjectIds?.has(p.id)) return false;
           if (q && !p.name.toLowerCase().includes(q)) return false;
           return true;
         })
         .map(p => ({ type: 'project' as const, project: p }));
+
+      // Jira epics from the scenario snapshot (not-done only)
+      const jiraResults: AssignResult[] = (state.jiraWorkItems ?? [])
+        .filter(w => {
+          if (w.type !== 'epic') return false;
+          if (w.statusCategory === 'done') return false;
+          if (assignedProjectIds?.has(w.jiraKey)) return false;
+          if (q && !w.summary.toLowerCase().includes(q) && !w.jiraKey.toLowerCase().includes(q)) return false;
+          return true;
+        })
+        .map(w => ({ type: 'jira' as const, item: w }));
+
+      return [...nativeResults, ...jiraResults];
     } else {
       // Show members ranked by available capacity
       const members = state.teamMembers.filter(m => {
@@ -127,7 +145,10 @@ export function AssignPopover({
 
   const handleConfirm = useCallback(() => {
     if (!selected || days <= 0) return;
-    const targetId = selected.type === 'project' ? selected.project.id : selected.member.id;
+    let targetId: string;
+    if (selected.type === 'project') targetId = selected.project.id;
+    else if (selected.type === 'jira') targetId = selected.item.jiraKey;
+    else targetId = selected.member.id;
     onAssign(targetId, days);
     onClose();
   }, [selected, days, onAssign, onClose]);
@@ -186,11 +207,16 @@ export function AssignPopover({
           </div>
         ) : (
           results.map((r) => {
-            const id = r.type === 'project' ? r.project.id : r.member.id;
+            const id = r.type === 'project'
+              ? r.project.id
+              : r.type === 'jira'
+                ? r.item.jiraKey
+                : r.member.id;
+
             const isSelected = selected
-              ? (selected.type === 'project'
-                  ? selected.project.id === id
-                  : selected.member.id === id)
+              ? (selected.type === 'project' ? selected.project.id === id
+                : selected.type === 'jira' ? selected.item.jiraKey === id
+                : selected.member.id === id)
               : false;
 
             return (
@@ -198,15 +224,18 @@ export function AssignPopover({
                 key={id}
                 className={clsx(
                   'w-full flex items-center justify-between px-3 py-2 text-left text-sm transition-colors',
-                  isSelected
-                    ? 'bg-[#E8F8F8]'
-                    : 'hover:bg-[#F5F3F0]'
+                  isSelected ? 'bg-[#E8F8F8]' : 'hover:bg-[#F5F3F0]'
                 )}
                 onClick={() => setSelected(r)}
                 aria-pressed={isSelected}
               >
                 {r.type === 'project' ? (
                   <span className="truncate" style={{ color: Text.primary }}>{r.project.name}</span>
+                ) : r.type === 'jira' ? (
+                  <div className="flex flex-col items-start min-w-0">
+                    <span className="truncate text-sm" style={{ color: Text.primary }}>{r.item.summary}</span>
+                    <span className="text-[10px]" style={{ color: Text.tertiary }}>{r.item.jiraKey}</span>
+                  </div>
                 ) : (
                   <>
                     <span className="truncate" style={{ color: Text.primary }}>{r.member.name}</span>

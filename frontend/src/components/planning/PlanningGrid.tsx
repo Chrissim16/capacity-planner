@@ -20,7 +20,7 @@ import { getWorkdaysInQuarter, getHolidaysByCountry } from '../../utils/calendar
 import { useToast } from '../ui/Toast';
 import { PlanningBar, CapacityBar, StaffingBar } from './PlanningBar';
 import { AssignPopover, ITBizBadge } from './AssignPopover';
-import type { Assignment, Project } from '../../types';
+import type { Assignment, JiraWorkItem, Project } from '../../types';
 import { Accent, Background, Border, Text } from '../../theme/tokens';
 
 const LABEL_WIDTH = 240;
@@ -55,9 +55,10 @@ interface PeopleRowProps {
   quarters: string[];
   assignments: Assignment[];
   projects: Project[];
+  jiraWorkItems: JiraWorkItem[];
 }
 
-function PeopleRow({ memberId, quarters, assignments, projects }: PeopleRowProps) {
+function PeopleRow({ memberId, quarters, assignments, projects, jiraWorkItems }: PeopleRowProps) {
   const state = useCurrentState();
   const publicHolidays = useAppStore(useShallow(s => s.data.publicHolidays));
   const member = state.teamMembers.find(m => m.id === memberId);
@@ -83,17 +84,23 @@ function PeopleRow({ memberId, quarters, assignments, projects }: PeopleRowProps
     setAssigningQuarter(null);
   }, [memberId]);
 
+  const resolveProjectName = useCallback((projectId: string): string => {
+    const native = projects.find(p => p.id === projectId);
+    if (native) return native.name;
+    const jira = jiraWorkItems.find(w => w.jiraKey === projectId);
+    return jira ? `${jira.jiraKey}: ${jira.summary}` : projectId;
+  }, [projects, jiraWorkItems]);
+
   const handleRemoveAssignment = useCallback((assignment: Assignment) => {
     removeAssignment(assignment.id);
-    const project = projects.find(p => p.id === assignment.projectId);
     showToast(
-      `Removed ${assignment.days}d from ${project?.name ?? 'project'}`,
+      `Removed ${assignment.days}d from ${resolveProjectName(assignment.projectId)}`,
       {
         type: 'info',
         action: { label: 'Undo', onClick: () => addAssignment({ ...assignment }) },
       }
     );
-  }, [projects, showToast]);
+  }, [resolveProjectName, showToast]);
 
   const handleEditAssignment = useCallback((assignment: Assignment, newDays: number) => {
     removeAssignment(assignment.id);
@@ -152,10 +159,12 @@ function PeopleRow({ memberId, quarters, assignments, projects }: PeopleRowProps
       {/* Child rows — project assignments */}
       {expanded && (
         <>
-          {/* One child row per assigned project × quarter */}
+          {/* One child row per assigned project × quarter (native projects + Jira items) */}
           {Array.from(assignedProjectIds).map(projectId => {
-            const project = projects.find(p => p.id === projectId);
-            if (!project) return null;
+            const nativeProject = projects.find(p => p.id === projectId);
+            const jiraItem = !nativeProject ? jiraWorkItems.find(w => w.jiraKey === projectId) : null;
+            if (!nativeProject && !jiraItem) return null;
+            const displayName = nativeProject?.name ?? `${jiraItem!.jiraKey}: ${jiraItem!.summary}`;
             const color = projectColor(projectId);
 
             return (
@@ -170,7 +179,7 @@ function PeopleRow({ memberId, quarters, assignments, projects }: PeopleRowProps
                   style={{ width: LABEL_WIDTH, borderRight: `1px solid ${Border.light}` }}
                 >
                   <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  <span className="text-xs truncate" style={{ color: Text.secondary }}>{project.name}</span>
+                  <span className="text-xs truncate" style={{ color: Text.secondary }}>{displayName}</span>
                 </div>
 
                 {/* Quarter cells — assignment bars */}
@@ -191,7 +200,7 @@ function PeopleRow({ memberId, quarters, assignments, projects }: PeopleRowProps
                           days={assignment.days}
                           quarter={q}
                           personName={member.name}
-                          projectName={project.name}
+                          projectName={displayName}
                           color={color}
                           widthFraction={totalDays > 0 ? assignment.days / totalDays : 0.1}
                           onEdit={(newDays) => handleEditAssignment(assignment, newDays)}
@@ -484,6 +493,200 @@ function ProjectRow({ project, quarters, assignments }: ProjectRowProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Jira Epic Row (Projects view — Jira-sourced work items)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface JiraEpicRowProps {
+  item: JiraWorkItem;
+  quarters: string[];
+  assignments: Assignment[];
+}
+
+function JiraEpicRow({ item, quarters, assignments }: JiraEpicRowProps) {
+  const state = useCurrentState();
+  const publicHolidays = useAppStore(useShallow(s => s.data.publicHolidays));
+  const [expanded, setExpanded] = useState(true);
+  const [assigningQuarter, setAssigningQuarter] = useState<string | null>(null);
+  const { showToast } = useToast();
+  const color = projectColor(item.jiraKey);
+
+  // Assignments that reference this Jira item via jiraKey as projectId
+  const epicAssignments = assignments.filter(a => a.projectId === item.jiraKey);
+  const assignedMemberIds = useMemo(() =>
+    new Set(epicAssignments.map(a => a.memberId)),
+    [epicAssignments]
+  );
+
+  const totalAssignedDays = epicAssignments.reduce((s, a) => s + a.days, 0);
+  const displayName = `${item.jiraKey}: ${item.summary}`;
+
+  const handleAssign = useCallback((quarter: string, memberId: string, days: number) => {
+    addAssignment({ memberId, projectId: item.jiraKey, quarter, days });
+    setAssigningQuarter(null);
+  }, [item.jiraKey]);
+
+  const handleRemoveAssignment = useCallback((assignment: Assignment) => {
+    const member = state.teamMembers.find(m => m.id === assignment.memberId);
+    removeAssignment(assignment.id);
+    showToast(
+      `Removed ${assignment.days}d from ${member?.name ?? 'member'}`,
+      {
+        type: 'info',
+        action: { label: 'Undo', onClick: () => addAssignment({ ...assignment }) },
+      }
+    );
+  }, [state.teamMembers, showToast]);
+
+  const handleEditAssignment = useCallback((assignment: Assignment, newDays: number) => {
+    removeAssignment(assignment.id);
+    addAssignment({ ...assignment, days: newDays });
+  }, []);
+
+  return (
+    <>
+      {/* Parent row */}
+      <div
+        className="flex border-b transition-colors hover:bg-[#F5F3F0]"
+        style={{ borderColor: Border.subtle }}
+      >
+        <div
+          className="flex items-center gap-2 px-3 py-2.5 shrink-0 cursor-pointer select-none"
+          style={{ width: LABEL_WIDTH, borderRight: `1px solid ${Border.subtle}` }}
+          onClick={() => setExpanded(v => !v)}
+          role="button"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} ${displayName}`}
+        >
+          <span style={{ color: Text.tertiary }}>
+            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </span>
+          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-medium truncate" style={{ color: Text.primary }}>{item.summary}</span>
+            <span className="text-[10px]" style={{ color: Text.tertiary }}>{item.jiraKey}</span>
+          </div>
+          <span className="text-[10px] shrink-0 ml-auto" style={{ color: Text.tertiary }}>
+            {totalAssignedDays}d
+          </span>
+        </div>
+
+        {quarters.map(q => {
+          const assignedInQ = epicAssignments.filter(a => a.quarter === q).reduce((s, a) => s + a.days, 0);
+          return (
+            <div
+              key={q}
+              className="flex items-center px-3"
+              style={{ width: QUARTER_COL_WIDTH, minWidth: QUARTER_COL_WIDTH, borderRight: `1px solid ${Border.subtle}` }}
+            >
+              {assignedInQ > 0 && (
+                <span className="text-[10px]" style={{ color: Text.tertiary }}>{assignedInQ}d assigned</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Child rows */}
+      {expanded && (
+        <>
+          {Array.from(assignedMemberIds).map(memberId => {
+            const member = state.teamMembers.find(m => m.id === memberId);
+            if (!member) return null;
+            const memberHolidays = getHolidaysByCountry(member.countryId, publicHolidays);
+
+            return (
+              <div
+                key={memberId}
+                className="flex border-b"
+                style={{ borderColor: Border.light, backgroundColor: Background.secondary }}
+              >
+                <div
+                  className="flex items-center gap-2 pl-8 pr-3 py-2"
+                  style={{ width: LABEL_WIDTH, borderRight: `1px solid ${Border.light}` }}
+                >
+                  <span className="text-xs truncate" style={{ color: Text.secondary }}>{member.name}</span>
+                  <ITBizBadge type="it" />
+                </div>
+                {quarters.map(q => {
+                  const assignment = epicAssignments.find(a => a.memberId === memberId && a.quarter === q);
+                  const totalDays = getWorkdaysInQuarter(q, memberHolidays);
+                  return (
+                    <div
+                      key={q}
+                      className="flex items-center px-3 py-2"
+                      style={{ width: QUARTER_COL_WIDTH, minWidth: QUARTER_COL_WIDTH, borderRight: `1px solid ${Border.light}` }}
+                    >
+                      {assignment && (
+                        <PlanningBar
+                          days={assignment.days}
+                          quarter={q}
+                          personName={member.name}
+                          projectName={displayName}
+                          color={color}
+                          widthFraction={totalDays > 0 ? assignment.days / totalDays : 0.1}
+                          onEdit={(newDays) => handleEditAssignment(assignment, newDays)}
+                          onRemove={() => handleRemoveAssignment(assignment)}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          {/* "+ Assign person" row */}
+          <div
+            className="flex border-b"
+            style={{ borderColor: Border.light, backgroundColor: Background.secondary }}
+          >
+            <div
+              className="flex items-center pl-8 pr-3 py-1.5"
+              style={{ width: LABEL_WIDTH, borderRight: `1px solid ${Border.light}` }}
+            >
+              <button
+                className="flex items-center gap-1.5 text-xs transition-colors hover:text-sana-teal focus:ring-2 focus:ring-sana-teal rounded"
+                style={{ color: Text.tertiary }}
+                onClick={() => setAssigningQuarter(quarters[0] ?? null)}
+              >
+                <Plus size={12} />
+                Assign person
+              </button>
+            </div>
+            {quarters.map(q => (
+              <div
+                key={q}
+                className="flex items-center px-3 py-1.5 relative"
+                style={{ width: QUARTER_COL_WIDTH, minWidth: QUARTER_COL_WIDTH, borderRight: `1px solid ${Border.light}` }}
+              >
+                <button
+                  className="text-[10px] flex items-center gap-1 transition-colors hover:text-sana-teal focus:ring-2 focus:ring-sana-teal rounded relative"
+                  style={{ color: Text.tertiary }}
+                  onClick={() => setAssigningQuarter(q)}
+                >
+                  <Plus size={10} />
+                  {q}
+                  {assigningQuarter === q && (
+                    <AssignPopover
+                      mode="person"
+                      quarter={q}
+                      projectId={item.jiraKey}
+                      assignedMemberIds={new Set(epicAssignments.filter(a => a.quarter === q).map(a => a.memberId))}
+                      onAssign={(memberId, days) => handleAssign(q, memberId, days)}
+                      onClose={() => setAssigningQuarter(null)}
+                    />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Add Project row (Projects view)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -593,6 +796,11 @@ export function PlanningGrid({ viewMode }: PlanningGridProps) {
   );
   const projects = state.projects ?? [];
   const assignments = state.assignments ?? [];
+  // Jira epics from the scenario snapshot — shown in Projects view alongside native projects
+  const jiraEpics = useMemo(
+    () => (state.jiraWorkItems ?? []).filter(w => w.type === 'epic' && w.statusCategory !== 'done'),
+    [state.jiraWorkItems]
+  );
 
   const displayedQuarters = quarters.slice(0, 6);
 
@@ -644,25 +852,58 @@ export function PlanningGrid({ viewMode }: PlanningGridProps) {
                   quarters={displayedQuarters}
                   assignments={assignments}
                   projects={projects}
+                  jiraWorkItems={jiraEpics}
                 />
               ))
             )}
           </>
         ) : (
           <>
-            {projects.length === 0 && (
+            {projects.length === 0 && jiraEpics.length === 0 && (
               <div className="flex items-center justify-center h-24">
                 <span className="text-sm" style={{ color: Text.tertiary }}>No projects in this plan yet.</span>
               </div>
             )}
-            {projects.map(p => (
-              <ProjectRow
-                key={p.id}
-                project={p}
-                quarters={displayedQuarters}
-                assignments={assignments}
-              />
-            ))}
+            {/* Jira epics section */}
+            {jiraEpics.length > 0 && (
+              <>
+                <div
+                  className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b"
+                  style={{ color: Text.tertiary, borderColor: Border.subtle, backgroundColor: Background.secondary }}
+                >
+                  Jira Epics
+                </div>
+                {jiraEpics.map(item => (
+                  <JiraEpicRow
+                    key={item.jiraKey}
+                    item={item}
+                    quarters={displayedQuarters}
+                    assignments={assignments}
+                  />
+                ))}
+              </>
+            )}
+            {/* Native plan projects section */}
+            {projects.length > 0 && (
+              <>
+                {jiraEpics.length > 0 && (
+                  <div
+                    className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b"
+                    style={{ color: Text.tertiary, borderColor: Border.subtle, backgroundColor: Background.secondary }}
+                  >
+                    Plan Projects
+                  </div>
+                )}
+                {projects.map(p => (
+                  <ProjectRow
+                    key={p.id}
+                    project={p}
+                    quarters={displayedQuarters}
+                    assignments={assignments}
+                  />
+                ))}
+              </>
+            )}
             <AddProjectRow quarters={displayedQuarters} />
           </>
         )}
