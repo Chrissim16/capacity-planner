@@ -10,8 +10,8 @@ the design and implementation of the VS Finance capacity planning tool. Follow t
 Every level of the Jira hierarchy (Epic, Feature, Story, Phase) must support BOTH an IT assignee
 and a BIZ assignee. Never add assignee fields that cover only one track.
 
-- IT track = TeamMember, colour #0089DD (Mileway blue)
-- BIZ track = BusinessContact, colour #7C3AED (purple)
+- IT track = TeamMember, primary colour `#0ED3CF` (teal / `sana-teal`)
+- BIZ track = BusinessContact, colour `#7C3AED` (purple / `biz.DEFAULT`)
 - The slide-out panel ALWAYS shows both in a two-column grid (IT | Business)
 - If a new component involves assigning people, it must have both tracks or neither
 
@@ -23,13 +23,13 @@ Gantt bars are plain coloured rectangles. They do NOT contain text, percentages,
 inside the bar rectangle. Assignees and details are only visible in the slide-out panel.
 
 Avatar stacks INSIDE bars are also not currently implemented and should not be added without an
-explicit decision to do so. If the spec calls for avatar stacks on bars, check the latest spec first.
+explicit decision to do so.
 
 ---
 
 ## 3. SPRINT FRACTION SYSTEM — USE DATES, NOT FRACTIONS
 
-The sprint fraction formula (sprint_number / 24) is a conceptual model for documentation.
+The sprint fraction formula is a conceptual model for documentation only.
 In the runtime implementation, bar positions are computed from ISO dates, not stored fractions.
 
 - `sprint_start` and `sprint_end` are NOT stored on JiraWorkItem — do not add these fields
@@ -50,12 +50,18 @@ toggle. When designing a new view:
 
 ---
 
-## 5. CLEAN, MINIMAL UI
+## 5. DESIGN LANGUAGE — "EDITORIAL CALM"
 
-- No decorative elements (no gradients, no shadows on bars, no rounded pill backgrounds on status labels that weren't there before)
-- Status is communicated by colour only: green = normal, amber = warning, red = overloaded
-- Do not add icon decorations to rows that don't already have them
-- Use existing Tailwind utility classes and the existing colour palette
+The UI follows a warm editorial aesthetic (Sana Labs style): warm off-white backgrounds,
+serif headings, teal/orange accents. No Mileway navy, no blue primary.
+
+- Page background: `sana-bg` (`#FAF9F7`) — warm off-white
+- Card surface: `sana-bg-card` (`#FFFFFF`) — pure white
+- Primary accent: `sana-teal` (`#0ED3CF`) — teal
+- Secondary accent: `sana-orange` (`#F97316`) — orange
+- No decorative gradients
+- No shadows on Gantt bars — shadows only on elevated/floating elements (modals, dropdowns, tooltips)
+- Shadows use the defined scale: `shadow-sm`, `shadow-md`, `shadow-lg`, `shadow-xl` from Tailwind config
 
 ---
 
@@ -74,19 +80,165 @@ The gantt area outer container CAN use overflow-x: auto for horizontal scrolling
 
 ---
 
-## 7. CSS DESIGN TOKENS — NO HARDCODED HEX VALUES IN COMPONENT STYLES
+## 7. DESIGN TOKENS — SINGLE SOURCE OF TRUTH
 
-All colours in component JSX and component-level CSS must use:
-- Tailwind utility classes (e.g. `bg-[#0089DD]` is acceptable in Tailwind arbitrary value syntax)
-- CSS custom properties defined in index.css
-- The `BAR` constant in JiraGantt.tsx (the one approved exception for bar colours)
+### `frontend/src/theme/tokens.ts` is the JS-side source of truth.
 
-Do NOT add bare hex values like `color: '#123456'` or `background: '#AABBCC'` in inline styles
-outside of the BAR constant. If you need a new colour, add it to tailwind.config.js.
+All JS/TSX colour usage (Gantt bars, heatmap cells, chart series, inline styles) must reference
+named exports from `tokens.ts`:
+
+- `Background.*` — page and surface backgrounds
+- `Text.*` — primary / secondary / tertiary / inverse text
+- `Accent.*` — teal, orange, coral, magenta, green, red
+- `Border.*` — subtle / light border colours
+- `Biz.*` — BIZ track purple palette
+- `Semantic.*` — success / warning / danger colours + their bg/border variants
+- `GanttBar.*` — Gantt bar colours by item type (SEMANTIC — do not restyle)
+- `HeatmapTiers.*` — heatmap cell tier colours (SEMANTIC — do not restyle)
+- `ChartColors.*` — chart series colours
+- `Shadow.*` — box-shadow strings
+- `Radius.*` — border-radius values
+- `Duration.*` — animation duration values (ms)
+
+**Never hardcode a hex value in a component or screen file.** Use `tokens.ts` exports for
+inline styles; use Tailwind token names (`sana-teal`, `util-healthy`, `biz`, etc.) for
+class-based styling.
+
+### Tailwind colour namespace:
+
+| Namespace | Purpose |
+|---|---|
+| `sana.*` | Primary design system tokens (backgrounds, text, accents, borders) |
+| `util.*` | Semantic capacity status colours (bench / healthy / near / over) |
+| `biz.*` | BIZ track purple palette |
+| `mw.*` | **Legacy aliases only** — kept so old `mw-*` class names compile. Do NOT use in new code. |
+
+If you need a new colour, add it to both `tokens.ts` AND `tailwind.config.js`. Never add to one without the other.
 
 ---
 
-## 8. BAR POSITIONING USES PERCENTAGE-BASED left/width — NOT CSS GRID COLUMNS
+## 8. TYPOGRAPHY
+
+Two fonts are in use — never add a third without an explicit decision:
+
+- **Body / UI text:** `DM Sans` — loaded from Google Fonts in `index.html`. Applied via
+  Tailwind's default `font-sans`. Weights 400, 500, 600.
+- **Page titles / editorial headings:** `Source Serif 4` — loaded from Google Fonts.
+  Applied via `font-heading` Tailwind class OR inline `style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}`.
+  Use `font-heading` for editorial headings only; use `font-sans` for everything else.
+
+Minimum text size: `text-xs` (11px). Do not use text smaller than 11px anywhere in the UI.
+
+Font scale (defined in `tailwind.config.js`):
+
+| Token | Size |
+|---|---|
+| `text-xs` | 11px |
+| `text-sm` | 13px |
+| `text-base` / `text-md` | 15px |
+| `text-lg` | 16px |
+| `text-xl` | 18px |
+| `text-2xl` | 24px |
+| `text-3xl` | 32px |
+| `text-4xl` | 40px |
+
+---
+
+## 9. LAYOUT — SIDEBAR + CONTENT (NO HEADER)
+
+The app uses a **flex-row sidebar-beside-content** layout. `Header.tsx` is retired (file exists
+but is not imported). Do not re-introduce a horizontal top navigation.
+
+`Layout.tsx` structure:
+```
+<div className="flex h-screen overflow-hidden bg-[#FAF9F7]">
+  <Sidebar />
+  <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+    <NotificationBanners />
+    <main className="flex-1 overflow-auto px-10 py-8 max-w-[1440px] w-full mx-auto">
+      {children}
+    </main>
+  </div>
+</div>
+```
+
+### Sidebar rules:
+
+- Expanded: `w-[240px]`, Collapsed: `w-[60px]`
+- Collapse state persisted to `localStorage` key `ui.sidebarCollapsed`
+- Width transition: `transition-[width] duration-standard ease-in-out` (250ms)
+- Background: `sana-bg` (`#FAF9F7`) with `border-r border-sana-border` — light/warm, NOT navy
+- Active nav item: `border-l-[3px] border-[#0ED3CF] bg-sana-bg-highlight text-sana-text font-semibold`
+- Inactive nav item: `border-l-[3px] border-transparent text-sana-text-muted hover:text-sana-text hover:bg-sana-bg-secondary`
+- Collapsed mode: show icon only, hide all text labels
+
+### NotificationBanners:
+
+- Sits between sidebar and main content as a zero-height-when-empty strip
+- Contains: Jira baseline warning (orange/amber) + active scenario banner (teal)
+- Do NOT move these into page components
+
+---
+
+## 10. PAGE HEADER PATTERN
+
+All pages use `<PageHeader>` from `components/layout/PageHeader.tsx`. Do not create custom
+page title/subtitle markup inline — always use the shared component.
+
+- Title: `text-4xl font-bold` Source Serif 4, `#1A1A1A`, `letter-spacing: -0.02em`
+- Subtitle: `text-base` DM Sans, `#6B7280` (muted)
+- Optional `actions` prop: right-aligned, vertically centered with title
+
+---
+
+## 11. CARDS & SURFACES
+
+- Card border-radius: `rounded-card` (16px)
+- Card background: `bg-white` (`sana-bg-card`)
+- Card border: `border border-sana-border` (`#E5E5E3`)
+- Do NOT add left accent borders to all cards — accent borders are used selectively for highlight
+  panels or navigation active states only
+- Page background: `bg-sana-bg` (`#FAF9F7`)
+- Shadows: only on elevated/floating elements — `shadow-sm` for tooltips, `shadow-md` for dropdowns,
+  `shadow-lg` for modals. Never on flat cards in the page flow.
+
+---
+
+## 12. STATUS BADGES — USE `Badge.tsx`
+
+All status indicators use the `Badge` component from `components/ui/Badge.tsx`.
+Do NOT create custom inline status chips or spans.
+
+Badge is pill-shaped (`rounded-full`) with ALL-CAPS (`uppercase`) text.
+Available variants:
+
+`default` | `success` / `green` | `warning` / `amber` | `danger` / `red` |
+`primary` / `blue` | `outline` | `grey` | `tentative` |
+`beginner` | `intermediate` | `advanced` | `expert`
+
+Common mappings:
+- Capacity healthy → `success`
+- Capacity near → `warning`
+- Capacity overloaded → `danger`
+- IT track → `primary`
+- BIZ track → use purple inline (no badge variant for BIZ — use `Biz.*` tokens directly)
+
+---
+
+## 13. CAPACITY THRESHOLDS — OVERLOADED DEFINITION
+
+"Overloaded" = allocatedDays > availableDays in a sprint.
+
+- Healthy = ≤ 90% utilisation → colour `util-healthy` (`#22C55E`, green)
+- Warning = > 90% → colour `util-near` (`#F97316`, orange)
+- Overloaded = > 100% → colour `util-over` (`#EF4444`, red)
+
+This is a hard threshold at 100%. Do NOT use a configurable threshold for the overloaded state.
+This definition must be consistent across ALL views that show capacity (Gantt, heatmap, dashboard cards).
+
+---
+
+## 14. BAR POSITIONING USES PERCENTAGE-BASED left/width — NOT CSS GRID COLUMNS
 
 Gantt bars use `position: absolute` with:
 - `left: ${(barLayout.left * 100).toFixed(2)}%`
@@ -95,12 +247,9 @@ Gantt bars use `position: absolute` with:
 The column grid (CSS `grid-template-columns: repeat(N, 1fr)`) is ONLY used for the time header
 row and the vertical grid lines. It is NEVER used to position bars.
 
-Do not attempt to align bars to column grid tracks. Date-to-percentage conversion is the only
-correct approach.
-
 ---
 
-## 9. SLIDE-OUT PANEL IS THE SINGLE DETAIL VIEW
+## 15. SLIDE-OUT PANEL IS THE SINGLE DETAIL VIEW
 
 For all item types (JiraWorkItem, LocalPhase, TeamMember detail), the slide-out panel is the
 canonical detail surface. Do NOT:
@@ -113,19 +262,32 @@ The panel slides in from the right (420px wide), has a backdrop overlay, and clo
 
 ---
 
-## 10. OVERLOADED DEFINITION
+## 16. CHARTS — RECHARTS STYLING
 
-"Overloaded" = allocatedDays > availableDays in a sprint.
+All recharts charts must follow this style:
 
-- This is a hard threshold at 100% utilisation
-- Do NOT use a configurable threshold for the overloaded state
-- Warning state = > 90% (amber)
-- Overloaded state = > 100% (red)
-- This definition must be consistent across ALL views that show capacity
+- **No `<CartesianGrid />`** on any chart
+- Y-axis: `tickCount={3}`, `axisLine={false}`, `tickLine={false}`, tick `fill: Text.tertiary` (`#9CA3AF`), `fontFamily: 'DM Sans'`
+- X-axis: `axisLine={false}`, `tickLine={false}`, same tick style
+- Bar radius: `[4, 4, 0, 0]`
+- Tooltip: use `<ChartTooltip />` from `components/ui/ChartTooltip.tsx` — never the default recharts tooltip
+- Series colours: use `ChartColors.*` from `tokens.ts` (primary=orange, secondary=magenta, tertiary=teal)
 
 ---
 
-## 11. HIERARCHY STRUCTURE — NEVER SKIP LEVELS
+## 17. DARK MODE — DEFERRED
+
+Dark mode is architecturally wired (`darkMode: 'class'` in Tailwind) but **not implemented**.
+
+- `DarkSurface` in `tokens.ts` is `{}` and `@deprecated`
+- The `mw.*` dark surface stubs are no-ops (same as light values)
+- Do NOT add new `dark:` Tailwind variant classes to components
+- Do NOT implement dark mode styling for new components until a decision is made to un-defer it
+- The dark mode toggle in the sidebar UI can remain but has no visual effect
+
+---
+
+## 18. HIERARCHY STRUCTURE — NEVER SKIP LEVELS
 
 The hierarchy is ALWAYS: Epic → Feature → Story | Phase
 
@@ -135,27 +297,29 @@ The hierarchy is ALWAYS: Epic → Feature → Story | Phase
 
 ---
 
-## 12. TECH STACK — NO NEW DEPENDENCIES WITHOUT REVIEW
+## 19. TECH STACK — NO NEW DEPENDENCIES WITHOUT REVIEW
 
 The frontend uses: React 19, TypeScript, Vite, Tailwind CSS, Zustand, Supabase JS SDK,
-lucide-react (icons), date-fns, clsx, xlsx.
+lucide-react (icons), date-fns, clsx, xlsx, recharts.
 
 Do not add new dependencies for things already covered by the existing stack:
 - No new icon libraries (use lucide-react)
 - No new CSS-in-JS (use Tailwind)
 - No new state management (use Zustand)
-- No new UI component libraries (use the existing ui/ components)
+- No new UI component libraries (use the existing `ui/` components)
+- No new charting libraries (use recharts)
+- No new font packages — DM Sans and Source Serif 4 are loaded from Google Fonts in `index.html`
 
 ---
 
-## 13. SUPABASE MIGRATIONS
+## 20. SUPABASE MIGRATIONS
 
-Database changes MUST be expressed as new numbered migration files in supabase/migrations/.
-Do NOT edit schema.sql directly. Migration files are numbered sequentially (e.g. 017_...).
+Database changes MUST be expressed as new numbered migration files in `supabase/migrations/`.
+Do NOT edit `schema.sql` directly. Migration files are numbered sequentially (e.g. `027_...`).
 
 ---
 
-## 14. TypeScript TYPES IN types/index.ts
+## 21. TypeScript TYPES IN types/index.ts
 
 All new TypeScript interfaces and types belong in `frontend/src/types/index.ts`.
 Do NOT scatter type definitions across component files. Inline type definitions are only
@@ -163,16 +327,18 @@ acceptable for component-local state types (e.g. `type TabType = 'it' | 'biz' | 
 
 ---
 
-## 15. DOCS STAY IN SYNC — UPDATE ON EVERY COMMIT
+## 22. DOCS STAY IN SYNC — UPDATE ON EVERY COMMIT
 
-After every coding session that changes code, you MUST update documentation before committing.
+⚠️ THIS IS A HARD RULE. Do not end any coding session without completing it.
+
+After every session that changes code, you MUST update documentation BEFORE the final commit.
 
 Trigger → what to update:
-- New or changed data entity (types/index.ts)   → docs/data-model.md
-- New or changed component / page               → docs/views/<view>.md or docs/architecture.md
-- New feature or view status change             → docs/README.md (views table)
-- Architectural change (store, sync, routing)   → docs/architecture.md
-- Any code change at all                        → docs/CHANGELOG.md (add entry at top)
+- New or changed data entity (`types/index.ts`)   → `docs/data-model.md`
+- New or changed component / page               → `docs/views/<view>.md` or `docs/architecture.md`
+- New feature or view status change             → `docs/README.md` (views table)
+- Architectural change (store, sync, routing)   → `docs/architecture.md`
+- Any code change at all                        → `docs/CHANGELOG.md` (add entry at top)
 
 CHANGELOG entry format:
   ## [YYYY-MM-DD] — <short title>
@@ -180,6 +346,11 @@ CHANGELOG entry format:
   - one bullet per meaningful change
   ### Docs updated
   - list each doc file touched and what was updated
+
+CHECKLIST — before every commit, confirm:
+  [ ] docs/CHANGELOG.md has a new entry at the top for today's date
+  [ ] All other affected docs listed above are updated
+  [ ] The doc updates are staged in the same commit as the code
 
 Never commit code without a matching CHANGELOG.md entry.
 The CHANGELOG.md entry must be committed in the same commit as the code change.

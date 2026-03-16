@@ -10,6 +10,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
+import { useDroppable } from '@dnd-kit/core';
+import { clsx } from 'clsx';
 import { useAppStore, useCurrentState } from '../../stores/appStore';
 import {
   addAssignment,
@@ -17,6 +19,8 @@ import {
   addProject,
 } from '../../stores/actions';
 import { getWorkdaysInQuarter, getHolidaysByCountry } from '../../utils/calendar';
+import { FIT_GLOW } from '../../utils/staffing';
+import type { FitLevel } from '../../utils/staffing';
 import { useToast } from '../ui/Toast';
 import { PlanningBar, CapacityBar, StaffingBar } from './PlanningBar';
 import { AssignPopover, ITBizBadge } from './AssignPopover';
@@ -289,9 +293,12 @@ interface ProjectRowProps {
   project: Project;
   quarters: string[];
   assignments: Assignment[];
+  dragScore?: FitLevel;
+  isSelected?: boolean;
 }
 
-function ProjectRow({ project, quarters, assignments }: ProjectRowProps) {
+function ProjectRow({ project, quarters, assignments, dragScore, isSelected }: ProjectRowProps) {
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: project.id });
   const state = useCurrentState();
   const publicHolidays = useAppStore(useShallow(s => s.data.publicHolidays));
   const [expanded, setExpanded] = useState(true);
@@ -334,8 +341,16 @@ function ProjectRow({ project, quarters, assignments }: ProjectRowProps) {
     <>
       {/* Parent row */}
       <div
-        className="flex border-b transition-colors hover:bg-[#F5F3F0]"
-        style={{ borderColor: Border.subtle }}
+        ref={setDropRef}
+        className={clsx(
+          'flex border-b transition-colors hover:bg-[#F5F3F0]',
+          dragScore && (isOver ? 'ring-2 ring-inset' : FIT_GLOW[dragScore]),
+        )}
+        style={{
+          borderColor: Border.subtle,
+          borderLeftColor: isSelected ? Accent.teal : undefined,
+          borderLeftWidth: isSelected ? 3 : undefined,
+        }}
       >
         {/* Label cell */}
         <div
@@ -500,9 +515,12 @@ interface JiraEpicRowProps {
   item: JiraWorkItem;
   quarters: string[];
   assignments: Assignment[];
+  dragScore?: FitLevel;
+  isSelected?: boolean;
 }
 
-function JiraEpicRow({ item, quarters, assignments }: JiraEpicRowProps) {
+function JiraEpicRow({ item, quarters, assignments, dragScore, isSelected }: JiraEpicRowProps) {
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: item.jiraKey });
   const state = useCurrentState();
   const publicHolidays = useAppStore(useShallow(s => s.data.publicHolidays));
   const [expanded, setExpanded] = useState(true);
@@ -546,8 +564,16 @@ function JiraEpicRow({ item, quarters, assignments }: JiraEpicRowProps) {
     <>
       {/* Parent row */}
       <div
-        className="flex border-b transition-colors hover:bg-[#F5F3F0]"
-        style={{ borderColor: Border.subtle }}
+        ref={setDropRef}
+        className={clsx(
+          'flex border-b transition-colors hover:bg-[#F5F3F0]',
+          dragScore && (isOver ? 'ring-2 ring-inset' : FIT_GLOW[dragScore]),
+        )}
+        style={{
+          borderColor: Border.subtle,
+          borderLeftColor: isSelected ? Accent.teal : undefined,
+          borderLeftWidth: isSelected ? 3 : undefined,
+        }}
       >
         <div
           className="flex items-center gap-2 px-3 py-2.5 shrink-0 cursor-pointer select-none"
@@ -784,9 +810,13 @@ function AddProjectRow({ quarters }: { quarters: string[] }) {
 
 interface PlanningGridProps {
   viewMode: PlanningViewMode;
+  /** Fit scores keyed by project.id or jiraKey — drives glow rings on droppable rows */
+  dragScores?: Record<string, FitLevel>;
+  /** Project/jira id to highlight with a teal left border (from left sidebar click) */
+  selectedProjectId?: string | null;
 }
 
-export function PlanningGrid({ viewMode }: PlanningGridProps) {
+export function PlanningGrid({ viewMode, dragScores, selectedProjectId }: PlanningGridProps) {
   const state = useCurrentState();
   const quarters = useAppStore(useShallow(s => s.data.quarters));
 
@@ -855,6 +885,7 @@ export function PlanningGrid({ viewMode }: PlanningGridProps) {
                   jiraWorkItems={jiraEpics}
                 />
               ))
+
             )}
           </>
         ) : (
@@ -879,6 +910,8 @@ export function PlanningGrid({ viewMode }: PlanningGridProps) {
                     item={item}
                     quarters={displayedQuarters}
                     assignments={assignments}
+                    dragScore={dragScores?.[item.jiraKey]}
+                    isSelected={selectedProjectId === item.jiraKey}
                   />
                 ))}
               </>
@@ -900,6 +933,8 @@ export function PlanningGrid({ viewMode }: PlanningGridProps) {
                     project={p}
                     quarters={displayedQuarters}
                     assignments={assignments}
+                    dragScore={dragScores?.[p.id]}
+                    isSelected={selectedProjectId === p.id}
                   />
                 ))}
               </>

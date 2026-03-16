@@ -23,19 +23,21 @@ alwaysApply: false
 ## Gantt / Timeline Rules
 
 - Gantt rows must **never** have `overflow: hidden` — it hides the clip-left/clip-right pseudo-element arrows.
-- Bar colours are defined in the `BAR` constant in `JiraGantt.tsx`, not CSS variables. Update there, not in `index.css`.
+- Bar colours are defined in `GanttBar.*` in `frontend/src/theme/tokens.ts`. The `BAR` map in `JiraGantt.tsx` must reference `tokens.ts` — do not add bare hex literals there.
 - `barLayout()` returns values in the range `0.0–1.0`; apply as `${value * 100}%` inline styles. Do not convert to pixels.
 - Date resolution uses a three-pass fallback (Jira date → sprint object dates → sprint name lookup). All three passes must remain intact.
 
 ## Styling
 
 - Use Tailwind utility classes first. Only add custom CSS in `index.css` for things Tailwind cannot express (e.g. Gantt pseudo-elements, scrollbar styles).
-- Brand colours must use the Tailwind token names: `mw-blue` (IT / primary), `mw-purple` (BIZ / scenarios). Never hardcode `#0089DD` or `#7C3AED` in component code.
-- Dark mode is toggled via `settings.darkMode`. Respect it with the `dark:` Tailwind variant; do not use `document.body.classList` directly in components.
+- Colours must use `sana-*`, `util-*`, or `biz-*` Tailwind token names, or named exports from `frontend/src/theme/tokens.ts` for inline styles. **Never hardcode hex values in component files.**
+- The `mw-*` Tailwind namespace is legacy — do not use it in new code. Prefer `sana-teal` over `mw-primary`, `sana-text` over `mw-dark`, etc.
+- Dark mode is architecturally wired but **deferred**. Do NOT add new `dark:` Tailwind variant classes. The toggle exists in the sidebar but has no visual effect until dark mode is un-deferred.
+- Do not use `document.body.classList` or `document.documentElement` directly in components for theme toggling.
 
 ## UX / Accessibility
 
-- Every interactive element must have a visible focus ring (`focus:ring-2 focus:ring-mw-blue`).
+- Every interactive element must have a visible focus ring (`focus:ring-2 focus:ring-sana-teal`).
 - Modal dialogs must trap focus and close on `Escape`. Use the `Modal` primitive from `components/ui/`.
 - Loading states must show a skeleton or spinner — never a blank area. Use the `ProgressBar` or a `div animate-pulse` skeleton.
 - Error states must offer a recovery action (retry button, dismiss). Do not show raw error messages from Supabase or Jira to the user.
