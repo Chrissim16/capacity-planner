@@ -265,6 +265,8 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       jiraItemBizAssignments: Array.isArray(s.jira_item_biz_assignments) ? s.jira_item_biz_assignments : [],
       teamMembers: Array.isArray(s.team_members) ? s.team_members : [],
       timeOff: Array.isArray(s.time_off) ? s.time_off : [],
+      projects: Array.isArray(s.projects) ? s.projects : [],
+      assignments: Array.isArray(s.assignments) ? s.assignments : [],
     }));
 
     // Settings key-value pairs
@@ -360,6 +362,8 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       businessContacts,
       businessTimeOff,
       jiraItemBizAssignments,
+      projects: [],
+      assignments: [],
     };
   } catch (err) {
     console.error('[Sync] Unexpected error loading from Supabase:', err);

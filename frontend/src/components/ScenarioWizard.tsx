@@ -8,7 +8,7 @@
  */
 
 import { useReducer, useMemo, useCallback, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, X, Check, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Modal } from './ui/Modal';
 import { ConfirmModal } from './ui/ConfirmModal';
@@ -127,10 +127,6 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
   const availableQuarters = currentState.quarters;
 
   // Dismiss confirm
-  const [showDismissConfirm, setShowDismissConfirm] = (
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    [false, (v: boolean) => setShowDismissConfirmState(v)] as [boolean, (v: boolean) => void]
-  );
   const [showDismissConfirmState, setShowDismissConfirmState] = useReducer(
     (_: boolean, v: boolean) => v, false
   );

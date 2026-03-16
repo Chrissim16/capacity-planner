@@ -822,7 +822,7 @@ export function createScenarioWithPlan(plan: ScenarioPlan): { scenarioId: string
   try {
     // Step 1: create or duplicate the scenario
     if (baseOn === 'active') {
-      newScenario = duplicateScenario(activeScenarioId!, name, description);
+      newScenario = duplicateScenario(activeScenarioId!, name);
       if (!newScenario) {
         return { error: 'Could not duplicate the active scenario. Please try again.' };
       }

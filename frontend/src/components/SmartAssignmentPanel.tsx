@@ -43,7 +43,7 @@ interface MemberRowProps {
   assigningId: string | null;
 }
 
-function MemberRow({ fit, quarter, canAssign, onAssign, assigningId }: MemberRowProps) {
+function MemberRow({ fit, quarter: _quarter, canAssign, onAssign, assigningId }: MemberRowProps) {
   const [days, setDays] = useState(() => Math.max(1, Math.min(5, fit.availableDays)));
   const { member, fitLevel, availableDays, usedPercent, skillMatch, skillGap, existingDays } = fit;
   const colours = FIT_COLOURS[fitLevel];

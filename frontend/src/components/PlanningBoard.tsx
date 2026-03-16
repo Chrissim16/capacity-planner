@@ -9,7 +9,7 @@
  * Lazy-loaded in Scenarios.tsx via React.lazy() — @dnd-kit/core stays out of the main bundle.
  */
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   DndContext,
   useDraggable,
@@ -27,7 +27,7 @@ import { clsx } from 'clsx';
 import { useCurrentState, useActiveScenarioId, useSyncStatus } from '../stores/appStore';
 import { addAssignment, promoteScenarioToBaseline } from '../stores/actions';
 import { useCurrentUser } from '../hooks/useCurrentUser';
-import { scoreMember, FIT_COLOURS, FIT_GLOW, rankMemberFits } from '../utils/staffing';
+import { scoreMember, FIT_GLOW, rankMemberFits } from '../utils/staffing';
 import type { FitLevel, TentativeAssignment } from '../utils/staffing';
 import { calculateCapacity } from '../utils/capacity';
 import { ProgressBar } from './ui/ProgressBar';
