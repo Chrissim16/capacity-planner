@@ -14,7 +14,7 @@
  *  - type 'canvas-project': project row header → left sidebar remove zone → deleteProject (+ cascade assignments)
  *  - type 'canvas-member':  person child-row → right sidebar remove zone → remove all assignments for member on that project
  */
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -45,6 +45,7 @@ import {
 import { scoreMember } from '../utils/staffing';
 import type { FitLevel } from '../utils/staffing';
 import { calculateCapacity } from '../utils/capacity';
+import { getWorkdaysInDateRange } from '../utils/calendar';
 import { ConfirmModal } from './ui/ConfirmModal';
 import { useToast } from './ui/Toast';
 import { useCurrentUser } from '../hooks/useCurrentUser';
@@ -682,8 +683,33 @@ interface DropDaysModalProps {
   onClose: () => void;
 }
 
+function todayIso(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function twoWeeksLaterIso(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 13);
+  return d.toISOString().split('T')[0];
+}
+
+type DropInputMode = 'days' | 'dates';
+
 function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalProps) {
+  const [inputMode, setInputMode] = useState<DropInputMode>('days');
   const [days, setDays] = useState(target.defaultDays);
+  const [startDate, setStartDate] = useState(todayIso);
+  const [endDate, setEndDate] = useState(twoWeeksLaterIso);
+
+  const computedDays = useMemo(() => {
+    if (inputMode !== 'dates' || !startDate || !endDate) return days;
+    return getWorkdaysInDateRange(startDate, endDate);
+  }, [inputMode, startDate, endDate, days]);
+
+  const derivedQuarter = useMemo(() => {
+    if (inputMode === 'dates' && startDate) return deriveQuarter(startDate);
+    return quarter;
+  }, [inputMode, startDate, quarter]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -692,8 +718,15 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
   }, [onClose]);
 
   const handleConfirm = useCallback(() => {
-    if (days > 0) onConfirm(days);
-  }, [days, onConfirm]);
+    const effectiveDays = inputMode === 'dates' ? computedDays : days;
+    if (effectiveDays > 0) {
+      onConfirm(
+        effectiveDays,
+        inputMode === 'dates' ? startDate : undefined,
+        inputMode === 'dates' ? endDate : undefined,
+      );
+    }
+  }, [inputMode, days, computedDays, startDate, endDate, onConfirm]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
@@ -704,6 +737,7 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
         aria-modal="true"
         aria-labelledby="drop-days-title"
       >
+        {/* Header */}
         <div className="px-5 pt-5 pb-4">
           <h3
             id="drop-days-title"
@@ -713,35 +747,97 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
             Assign {target.memberName}
           </h3>
           <p className="text-xs" style={{ color: Text.tertiary }}>
-            {target.projectName} · {quarter}
+            {target.projectName} · {derivedQuarter}
           </p>
         </div>
 
-        <div className="px-5 pb-5">
-          <label
-            htmlFor="drop-days-input"
-            className="block text-xs font-medium mb-1.5"
-            style={{ color: Text.secondary }}
+        {/* Mode toggle */}
+        <div className="flex items-center gap-0 px-5 pb-3">
+          <button
+            className="px-3 py-1 text-xs font-medium rounded-l-lg border transition-colors focus:ring-2 focus:ring-inset focus:ring-mileway-light-blue"
+            style={
+              inputMode === 'days'
+                ? { backgroundColor: Accent.teal, borderColor: Accent.teal, color: '#fff' }
+                : { borderColor: Border.subtle, color: Text.secondary, backgroundColor: Background.card }
+            }
+            onClick={() => setInputMode('days')}
+            aria-pressed={inputMode === 'days'}
           >
-            How many days?
-          </label>
-          <input
-            id="drop-days-input"
-            type="number"
-            min={1}
-            max={999}
-            value={days}
-            onChange={(e) => setDays(Math.max(1, parseInt(e.target.value) || 1))}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
-            autoFocus
-            className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-mileway-light-blue"
-            style={{
-              borderColor: Border.subtle,
-              color: Text.primary,
-              backgroundColor: Background.primary,
-            }}
-          />
+            By days
+          </button>
+          <button
+            className="px-3 py-1 text-xs font-medium rounded-r-lg border-t border-b border-r transition-colors focus:ring-2 focus:ring-inset focus:ring-mileway-light-blue"
+            style={
+              inputMode === 'dates'
+                ? { backgroundColor: Accent.teal, borderColor: Accent.teal, color: '#fff' }
+                : { borderColor: Border.subtle, color: Text.secondary, backgroundColor: Background.card }
+            }
+            onClick={() => setInputMode('dates')}
+            aria-pressed={inputMode === 'dates'}
+          >
+            By dates
+          </button>
         </div>
+
+        {/* By days input */}
+        {inputMode === 'days' && (
+          <div className="px-5 pb-5">
+            <label
+              htmlFor="drop-days-input"
+              className="block text-xs font-medium mb-1.5"
+              style={{ color: Text.secondary }}
+            >
+              How many days?
+            </label>
+            <input
+              id="drop-days-input"
+              type="number"
+              min={1}
+              max={999}
+              value={days}
+              onChange={(e) => setDays(Math.max(1, parseInt(e.target.value) || 1))}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
+              autoFocus
+              className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-mileway-light-blue"
+              style={{
+                borderColor: Border.subtle,
+                color: Text.primary,
+                backgroundColor: Background.primary,
+              }}
+            />
+          </div>
+        )}
+
+        {/* By dates inputs */}
+        {inputMode === 'dates' && (
+          <div className="px-5 pb-5 flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <span className="text-xs w-10 shrink-0" style={{ color: Text.secondary }}>Start</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                autoFocus
+                className="flex-1 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-mileway-light-blue"
+                style={{ borderColor: Border.subtle, color: Text.primary, backgroundColor: Background.primary }}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs w-10 shrink-0" style={{ color: Text.secondary }}>End</span>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="flex-1 border rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-mileway-light-blue"
+                style={{ borderColor: Border.subtle, color: Text.primary, backgroundColor: Background.primary }}
+              />
+            </div>
+            <p className="text-[10px] pt-0.5" style={{ color: Text.tertiary }}>
+              {computedDays}d workdays · {derivedQuarter}
+            </p>
+          </div>
+        )}
 
         <div
           className="flex justify-end gap-2 px-5 py-3 border-t"
@@ -758,7 +854,7 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
             className="px-4 py-1.5 text-sm font-medium rounded-lg transition-colors focus:ring-2 focus:ring-mileway-light-blue"
             style={{ backgroundColor: Accent.teal, color: '#fff' }}
             onClick={handleConfirm}
-            disabled={days < 1}
+            disabled={(inputMode === 'days' ? days : computedDays) < 1}
           >
             Assign
           </button>
