@@ -16,9 +16,9 @@ export function NotificationBanners() {
 
   if (!activeScenario && !isBaselineWithJira) return null;
 
-  return (
-    <div className="border-b border-[#D97706] bg-[#FEF9C3] border-l-4 px-6 py-2.5">
-      {!activeScenario && isBaselineWithJira ? (
+  if (!activeScenario && isBaselineWithJira) {
+    return (
+      <div className="border-b border-l-4 border-[#D97706] bg-[#FEF9C3] px-6 py-2.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[#1E293B] text-sm">
             <ShieldAlert size={16} className="shrink-0 text-[#D97706]" />
@@ -33,7 +33,13 @@ export function NotificationBanners() {
             Create Scenario
           </button>
         </div>
-      ) : activeScenario ? (
+      </div>
+    );
+  }
+
+  if (activeScenario) {
+    return (
+      <div className="border-b border-l-[3px] border-[#0089DD] bg-[#EFF6FF] px-6 py-2.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[#1E293B] text-sm">
             <GitBranch size={16} className="shrink-0 text-[#0089DD]" />
@@ -43,7 +49,7 @@ export function NotificationBanners() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => refreshScenarioFromJira(activeScenario.id)}
-              className="px-3 py-1 rounded-lg bg-[#E6F2FC] hover:bg-[#E6F2FC] text-[#0077C2] text-xs font-semibold flex items-center gap-1.5 transition-colors duration-150"
+              className="px-3 py-1 rounded-lg bg-[#E6F2FC] hover:bg-[#CCE4F9] text-[#0089DD] text-xs font-semibold flex items-center gap-1.5 transition-colors duration-150"
             >
               <RefreshCw size={12} />
               Refresh
@@ -56,7 +62,9 @@ export function NotificationBanners() {
             </button>
           </div>
         </div>
-      ) : null}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  return null;
 }

@@ -5,6 +5,14 @@ Newest entry at the top. Format: `[YYYY-MM-DD] — Short title`.
 
 ---
 
+## [2026-03-18] — UI fix — scenario banner blue, content area background #FAFAFA
+
+### Changed
+- `NotificationBanners.tsx` — scenario-active banner replaced yellow/amber styling with light blue (`bg-[#EFF6FF]`, `border-l-[3px] border-[#0089DD]`); banners now separated into individual early-return branches; Refresh button corrected from off-spec `#0077C2` to `#0089DD`
+- `Layout.tsx` — content column wrapper set to `bg-[#FAFAFA]` to remove the blue tint caused by `#F5F8FC` bleeding through from the page root
+
+---
+
 ## [2026-03-18] — Design pass — DM Sans font, brand palette refresh, dark mode removed
 
 ### Changed

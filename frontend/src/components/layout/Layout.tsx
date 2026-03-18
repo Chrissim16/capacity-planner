@@ -26,7 +26,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-[#F5F8FC]">
       <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-[#FAFAFA]">
         <NotificationBanners />
         <main className="flex-1 overflow-auto px-10 py-8 max-w-[1440px] w-full mx-auto">
           {children}
