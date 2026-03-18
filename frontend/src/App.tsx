@@ -13,7 +13,7 @@ import { LoadingScreen } from './components/ui/LoadingScreen';
 import { KeyboardShortcutsModal } from './components/ui/KeyboardShortcutsModal';
 import { CommandPalette } from './components/ui/CommandPalette';
 import type { CommandPayload } from './components/ui/CommandPalette';
-import { useAppStore, useCurrentView, useSettings, useIsInitializing, useSyncStatus } from './stores/appStore';
+import { useAppStore, useCurrentView, useIsInitializing, useSyncStatus } from './stores/appStore';
 import type { ViewType } from './types';
 import { Login } from './pages/Login';
 import { useCurrentUser } from './hooks/useCurrentUser';
@@ -56,7 +56,6 @@ const pages: Record<ViewType, React.ComponentType> = {
 
 function App() {
   const currentView = useCurrentView();
-  const settings = useSettings();
   const isInitializing = useIsInitializing();
   const { status: syncStatus } = useSyncStatus();
   // Use targeted selectors (not the full store) so App only re-renders when
