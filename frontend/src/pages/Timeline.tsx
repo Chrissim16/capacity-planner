@@ -393,7 +393,7 @@ export function Timeline() {
  </div>
 
  {/* Member rows */}
- <div className="divide-y divide-slate-100">
+ <div className="divide-y divide-[#F0F2F5]">
  {teamMembers.length === 0 ? (
  <EmptyState
  icon={User}

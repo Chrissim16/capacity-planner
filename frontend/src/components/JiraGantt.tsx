@@ -150,7 +150,7 @@ function StatusBadge({ item }: { item: JiraWorkItem }) {
  return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-emerald-50 text-emerald-700"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />{item.status}</span>;
  if (cat === 'in_progress')
  return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-amber-50 text-amber-700"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />{item.status}</span>;
- return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-[#F0F2F5] text-[#94A3B8]"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 flex-shrink-0" />{item.status}</span>;
+ return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-[#F0F2F5] text-[#94A3B8]"><span className="w-1.5 h-1.5 rounded-full bg-[#94A3B8] flex-shrink-0" />{item.status}</span>;
 }
 
 // ── Slide-out panel ──────────────────────────────────────────────────────────

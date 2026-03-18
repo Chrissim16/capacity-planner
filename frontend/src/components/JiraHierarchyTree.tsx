@@ -145,7 +145,7 @@ export function JiraHierarchyTree({
  };
 
  return (
- <div className="rounded-lg border border-[#DEDFE3] divide-y divide-slate-100 overflow-hidden">
+ <div className="rounded-lg border border-[#DEDFE3] divide-y divide-[#F0F2F5] overflow-hidden">
  {sortByType(roots).map(r => renderNode(r, 0))}
  </div>
  );

@@ -527,7 +527,7 @@ export function JiraSection() {
  <div className="space-y-3">
  <div className="rounded-lg border bg-[#F0F2F5] /60 overflow-hidden">
  <table className="w-full text-sm">
- <tbody className="divide-y divide-slate-200">
+ <tbody className="divide-y divide-[#DEDFE3]">
  <tr>
  <td className="px-4 py-2.5 font-medium text-muted-foreground w-48">Key</td>
  <td className="px-4 py-2.5 font-mono font-semibold">{d.key}</td>

@@ -296,7 +296,7 @@ export function Team() {
  {([
  { id: 'it' as TabType, icon: Users, label: 'IT Members', count: teamMembers.length, activeColor: 'border-[#0089DD] text-[#0089DD]', badgeActive: 'bg-blue-100 text-blue-700' },
  { id: 'biz' as TabType, icon: Building2, label: 'Business Contacts', count: state.businessContacts.filter(c => !c.archived).length, activeColor: 'border-[#94A3B8] text-[#94A3B8]', badgeActive: 'bg-[#F0F2F5] text-[#1E293B]' },
- { id: 'all' as TabType, icon: Users, label: 'All', count: teamMembers.length + state.businessContacts.filter(c => !c.archived).length, activeColor: 'border-slate-600 text-[#1E293B] ', badgeActive: 'bg-[#DEDFE3] text-[#1E293B] ' },
+ { id: 'all' as TabType, icon: Users, label: 'All', count: teamMembers.length + state.businessContacts.filter(c => !c.archived).length, activeColor: 'border-[#1E293B] text-[#1E293B]', badgeActive: 'bg-[#DEDFE3] text-[#1E293B] ' },
  ] as const).map(tab => {
  const Icon = tab.icon;
  const isActive = activeTab === tab.id;
@@ -593,7 +593,7 @@ className="hover:border-blue-300 transition-colors"
  ) : (
  /* ── Compact list view ──────────────────────────────────────────── */
  <Card>
- <div className="divide-y divide-slate-100">
+ <div className="divide-y divide-[#F0F2F5]">
  {/* Table header */}
  <div className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-[#F0F2F5] /50">
  <span />
@@ -811,7 +811,7 @@ Archived ({filteredContacts.filter(c => c.archived).length})
  ) : (
  /* ── Biz list view ── */
  <Card>
- <div className="divide-y divide-slate-100">
+ <div className="divide-y divide-[#F0F2F5]">
  <div className="grid grid-cols-[24px_1fr_180px_140px_200px_auto] gap-2 px-4 py-2 bg-[#F0F2F5] /50">
  <span />
  <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Name</span>
@@ -988,7 +988,7 @@ return (
  </div>
  ) : (
  <Card>
- <div className="divide-y divide-slate-100">
+ <div className="divide-y divide-[#F0F2F5]">
  <div className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-[#F0F2F5] /50">
  <span /><span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Name</span>
  <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Role / Title</span>
@@ -1183,7 +1183,7 @@ return (
  <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-[#001E3C] text-white rounded-xl shadow-2xl">
  <CheckSquare size={16} className="text-blue-400" />
  <span className="text-sm font-medium">{selectedIds.size} selected</span>
- <div className="w-px h-5 bg-slate-700 mx-1" />
+ <div className="w-px h-5 bg-[#DEDFE3] mx-1" />
  <button
  onClick={() => setMassUpdateOpen(true)}
  className="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors"
