@@ -1,8 +1,7 @@
 /**
  * Design tokens — single source of truth for the Mileway Capacity Planner.
  *
- * Design language: Mileway brand palette —
- *  Light Blue (#0089DD) primary, Dark Blue (#003565) surfaces, Cool Grey (#6C7A89) neutral.
+ * Design language: three colours — #0089DD (blue), #1E293B (text), #94A3B8 (grey).
  */
 
 // ── Background palette ────────────────────────────────────────────────────────
@@ -10,22 +9,22 @@
 export const Background = {
   /** Off-white page background */
   primary:     '#F5F8FC',
-  /** Cool grey 10% tint for secondary surfaces */
-  secondary:   '#EEEEF1',
+  /** Grey 10% tint for secondary surfaces and BIZ sections */
+  secondary:   '#F0F2F5',
   /** Pure white card / modal surfaces */
   card:        '#FFFFFF',
-  /** Light blue 10% tint for highlight panels */
+  /** Blue 10% tint for highlight panels and IT sections */
   highlight:   '#E6F2FC',
-  /** Dark blue 10% tint for alternate panels */
-  highlightAlt:'#E6EAF0',
+  /** Grey 10% tint for alternate panels */
+  highlightAlt:'#F0F2F5',
 } as const
 
 // ── Text palette ──────────────────────────────────────────────────────────────
 
 export const Text = {
-  primary:   '#003565',
-  secondary: '#6C7A89',
-  tertiary:  '#B5BDC4',
+  primary:   '#1E293B',
+  secondary: '#94A3B8',
+  tertiary:  '#94A3B8',
   inverse:   '#FFFFFF',
 } as const
 
@@ -34,31 +33,34 @@ export const Text = {
 export const Accent = {
   blue:        '#0089DD',
   blueLight:   '#E6F2FC',
+  blueMid:     '#CCE4F9',
   orange:      '#D97706',
-  orangeLight: '#FEF3C7',
-  coral:       '#DC2626',
+  orangeLight: '#FEF9C3',
   green:       '#16A34A',
   red:         '#DC2626',
   // legacy aliases — kept for files that still import Accent.teal
   teal:        '#0089DD',
   tealLight:   '#E6F2FC',
+  coral:       '#DC2626',
 } as const
 
 // ── Border palette ────────────────────────────────────────────────────────────
 
 export const Border = {
-  subtle: '#CFCFD5',
-  light:  '#DEDFE3',
+  default: '#DEDFE3',
+  subtle:  '#F0F2F5',
+  // legacy alias
+  light:   '#DEDFE3',
 } as const
 
-// ── BIZ (business contact) track — cool grey family (no purple) ───────────────
+// ── BIZ (business contact) track — grey tint family ──────────────────────────
 
 export const Biz = {
-  DEFAULT:   '#6C7A89',
-  light:     '#EEEEF1',
+  DEFAULT:   '#94A3B8',
+  light:     '#F0F2F5',
   mid:       '#DEDFE3',
-  border:    '#CFCFD5',
-  hover:     '#B5BDC4',
+  border:    '#DEDFE3',
+  hover:     '#94A3B8',
 } as const
 
 // ── Semantic colours ──────────────────────────────────────────────────────────
@@ -68,64 +70,61 @@ export const Semantic = {
   successBg:     '#DCFCE7',
   successBorder: '#A7F3D0',
   warning:       '#D97706',
-  warningBg:     '#FEF3C7',
+  warningBg:     '#FEF9C3',
   warningBorder: '#FDE68A',
   danger:        '#DC2626',
   dangerBg:      '#FEE2E2',
   dangerBorder:  '#FECACA',
   info:          '#0089DD',
   infoBg:        '#E6F2FC',
-  infoBorder:    '#B3D9F5',
+  infoBorder:    '#CCE4F9',
 } as const
 
 // ── Heatmap cell tier colours ─────────────────────────────────────────────────
-// Used in Dashboard heatmap and getCellClass() utility.
-// These are SEMANTIC — do not restyle to match brand.
 
 export const HeatmapTiers = {
-  empty:     { bg: '#F5F8FC',                    text: '#B5BDC4' },
-  tier1:     { bg: 'rgba(74,181,100,0.15)',       text: '#003565' },
-  tier2:     { bg: 'rgba(74,181,100,0.35)',       text: '#003565' },
-  tier3:     { bg: 'rgba(255,210,60,0.35)',       text: '#003565' },
-  tier4:     { bg: 'rgba(255,175,40,0.45)',       text: '#003565' },
-  tier5:     { bg: 'rgba(255,130,50,0.45)',       text: '#003565' },
-  tier6:     { bg: 'rgba(220,80,50,0.40)',        text: '#003565' },
+  empty:     { bg: '#F5F8FC',                    text: '#94A3B8' },
+  tier1:     { bg: 'rgba(74,181,100,0.15)',       text: '#1E293B' },
+  tier2:     { bg: 'rgba(74,181,100,0.35)',       text: '#1E293B' },
+  tier3:     { bg: 'rgba(255,210,60,0.35)',       text: '#1E293B' },
+  tier4:     { bg: 'rgba(255,175,40,0.45)',       text: '#1E293B' },
+  tier5:     { bg: 'rgba(255,130,50,0.45)',       text: '#1E293B' },
+  tier6:     { bg: 'rgba(220,80,50,0.40)',        text: '#1E293B' },
   overloaded:{ bg: 'rgba(220,53,69,0.25)',        text: '#8B0000', borderLeft: '#DC2626' },
 } as const
 
 // ── Gantt bar colour palette ───────────────────────────────────────────────────
-// Consumed by JiraGantt.tsx BAR map.
 
 export const GanttBar = {
-  epic:     { bg: 'rgba(0,137,221,0.10)', border: '#0089DD', borderW: 2,   radius: '6px' },
-  feature:  { bg: '#CCE4F9',             border: '#0089DD', borderW: 1,   radius: '5px' },
-  story:    { bg: '#DEDFE3',             border: '#B5BDC4', borderW: 1,   radius: '4px' },
-  task:     { bg: '#DEDFE3',             border: '#B5BDC4', borderW: 1,   radius: '4px' },
-  bug:      { bg: '#FEE2E2',             border: '#DC2626', borderW: 1,   radius: '4px' },
-  uat:      { bg: '#CCD3DC',             border: '#6C7A89', borderW: 1,   radius: '4px' },
-  hypercare:{ bg: '#B3D9F5',             border: '#0089DD', borderW: 1,   radius: '5px' },
-  custom:   { bg: '#EEEEF1',             border: '#CFCFD5', borderW: 1,   radius: '5px' },
+  epic:     { bg: 'rgba(0,137,221,0.10)', border: '#0089DD', borderW: 2, radius: '6px' },
+  feature:  { bg: '#CCE4F9',             border: '#0089DD', borderW: 1, radius: '5px' },
+  story:    { bg: '#F0F2F5',             border: '#DEDFE3', borderW: 1, radius: '4px' },
+  task:     { bg: '#F0F2F5',             border: '#DEDFE3', borderW: 1, radius: '4px' },
+  bug:      { bg: '#FEE2E2',             border: '#DC2626', borderW: 1, radius: '4px' },
+  uat:      { bg: '#E6F2FC',             border: '#94A3B8', borderW: 1, radius: '4px' },
+  hypercare:{ bg: '#CCE4F9',             border: '#0089DD', borderW: 1, radius: '5px' },
+  custom:   { bg: '#F0F2F5',             border: '#DEDFE3', borderW: 1, radius: '5px' },
 } as const
 
 // ── Border radius ─────────────────────────────────────────────────────────────
 
 export const Radius = {
-  sm:   '8px',
-  md:   '12px',
-  lg:   '16px',
-  xl:   '20px',
-  card: '16px',
+  sm:   '6px',
+  md:   '8px',
+  lg:   '10px',
+  xl:   '12px',
+  card: '10px',
   full: '9999px',
 } as const
 
 // ── Animation durations ───────────────────────────────────────────────────────
 
 export const Duration = {
-  micro:    0,    // instant
-  fast:     150,  // colour / icon swap
-  standard: 250,  // panel slide, modal
-  slow:     400,  // drawer, bottom sheet
-  shimmer:  1500, // skeleton loop
+  micro:    0,
+  fast:     150,
+  standard: 250,
+  slow:     400,
+  shimmer:  1500,
 } as const
 
 // ── Shadows (CSS box-shadow strings) ─────────────────────────────────────────
@@ -147,20 +146,19 @@ export const RowHover = {
   light: 'rgba(0, 137, 221, 0.06)',
   dark:  'rgba(0, 137, 221, 0.10)',
   blue:  Accent.blue,
-  // legacy alias
   teal:  Accent.blue,
 } as const
 
 // ── Chart colours ─────────────────────────────────────────────────────────────
 
 export const ChartColors = {
-  primary:   '#0089DD',  // light blue — primary series
-  secondary: '#003565',  // dark blue — secondary series
-  tertiary:  '#6C7A89',  // cool grey — tertiary series
-  muted:     '#CFCFD5',  // cool grey 30% — empty/placeholder
+  primary:   '#0089DD',
+  secondary: '#1E293B',
+  tertiary:  '#94A3B8',
+  muted:     '#DEDFE3',
 } as const
 
-// ── Legacy aliases (kept for gradual migration in component files) ─────────────
+// ── Legacy aliases ────────────────────────────────────────────────────────────
 
 /** @deprecated Use Background, Text, Accent, Border directly */
 export const Brand = {
@@ -169,7 +167,7 @@ export const Brand = {
   primaryMid:   Accent.blue,
   primaryHover: '#0077C2',
   dark:         Text.primary,
-  darkHover:    '#002550',
+  darkHover:    '#0F172A',
   biz:          Biz.DEFAULT,
   bizLight:     Biz.light,
   bizMid:       Biz.mid,
@@ -183,6 +181,6 @@ export const DarkSurface = {} as const
 /** @deprecated Use Semantic directly */
 export const Neutral = {
   grey:        Text.secondary,
-  greyLight:   Border.subtle,
+  greyLight:   Border.default,
   greyLighter: Background.secondary,
 } as const

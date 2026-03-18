@@ -8,74 +8,48 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans:    ['"Plus Jakarta Sans"', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
-        heading: ['"Plus Jakarta Sans"', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        sans:    ['DM Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        heading: ['DM Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
         // ── Mileway brand tokens ──────────────────────────────────────────────
         mileway: {
-          'light-blue':    '#0089DD',
-          'light-blue-50': '#80C4EE',
-          'light-blue-30': '#B3D9F5',
-          'light-blue-20': '#CCE4F9',
-          'light-blue-10': '#E6F2FC',
-          'dark-blue':     '#003565',
-          'dark-blue-50':  '#809AB2',
-          'dark-blue-30':  '#B3C2CF',
-          'dark-blue-20':  '#CCD3DC',
-          'dark-blue-10':  '#E6EAF0',
-          'cool-grey':     '#6C7A89',
-          'cool-grey-50':  '#B5BDC4',
-          'cool-grey-30':  '#CFCFD5',
-          'cool-grey-20':  '#DEDFE3',
-          'cool-grey-10':  '#EEEEF1',
-          'off-white':     '#F5F8FC',
+          blue:        '#0089DD',
+          'blue-20':   '#CCE4F9',
+          'blue-10':   '#E6F2FC',
+          grey:        '#94A3B8',
+          'grey-10':   '#F0F2F5',
+          text:        '#1E293B',
+          border:      '#DEDFE3',
+          divider:     '#F0F2F5',
+          bg:          '#F5F8FC',
         },
-        // ── BIZ track — updated to Mileway brand (cool grey family) ──────────
+        // ── BIZ track ────────────────────────────────────────────────────────
         biz: {
-          DEFAULT: '#6C7A89',
-          light:   '#EEEEF1',
+          DEFAULT: '#94A3B8',
+          light:   '#F0F2F5',
           mid:     '#DEDFE3',
-          border:  '#CFCFD5',
-          hover:   '#B5BDC4',
+          border:  '#DEDFE3',
+          hover:   '#94A3B8',
         },
-        // ── Semantic ──────────────────────────────────────────────────────────
+        // ── Semantic status colours ───────────────────────────────────────────
         util: {
           bench:   '#F5F8FC',
           healthy: '#16A34A',
           near:    '#D97706',
           over:    '#DC2626',
         },
-        // ── Legacy mw-* aliases — mapped to new Mileway brand values ─────────
+        // ── Legacy mw-* aliases ───────────────────────────────────────────────
         mw: {
           primary:         '#0089DD',
           'primary-light': '#E6F2FC',
           'primary-mid':   '#0089DD',
           'primary-hover': '#0077C2',
-          dark:            '#003565',
-          'dark-hover':    '#002550',
-          grey:            '#6C7A89',
-          'grey-light':    '#CFCFD5',
-          'grey-lighter':  '#EEEEF1',
-        },
-        // ── Legacy sana-* aliases — kept so existing classes still compile ────
-        sana: {
-          'bg':           '#F5F8FC',
-          'bg-secondary': '#EEEEF1',
-          'bg-card':      '#FFFFFF',
-          'bg-highlight': '#E6F2FC',
-          'bg-alt':       '#E6EAF0',
-          'text':         '#003565',
-          'text-muted':   '#6C7A89',
-          'text-faint':   '#B5BDC4',
-          'teal':         '#0089DD',
-          'teal-light':   '#E6F2FC',
-          'orange':       '#D97706',
-          'orange-light': '#FEF3C7',
-          'coral':        '#DC2626',
-          'magenta':      '#6C7A89',
-          'border':       '#CFCFD5',
-          'border-light': '#DEDFE3',
+          dark:            '#1E293B',
+          'dark-hover':    '#0F172A',
+          grey:            '#94A3B8',
+          'grey-light':    '#DEDFE3',
+          'grey-lighter':  '#F5F8FC',
         },
       },
       fontSize: {

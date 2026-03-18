@@ -60,7 +60,7 @@ export const FIT_COLOURS: Record<FitLevel, { badge: string; border: string; text
 
 export const FIT_GLOW: Record<FitLevel, string> = {
   good:    'ring-2 ring-[#0089DD]/20 shadow-[0_0_0_3px_rgba(14,211,207,0.2)]',
-  partial: 'ring-2 ring-[#F97316]/20 shadow-[0_0_0_3px_rgba(249,115,22,0.2)]',
+  partial: 'ring-2 ring-[#D97706]/20 shadow-[0_0_0_3px_rgba(249,115,22,0.2)]',
   over:    'ring-2 ring-[#DC2626]/20 shadow-[0_0_0_3px_rgba(239,68,68,0.2)]',
 };
 

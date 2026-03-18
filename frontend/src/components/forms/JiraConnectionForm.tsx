@@ -127,15 +127,15 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  <Input id="name" label="Connection Name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g., Main Project" required error={errors.name} />
  <div>
  <Input id="url" label="Jira URL" value={jiraBaseUrl} onChange={e => { setJiraBaseUrl(e.target.value); setConnectionStatus('idle'); setAvailableProjects([]); }} placeholder="https://company.atlassian.net" required error={errors.jiraBaseUrl} />
- <p className="text-xs text-[#6C7A89] mt-1">Your Atlassian Cloud URL</p>
+ <p className="text-xs text-[#94A3B8] mt-1">Your Atlassian Cloud URL</p>
  </div>
  <Input id="email" label="Email" type="email" value={userEmail} onChange={e => { setUserEmail(e.target.value); setConnectionStatus('idle'); }} placeholder="you@company.com" required error={errors.userEmail} />
  {/* US-010: Token masking */}
  <div>
- <label className="block text-sm font-medium text-[#003565] mb-1">API Token</label>
+ <label className="block text-sm font-medium text-[#1E293B] mb-1">API Token</label>
  {isEditing && !tokenChanged ? (
  <div className="flex items-center gap-3">
- <div className="flex-1 px-3 py-2 rounded-lg border border-[#CFCFD5] bg-[#F5F8FC] text-[#6C7A89] font-mono text-sm">
+ <div className="flex-1 px-3 py-2 rounded-lg border border-[#DEDFE3] bg-[#F5F8FC] text-[#94A3B8] font-mono text-sm">
  {maskToken(connection?.apiToken || '')}
  </div>
  <Button type="button" variant="secondary" size="sm" onClick={() => { setTokenChanged(true); setApiToken(''); setConnectionStatus('idle'); }}>
@@ -147,17 +147,17 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  <Input id="token" type={showToken ? 'text' : 'password'} value={apiToken}
  onChange={e => { setApiToken(e.target.value); setConnectionStatus('idle'); }}
  placeholder="Paste your API token" required error={errors.apiToken} />
- <button type="button" onClick={() => setShowToken(!showToken)} className="absolute right-3 top-2 text-[#6C7A89] hover:text-[#6C7A89]">
+ <button type="button" onClick={() => setShowToken(!showToken)} className="absolute right-3 top-2 text-[#94A3B8] hover:text-[#94A3B8]">
  {showToken ? <EyeOff size={18}/> : <Eye size={18}/>}
  </button>
  {isEditing && (
- <button type="button" onClick={() => { setTokenChanged(false); setApiToken(''); }} className="mt-1 text-xs text-[#6C7A89] hover:text-[#6C7A89]">
+ <button type="button" onClick={() => { setTokenChanged(false); setApiToken(''); }} className="mt-1 text-xs text-[#94A3B8] hover:text-[#94A3B8]">
  ← Keep existing token
  </button>
  )}
  </div>
  )}
- <p className="text-xs text-[#6C7A89] mt-1">
+ <p className="text-xs text-[#94A3B8] mt-1">
  <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 inline-flex items-center gap-1">
  Get a token <ExternalLink size={12}/>
  </a>
@@ -167,26 +167,26 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  <Button type="button" variant="secondary" onClick={handleTestConnection} disabled={connectionStatus === 'testing'}>
  {connectionStatus === 'testing' ? <Loader2 size={16} className="animate-spin"/> : <RefreshCw size={16}/>} Test Connection
  </Button>
- {connectionStatus !== 'idle' && <div className={'flex items-center gap-2 text-sm ' + (connectionStatus === 'success' ? 'text-[#16A34A]' : connectionStatus === 'error' ? 'text-red-600' : 'text-[#6C7A89]')}>
+ {connectionStatus !== 'idle' && <div className={'flex items-center gap-2 text-sm ' + (connectionStatus === 'success' ? 'text-[#16A34A]' : connectionStatus === 'error' ? 'text-red-600' : 'text-[#94A3B8]')}>
  {connectionStatus === 'success' && <CheckCircle size={16}/>}{connectionStatus === 'error' && <AlertCircle size={16}/>}<span>{connectionMessage}</span>
  </div>}
  </div>
  {connectionStatus === 'success' && <div className="pt-4 border-t"><Select id="project" label="Jira Project" value={jiraProjectKey} onChange={e => handleProjectSelect(e.target.value)} options={projectOptions} disabled={loadingProjects} required error={errors.jiraProjectKey} /></div>}
  {/* Import Behaviour — collapsible */}
- <div className="border border-[#CFCFD5] rounded-lg overflow-hidden">
+ <div className="border border-[#DEDFE3] rounded-lg overflow-hidden">
  <button
  type="button"
- className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#003565] hover:bg-[#F5F8FC] transition-colors"
+ className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#1E293B] hover:bg-[#F5F8FC] transition-colors"
  onClick={() => setImportBehaviourOpen(o => !o)}
  >
  <span>Import Behaviour</span>
  {importBehaviourOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
  </button>
  {importBehaviourOpen && (
- <div className="px-4 pb-4 pt-1 space-y-4 border-t border-[#CFCFD5] ">
+ <div className="px-4 pb-4 pt-1 space-y-4 border-t border-[#DEDFE3] ">
  {/* Default days fallback */}
  <div>
- <label className="block text-sm font-medium text-[#003565] mb-1">
+ <label className="block text-sm font-medium text-[#1E293B] mb-1">
  Default effort (days) when no story points
  </label>
  <div className="flex items-center gap-2">
@@ -197,25 +197,25 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  step={0.5}
  value={defaultDaysPerItem}
  onChange={e => setDefaultDaysPerItem(Number(e.target.value))}
- className="w-20 px-3 py-1.5 text-sm border border-[#B5BDC4] rounded-lg bg-white text-[#003565] dark:text-slate-100"
+ className="w-20 px-3 py-1.5 text-sm border border-[#94A3B8] rounded-lg bg-white text-[#1E293B]"
  />
- <span className="text-sm text-[#6C7A89]">days per item</span>
+ <span className="text-sm text-[#94A3B8]">days per item</span>
  </div>
  </div>
 
  {/* Additional JQL filter */}
  <div>
- <label className="block text-sm font-medium text-[#003565] mb-1">
- Additional JQL filter <span className="font-normal text-[#6C7A89]">(optional)</span>
+ <label className="block text-sm font-medium text-[#1E293B] mb-1">
+ Additional JQL filter <span className="font-normal text-[#94A3B8]">(optional)</span>
  </label>
  <input
  type="text"
  value={jqlFilter}
  onChange={e => setJqlFilter(e.target.value)}
  placeholder='e.g. sprint in openSprints() OR updatedDate >= -90d'
- className="w-full px-3 py-2 text-sm border border-[#B5BDC4] rounded-lg bg-white text-[#003565] dark:text-slate-100 placeholder-[#B5BDC4] font-mono"
+ className="w-full px-3 py-2 text-sm border border-[#94A3B8] rounded-lg bg-white text-[#1E293B] placeholder-[#94A3B8] font-mono"
  />
- <p className="text-xs text-[#6C7A89] mt-1">
+ <p className="text-xs text-[#94A3B8] mt-1">
  Appended to every sync query with AND. Use this to narrow scope and avoid Jira's 5,000-item limit — e.g. limit to recent updates or open sprints.
  </p>
  </div>
@@ -224,18 +224,18 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  </div>
 
  {/* Custom Field IDs — collapsible */}
- <div className="border border-[#CFCFD5] rounded-lg overflow-hidden">
+ <div className="border border-[#DEDFE3] rounded-lg overflow-hidden">
  <button
  type="button"
- className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#003565] hover:bg-[#F5F8FC] transition-colors"
+ className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#1E293B] hover:bg-[#F5F8FC] transition-colors"
  onClick={() => setCustomFieldsOpen(o => !o)}
  >
- <span>Custom Field IDs <span className="font-normal text-[#6C7A89]">(advanced)</span></span>
+ <span>Custom Field IDs <span className="font-normal text-[#94A3B8]">(advanced)</span></span>
  {customFieldsOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
  </button>
  {customFieldsOpen && (
- <div className="px-4 pb-4 pt-1 space-y-3 border-t border-[#CFCFD5] ">
- <p className="text-xs text-[#6C7A89] ">
+ <div className="px-4 pb-4 pt-1 space-y-3 border-t border-[#DEDFE3] ">
+ <p className="text-xs text-[#94A3B8] ">
  Override the default Jira custom field IDs if your instance uses non-standard ones.
  Leave blank to use the Jira Cloud defaults.
  </p>
@@ -246,7 +246,7 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  ['sprint', cfSprint, setCfSprint, 'Sprint', 'customfield_10020'],
  ] as [string, string, (v: string) => void, string, string][]).map(([, value, setter, label, placeholder]) => (
  <div key={label}>
- <label className="block text-xs font-medium text-[#6C7A89] mb-1">
+ <label className="block text-xs font-medium text-[#94A3B8] mb-1">
  {label}
  </label>
  <input
@@ -254,7 +254,7 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  value={value}
  onChange={e => setter(e.target.value)}
  placeholder={`default: ${placeholder}`}
- className="w-full px-3 py-1.5 text-sm border border-[#B5BDC4] rounded-lg bg-white text-[#003565] dark:text-slate-100 placeholder-[#B5BDC4] font-mono"
+ className="w-full px-3 py-1.5 text-sm border border-[#94A3B8] rounded-lg bg-white text-[#1E293B] placeholder-[#94A3B8] font-mono"
  />
  </div>
  ))}

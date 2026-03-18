@@ -28,19 +28,19 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-[#F5F8FC] dark:bg-[#001E3C] p-8">
-          <div className="max-w-lg w-full bg-white dark:bg-[#003565] rounded-xl shadow-lg p-8 text-center space-y-4">
+        <div className="min-h-screen flex items-center justify-center bg-[#F5F8FC] p-8">
+          <div className="max-w-lg w-full bg-white rounded-xl shadow-lg p-8 text-center space-y-4">
             <div className="flex justify-center">
               <AlertTriangle size={48} className="text-red-500" />
             </div>
-            <h1 className="text-xl font-semibold text-[#003565] dark:text-white">
+            <h1 className="text-xl font-semibold text-[#1E293B]">
               Something went wrong
             </h1>
-            <p className="text-sm text-[#6C7A89] dark:text-[#6C7A89]">
+            <p className="text-sm text-[#94A3B8]">
               The app encountered an unexpected error. Your data is safe — a reload will restore it.
             </p>
             {this.state.error && (
-              <pre className="text-left text-xs bg-[#EEEEF1] dark:bg-slate-700 text-red-600 dark:text-red-400 rounded-lg p-4 overflow-auto max-h-48 whitespace-pre-wrap">
+              <pre className="text-left text-xs bg-[#F0F2F5] text-red-600 rounded-lg p-4 overflow-auto max-h-48 whitespace-pre-wrap">
                 {this.state.error.message}
                 {'\n\n'}
                 {this.state.error.stack}

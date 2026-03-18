@@ -31,17 +31,17 @@ import type {
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  done: 'bg-green-100 text-[#16A34A] dark:bg-green-900/30 dark:text-green-400',
-  in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  todo: 'bg-[#EEEEF1] text-[#6C7A89] dark:bg-gray-700 dark:text-[#B5BDC4]',
+  done: 'bg-green-100 text-[#16A34A]',
+  in_progress: 'bg-blue-100 text-blue-700',
+  todo: 'bg-[#F0F2F5] text-[#94A3B8]',
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  Highest: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  High:    'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  Medium:  'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  Low:     'bg-[#EEEEF1] text-[#6C7A89] dark:bg-gray-700 dark:text-[#6C7A89]',
-  Lowest:  'bg-[#EEEEF1] text-[#6C7A89] dark:bg-gray-700 dark:text-[#6C7A89]',
+  Highest: 'bg-red-100 text-red-700',
+  High:    'bg-[#FEF9C3] text-[#D97706]',
+  Medium:  'bg-yellow-100 text-yellow-700',
+  Low:     'bg-[#F0F2F5] text-[#94A3B8]',
+  Lowest:  'bg-[#F0F2F5] text-[#94A3B8]',
 };
 
 function statusLabel(cat: string): string {
@@ -100,19 +100,19 @@ function BizPopover({ jiraKey, existingAssignments, contacts, onClose }: BizPopo
   return (
     <div
       ref={ref}
-      className="absolute z-50 right-0 top-full mt-1 w-64 bg-white dark:bg-gray-800 border border-[#CFCFD5] dark:border-gray-700 rounded-lg shadow-xl p-3 space-y-2"
+      className="absolute z-50 right-0 top-full mt-1 w-64 bg-white border border-[#DEDFE3] rounded-lg shadow-xl p-3 space-y-2"
     >
-      <p className="text-xs font-semibold text-[#6C7A89] dark:text-[#6C7A89] uppercase tracking-wide">BIZ Assignment</p>
+      <p className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">BIZ Assignment</p>
 
       {existingAssignments.length > 0 && (
         <div className="space-y-1">
           {existingAssignments.map(a => {
             const c = contacts.find(x => x.id === a.contactId);
             return (
-              <div key={a.id} className="flex items-center justify-between text-xs bg-[#EEEEF1] rounded px-2 py-1">
-                <span className="text-[#003565]">{c?.name ?? a.contactId}</span>
-                <span className="text-[#6C7A89] font-medium">{a.days}d</span>
-                <button onClick={() => handleRemove(a.id)} className="text-[#6C7A89] hover:text-red-500 ml-1">
+              <div key={a.id} className="flex items-center justify-between text-xs bg-[#F0F2F5] rounded px-2 py-1">
+                <span className="text-[#1E293B]">{c?.name ?? a.contactId}</span>
+                <span className="text-[#94A3B8] font-medium">{a.days}d</span>
+                <button onClick={() => handleRemove(a.id)} className="text-[#94A3B8] hover:text-red-500 ml-1">
                   <X size={10} />
                 </button>
               </div>
@@ -124,7 +124,7 @@ function BizPopover({ jiraKey, existingAssignments, contacts, onClose }: BizPopo
       <select
         value={contactId}
         onChange={e => setContactId(e.target.value)}
-        className="w-full text-xs border border-[#CFCFD5] dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+        className="w-full text-xs border border-[#DEDFE3] rounded px-2 py-1 bg-white text-gray-900"
       >
         <option value="">Select contact…</option>
         {activeContacts.map(c => (
@@ -139,7 +139,7 @@ function BizPopover({ jiraKey, existingAssignments, contacts, onClose }: BizPopo
         placeholder="Days"
         value={days}
         onChange={e => setDays(e.target.value)}
-        className="w-full text-xs border border-[#CFCFD5] dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+        className="w-full text-xs border border-[#DEDFE3] rounded px-2 py-1 bg-white text-gray-900"
       />
 
       <input
@@ -147,13 +147,13 @@ function BizPopover({ jiraKey, existingAssignments, contacts, onClose }: BizPopo
         placeholder="Notes (optional)"
         value={notes}
         onChange={e => setNotes(e.target.value)}
-        className="w-full text-xs border border-[#CFCFD5] dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+        className="w-full text-xs border border-[#DEDFE3] rounded px-2 py-1 bg-white text-gray-900"
       />
 
       <button
         onClick={handleSave}
         disabled={!contactId || !days}
-        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-[#6C7A89] text-white text-xs font-medium disabled:opacity-40 hover:bg-[#003565] focus:outline-none focus:ring-2 focus:ring-[#0089DD]"
+        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-[#94A3B8] text-white text-xs font-medium disabled:opacity-40 hover:bg-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0089DD]"
       >
         <Check size={12} />
         Save
@@ -384,7 +384,7 @@ export function Projects() {
 
       {/* Sync progress */}
       {syncProgress && (
-        <div className="mx-6 mb-2 flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+        <div className="mx-6 mb-2 flex items-center gap-2 text-xs text-blue-600">
           <Loader2 size={12} className="animate-spin" />
           {syncProgress}
         </div>
@@ -393,18 +393,18 @@ export function Projects() {
       {/* Filters */}
       <div className="px-6 pb-3 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6C7A89]" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
           <input
             type="text"
             placeholder="Search epics…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-sm border border-[#CFCFD5] dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#0089DD]"
+            className="w-full pl-8 pr-3 py-1.5 text-sm border border-[#DEDFE3] rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0089DD]"
           />
         </div>
 
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="text-sm border border-[#CFCFD5] dark:border-gray-700 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-[#B5BDC4]">
+          className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-gray-700">
           <option value="">All Statuses</option>
           <option value="todo">To Do</option>
           <option value="in_progress">In Progress</option>
@@ -412,7 +412,7 @@ export function Projects() {
         </select>
 
         <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}
-          className="text-sm border border-[#CFCFD5] dark:border-gray-700 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-[#B5BDC4]">
+          className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-gray-700">
           <option value="">All Priorities</option>
           {['Highest', 'High', 'Medium', 'Low', 'Lowest'].map(p => (
             <option key={p} value={p}>{p}</option>
@@ -421,14 +421,14 @@ export function Projects() {
 
         {allLabels.length > 0 && (
           <select value={filterLabel} onChange={e => setFilterLabel(e.target.value)}
-            className="text-sm border border-[#CFCFD5] dark:border-gray-700 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-[#B5BDC4]">
+            className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-gray-700">
             <option value="">All Labels</option>
             {allLabels.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         )}
 
         <select value={filterITMember} onChange={e => setFilterITMember(e.target.value)}
-          className="text-sm border border-[#CFCFD5] dark:border-gray-700 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-[#B5BDC4]">
+          className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-gray-700">
           <option value="">All IT Members</option>
           {state.teamMembers.filter(m => m.email).map(m => (
             <option key={m.id} value={m.id}>{m.name}</option>
@@ -436,23 +436,23 @@ export function Projects() {
         </select>
 
         <select value={filterBizContact} onChange={e => setFilterBizContact(e.target.value)}
-          className="text-sm border border-[#CFCFD5] dark:border-gray-700 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-[#B5BDC4]">
+          className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-gray-700">
           <option value="">All BIZ Contacts</option>
           {businessContacts.filter(c => !c.archived).map(c => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
 
-        <label className="flex items-center gap-1.5 text-sm text-[#6C7A89] dark:text-[#6C7A89] cursor-pointer">
+        <label className="flex items-center gap-1.5 text-sm text-[#94A3B8] cursor-pointer">
           <input type="checkbox" checked={showStories} onChange={e => setShowStories(e.target.checked)}
-            className="rounded border-[#B5BDC4] dark:border-gray-600 text-[#0089DD]" />
+            className="rounded border-[#94A3B8] text-[#0089DD]" />
           Show stories
         </label>
 
         {hasFilters && (
           <button
             onClick={() => { setSearch(''); setFilterStatus(''); setFilterPriority(''); setFilterLabel(''); setFilterITMember(''); setFilterBizContact(''); }}
-            className="flex items-center gap-1 text-xs text-[#6C7A89] hover:text-gray-700 dark:hover:text-[#B5BDC4]"
+            className="flex items-center gap-1 text-xs text-[#94A3B8] hover:text-gray-700"
           >
             <X size={12} /> Clear
           </button>
@@ -484,13 +484,13 @@ export function Projects() {
             const link = jiraLink(epic.jiraKey);
 
             return (
-              <div key={epic.jiraKey} className="bg-white dark:bg-gray-800 border border-[#CFCFD5] dark:border-gray-700 rounded-xl shadow-sm">
+              <div key={epic.jiraKey} className="bg-white border border-[#DEDFE3] rounded-xl shadow-sm">
                 {/* Epic header */}
                 <div
-                  className="flex items-start gap-3 p-4 cursor-pointer hover:bg-[#F5F8FC] dark:hover:bg-gray-750 select-none"
+                  className="flex items-start gap-3 p-4 cursor-pointer hover:bg-[#F5F8FC] select-none"
                   onClick={() => toggleEpic(epic.jiraKey)}
                 >
-                  <div className="mt-0.5 text-[#6C7A89] shrink-0">
+                  <div className="mt-0.5 text-[#94A3B8] shrink-0">
                     {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </div>
 
@@ -508,7 +508,7 @@ export function Projects() {
                           <ExternalLink size={10} />
                         </a>
                       ) : (
-                        <span className="text-xs font-mono text-[#6C7A89]">{epic.jiraKey}</span>
+                        <span className="text-xs font-mono text-[#94A3B8]">{epic.jiraKey}</span>
                       )}
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[epic.statusCategory] ?? STATUS_COLORS.todo}`}
@@ -521,13 +521,13 @@ export function Projects() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{epic.summary}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{epic.summary}</p>
 
                     {/* Labels */}
                     {epic.labels && epic.labels.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1.5">
                         {epic.labels.map(l => (
-                          <span key={l} className="text-xs bg-[#EEEEF1] dark:bg-gray-700 text-[#6C7A89] dark:text-[#6C7A89] px-2 py-0.5 rounded-full">{l}</span>
+                          <span key={l} className="text-xs bg-[#F0F2F5] text-[#94A3B8] px-2 py-0.5 rounded-full">{l}</span>
                         ))}
                       </div>
                     )}
@@ -536,19 +536,19 @@ export function Projects() {
                   {/* Stats */}
                   <div className="flex items-center gap-4 shrink-0" onClick={e => e.stopPropagation()}>
                     <div className="text-center min-w-12">
-                      <p className="text-xs text-[#6C7A89] dark:text-[#6C7A89]">Features</p>
-                      <p className="text-sm font-semibold text-gray-700 dark:text-[#B5BDC4]">{features.length}</p>
+                      <p className="text-xs text-[#94A3B8]">Features</p>
+                      <p className="text-sm font-semibold text-gray-700">{features.length}</p>
                     </div>
                     <div className="text-center min-w-14">
                       <p className="text-xs text-blue-400">IT Days</p>
                       <p className="text-sm font-semibold text-[#0089DD]">{daysFmt(itDays)}</p>
                     </div>
                     <div className="text-center min-w-14">
-                      <p className="text-xs text-[#6C7A89]">BIZ Days</p>
-                      <p className="text-sm font-semibold text-[#6C7A89]">{daysFmt(bizTotal)}</p>
+                      <p className="text-xs text-[#94A3B8]">BIZ Days</p>
+                      <p className="text-sm font-semibold text-[#94A3B8]">{daysFmt(bizTotal)}</p>
                     </div>
                     {memberEmails.length > 0 && (
-                      <div className="flex items-center gap-1 text-xs text-[#6C7A89]">
+                      <div className="flex items-center gap-1 text-xs text-[#94A3B8]">
                         <Users size={12} />
                         {memberEmails.length}
                       </div>
@@ -566,7 +566,7 @@ export function Projects() {
 
                 {/* Expanded content */}
                 {isExpanded && (
-                  <div className="border-t border-gray-100 dark:border-gray-700">
+                  <div className="border-t border-gray-100">
                     {/* Feature rows */}
                     {features.map(feature => {
                       const featExpanded = expandedFeatures.has(feature.jiraKey);
@@ -578,13 +578,13 @@ export function Projects() {
                       const itMembers = [...new Set(children.map(c => c.assigneeName).filter(Boolean) as string[])];
 
                       return (
-                        <div key={feature.jiraKey} className="border-t border-gray-50 dark:border-gray-700/50">
+                        <div key={feature.jiraKey} className="border-t border-gray-50">
                           {/* Feature row */}
-                          <div className="flex items-center gap-2 px-4 py-2.5 pl-10 hover:bg-[#F5F8FC] dark:hover:bg-gray-750 group">
+                          <div className="flex items-center gap-2 px-4 py-2.5 pl-10 hover:bg-[#F5F8FC] group">
                             {showStories && children.length > 0 ? (
                               <button
                                 onClick={() => toggleFeature(feature.jiraKey)}
-                                className="text-[#6C7A89] hover:text-[#6C7A89] dark:hover:text-[#B5BDC4] shrink-0"
+                                className="text-[#94A3B8] hover:text-[#94A3B8] shrink-0"
                               >
                                 {featExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                               </button>
@@ -599,16 +599,16 @@ export function Projects() {
                                   {feature.jiraKey}<ExternalLink size={9} />
                                 </a>
                               ) : (
-                                <span className="text-xs font-mono text-[#6C7A89] shrink-0">{feature.jiraKey}</span>
+                                <span className="text-xs font-mono text-[#94A3B8] shrink-0">{feature.jiraKey}</span>
                               )}
                               <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[feature.statusCategory] ?? STATUS_COLORS.todo}`}>
                                 {statusLabel(feature.statusCategory)}
                               </span>
-                              <span className="text-sm text-gray-700 dark:text-[#B5BDC4] truncate">{feature.summary}</span>
+                              <span className="text-sm text-gray-700 truncate">{feature.summary}</span>
                             </div>
 
                             {/* IT assignees */}
-                            <div className="hidden sm:flex items-center gap-1 text-xs text-[#6C7A89] shrink-0 min-w-24">
+                            <div className="hidden sm:flex items-center gap-1 text-xs text-[#94A3B8] shrink-0 min-w-24">
                               {itMembers.length > 0 && (
                                 <>
                                   <UserCircle2 size={12} className="text-[#0089DD]" />
@@ -626,7 +626,7 @@ export function Projects() {
                             <div className="relative shrink-0 min-w-14">
                               <button
                                 onClick={() => setOpenBizPopover(openBizPopover === feature.jiraKey ? null : feature.jiraKey)}
-                                className={`text-xs font-medium px-2 py-0.5 rounded hover:bg-[#EEEEF1] transition-colors ${featBizDays > 0 ? 'text-[#6C7A89]' : 'text-[#CFCFD5]'}`}
+                                className={`text-xs font-medium px-2 py-0.5 rounded hover:bg-[#F0F2F5] transition-colors ${featBizDays > 0 ? 'text-[#94A3B8]' : 'text-[#DEDFE3]'}`}
                                 title="Click to assign BIZ contact"
                               >
                                 <span className="flex items-center gap-1">
@@ -653,24 +653,24 @@ export function Projects() {
                             const childItDays = rollupMap.get(child.jiraKey)?.forecastedDays ?? 0;
 
                             return (
-                              <div key={child.jiraKey} className="flex items-center gap-2 px-4 py-2 pl-20 bg-[#F5F8FC]/50 dark:bg-gray-750/50 hover:bg-[#F5F8FC] dark:hover:bg-gray-700/50 border-t border-gray-50 dark:border-gray-700/30">
+                              <div key={child.jiraKey} className="flex items-center gap-2 px-4 py-2 pl-20 bg-[#F5F8FC]/50 hover:bg-[#F5F8FC] border-t border-gray-50">
                                 <div className="flex-1 flex items-center gap-2 min-w-0">
                                   {childLink ? (
                                     <a href={childLink} target="_blank" rel="noopener noreferrer"
-                                      className="text-xs font-mono text-[#6C7A89] hover:text-[#0089DD] shrink-0 flex items-center gap-0.5">
+                                      className="text-xs font-mono text-[#94A3B8] hover:text-[#0089DD] shrink-0 flex items-center gap-0.5">
                                       {child.jiraKey}<ExternalLink size={8} />
                                     </a>
                                   ) : (
-                                    <span className="text-xs font-mono text-[#B5BDC4] shrink-0">{child.jiraKey}</span>
+                                    <span className="text-xs font-mono text-[#94A3B8] shrink-0">{child.jiraKey}</span>
                                   )}
                                   <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[child.statusCategory] ?? STATUS_COLORS.todo}`}>
                                     {statusLabel(child.statusCategory)}
                                   </span>
-                                  <span className="text-xs text-[#6C7A89] dark:text-[#6C7A89] truncate">{child.summary}</span>
+                                  <span className="text-xs text-[#94A3B8] truncate">{child.summary}</span>
                                 </div>
 
                                 {/* Assignee */}
-                                <div className="hidden sm:flex items-center gap-1 text-xs text-[#6C7A89] shrink-0 min-w-24">
+                                <div className="hidden sm:flex items-center gap-1 text-xs text-[#94A3B8] shrink-0 min-w-24">
                                   {child.assigneeName && (
                                     <>
                                       <UserCircle2 size={11} className="text-[#0089DD]" />
@@ -680,7 +680,7 @@ export function Projects() {
                                 </div>
 
                                 {/* Sprint */}
-                                <span className="hidden md:block text-xs text-[#6C7A89] shrink-0 min-w-20 text-center truncate">
+                                <span className="hidden md:block text-xs text-[#94A3B8] shrink-0 min-w-20 text-center truncate">
                                   {child.sprintName ?? '—'}
                                 </span>
 
@@ -702,7 +702,7 @@ export function Projects() {
                                 <div className="relative shrink-0 min-w-14">
                                   <button
                                     onClick={() => setOpenBizPopover(openBizPopover === child.jiraKey ? null : child.jiraKey)}
-                                    className={`text-xs font-medium px-2 py-0.5 rounded hover:bg-[#EEEEF1] transition-colors ${childBizDays > 0 ? 'text-[#6C7A89]' : 'text-[#CFCFD5]'}`}
+                                    className={`text-xs font-medium px-2 py-0.5 rounded hover:bg-[#F0F2F5] transition-colors ${childBizDays > 0 ? 'text-[#94A3B8]' : 'text-[#DEDFE3]'}`}
                                     title="Click to assign BIZ contact"
                                   >
                                     <span className="flex items-center gap-1">
@@ -734,27 +734,27 @@ export function Projects() {
                       const childItDays = rollupMap.get(child.jiraKey)?.forecastedDays ?? 0;
 
                       return (
-                        <div key={child.jiraKey} className="flex items-center gap-2 px-4 py-2 pl-12 bg-[#F5F8FC]/30 dark:bg-gray-750/30 hover:bg-[#F5F8FC] dark:hover:bg-gray-700/30 border-t border-gray-50 dark:border-gray-700/20">
+                        <div key={child.jiraKey} className="flex items-center gap-2 px-4 py-2 pl-12 bg-[#F5F8FC]/30 hover:bg-[#F5F8FC] border-t border-gray-50">
                           <div className="flex-1 flex items-center gap-2 min-w-0">
                             {childLink ? (
                               <a href={childLink} target="_blank" rel="noopener noreferrer"
-                                className="text-xs font-mono text-[#6C7A89] hover:text-[#0089DD] shrink-0 flex items-center gap-0.5">
+                                className="text-xs font-mono text-[#94A3B8] hover:text-[#0089DD] shrink-0 flex items-center gap-0.5">
                                 {child.jiraKey}<ExternalLink size={8} />
                               </a>
                             ) : (
-                              <span className="text-xs font-mono text-[#B5BDC4] shrink-0">{child.jiraKey}</span>
+                              <span className="text-xs font-mono text-[#94A3B8] shrink-0">{child.jiraKey}</span>
                             )}
                             <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[child.statusCategory] ?? STATUS_COLORS.todo}`}>
                               {statusLabel(child.statusCategory)}
                             </span>
-                            <span className="text-xs text-[#6C7A89] dark:text-[#6C7A89] truncate">{child.summary}</span>
+                            <span className="text-xs text-[#94A3B8] truncate">{child.summary}</span>
                           </div>
-                          <div className="hidden sm:flex items-center gap-1 text-xs text-[#6C7A89] shrink-0 min-w-24">
+                          <div className="hidden sm:flex items-center gap-1 text-xs text-[#94A3B8] shrink-0 min-w-24">
                             {child.assigneeName && (
                               <><UserCircle2 size={11} className="text-[#0089DD]" /><span className="truncate max-w-20">{child.assigneeName}</span></>
                             )}
                           </div>
-                          <span className="hidden md:block text-xs text-[#6C7A89] shrink-0 min-w-20 text-center truncate">{child.sprintName ?? '—'}</span>
+                          <span className="hidden md:block text-xs text-[#94A3B8] shrink-0 min-w-20 text-center truncate">{child.sprintName ?? '—'}</span>
                           <div className="shrink-0 min-w-20 flex justify-end">
                             {child.storyPoints != null ? (
                               <DaysCell
@@ -770,7 +770,7 @@ export function Projects() {
                           <div className="relative shrink-0 min-w-14">
                             <button
                               onClick={() => setOpenBizPopover(openBizPopover === child.jiraKey ? null : child.jiraKey)}
-                              className={`text-xs font-medium px-2 py-0.5 rounded hover:bg-[#EEEEF1] ${childBizDays > 0 ? 'text-[#6C7A89]' : 'text-[#CFCFD5]'}`}
+                              className={`text-xs font-medium px-2 py-0.5 rounded hover:bg-[#F0F2F5] ${childBizDays > 0 ? 'text-[#94A3B8]' : 'text-[#DEDFE3]'}`}
                             >
                               <span className="flex items-center gap-1"><Building2 size={11} />{daysFmt(childBizDays)}</span>
                             </button>
@@ -788,7 +788,7 @@ export function Projects() {
                     })}
 
                     {features.length === 0 && directChildren.length === 0 && (
-                      <div className="px-10 py-3 text-xs text-[#6C7A89] italic">
+                      <div className="px-10 py-3 text-xs text-[#94A3B8] italic">
                         No features or stories under this epic.
                       </div>
                     )}
@@ -819,15 +819,15 @@ export function Projects() {
         >
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+              <div className="bg-green-50 rounded-lg p-3">
                 <p className="text-lg font-bold text-[#16A34A]">{pendingDiff.toAdd.length}</p>
                 <p className="text-xs text-[#16A34A]">New</p>
               </div>
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+              <div className="bg-blue-50 rounded-lg p-3">
                 <p className="text-lg font-bold text-blue-600">{pendingDiff.toUpdate.length}</p>
                 <p className="text-xs text-blue-600">Updated</p>
               </div>
-              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
+              <div className="bg-red-50 rounded-lg p-3">
                 <p className="text-lg font-bold text-red-600">{pendingDiff.toRemove.length}</p>
                 <p className="text-xs text-red-600">Removed</p>
               </div>

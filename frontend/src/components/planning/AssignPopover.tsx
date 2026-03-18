@@ -214,7 +214,7 @@ export function AssignPopover({
           {mode === 'project' ? 'Assign Project' : 'Assign Person'}
         </span>
         <button
-          className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+          className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
           onClick={onClose}
           aria-label="Close"
         >
@@ -264,7 +264,7 @@ export function AssignPopover({
                 key={id}
                 className={clsx(
                   'w-full flex items-center justify-between px-3 py-2 text-left text-sm transition-colors',
-                  isSelected ? 'bg-[#E6F2FC]' : 'hover:bg-[#EEEEF1]'
+                  isSelected ? 'bg-[#E6F2FC]' : 'hover:bg-[#F0F2F5]'
                 )}
                 onClick={() => setSelected(r)}
                 aria-pressed={isSelected}
@@ -306,7 +306,7 @@ export function AssignPopover({
                 'px-2.5 py-1 text-[11px] font-medium rounded-l-md border transition-colors focus:ring-2 focus:ring-inset focus:ring-mileway-light-blue',
                 inputMode === 'days'
                   ? 'text-white'
-                  : 'hover:bg-[#EEEEF1]'
+                  : 'hover:bg-[#F0F2F5]'
               )}
               style={
                 inputMode === 'days'
@@ -323,7 +323,7 @@ export function AssignPopover({
                 'px-2.5 py-1 text-[11px] font-medium rounded-r-md border-t border-b border-r transition-colors focus:ring-2 focus:ring-inset focus:ring-mileway-light-blue',
                 inputMode === 'dates'
                   ? 'text-white'
-                  : 'hover:bg-[#EEEEF1]'
+                  : 'hover:bg-[#F0F2F5]'
               )}
               style={
                 inputMode === 'dates'

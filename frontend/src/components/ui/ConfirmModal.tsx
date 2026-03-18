@@ -30,11 +30,11 @@ export function ConfirmModal({
 
   const iconColor = variant === 'danger'
     ? 'text-[#DC2626] bg-[#FFF5F5]'
-    : 'text-[#F97316] bg-[#FFF7ED]';
+    : 'text-[#D97706] bg-[#FEF9C3]';
 
   const confirmButtonClass = variant === 'danger'
     ? 'bg-[#DC2626] hover:opacity-85 text-white'
-    : 'bg-[#F97316] hover:opacity-85 text-white';
+    : 'bg-[#D97706] hover:opacity-85 text-white';
 
   return (
     <Modal
@@ -60,7 +60,7 @@ export function ConfirmModal({
         <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${iconColor}`}>
           <AlertTriangle size={20} />
         </div>
-        <p className="text-sm text-[#6C7A89] leading-relaxed pt-1.5">
+        <p className="text-sm text-[#94A3B8] leading-relaxed pt-1.5">
           {message}
         </p>
       </div>

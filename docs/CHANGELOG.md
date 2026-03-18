@@ -5,6 +5,24 @@ Newest entry at the top. Format: `[YYYY-MM-DD] — Short title`.
 
 ---
 
+## [2026-03-18] — Design pass — DM Sans font, brand palette refresh, dark mode removed
+
+### Changed
+- **Font** — replaced Plus Jakarta Sans with DM Sans across `index.html`, `tailwind.config.js`, `index.css`, and all inline `style={{ fontFamily }}` references
+- **Colour palette** — updated to simplified 3-colour system: `#1E293B` primary text, `#94A3B8` secondary text/grey, `#0089DD` blue, `#DEDFE3` borders, `#F5F8FC` page background; removed `#003565`, `#6C7A89`, `#CFCFD5`, `#EEEEF1` across all 60+ files
+- **`tailwind.config.js`** — rebuilt `mileway` token namespace with new values; updated `mw` and `biz` legacy aliases; removed `sana` aliases; `darkMode: false`
+- **`index.css`** — updated all CSS custom properties to new palette; `--color-primary-dark`, `--color-grey`, `--color-text`, `--color-text-muted`, `--bg-secondary`, `--text-primary/secondary` all updated; heatmap cell colours updated
+- **`theme/tokens.ts`** — full rewrite: all colour tokens updated to new palette; `Biz`, `GanttBar`, `ChartColors`, `HeatmapTiers`, `Border`, `Neutral` all updated
+- **Sidebar** — updated to use `#DEDFE3` borders, `#1E293B` text, `#94A3B8` muted text; removed remaining old Mileway dark-blue colour values
+- **Dark mode** — removed all `dark:` class variants from 19 files; `App.tsx` already clean
+- **Gantt BAR** — updated `story`/`task` border to `#DEDFE3`, `uat` fill to `#E6F2FC` per spec
+- **Jira Baseline banner** — updated to amber warning style (`bg-[#FEF9C3] border-[#D97706]`); "Create Scenario" button changed from orange to `bg-[#0089DD]` in both `Header.tsx` and `NotificationBanners.tsx`
+- **Heatmap header** — changed from dark background (`bg-[#1E293B]`) to light (`bg-[#F5F8FC] text-[#94A3B8]`); current quarter accent updated to `bg-[#E6F2FC] text-[#0089DD]`
+- **Orange → amber** — replaced all `#F97316`, `bg-orange-*` with `#D97706` / `bg-[#FEF9C3]` across badge, toast, progress bar, confirm modal, avatar stack components
+- **Spacing** — Team.tsx card grids updated from `gap-3 p-4` to `gap-6 p-6`; section labels `mb-3` → `mb-6`; Dashboard alerts grid `gap-3` → `gap-6`
+
+---
+
 ## [2026-03-18] — Sidebar redesign — white background, light blue active state
 
 ### Changed

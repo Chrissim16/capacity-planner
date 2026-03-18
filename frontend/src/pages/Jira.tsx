@@ -24,11 +24,11 @@ import type { JiraItemType } from '../types';
 
 // ─── type-badge colours — neutral slate for everything, red for bugs ────────
 const TYPE_COUNT_COLORS: Record<JiraItemType, string> = {
- epic: 'bg-[#EEEEF1] text-[#003565] ',
- feature: 'bg-[#EEEEF1] text-[#003565] ',
- story: 'bg-[#EEEEF1] text-[#003565] ',
- task: 'bg-[#EEEEF1] text-[#003565] ',
- bug: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+ epic: 'bg-[#F0F2F5] text-[#1E293B] ',
+ feature: 'bg-[#F0F2F5] text-[#1E293B] ',
+ story: 'bg-[#F0F2F5] text-[#1E293B] ',
+ task: 'bg-[#F0F2F5] text-[#1E293B] ',
+ bug: 'bg-red-100 text-red-700',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,14 +102,14 @@ export function Jira() {
  return (
  <div className="space-y-6">
  <div>
- <h1 className="text-2xl font-bold text-[#003565] ">Jira</h1>
- <p className="text-[#6C7A89] text-sm mt-0.5">Sync status and item overview</p>
+ <h1 className="text-2xl font-bold text-[#1E293B] ">Jira</h1>
+ <p className="text-[#94A3B8] text-sm mt-0.5">Sync status and item overview</p>
  </div>
  <Card>
  <CardContent className="py-16 text-center">
- <Link2 className="w-14 h-14 mx-auto mb-4 text-[#B5BDC4] dark:text-[#6C7A89]" />
- <h2 className="text-xl font-semibold text-[#003565] mb-2">No Jira items synced yet</h2>
- <p className="text-[#6C7A89] mb-6 max-w-md mx-auto text-sm">
+ <Link2 className="w-14 h-14 mx-auto mb-4 text-[#94A3B8]" />
+ <h2 className="text-xl font-semibold text-[#1E293B] mb-2">No Jira items synced yet</h2>
+ <p className="text-[#94A3B8] mb-6 max-w-md mx-auto text-sm">
  Go to Settings → Jira Integration, configure a connection and click Sync.
  Epics and features will be created automatically.
  </p>
@@ -131,8 +131,8 @@ export function Jira() {
  {/* Header */}
  <div className="flex items-center justify-between flex-wrap gap-4">
  <div>
- <h1 className="text-2xl font-bold text-[#003565] ">Jira</h1>
- <p className="text-[#6C7A89] text-sm mt-0.5">
+ <h1 className="text-2xl font-bold text-[#1E293B] ">Jira</h1>
+ <p className="text-[#94A3B8] text-sm mt-0.5">
  {stats.total} items synced
  {activeConnection?.lastSyncAt && (
  <> · Last sync: {new Date(activeConnection.lastSyncAt).toLocaleString()}</>
@@ -153,11 +153,11 @@ export function Jira() {
  return order.indexOf(a) - order.indexOf(b);
  })
  .map(([type, count]) => (
- <div key={type} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[#CFCFD5] bg-white ">
+ <div key={type} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[#DEDFE3] bg-white ">
  <span className={`text-xs font-semibold px-2 py-0.5 rounded capitalize ${TYPE_COUNT_COLORS[type]}`}>
  {type}
  </span>
- <span className="text-xl font-bold text-[#003565] ">{count}</span>
+ <span className="text-xl font-bold text-[#1E293B] ">{count}</span>
  </div>
  ))}
  </div>
@@ -172,14 +172,14 @@ export function Jira() {
  return (
  <div className="space-y-2">
  <div className="flex items-center justify-between px-1">
- <p className="text-xs font-semibold text-[#6C7A89] uppercase tracking-wide">
+ <p className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">
  Items by Epic ({visibleGroups.length}{hideClosedEpics && closedCount > 0 ? ` of ${epicGroups.length}` : ''})
  </p>
  {closedCount > 0 && (
  <button
  type="button"
  onClick={() => setHideClosedEpics(h => !h)}
- className="flex items-center gap-1.5 text-xs text-[#6C7A89] hover:text-[#003565] transition-colors"
+ className="flex items-center gap-1.5 text-xs text-[#94A3B8] hover:text-[#1E293B] transition-colors"
  >
  {hideClosedEpics
  ? <><Eye size={13} /> Show {closedCount} closed</>
@@ -193,10 +193,10 @@ export function Jira() {
  return (
  <Card key={epic.id} className="overflow-hidden">
  <div
- className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#EEEEF1] /50 transition-colors"
+ className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#F0F2F5] /50 transition-colors"
  onClick={() => toggleEpic(epic.jiraKey)}
  >
- <button className="shrink-0 text-[#6C7A89]">
+ <button className="shrink-0 text-[#94A3B8]">
  {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
  </button>
  <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${TYPE_COUNT_COLORS['epic']}`}>Epic</span>
@@ -209,16 +209,16 @@ export function Jira() {
  >
  {epic.jiraKey}<ExternalLink size={10} />
  </a>
- <span className={`text-sm font-medium truncate flex-1 ${epic.statusCategory === 'done' ? 'line-through text-[#6C7A89] dark:text-[#6C7A89]' : 'text-[#003565] '}`}>
+ <span className={`text-sm font-medium truncate flex-1 ${epic.statusCategory === 'done' ? 'line-through text-[#94A3B8]' : 'text-[#1E293B] '}`}>
  {epic.summary}
  </span>
  {epic.statusCategory === 'done' && (
- <span className="text-xs px-1.5 py-0.5 rounded bg-[#EEEEF1] text-[#6C7A89] shrink-0">Closed</span>
+ <span className="text-xs px-1.5 py-0.5 rounded bg-[#F0F2F5] text-[#94A3B8] shrink-0">Closed</span>
  )}
               <Badge variant="default" className="shrink-0 text-xs">{items.length - 1} items</Badge>
  </div>
  {isOpen && (
- <div className="border-t border-[#DEDFE3] dark:border-slate-800 px-4 py-3">
+ <div className="border-t border-[#DEDFE3] px-4 py-3">
  <JiraHierarchyTree
  items={items.filter(i => i.id !== epic.id)}
  jiraBaseUrl={activeBaseUrl}
@@ -238,14 +238,14 @@ export function Jira() {
 
  {/* Unlinked items — no epic parent */}
  {unlinkedItems.length > 0 && (
- <Card className="border-amber-200 dark:border-amber-700/50">
+ <Card className="border-amber-200">
  <div className="px-4 py-3 flex items-start gap-3">
  <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
  <div className="flex-1">
- <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+ <p className="text-sm font-medium text-amber-800">
  {unlinkedItems.length} item{unlinkedItems.length !== 1 ? 's' : ''} with no epic parent
  </p>
- <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+ <p className="text-xs text-amber-600 mt-0.5">
  These items exist in Jira but are not connected to any synced epic.
  The table below shows what parent key is stored — if it doesn't match
  the epic key above, re-sync to pull the latest parent data.
@@ -254,19 +254,19 @@ export function Jira() {
  </div>
 
  {/* Diagnostic table — shows stored parentKey so we can spot mismatches */}
- <div className="border-t border-amber-100 dark:border-amber-800/30 px-4 py-3 overflow-x-auto">
+ <div className="border-t border-amber-100 px-4 py-3 overflow-x-auto">
  <table className="w-full text-xs">
  <thead>
- <tr className="text-left text-[#6C7A89] dark:text-[#6C7A89] border-b border-amber-100 dark:border-amber-800/30">
+ <tr className="text-left text-[#94A3B8] border-b border-amber-100">
  <th className="pb-1.5 pr-4 font-medium">Key</th>
  <th className="pb-1.5 pr-4 font-medium">Type</th>
  <th className="pb-1.5 pr-4 font-medium">Summary</th>
  <th className="pb-1.5 font-medium">Stored parentKey</th>
  </tr>
  </thead>
- <tbody className="divide-y divide-amber-50 dark:divide-amber-900/20">
+ <tbody className="divide-y divide-amber-50">
  {unlinkedItems.map(item => (
- <tr key={item.id} className="hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
+ <tr key={item.id} className="hover:bg-amber-50/50">
  <td className="py-1.5 pr-4">
  <a
  href={`${activeBaseUrl}/browse/${item.jiraKey}`}
@@ -282,19 +282,19 @@ export function Jira() {
  {item.type}
  </span>
  </td>
- <td className="py-1.5 pr-4 text-[#6C7A89] max-w-xs truncate">
+ <td className="py-1.5 pr-4 text-[#94A3B8] max-w-xs truncate">
  {item.summary}
  </td>
  <td className="py-1.5">
  {item.parentKey ? (
- <span className="font-mono text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+ <span className="font-mono text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
  {item.parentKey}
- <span className="ml-1.5 text-amber-500 dark:text-amber-500 font-sans font-normal">
+ <span className="ml-1.5 text-amber-500 font-sans font-normal">
  (epic not synced?)
  </span>
  </span>
  ) : (
- <span className="text-[#6C7A89] italic">none — Epic Link field empty in Jira</span>
+ <span className="text-[#94A3B8] italic">none — Epic Link field empty in Jira</span>
  )}
  </td>
  </tr>
@@ -306,9 +306,9 @@ export function Jira() {
  )}
 
  {/* Go to Epics CTA */}
- <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#EEEEF1] /50 border border-[#CFCFD5] ">
- <GitBranch size={16} className="text-[#6C7A89] shrink-0" />
- <p className="text-sm text-[#6C7A89] flex-1">
+ <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#F0F2F5] /50 border border-[#DEDFE3] ">
+ <GitBranch size={16} className="text-[#94A3B8] shrink-0" />
+ <p className="text-sm text-[#94A3B8] flex-1">
  View capacity assignments, features, and team allocations in the <strong>Epics</strong> tab.
  </p>
  <Button variant="secondary" size="sm" onClick={() => setView('projects')}>

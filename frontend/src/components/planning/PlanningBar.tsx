@@ -164,14 +164,14 @@ export function PlanningBar({
         <div
           className="absolute bottom-full left-0 mb-2 z-50 rounded-lg shadow-lg px-3 py-2 text-xs whitespace-nowrap pointer-events-none"
           style={{
-            backgroundColor: '#003565',
+            backgroundColor: '#1E293B',
             color: '#FFFFFF',
             border: `1px solid ${Semantic.infoBorder}`,
           }}
           role="tooltip"
         >
           <div className="font-medium">{personName}</div>
-          <div style={{ color: '#B5BDC4' }}>{projectName} · {quarter}</div>
+          <div style={{ color: '#94A3B8' }}>{projectName} · {quarter}</div>
           <div className="mt-1 font-semibold" style={{ color: Accent.teal }}>{days} days</div>
         </div>
       )}

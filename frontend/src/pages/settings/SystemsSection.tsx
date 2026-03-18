@@ -55,29 +55,29 @@ export function SystemsSection() {
  </div>
  <div className="space-y-2">
  {systems.map((system) => (
- <div key={system.id} className="flex items-center justify-between p-3 bg-[#EEEEF1] /50 rounded-lg">
+ <div key={system.id} className="flex items-center justify-between p-3 bg-[#F0F2F5] /50 rounded-lg">
  {editingId === system.id ? (
  <div className="flex-1 flex items-center gap-3">
  <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="System name" className="flex-1" />
  <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Description" className="flex-1" />
  <button onClick={saveEdit} className="p-1.5 text-green-500 hover:text-[#16A34A]"><Check size={16} /></button>
- <button onClick={() => setEditingId(null)} className="p-1.5 text-[#6C7A89] hover:text-[#6C7A89]"><X size={16} /></button>
+ <button onClick={() => setEditingId(null)} className="p-1.5 text-[#94A3B8] hover:text-[#94A3B8]"><X size={16} /></button>
  </div>
  ) : (
  <>
  <div>
- <span className="font-medium text-[#003565] ">{system.name}</span>
- {system.description && <p className="text-sm text-[#6C7A89]">{system.description}</p>}
+ <span className="font-medium text-[#1E293B] ">{system.name}</span>
+ {system.description && <p className="text-sm text-[#94A3B8]">{system.description}</p>}
  </div>
  <div className="flex items-center gap-1">
- <button onClick={() => startEdit(system.id)} className="p-1.5 text-[#6C7A89] hover:text-[#0089DD]"><Edit2 size={16} /></button>
- <button onClick={() => setDeleteConfirm({ id: system.id, name: system.name })} className="p-1.5 text-[#6C7A89] hover:text-red-500"><Trash2 size={16} /></button>
+ <button onClick={() => startEdit(system.id)} className="p-1.5 text-[#94A3B8] hover:text-[#0089DD]"><Edit2 size={16} /></button>
+ <button onClick={() => setDeleteConfirm({ id: system.id, name: system.name })} className="p-1.5 text-[#94A3B8] hover:text-red-500"><Trash2 size={16} /></button>
  </div>
  </>
  )}
  </div>
  ))}
- {systems.length === 0 && <p className="text-center py-8 text-[#6C7A89]">No systems defined</p>}
+ {systems.length === 0 && <p className="text-center py-8 text-[#94A3B8]">No systems defined</p>}
  </div>
  </CardContent>
  </Card>

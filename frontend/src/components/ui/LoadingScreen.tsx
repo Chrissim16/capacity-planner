@@ -12,10 +12,10 @@ export function LoadingScreen({ message = 'Loading your data…' }: LoadingScree
         draggable={false}
       />
 
-      <div className="w-6 h-6 border-[2px] border-[#CFCFD5] border-t-[#0089DD] rounded-full animate-spin mb-5" />
+      <div className="w-6 h-6 border-[2px] border-[#DEDFE3] border-t-[#0089DD] rounded-full animate-spin mb-5" />
 
-      <p className="text-[#6C7A89] text-sm font-medium">{message}</p>
-      <p className="text-[#B5BDC4] text-xs mt-1">Connecting to database…</p>
+      <p className="text-[#94A3B8] text-sm font-medium">{message}</p>
+      <p className="text-[#94A3B8] text-xs mt-1">Connecting to database…</p>
     </div>
   );
 }

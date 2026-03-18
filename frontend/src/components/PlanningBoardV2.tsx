@@ -504,7 +504,7 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
 
         {/* Promote to Baseline */}
         <button
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
           style={{ borderColor: Border.subtle, color: Text.secondary }}
           onClick={() => setConfirmPromote(true)}
           aria-label="Promote this plan to baseline"
@@ -516,7 +516,7 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
         {/* Dot menu */}
         <div className="relative" ref={menuRef}>
           <button
-            className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ borderColor: Border.subtle, color: Text.secondary }}
             onClick={() => setMenuOpen(v => !v)}
             aria-label="More plan options"
@@ -748,7 +748,7 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
           style={{ borderColor: Border.subtle, backgroundColor: Background.secondary }}
         >
           <button
-            className="px-4 py-1.5 text-sm rounded-lg border transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+            className="px-4 py-1.5 text-sm rounded-lg border transition-colors hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ borderColor: Border.subtle, color: Text.secondary }}
             onClick={onClose}
           >
@@ -816,7 +816,7 @@ function CanvasDragOverlay({ label }: { label: string }) {
       className="flex items-center gap-2 px-3 py-2 rounded-xl border shadow-lg select-none"
       style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B' }}
     >
-      <span className="text-xs font-medium" style={{ color: '#92400E' }}>↩ {label}</span>
+      <span className="text-xs font-medium" style={{ color: '#1E293B' }}>↩ {label}</span>
     </div>
   );
 }
@@ -830,7 +830,7 @@ function ViewToggleButton({ label, active, onClick }: { label: string; active: b
     <button
       className={clsx(
         'px-3 py-1.5 text-sm font-medium transition-colors focus:ring-2 focus:ring-inset focus:ring-mileway-light-blue',
-        active ? 'text-white' : 'hover:bg-[#EEEEF1]'
+        active ? 'text-white' : 'hover:bg-[#F0F2F5]'
       )}
       style={active ? { backgroundColor: Accent.teal, color: '#fff' } : { color: Text.secondary }}
       onClick={onClick}
@@ -851,7 +851,7 @@ interface MenuItemProps {
 function MenuItem({ icon, label, onClick, danger = false }: MenuItemProps) {
   return (
     <button
-      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors focus:ring-2 focus:ring-mileway-light-blue hover:bg-[#EEEEF1]"
+      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors focus:ring-2 focus:ring-mileway-light-blue hover:bg-[#F0F2F5]"
       style={{ color: danger ? Semantic.danger : Text.secondary }}
       onClick={onClick}
       role="menuitem"

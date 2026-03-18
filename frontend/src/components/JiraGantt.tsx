@@ -4,7 +4,7 @@
  * Layout: 300px fixed label column | flex-1 horizontally-scrollable gantt area
  * Bars are positioned absolutely using date fractions over the visible time window.
  * Continuation arrows (clip-left / clip-right) are CSS pseudo-elements defined in index.css.
- * Colors: Light Blue (#0089DD) for IT / Cool Grey (#6C7A89) for BIZ.
+ * Colors: Light Blue (#0089DD) for IT / Cool Grey (#94A3B8) for BIZ.
  */
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -24,21 +24,21 @@ const ROW_SUB = 36;
 
 const BAR: Record<string, { bg: string; border: string; borderW: number; radius: number }> = {
   epic:      { bg: 'rgba(0,137,221,0.10)', border: '#0089DD', borderW: 2, radius: 6 },
-  feature:   { bg: '#CCE4F9',             border: '#0089DD', borderW: 1, radius: 5 },
-  story:     { bg: '#DEDFE3',             border: '#B5BDC4', borderW: 1, radius: 4 },
-  task:      { bg: '#DEDFE3',             border: '#B5BDC4', borderW: 1, radius: 4 },
-  bug:       { bg: '#FEE2E2',             border: '#DC2626', borderW: 1, radius: 4 },
-  uat:       { bg: '#CCD3DC',             border: '#6C7A89', borderW: 1, radius: 4 },
-  hypercare: { bg: '#B3D9F5',             border: '#0089DD', borderW: 1, radius: 4 },
-  custom:    { bg: '#EEEEF1',             border: '#CFCFD5', borderW: 1, radius: 4 },
+  feature:   { bg: '#CCE4F9',              border: '#0089DD', borderW: 1, radius: 5 },
+  story:     { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1, radius: 4 },
+  task:      { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1, radius: 4 },
+  bug:       { bg: '#FEE2E2',              border: '#DC2626', borderW: 1, radius: 4 },
+  uat:       { bg: '#E6F2FC',              border: '#94A3B8', borderW: 1, radius: 4 },
+  hypercare: { bg: '#CCE4F9',              border: '#0089DD', borderW: 1, radius: 4 },
+  custom:    { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1, radius: 4 },
 };
 
 const TYPE_CHIP_STYLE: Record<string, { bg: string; color: string }> = {
   feature:   { bg: '#E6F2FC', color: '#0089DD' },
-  story:     { bg: '#EEEEF1', color: '#6C7A89' },
-  task:      { bg: '#EEEEF1', color: '#6C7A89' },
+  story:     { bg: '#F0F2F5', color: '#94A3B8' },
+  task:      { bg: '#F0F2F5', color: '#94A3B8' },
   bug:       { bg: '#FEE2E2', color: '#DC2626' },
-  uat:       { bg: '#EEEEF1', color: '#6C7A89' },
+  uat:       { bg: '#F0F2F5', color: '#94A3B8' },
   hypercare: { bg: '#E6F2FC', color: '#0089DD' },
 };
 
@@ -150,7 +150,7 @@ function StatusBadge({ item }: { item: JiraWorkItem }) {
  return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-emerald-50 text-emerald-700"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />{item.status}</span>;
  if (cat === 'in_progress')
  return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-amber-50 text-amber-700"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />{item.status}</span>;
- return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-[#EEEEF1] text-[#6C7A89]"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 flex-shrink-0" />{item.status}</span>;
+ return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-semibold bg-[#F0F2F5] text-[#94A3B8]"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 flex-shrink-0" />{item.status}</span>;
 }
 
 // ── Slide-out panel ──────────────────────────────────────────────────────────
@@ -168,12 +168,12 @@ function DescriptionSection({ text }: { text?: string }) {
 
  return (
  <div>
- <p className="text-[10.5px] font-semibold uppercase tracking-widest text-[#6C7A89] dark:text-[#6C7A89] mb-2.5">
+ <p className="text-[10.5px] font-semibold uppercase tracking-widest text-[#94A3B8] mb-2.5">
  Description
  </p>
  {display ? (
  <>
- <p className="text-sm text-[#003565] whitespace-pre-wrap leading-relaxed">
+ <p className="text-sm text-[#1E293B] whitespace-pre-wrap leading-relaxed">
  {display}
  </p>
  {truncated && (
@@ -186,7 +186,7 @@ function DescriptionSection({ text }: { text?: string }) {
  )}
  </>
  ) : (
- <p className="text-sm text-[#6C7A89] dark:text-[#6C7A89] italic">
+ <p className="text-sm text-[#94A3B8] italic">
  No description available.
  </p>
  )}
@@ -233,17 +233,17 @@ function SlidePanel({
  {item && (
  <>
  {/* Header */}
- <div className="px-5 py-4 border-b border-[#CFCFD5] flex items-start justify-between gap-3 flex-shrink-0">
+ <div className="px-5 py-4 border-b border-[#DEDFE3] flex items-start justify-between gap-3 flex-shrink-0">
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2 mb-1.5">
  <TypeChip type={item.type} />
  </div>
- <p className="text-[15px] font-semibold text-[#003565] leading-snug">{item.summary}</p>
+ <p className="text-[15px] font-semibold text-[#1E293B] leading-snug">{item.summary}</p>
  </div>
  <button
  onClick={onClose}
  aria-label="Close panel"
- className="w-7 h-7 bg-[#EEEEF1] rounded-md flex items-center justify-center text-[#6C7A89] hover:bg-[#DEDFE3] flex-shrink-0 transition-colors"
+ className="w-7 h-7 bg-[#F0F2F5] rounded-md flex items-center justify-center text-[#94A3B8] hover:bg-[#DEDFE3] flex-shrink-0 transition-colors"
  >
  <X size={14} />
  </button>
@@ -258,10 +258,8 @@ function SlidePanel({
  target="_blank"
  rel="noopener noreferrer"
  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg
- border border-mw-grey-light bg-[#EEEEF1] text-[#003565] text-sm font-semibold
+ border border-mw-grey-light bg-[#F0F2F5] text-[#1E293B] text-sm font-semibold
  hover:bg-[#0089DD]-light hover:border-[#0089DD] hover:text-[#0089DD]
- dark:bg-mw-muted-dark dark:border-mw-muted-border-dark dark:text-mw-muted-text-dark
- dark:hover:bg-[#0089DD]/10 dark:hover:border-[#0089DD] dark:hover:text-mw-accent-text-dark
  transition-colors"
  >
  <ExternalLink size={14} />
@@ -271,39 +269,39 @@ function SlidePanel({
 
  {/* Assignees */}
  <div>
- <p className="text-[10.5px] font-semibold uppercase tracking-widest text-[#6C7A89] dark:text-[#6C7A89] mb-2.5">Assignees</p>
+ <p className="text-[10.5px] font-semibold uppercase tracking-widest text-[#94A3B8] mb-2.5">Assignees</p>
  <div className="grid grid-cols-2 gap-3">
  {/* IT track */}
- <div className="p-3 rounded-lg border border-[#BAE0F7] bg-[#F0F9FF] dark:bg-[#0089DD]/10 dark:border-[#0089DD]/30">
+ <div className="p-3 rounded-lg border border-[#BAE0F7] bg-[#F0F9FF]">
  <p className="text-[9px] font-bold uppercase tracking-wider text-[#0089DD] mb-2">IT</p>
  {item.assigneeName ? (
  <div className="flex items-center gap-2">
  <div className="w-7 h-7 rounded-full bg-[#E8F4FB] text-[#0089DD] text-[10px] font-bold flex items-center justify-center flex-shrink-0">
  {initials(item.assigneeName)}
  </div>
- <span className="text-xs font-medium text-[#003565] leading-tight">{item.assigneeName}</span>
+ <span className="text-xs font-medium text-[#1E293B] leading-tight">{item.assigneeName}</span>
  </div>
  ) : (
- <span className="text-xs text-[#6C7A89]">Unassigned</span>
+ <span className="text-xs text-[#94A3B8]">Unassigned</span>
  )}
  </div>
  {/* BIZ track */}
- <div className="p-3 rounded-lg border border-[#CFCFD5] bg-[#EEEEF1]">
- <p className="text-[9px] font-bold uppercase tracking-wider text-[#6C7A89] mb-2">Business</p>
+ <div className="p-3 rounded-lg border border-[#DEDFE3] bg-[#F0F2F5]">
+ <p className="text-[9px] font-bold uppercase tracking-wider text-[#94A3B8] mb-2">Business</p>
  {bizContacts.length ? (
  bizContacts.map(c => (
  <div key={c.id} className="flex items-center gap-2 mb-1.5 last:mb-0">
- <div className="w-7 h-7 rounded-full bg-[#DEDFE3] text-[#6C7A89] text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+ <div className="w-7 h-7 rounded-full bg-[#DEDFE3] text-[#94A3B8] text-[10px] font-bold flex items-center justify-center flex-shrink-0">
  {initials(c.name)}
  </div>
  <div>
- <p className="text-xs font-medium text-[#003565] leading-tight">{c.name}</p>
- {c.title && <p className="text-[10px] text-[#6C7A89] leading-tight">{c.title}</p>}
+ <p className="text-xs font-medium text-[#1E293B] leading-tight">{c.name}</p>
+ {c.title && <p className="text-[10px] text-[#94A3B8] leading-tight">{c.title}</p>}
  </div>
  </div>
  ))
  ) : (
- <span className="text-xs text-[#6C7A89]">Unassigned</span>
+ <span className="text-xs text-[#94A3B8]">Unassigned</span>
  )}
  </div>
  </div>
@@ -311,22 +309,22 @@ function SlidePanel({
 
  {/* Details */}
  <div>
- <p className="text-[10.5px] font-semibold uppercase tracking-widest text-[#6C7A89] dark:text-[#6C7A89] mb-2.5">Details</p>
+ <p className="text-[10.5px] font-semibold uppercase tracking-widest text-[#94A3B8] mb-2.5">Details</p>
  <div className="grid grid-cols-2 gap-2">
- <div className="p-2.5 bg-[#F5F8FC] rounded-lg border border-[#CFCFD5] ">
- <p className="text-[10px] uppercase tracking-wider text-[#6C7A89] mb-1">Status</p>
+ <div className="p-2.5 bg-[#F5F8FC] rounded-lg border border-[#DEDFE3] ">
+ <p className="text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">Status</p>
  <StatusBadge item={item} />
  </div>
  {item.sprintName && (
- <div className="p-2.5 bg-[#F5F8FC] rounded-lg border border-[#CFCFD5] ">
- <p className="text-[10px] uppercase tracking-wider text-[#6C7A89] mb-1">Sprint</p>
- <p className="text-xs font-mono text-[#003565] ">{item.sprintName}</p>
+ <div className="p-2.5 bg-[#F5F8FC] rounded-lg border border-[#DEDFE3] ">
+ <p className="text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">Sprint</p>
+ <p className="text-xs font-mono text-[#1E293B] ">{item.sprintName}</p>
  </div>
  )}
  {(item.startDate || item.dueDate) && (
- <div className="p-2.5 bg-[#F5F8FC] rounded-lg border border-[#CFCFD5] col-span-2">
- <p className="text-[10px] uppercase tracking-wider text-[#6C7A89] mb-1">Dates</p>
- <p className="text-xs font-mono text-[#003565] ">
+ <div className="p-2.5 bg-[#F5F8FC] rounded-lg border border-[#DEDFE3] col-span-2">
+ <p className="text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">Dates</p>
+ <p className="text-xs font-mono text-[#1E293B] ">
  {item.startDate && new Date(item.startDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
  {item.startDate && item.dueDate && ' – '}
  {item.dueDate && new Date(item.dueDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -334,9 +332,9 @@ function SlidePanel({
  </div>
  )}
  {item.storyPoints != null && (
- <div className="p-2.5 bg-[#F5F8FC] rounded-lg border border-[#CFCFD5] ">
- <p className="text-[10px] uppercase tracking-wider text-[#6C7A89] mb-1">Days</p>
- <p className="text-xs font-mono text-[#003565] ">{item.storyPoints}d</p>
+ <div className="p-2.5 bg-[#F5F8FC] rounded-lg border border-[#DEDFE3] ">
+ <p className="text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">Days</p>
+ <p className="text-xs font-mono text-[#1E293B] ">{item.storyPoints}d</p>
  </div>
  )}
  </div>
@@ -577,7 +575,7 @@ export function JiraGantt({
 
  if (epics.length === 0) {
  return (
- <div className="flex flex-col items-center justify-center py-16 text-[#6C7A89]">
+ <div className="flex flex-col items-center justify-center py-16 text-[#94A3B8]">
  <p className="text-sm">No Jira epics synced yet.</p>
  <p className="text-xs mt-1">Sync Jira items from Settings to see the Gantt.</p>
  </div>
@@ -593,11 +591,11 @@ export function JiraGantt({
  <div className="flex items-center gap-3 mr-2">
  {[
  { label: 'Feature', bg: '#CCE4F9', border: '#0089DD' },
- { label: 'Story', bg: '#DEDFE3', border: '#B5BDC4' },
- { label: 'UAT', bg: '#CCD3DC', border: '#6C7A89' },
- { label: 'Hypercare', bg: '#B3D9F5', border: '#0089DD' },
+ { label: 'Story', bg: '#DEDFE3', border: '#94A3B8' },
+ { label: 'UAT', bg: '#F0F2F5', border: '#94A3B8' },
+ { label: 'Hypercare', bg: '#CCE4F9', border: '#0089DD' },
  ].map(l => (
- <span key={l.label} className="flex items-center gap-1.5 text-[11px] text-[#6C7A89] font-medium uppercase tracking-wider">
+ <span key={l.label} className="flex items-center gap-1.5 text-[11px] text-[#94A3B8] font-medium uppercase tracking-wider">
  <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: l.bg, border: `1px solid ${l.border}` }} />
  {l.label}
  </span>
@@ -605,7 +603,7 @@ export function JiraGantt({
  </div>
  <button
  onClick={handleExpandAll}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-[#B5BDC4] bg-white text-[#6C7A89] hover:border-[#BAE0F7] hover:text-[#0089DD] hover:bg-[#F0F9FF] transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-[#94A3B8] bg-white text-[#94A3B8] hover:border-[#BAE0F7] hover:text-[#0089DD] hover:bg-[#F0F9FF] transition-colors"
  >
  <ChevronRight size={12} className={`transition-transform ${allExpanded ? 'rotate-90' : ''}`} />
  {allExpanded ? 'Collapse All' : 'Expand All'}
@@ -615,38 +613,38 @@ export function JiraGantt({
  <div className="flex items-center gap-2">
  {/* Quarter navigator (hidden in Full Year) */}
  {viewMode === 'quarter' && (
- <div className="flex items-center gap-1 px-2 py-1 bg-white border border-[#B5BDC4] rounded-lg">
+ <div className="flex items-center gap-1 px-2 py-1 bg-white border border-[#94A3B8] rounded-lg">
  <button
  disabled={qtrIdx === 0}
  onClick={() => setQtrIdx(i => i - 1)}
  aria-label="Previous quarter"
- className="w-6 h-6 flex items-center justify-center rounded text-[#6C7A89] hover:bg-[#EEEEF1] disabled:opacity-30 disabled:cursor-default transition-colors"
+ className="w-6 h-6 flex items-center justify-center rounded text-[#94A3B8] hover:bg-[#F0F2F5] disabled:opacity-30 disabled:cursor-default transition-colors"
  >
  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 2L3 5l3 3"/></svg>
  </button>
- <span className="text-[12.5px] font-semibold text-[#003565] dark:text-slate-100 min-w-[72px] text-center">
+ <span className="text-[12.5px] font-semibold text-[#1E293B] min-w-[72px] text-center">
  {quarters[qtrIdx]}
  </span>
  <button
  disabled={qtrIdx >= Math.min(quarters.length - 1, 3)}
  onClick={() => setQtrIdx(i => i + 1)}
  aria-label="Next quarter"
- className="w-6 h-6 flex items-center justify-center rounded text-[#6C7A89] hover:bg-[#EEEEF1] disabled:opacity-30 disabled:cursor-default transition-colors"
+ className="w-6 h-6 flex items-center justify-center rounded text-[#94A3B8] hover:bg-[#F0F2F5] disabled:opacity-30 disabled:cursor-default transition-colors"
  >
  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 2l3 3-3 3"/></svg>
  </button>
  </div>
  )}
  {/* View toggle */}
- <div className="flex items-center bg-[#EEEEF1] border border-[#B5BDC4] rounded-lg p-0.5">
+ <div className="flex items-center bg-[#F0F2F5] border border-[#94A3B8] rounded-lg p-0.5">
  {(['quarter', 'year'] as const).map(v => (
  <button
  key={v}
  onClick={() => setViewMode(v)}
  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
  viewMode === v
- ? 'bg-white text-[#003565] shadow-sm'
- : 'text-[#6C7A89] hover:text-[#003565] dark:hover:text-slate-200'
+ ? 'bg-white text-[#1E293B] shadow-sm'
+ : 'text-[#94A3B8] hover:text-[#1E293B]'
  }`}
  >
  {v === 'quarter' ? 'Quarter' : 'Full Year'}
@@ -657,7 +655,7 @@ export function JiraGantt({
  </div>
 
  {/* Timeline body */}
- <div className="flex overflow-hidden rounded-xl border border-[#CFCFD5] bg-white shadow-sm">
+ <div className="flex overflow-hidden rounded-xl border border-[#DEDFE3] bg-white shadow-sm">
 
  {/* ── Label column ── */}
  <div
@@ -665,8 +663,8 @@ export function JiraGantt({
  style={{ width: labelW }}
  >
  {/* Header cell */}
- <div className="h-16 flex items-end px-4 pb-2.5 border-b border-[#CFCFD5] ">
- <span className="text-[10.5px] font-semibold uppercase tracking-widest text-[#6C7A89]">Epic / Feature / Item</span>
+ <div className="h-16 flex items-end px-4 pb-2.5 border-b border-[#DEDFE3] ">
+ <span className="text-[10.5px] font-semibold uppercase tracking-widest text-[#94A3B8]">Epic / Feature / Item</span>
  </div>
 
  {/* Drag-resize handle */}
@@ -693,7 +691,7 @@ export function JiraGantt({
  : false;
  const bg = level === 0
  ? 'bg-white hover:bg-[#F5F8FC] /50'
- : 'bg-[#F5F8FC]/80 /30 hover:bg-[#EEEEF1] /60';
+ : 'bg-[#F5F8FC]/80 /30 hover:bg-[#F0F2F5] /60';
 
  return (
  <div
@@ -705,7 +703,7 @@ export function JiraGantt({
  {/* Expand button (levels 0 and 1) */}
  {level < 2 && (
  <button
- className="w-[18px] h-[18px] flex items-center justify-center rounded bg-[#EEEEF1] hover:bg-[#DEDFE3] dark:hover:bg-slate-600 flex-shrink-0 transition-colors disabled:opacity-0"
+ className="w-[18px] h-[18px] flex items-center justify-center rounded bg-[#F0F2F5] hover:bg-[#DEDFE3] flex-shrink-0 transition-colors disabled:opacity-0"
  disabled={!hasSubs}
  aria-expanded={level === 0 ? isExpEpic : isExpFeat}
  aria-label={(level === 0 ? isExpEpic : isExpFeat) ? `Collapse ${item.summary}` : `Expand ${item.summary}`}
@@ -721,7 +719,7 @@ export function JiraGantt({
  style={{
  transform: (level === 0 ? isExpEpic : isExpFeat) ? 'rotate(90deg)' : 'none',
  transition: 'transform 0.2s',
- color: '#B5BDC4',
+ color: '#94A3B8',
  }}
  >
  <path d="M3 2l4 3-4 3" />
@@ -732,14 +730,14 @@ export function JiraGantt({
  {level > 0 && <TypeChip type={item.type} />}
  {/* Name */}
  <span
- className={`truncate flex-1 ${level === 0 ? 'text-[13px] font-semibold text-[#003565] dark:text-slate-100' : 'text-xs text-[#003565] '}`}
+ className={`truncate flex-1 ${level === 0 ? 'text-[13px] font-semibold text-[#1E293B]' : 'text-xs text-[#1E293B] '}`}
  title={item.summary}
  >
  {item.summary}
  </span>
  {/* Jira key (epic level) */}
  {level === 0 && item.jiraKey && (
- <span className="font-mono text-[10px] text-[#6C7A89] dark:text-[#6C7A89] shrink-0 pr-2">{item.jiraKey}</span>
+ <span className="font-mono text-[10px] text-[#94A3B8] shrink-0 pr-2">{item.jiraKey}</span>
  )}
  </div>
  );
@@ -752,7 +750,7 @@ export function JiraGantt({
 
  {/* Column headers */}
  <div
- className="grid border-b border-[#CFCFD5] h-16"
+ className="grid border-b border-[#DEDFE3] h-16"
  style={{ gridTemplateColumns: `repeat(${colCount}, 1fr)` }}
  >
  {columns.map((col, i) => (
@@ -760,8 +758,8 @@ export function JiraGantt({
  key={i}
  className={`flex flex-col justify-center px-3 border-r border-[#DEDFE3] /50 last:border-r-0 overflow-hidden ${col.isCurrent ? 'bg-[rgba(0,137,221,0.03)]' : ''}`}
  >
- <span className={`text-[12.5px] font-semibold truncate ${col.isCurrent ? 'text-[#0089DD]' : 'text-[#003565] dark:text-slate-100'}`}>{col.label}</span>
- <span className="text-[10px] text-[#6C7A89] font-mono mt-0.5 truncate">{col.sub}</span>
+ <span className={`text-[12.5px] font-semibold truncate ${col.isCurrent ? 'text-[#0089DD]' : 'text-[#1E293B]'}`}>{col.label}</span>
+ <span className="text-[10px] text-[#94A3B8] font-mono mt-0.5 truncate">{col.sub}</span>
  </div>
  ))}
  </div>
@@ -848,7 +846,7 @@ export function JiraGantt({
  {/* Ghost row for items with no dates */}
  {layout.hidden && !start && (
  <div
- className="absolute inset-y-[30%] left-[4%] right-[4%] rounded border border-dashed border-[#CFCFD5] "
+ className="absolute inset-y-[30%] left-[4%] right-[4%] rounded border border-dashed border-[#DEDFE3] "
  title="No dates set in Jira for this item"
  style={{ zIndex: 5 }}
  />

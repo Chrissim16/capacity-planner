@@ -13,8 +13,8 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         ref={ref}
         className={clsx(
           'rounded-[10px] bg-white',
-          variant === 'default'  && 'border border-[#CFCFD5]',
-          variant === 'outlined' && 'border border-[#CFCFD5]',
+          variant === 'default'  && 'border border-[#DEDFE3]',
+          variant === 'outlined' && 'border border-[#DEDFE3]',
           variant === 'elevated' && 'shadow-md',
           className
         )}
@@ -44,7 +44,7 @@ export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadi
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={clsx('text-base font-semibold text-[#003565]', className)}
+      className={clsx('text-base font-semibold text-[#1E293B]', className)}
       {...props}
     />
   )

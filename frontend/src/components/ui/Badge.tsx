@@ -25,22 +25,22 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant = 'default', ...props }, ref) => {
     const variants: Record<string, string> = {
-      default:      'bg-[#EEEEF1] text-[#6C7A89] border border-[#CFCFD5]',
+      default:      'bg-[#F0F2F5] text-[#94A3B8] border border-[#DEDFE3]',
       success:      'bg-[#DCFCE7] text-[#166534] border border-[#A7F3D0]',
-      warning:      'bg-[#FFF7ED] text-[#92400E] border border-[#FED7AA]',
+      warning:      'bg-[#FEF9C3] text-[#1E293B] border border-[#D97706]',
       danger:       'bg-[#FFF5F5] text-[#991B1B] border border-[#FECACA]',
-      primary:      'bg-[#E6F2FC] text-[#0077C2] border border-[#B3D9F5]',
-      outline:      'border border-[#CFCFD5] text-[#6C7A89]',
+      primary:      'bg-[#E6F2FC] text-[#0077C2] border border-[#CCE4F9]',
+      outline:      'border border-[#DEDFE3] text-[#94A3B8]',
       green:        'bg-[#DCFCE7] text-[#166534] border border-[#A7F3D0]',
-      amber:        'bg-[#FFF7ED] text-[#92400E] border border-[#FED7AA]',
+      amber:        'bg-[#FEF9C3] text-[#1E293B] border border-[#D97706]',
       red:          'bg-[#FFF5F5] text-[#991B1B] border border-[#FECACA]',
-      blue:         'bg-[#E6F2FC] text-[#0077C2] border border-[#B3D9F5]',
-      grey:         'bg-[#EEEEF1] text-[#6C7A89] border border-[#CFCFD5]',
-      tentative:    'bg-[#EEEEF1] text-[#6C7A89] border border-dashed border-[#B5BDC4]',
-      beginner:     'bg-[#FFF7ED] text-[#92400E] border border-[#FED7AA]',
-      intermediate: 'bg-[#E6F2FC] text-[#0077C2] border border-[#B3D9F5]',
-      advanced:     'bg-[#E6F2FC] text-[#0089DD] border border-[#B3D9F5]',
-      expert:       'bg-[#003565] text-white border border-[#003565]',
+      blue:         'bg-[#E6F2FC] text-[#0077C2] border border-[#CCE4F9]',
+      grey:         'bg-[#F0F2F5] text-[#94A3B8] border border-[#DEDFE3]',
+      tentative:    'bg-[#F0F2F5] text-[#94A3B8] border border-dashed border-[#94A3B8]',
+      beginner:     'bg-[#FEF9C3] text-[#1E293B] border border-[#D97706]',
+      intermediate: 'bg-[#E6F2FC] text-[#0077C2] border border-[#CCE4F9]',
+      advanced:     'bg-[#E6F2FC] text-[#0089DD] border border-[#CCE4F9]',
+      expert:       'bg-[#1E293B] text-white border border-[#1E293B]',
     };
 
     return (

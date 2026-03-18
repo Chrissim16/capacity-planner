@@ -28,24 +28,24 @@ export function CapacityTooltip({ capacity, children }: CapacityTooltipProps) {
 
       {visible && (
         <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 pointer-events-none">
-          <div className="bg-white border border-[#CFCFD5] rounded-card shadow-md p-3 text-xs">
+          <div className="bg-white border border-[#DEDFE3] rounded-card shadow-md p-3 text-xs">
             <div className="flex justify-between items-center mb-2 pb-2 border-b border-[#DEDFE3]">
-              <span className="font-semibold text-[#003565]">Capacity breakdown</span>
-              <span className="text-[#B5BDC4]">
+              <span className="font-semibold text-[#1E293B]">Capacity breakdown</span>
+              <span className="text-[#94A3B8]">
                 {capacity.usedDays.toFixed(1)}d / {capacity.totalWorkdays}d
               </span>
             </div>
 
             <div className="space-y-1.5">
               {bauItem && (
-                <div className="flex justify-between text-[#B5BDC4]">
+                <div className="flex justify-between text-[#94A3B8]">
                   <span>BAU reserve</span>
                   <span className="font-medium">{bauItem.days}d</span>
                 </div>
               )}
 
               {timeOffItem && (
-                <div className="flex justify-between text-[#F97316]">
+                <div className="flex justify-between text-[#D97706]">
                   <span>Time off{timeOffItem.reason ? ` (${timeOffItem.reason})` : ''}</span>
                   <span className="font-medium">{timeOffItem.days}d</span>
                 </div>
@@ -57,7 +57,7 @@ export function CapacityTooltip({ capacity, children }: CapacityTooltipProps) {
                     <div className="border-t border-[#DEDFE3] pt-1.5 mt-1.5" />
                   )}
                   {projectItems.map((item: CapacityBreakdownItem, i: number) => (
-                    <div key={i} className="flex justify-between text-[#6C7A89]">
+                    <div key={i} className="flex justify-between text-[#94A3B8]">
                       <span className="truncate max-w-[180px]">
                         {item.jiraKey && (
                           <span className="font-mono text-[#0089DD] mr-1">{item.jiraKey}</span>
@@ -71,7 +71,7 @@ export function CapacityTooltip({ capacity, children }: CapacityTooltipProps) {
               )}
 
               {projectItems.length === 0 && !timeOffItem && (
-                <div className="text-[#B5BDC4] italic">No Jira assignments yet</div>
+                <div className="text-[#94A3B8] italic">No Jira assignments yet</div>
               )}
             </div>
 
@@ -79,7 +79,7 @@ export function CapacityTooltip({ capacity, children }: CapacityTooltipProps) {
               capacity.status === 'overallocated'
                 ? 'text-[#DC2626]'
                 : capacity.status === 'warning'
-                ? 'text-[#F97316]'
+                ? 'text-[#D97706]'
                 : 'text-[#16A34A]'
             }`}>
               <span>{capacity.availableDays === 0 && capacity.availableDaysRaw < 0 ? 'Over by' : 'Available'}</span>
@@ -91,7 +91,7 @@ export function CapacityTooltip({ capacity, children }: CapacityTooltipProps) {
             </div>
           </div>
           <div className="flex justify-center">
-            <div className="w-2 h-2 bg-white border-r border-b border-[#CFCFD5] rotate-45 -mt-1" />
+            <div className="w-2 h-2 bg-white border-r border-b border-[#DEDFE3] rotate-45 -mt-1" />
           </div>
         </div>
       )}

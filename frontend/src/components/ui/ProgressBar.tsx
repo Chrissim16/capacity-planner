@@ -19,7 +19,7 @@ export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
 
     const statusColors: Record<string, string> = {
       normal:      'bg-[#16A34A]',
-      warning:     'bg-[#F97316]',
+      warning:     'bg-[#D97706]',
       danger:      'bg-[#DC2626]',
       overallocated:'bg-[#DC2626]',
     };
@@ -34,11 +34,11 @@ export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
       <div ref={ref} className={clsx('w-full', className)} {...props}>
         {showLabel && (
           <div className="flex justify-between text-xs mb-1.5">
-            <span className="text-[#6C7A89]">{actualValue}d / {max}d</span>
+            <span className="text-[#94A3B8]">{actualValue}d / {max}d</span>
             <span className={clsx(
               'font-medium',
               computedStatus === 'normal'  && 'text-[#16A34A]',
-              computedStatus === 'warning' && 'text-[#F97316]',
+              computedStatus === 'warning' && 'text-[#D97706]',
               (computedStatus === 'danger' || computedStatus === 'overallocated') && 'text-[#DC2626]',
             )}>
               {Math.round(percentage)}%

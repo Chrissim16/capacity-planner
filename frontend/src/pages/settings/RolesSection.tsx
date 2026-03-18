@@ -42,19 +42,19 @@ export function RolesSection() {
  {roles.map((role) => (
  <div
  key={role.id}
- className="flex items-center justify-between p-3 bg-[#EEEEF1] /50 rounded-lg"
+ className="flex items-center justify-between p-3 bg-[#F0F2F5] /50 rounded-lg"
  >
- <span className="font-medium text-[#003565] ">{role.name}</span>
+ <span className="font-medium text-[#1E293B] ">{role.name}</span>
  <button
  onClick={() => setDeleteConfirm({ id: role.id, name: role.name })}
- className="p-1.5 text-[#6C7A89] hover:text-red-500 transition-colors"
+ className="p-1.5 text-[#94A3B8] hover:text-red-500 transition-colors"
  >
  <Trash2 size={16} />
  </button>
  </div>
  ))}
  {roles.length === 0 && (
- <p className="text-center py-8 text-[#6C7A89]">No roles defined</p>
+ <p className="text-center py-8 text-[#94A3B8]">No roles defined</p>
  )}
  </div>
  </CardContent>

@@ -17,28 +17,28 @@ export function NotificationBanners() {
   if (!activeScenario && !isBaselineWithJira) return null;
 
   return (
-    <div className="border-b border-[#DEDFE3] bg-[#F5F8FC] px-6 py-2.5">
+    <div className="border-b border-[#D97706] bg-[#FEF9C3] border-l-4 px-6 py-2.5">
       {!activeScenario && isBaselineWithJira ? (
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-[#92400E] text-sm">
-            <ShieldAlert size={16} className="shrink-0" />
+          <div className="flex items-center gap-2 text-[#1E293B] text-sm">
+            <ShieldAlert size={16} className="shrink-0 text-[#D97706]" />
             <span>
               <strong>Jira Baseline</strong> — changes here may be overwritten by sync.
             </span>
           </div>
           <button
             onClick={() => createScenario(getSmartScenarioName())}
-            className="shrink-0 px-3 py-1.5 rounded-lg bg-[#F97316] hover:opacity-85 text-white text-xs font-semibold transition-opacity duration-150"
+            className="shrink-0 px-3 py-1.5 rounded-lg bg-[#0089DD] hover:opacity-90 text-white text-xs font-semibold transition-opacity duration-150"
           >
             Create Scenario
           </button>
         </div>
       ) : activeScenario ? (
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-[#003565] text-sm">
+          <div className="flex items-center gap-2 text-[#1E293B] text-sm">
             <GitBranch size={16} className="shrink-0 text-[#0089DD]" />
             <span className="font-medium">{activeScenario.name}</span>
-            <span className="text-[#B5BDC4]">· scenario mode</span>
+            <span className="text-[#94A3B8]">· scenario mode</span>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -50,7 +50,7 @@ export function NotificationBanners() {
             </button>
             <button
               onClick={() => switchScenario(null)}
-              className="px-3 py-1 rounded-lg bg-[#EEEEF1] hover:bg-[#CFCFD5] text-[#6C7A89] hover:text-[#003565] text-xs font-semibold transition-colors duration-150"
+              className="px-3 py-1 rounded-lg bg-[#F0F2F5] hover:bg-[#DEDFE3] text-[#94A3B8] hover:text-[#1E293B] text-xs font-semibold transition-colors duration-150"
             >
               Back to Baseline
             </button>

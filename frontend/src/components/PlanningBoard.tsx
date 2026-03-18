@@ -79,25 +79,25 @@ function DraggableMember({ id, name, badge, availableDays, disabled }: Draggable
       className={clsx(
         'flex items-center gap-2 py-2 px-1 rounded-lg select-none transition-opacity',
         isDragging ? 'opacity-0' : 'opacity-100',
-        !disabled && 'cursor-grab active:cursor-grabbing hover:bg-[#EEEEF1]'
+        !disabled && 'cursor-grab active:cursor-grabbing hover:bg-[#F0F2F5]'
       )}
     >
       {/* Avatar */}
       <div className={clsx(
         'w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0',
-        badge === 'IT' ? 'bg-[#0089DD]' : 'bg-[#6C7A89]'
+        badge === 'IT' ? 'bg-[#0089DD]' : 'bg-[#94A3B8]'
       )}>
         {name.slice(0, 1).toUpperCase()}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm text-[#003565] truncate">{name}</span>
+          <span className="text-sm text-[#1E293B] truncate">{name}</span>
           <span className={clsx(
             'text-[10px] font-semibold tracking-wide',
-            badge === 'IT' ? 'text-[#0089DD]' : 'text-[#6C7A89]'
+            badge === 'IT' ? 'text-[#0089DD]' : 'text-[#94A3B8]'
           )}>{badge}</span>
         </div>
-        <span className="text-xs text-[#B5BDC4]">{availableDays}d free</span>
+        <span className="text-xs text-[#94A3B8]">{availableDays}d free</span>
       </div>
     </div>
   );
@@ -133,7 +133,7 @@ function DroppableProjectRow({
       ref={setNodeRef}
       onClick={onSelect}
       className={clsx(
-        'rounded-xl border border-[#CFCFD5] bg-white transition-all duration-150 cursor-pointer',
+        'rounded-xl border border-[#DEDFE3] bg-white transition-all duration-150 cursor-pointer',
         isOver || fitLevel ? fitClass : '',
         isExpanded ? 'ring-2 ring-[#0089DD]/30' : 'hover:border-[#0089DD]/40'
       )}
@@ -142,7 +142,7 @@ function DroppableProjectRow({
       {!isExpanded && (
         <div className="flex items-center gap-3 px-3 h-12">
           <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium text-[#003565] truncate block">{project.name}</span>
+            <span className="text-sm font-medium text-[#1E293B] truncate block">{project.name}</span>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {quarterAssignments.slice(0, 4).map(a => {
@@ -158,10 +158,10 @@ function DroppableProjectRow({
               );
             })}
             {quarterAssignments.length > 4 && (
-              <span className="text-xs text-[#B5BDC4]">+{quarterAssignments.length - 4}</span>
+              <span className="text-xs text-[#94A3B8]">+{quarterAssignments.length - 4}</span>
             )}
           </div>
-          <span className="text-xs text-[#B5BDC4] shrink-0">
+          <span className="text-xs text-[#94A3B8] shrink-0">
             {assignedDays}/{targetDays}d
           </span>
         </div>
@@ -172,12 +172,12 @@ function DroppableProjectRow({
         <div>
           <div className="flex items-center gap-3 px-3 h-12 border-b border-[#DEDFE3]">
             <div className="flex-1 min-w-0">
-              <span className="text-base font-semibold text-[#003565] truncate block">{project.name}</span>
+              <span className="text-base font-semibold text-[#1E293B] truncate block">{project.name}</span>
             </div>
-            <span className="text-xs text-[#B5BDC4] shrink-0">{assignedDays} / {targetDays}d staffed</span>
+            <span className="text-xs text-[#94A3B8] shrink-0">{assignedDays} / {targetDays}d staffed</span>
           </div>
           {quarterAssignments.length === 0 && (
-            <div className="px-4 py-3 text-xs text-[#B5BDC4] italic">No assignments yet. Drag a team member here.</div>
+            <div className="px-4 py-3 text-xs text-[#94A3B8] italic">No assignments yet. Drag a team member here.</div>
           )}
           {quarterAssignments.map(a => {
             const m = teamMembers.find(tm => tm.id === a.memberId) ?? bizContacts.find(c => c.id === a.memberId);
@@ -186,14 +186,14 @@ function DroppableProjectRow({
               <div key={a.id} className="flex items-center gap-3 px-3 h-14">
                 <div className={clsx(
                   'w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0',
-                  isBiz ? 'bg-[#6C7A89]' : 'bg-[#0089DD]'
+                  isBiz ? 'bg-[#94A3B8]' : 'bg-[#0089DD]'
                 )}>
                   {m?.name.slice(0, 1) ?? '?'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-[#003565] truncate">{m?.name ?? a.memberId}</span>
-                    <span className={clsx('text-[10px] font-semibold tracking-wide', isBiz ? 'text-[#6C7A89]' : 'text-[#0089DD]')}>
+                    <span className="text-sm text-[#1E293B] truncate">{m?.name ?? a.memberId}</span>
+                    <span className={clsx('text-[10px] font-semibold tracking-wide', isBiz ? 'text-[#94A3B8]' : 'text-[#0089DD]')}>
                       {isBiz ? 'BIZ' : 'IT'}
                     </span>
                   </div>
@@ -205,7 +205,7 @@ function DroppableProjectRow({
                     />
                   </div>
                 </div>
-                <div className="bg-[#EEEEF1] border border-[#CFCFD5] rounded-xl px-2.5 py-1 text-xs font-normal text-[#003565] shrink-0">
+                <div className="bg-[#F0F2F5] border border-[#DEDFE3] rounded-xl px-2.5 py-1 text-xs font-normal text-[#1E293B] shrink-0">
                   {a.days}d
                 </div>
               </div>
@@ -364,12 +364,12 @@ export default function PlanningBoard() {
       <div className="flex flex-col h-full bg-[#F5F8FC]">
         {/* ── Top bar ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#DEDFE3] bg-white">
-          <h1 className="text-2xl font-bold text-[#003565]" style={{ fontFamily: "'Plus Jakarta Sans', Georgia, serif" }}>
+          <h1 className="text-2xl font-bold text-[#1E293B]" style={{ fontFamily: "'DM Sans', ui-sans-serif, sans-serif" }}>
             Planning Board
           </h1>
 
           {/* View toggle pill */}
-          <div className="flex items-center gap-1 bg-[#EEEEF1] rounded-full px-1 py-1">
+          <div className="flex items-center gap-1 bg-[#F0F2F5] rounded-full px-1 py-1">
             {([['byProject', 'By Project'], ['byPerson', 'By Person']] as const).map(([v, label]) => (
               <button
                 key={v}
@@ -378,7 +378,7 @@ export default function PlanningBoard() {
                   'px-3 py-1 rounded-full text-sm transition-all',
                   view === v
                     ? 'text-[#0089DD] font-medium underline decoration-[#0089DD] decoration-2 underline-offset-4'
-                    : 'text-[#6C7A89] hover:text-[#003565]'
+                    : 'text-[#94A3B8] hover:text-[#1E293B]'
                 )}
               >
                 {label}
@@ -390,13 +390,13 @@ export default function PlanningBoard() {
             <select
               value={quarter}
               onChange={e => setQuarter(e.target.value)}
-              className="text-sm border border-[#CFCFD5] rounded-lg px-2 py-1 bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD] text-[#003565]"
+              className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1 bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD] text-[#1E293B]"
               aria-label="Select quarter"
             >
               {availableQuarters.map(q => <option key={q} value={q}>{q}</option>)}
             </select>
             {activeScenario && (
-              <span className="text-xs text-[#B5BDC4]">{activeScenario.name}</span>
+              <span className="text-xs text-[#94A3B8]">{activeScenario.name}</span>
             )}
             <Button
               size="sm"
@@ -417,13 +417,13 @@ export default function PlanningBoard() {
           {!sidebarCollapsed.left && (
             <div className="w-44 shrink-0 flex flex-col gap-1 overflow-y-auto">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-[#B5BDC4]">Projects</span>
-                <button onClick={() => setSidebarCollapsed(s => ({ ...s, left: true }))} className="text-[#B5BDC4] hover:text-[#6C7A89]" aria-label="Collapse projects sidebar">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-[#94A3B8]">Projects</span>
+                <button onClick={() => setSidebarCollapsed(s => ({ ...s, left: true }))} className="text-[#94A3B8] hover:text-[#94A3B8]" aria-label="Collapse projects sidebar">
                   <ChevronLeft size={14} />
                 </button>
               </div>
               {projects.length === 0 && (
-                <p className="text-xs text-[#B5BDC4] italic">No projects yet. Use "What if…" to create one.</p>
+                <p className="text-xs text-[#94A3B8] italic">No projects yet. Use "What if…" to create one.</p>
               )}
               {projects.map(p => {
                 const isSelected = selectedProjectId === p.id;
@@ -434,8 +434,8 @@ export default function PlanningBoard() {
                     className={clsx(
                       'text-left w-full px-3 py-2 rounded-lg text-sm border-l-[3px] transition-all',
                       isSelected
-                        ? 'border-[#0089DD] bg-[#F0FFFE] text-[#003565] font-medium'
-                        : 'border-[#CFCFD5] text-[#6C7A89] hover:text-[#003565] hover:border-[#B5BDC4]'
+                        ? 'border-[#0089DD] bg-[#F0FFFE] text-[#1E293B] font-medium'
+                        : 'border-[#DEDFE3] text-[#94A3B8] hover:text-[#1E293B] hover:border-[#94A3B8]'
                     )}
                   >
                     {p.name}
@@ -445,7 +445,7 @@ export default function PlanningBoard() {
             </div>
           )}
           {sidebarCollapsed.left && (
-            <button onClick={() => setSidebarCollapsed(s => ({ ...s, left: false }))} className="self-start text-[#B5BDC4] hover:text-[#6C7A89] pt-1" aria-label="Expand projects sidebar">
+            <button onClick={() => setSidebarCollapsed(s => ({ ...s, left: false }))} className="self-start text-[#94A3B8] hover:text-[#94A3B8] pt-1" aria-label="Expand projects sidebar">
               <ChevronRight size={14} />
             </button>
           )}
@@ -455,7 +455,7 @@ export default function PlanningBoard() {
             {view === 'byProject' && (
               <>
                 {projects.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full gap-3 text-[#B5BDC4]">
+                  <div className="flex flex-col items-center justify-center h-full gap-3 text-[#94A3B8]">
                     <FolderKanban size={32} className="opacity-40" />
                     <p className="text-sm">No projects in this scenario yet.</p>
                     <p className="text-xs">Use "What if…" on the Scenarios page to create a project.</p>
@@ -485,7 +485,7 @@ export default function PlanningBoard() {
             {view === 'byPerson' && (
               <div className="space-y-2">
                 {memberList.length === 0 && (
-                  <div className="flex flex-col items-center justify-center h-full gap-3 text-[#B5BDC4]">
+                  <div className="flex flex-col items-center justify-center h-full gap-3 text-[#94A3B8]">
                     <Users size={32} className="opacity-40" />
                     <p className="text-sm">No team members configured.</p>
                   </div>
@@ -494,24 +494,24 @@ export default function PlanningBoard() {
                   const memberAssignments = assignments.filter(a => a.memberId === m.id && a.quarter === quarter);
                   const cap = calculateCapacity(m.id, quarter, currentState);
                   return (
-                    <div key={m.id} className="rounded-xl border border-[#CFCFD5] bg-white">
+                    <div key={m.id} className="rounded-xl border border-[#DEDFE3] bg-white">
                       <div className="flex items-center gap-3 px-3 h-14">
-                        <div className={clsx('w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0', m.badge === 'IT' ? 'bg-[#0089DD]' : 'bg-[#6C7A89]')}>
+                        <div className={clsx('w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0', m.badge === 'IT' ? 'bg-[#0089DD]' : 'bg-[#94A3B8]')}>
                           {m.name.slice(0, 1)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-medium text-[#003565] truncate">{m.name}</span>
-                            <span className={clsx('text-[10px] font-semibold tracking-wide', m.badge === 'IT' ? 'text-[#0089DD]' : 'text-[#6C7A89]')}>{m.badge}</span>
+                            <span className="text-sm font-medium text-[#1E293B] truncate">{m.name}</span>
+                            <span className={clsx('text-[10px] font-semibold tracking-wide', m.badge === 'IT' ? 'text-[#0089DD]' : 'text-[#94A3B8]')}>{m.badge}</span>
                           </div>
                           <div className="flex flex-wrap gap-2 mt-0.5">
                             {memberAssignments.length === 0 ? (
-                              <span className="text-xs text-[#B5BDC4]">No assignments</span>
+                              <span className="text-xs text-[#94A3B8]">No assignments</span>
                             ) : (
                               memberAssignments.map(a => {
                                 const proj = projects.find(p => p.id === a.projectId);
                                 return (
-                                  <span key={a.id} className="inline-flex items-center gap-1 text-xs bg-[#EEEEF1] border border-[#CFCFD5] rounded-full px-2 py-0.5">
+                                  <span key={a.id} className="inline-flex items-center gap-1 text-xs bg-[#F0F2F5] border border-[#DEDFE3] rounded-full px-2 py-0.5">
                                     {proj?.name ?? a.projectId} · {a.days}d
                                   </span>
                                 );
@@ -520,7 +520,7 @@ export default function PlanningBoard() {
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
-                          <span className="text-xs text-[#B5BDC4]">{m.availableDays}d free</span>
+                          <span className="text-xs text-[#94A3B8]">{m.availableDays}d free</span>
                           <div className="w-16 mt-0.5">
                             <ProgressBar value={cap.usedPercent} max={100} size="sm" />
                           </div>
@@ -537,8 +537,8 @@ export default function PlanningBoard() {
           {!sidebarCollapsed.right && (
             <div className="w-44 shrink-0 flex flex-col overflow-y-auto">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-[#B5BDC4]">Team</span>
-                <button onClick={() => setSidebarCollapsed(s => ({ ...s, right: true }))} className="text-[#B5BDC4] hover:text-[#6C7A89]" aria-label="Collapse team sidebar">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-[#94A3B8]">Team</span>
+                <button onClick={() => setSidebarCollapsed(s => ({ ...s, right: true }))} className="text-[#94A3B8] hover:text-[#94A3B8]" aria-label="Collapse team sidebar">
                   <ChevronRight size={14} />
                 </button>
               </div>
@@ -555,7 +555,7 @@ export default function PlanningBoard() {
             </div>
           )}
           {sidebarCollapsed.right && (
-            <button onClick={() => setSidebarCollapsed(s => ({ ...s, right: false }))} className="self-start text-[#B5BDC4] hover:text-[#6C7A89] pt-1" aria-label="Expand team sidebar">
+            <button onClick={() => setSidebarCollapsed(s => ({ ...s, right: false }))} className="self-start text-[#94A3B8] hover:text-[#94A3B8] pt-1" aria-label="Expand team sidebar">
               <ChevronLeft size={14} />
             </button>
           )}
@@ -584,13 +584,13 @@ export default function PlanningBoard() {
       {/* ── Drag overlay (floating card) ───────────────────────────────────── */}
       <DragOverlay>
         {activeDragMember && (
-          <div className="flex items-center gap-2 bg-white shadow-lg border border-[#CFCFD5] rounded-xl px-3 py-2 rotate-2 w-40">
-            <div className={clsx('w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0', activeDragMember.badge === 'IT' ? 'bg-[#0089DD]' : 'bg-[#6C7A89]')}>
+          <div className="flex items-center gap-2 bg-white shadow-lg border border-[#DEDFE3] rounded-xl px-3 py-2 rotate-2 w-40">
+            <div className={clsx('w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0', activeDragMember.badge === 'IT' ? 'bg-[#0089DD]' : 'bg-[#94A3B8]')}>
               {activeDragMember.name.slice(0, 1)}
             </div>
             <div>
-              <p className="text-sm font-medium text-[#003565] truncate">{activeDragMember.name}</p>
-              <p className="text-xs text-[#B5BDC4]">{activeDragMember.availableDays}d free</p>
+              <p className="text-sm font-medium text-[#1E293B] truncate">{activeDragMember.name}</p>
+              <p className="text-xs text-[#94A3B8]">{activeDragMember.availableDays}d free</p>
             </div>
           </div>
         )}
@@ -600,12 +600,12 @@ export default function PlanningBoard() {
       {dropPopover && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0" onClick={() => setDropPopover(null)} aria-hidden="true" />
-          <div className="relative bg-white rounded-xl border border-[#CFCFD5] shadow-xl p-5 w-72">
-            <button onClick={() => setDropPopover(null)} className="absolute top-3 right-3 text-[#B5BDC4] hover:text-[#6C7A89]" aria-label="Cancel">
+          <div className="relative bg-white rounded-xl border border-[#DEDFE3] shadow-xl p-5 w-72">
+            <button onClick={() => setDropPopover(null)} className="absolute top-3 right-3 text-[#94A3B8] hover:text-[#94A3B8]" aria-label="Cancel">
               <X size={16} />
             </button>
-            <h3 className="text-sm font-semibold text-[#003565] mb-1">Assign to {dropPopover.projectName}</h3>
-            <p className="text-xs text-[#B5BDC4] mb-4">{dropPopover.memberName}</p>
+            <h3 className="text-sm font-semibold text-[#1E293B] mb-1">Assign to {dropPopover.projectName}</h3>
+            <p className="text-xs text-[#94A3B8] mb-4">{dropPopover.memberName}</p>
 
             {dropPopover.existingDays > 0 && (
               <p className="text-xs text-amber-600 mb-3 bg-amber-50 rounded-lg px-2 py-1.5">
@@ -614,7 +614,7 @@ export default function PlanningBoard() {
             )}
 
             <div className="flex items-center gap-3 mb-4">
-              <label className="text-sm text-[#6C7A89]">Days</label>
+              <label className="text-sm text-[#94A3B8]">Days</label>
               <input
                 type="number"
                 min={1}
@@ -622,7 +622,7 @@ export default function PlanningBoard() {
                 value={popoverDays}
                 onChange={e => setPopoverDays(parseInt(e.target.value, 10) || 0)}
                 autoFocus
-                className="w-20 h-9 text-center text-sm rounded-lg border border-[#CFCFD5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD]"
+                className="w-20 h-9 text-center text-sm rounded-lg border border-[#DEDFE3] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD]"
               />
             </div>
 

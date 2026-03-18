@@ -47,10 +47,10 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 const PROJECT_COLORS = [
   'bg-[#E6F2FC] text-[#0077C2]',
   'bg-[#DCFCE7] text-[#166534]',
-  'bg-[#FFF7ED] text-[#92400E]',
-  'bg-[#EEEEF1] text-[#6C7A89]',
+  'bg-[#FEF9C3] text-[#1E293B]',
+  'bg-[#F0F2F5] text-[#94A3B8]',
   'bg-[#FFF5F5] text-[#991B1B]',
-  'bg-[#EEEEF1] text-[#003565]',
+  'bg-[#F0F2F5] text-[#1E293B]',
 ];
 
 export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarModalProps) {
@@ -150,12 +150,12 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
             {member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <h2 className="font-semibold text-[#003565]">{member.name}</h2>
-            <p className="text-xs text-[#B5BDC4]">{member.role}</p>
+            <h2 className="font-semibold text-[#1E293B]">{member.name}</h2>
+            <p className="text-xs text-[#94A3B8]">{member.role}</p>
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <Calendar size={14} className="text-[#B5BDC4]" />
-            <span className="text-xs text-[#B5BDC4]">Availability Calendar</span>
+            <Calendar size={14} className="text-[#94A3B8]" />
+            <span className="text-xs text-[#94A3B8]">Availability Calendar</span>
           </div>
         </div>
 
@@ -163,30 +163,30 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
         <div className="flex items-center justify-between">
           <button
             onClick={prevMonth}
-            className="p-1.5 rounded-lg hover:bg-[#EEEEF1] text-[#6C7A89] transition-colors duration-150"
+            className="p-1.5 rounded-lg hover:bg-[#F0F2F5] text-[#94A3B8] transition-colors duration-150"
           >
             <ChevronLeft size={16} />
           </button>
-          <h3 className="font-semibold text-[#003565]">
+          <h3 className="font-semibold text-[#1E293B]">
             {MONTHS[viewMonth]} {viewYear}
           </h3>
           <button
             onClick={nextMonth}
-            className="p-1.5 rounded-lg hover:bg-[#EEEEF1] text-[#6C7A89] transition-colors duration-150"
+            className="p-1.5 rounded-lg hover:bg-[#F0F2F5] text-[#94A3B8] transition-colors duration-150"
           >
             <ChevronRight size={16} />
           </button>
         </div>
 
         {/* Day-of-week headers */}
-        <div className="grid grid-cols-7 text-center text-xs font-medium uppercase tracking-wider text-[#B5BDC4]">
+        <div className="grid grid-cols-7 text-center text-xs font-medium uppercase tracking-wider text-[#94A3B8]">
           {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
             <div key={d} className="py-1">{d}</div>
           ))}
         </div>
 
         {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-px bg-[#CFCFD5] rounded-lg overflow-hidden">
+        <div className="grid grid-cols-7 gap-px bg-[#DEDFE3] rounded-lg overflow-hidden">
           {days.map((d, idx) => {
             const isCurrentMonth = d.getMonth() === viewMonth;
             const dateStr = isoDate(d);
@@ -197,10 +197,10 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
             const activeProjects = isCurrentMonth && !isWeekend ? getProjectsForDate(d) : [];
 
             let bg = 'bg-white';
-            let dateColor = isCurrentMonth ? 'text-[#6C7A89]' : 'text-[#D1D5DB]';
+            let dateColor = isCurrentMonth ? 'text-[#94A3B8]' : 'text-[#DEDFE3]';
 
             if (isWeekend)  bg = 'bg-[#F5F8FC]';
-            if (isHoliday)  bg = 'bg-[#FFF7ED]';
+            if (isHoliday)  bg = 'bg-[#FEF9C3]';
             if (timeOff)    bg = 'bg-[#FFF5F5]';
             if (isToday)    dateColor = 'text-[#0089DD] font-bold';
 
@@ -216,7 +216,7 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
                 {isCurrentMonth && (
                   <div className="flex-1 flex flex-col gap-0.5 overflow-hidden">
                     {isHoliday && (
-                      <span className="text-[9px] leading-tight px-1 rounded bg-[#FED7AA] text-[#92400E] truncate">
+                      <span className="text-[9px] leading-tight px-1 rounded bg-[#D97706] text-[#1E293B] truncate">
                         Holiday
                       </span>
                     )}
@@ -235,7 +235,7 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
                       </span>
                     ))}
                     {activeProjects.length > 2 && (
-                      <span className="text-[9px] text-[#B5BDC4]">+{activeProjects.length - 2} more</span>
+                      <span className="text-[9px] text-[#94A3B8]">+{activeProjects.length - 2} more</span>
                     )}
                   </div>
                 )}
@@ -247,25 +247,25 @@ export function MemberCalendarModal({ isOpen, onClose, member }: MemberCalendarM
         {/* Legend */}
         <div className="flex flex-wrap gap-3 pt-2 border-t border-[#DEDFE3] text-xs">
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-[#FED7AA] border border-[#F97316]/20" />
-            <span className="text-[#6C7A89]">Public holiday</span>
+            <div className="w-3 h-3 rounded bg-[#D97706] border border-[#D97706]/20" />
+            <span className="text-[#94A3B8]">Public holiday</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded bg-[#FECACA] border border-[#DC2626]/20" />
-            <span className="text-[#6C7A89]">Time off</span>
+            <span className="text-[#94A3B8]">Time off</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-[#F5F8FC] border border-[#CFCFD5]" />
-            <span className="text-[#6C7A89]">Weekend</span>
+            <div className="w-3 h-3 rounded bg-[#F5F8FC] border border-[#DEDFE3]" />
+            <span className="text-[#94A3B8]">Weekend</span>
           </div>
           {legendProjects.map(p => (
             <div key={p.projectId} className="flex items-center gap-1.5">
               <div className={`w-3 h-3 rounded ${PROJECT_COLORS[p.colorIdx].split(' ')[0]}`} />
-              <span className="text-[#6C7A89] truncate max-w-[120px]">{p.projectName}</span>
+              <span className="text-[#94A3B8] truncate max-w-[120px]">{p.projectName}</span>
             </div>
           ))}
    {legendProjects.length === 0 && (
- <span className="text-[#B5BDC4] italic">No Jira assignments found</span>
+ <span className="text-[#94A3B8] italic">No Jira assignments found</span>
  )}
         </div>
       </div>

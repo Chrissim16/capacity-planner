@@ -91,7 +91,7 @@ export function HolidaysSection() {
  <CardTitle>Import from Nager.Date API</CardTitle>
  </CardHeader>
  <CardContent className="space-y-4">
- <p className="text-sm text-[#6C7A89] ">
+ <p className="text-sm text-[#94A3B8] ">
  Automatically import official public holidays for any country and year using the free{' '}
  <a href="https://date.nager.at" target="_blank" rel="noopener noreferrer" className="text-[#0089DD] hover:underline">Nager.Date</a> API.
  Duplicates are skipped automatically.
@@ -123,13 +123,13 @@ export function HolidaysSection() {
  </div>
 
  {importError && (
- <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+ <div className="flex items-center gap-2 text-sm text-red-600">
  <AlertTriangle size={16} /> {importError}
  </div>
  )}
 
  {importSuccess !== null && (
- <div className="flex items-center gap-2 text-sm text-[#16A34A] dark:text-green-400">
+ <div className="flex items-center gap-2 text-sm text-[#16A34A]">
  <CheckCircle size={16} /> {importSuccess} holiday{importSuccess !== 1 ? 's' : ''} imported successfully.
  </div>
  )}
@@ -137,7 +137,7 @@ export function HolidaysSection() {
  {importPreview && importPreview.length > 0 && (
  <div className="space-y-2">
  <div className="flex items-center justify-between">
- <p className="text-sm font-medium text-[#003565] ">
+ <p className="text-sm font-medium text-[#1E293B] ">
  {importPreview.length} holidays found — {
  (() => {
  const existing = new Set(publicHolidays.filter(h => h.countryId === importCountryId).map(h => h.date));
@@ -150,7 +150,7 @@ export function HolidaysSection() {
  <Download size={14} /> Import all
  </Button>
  </div>
- <div className="max-h-60 overflow-y-auto rounded-lg border border-[#CFCFD5] ">
+ <div className="max-h-60 overflow-y-auto rounded-lg border border-[#DEDFE3] ">
  {importPreview.map(h => {
  const alreadyExists = publicHolidays.some(
  ph => ph.countryId === importCountryId && ph.date === h.date
@@ -158,12 +158,12 @@ export function HolidaysSection() {
  return (
  <div
  key={h.date}
- className={`flex items-center justify-between px-3 py-2 text-sm border-b border-[#DEDFE3] dark:border-slate-800 last:border-0 ${alreadyExists ? 'opacity-40' : ''}`}
+ className={`flex items-center justify-between px-3 py-2 text-sm border-b border-[#DEDFE3] last:border-0 ${alreadyExists ? 'opacity-40' : ''}`}
  >
- <span className="text-[#6C7A89] ">{h.name}</span>
+ <span className="text-[#94A3B8] ">{h.name}</span>
  <div className="flex items-center gap-3">
- <span className="text-[#6C7A89] text-xs">{h.date}</span>
- {alreadyExists && <span className="text-xs text-[#6C7A89] italic">already added</span>}
+ <span className="text-[#94A3B8] text-xs">{h.date}</span>
+ {alreadyExists && <span className="text-xs text-[#94A3B8] italic">already added</span>}
  </div>
  </div>
  );
@@ -173,7 +173,7 @@ export function HolidaysSection() {
  )}
 
  {importPreview && importPreview.length === 0 && (
- <p className="text-sm text-[#6C7A89] italic">No public holidays found for this selection.</p>
+ <p className="text-sm text-[#94A3B8] italic">No public holidays found for this selection.</p>
  )}
  </CardContent>
  </Card>
@@ -203,34 +203,34 @@ export function HolidaysSection() {
  </div>
 
  {countries.length === 0 ? (
- <p className="text-center py-8 text-[#6C7A89]">
+ <p className="text-center py-8 text-[#94A3B8]">
  Add countries first in the Countries section to manage holidays.
  </p>
  ) : (
  countries.map((country) => {
  const countryHolidays = sortedHolidays.filter((h) => h.countryId === country.id);
  return (
- <div key={country.id} className="border-t border-[#CFCFD5] pt-4 first:border-t-0 first:pt-0">
- <h3 className="flex items-center gap-2 text-lg font-medium text-[#003565] mb-3">
+ <div key={country.id} className="border-t border-[#DEDFE3] pt-4 first:border-t-0 first:pt-0">
+ <h3 className="flex items-center gap-2 text-lg font-medium text-[#1E293B] mb-3">
  <span>{country.flag || '🏳️'}</span>
  {country.name}
  <Badge variant="default">{countryHolidays.length}</Badge>
  </h3>
  {countryHolidays.length === 0 ? (
- <p className="text-sm text-[#6C7A89] ml-8">No holidays defined for this country</p>
+ <p className="text-sm text-[#94A3B8] ml-8">No holidays defined for this country</p>
  ) : (
  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
  {countryHolidays.map((holiday) => (
- <div key={holiday.id} className="flex items-center justify-between p-2 bg-[#EEEEF1] /50 rounded-lg text-sm">
+ <div key={holiday.id} className="flex items-center justify-between p-2 bg-[#F0F2F5] /50 rounded-lg text-sm">
  <div className="flex items-center gap-3">
- <span className="text-[#6C7A89] w-20">
+ <span className="text-[#94A3B8] w-20">
  {new Date(holiday.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
  </span>
- <span className="text-[#6C7A89] ">{holiday.name}</span>
+ <span className="text-[#94A3B8] ">{holiday.name}</span>
  </div>
  <button
  onClick={() => setDeleteConfirm({ id: holiday.id, name: holiday.name })}
- className="p-1 text-[#6C7A89] hover:text-red-500 transition-colors"
+ className="p-1 text-[#94A3B8] hover:text-red-500 transition-colors"
  >
  <Trash2 size={14} />
  </button>

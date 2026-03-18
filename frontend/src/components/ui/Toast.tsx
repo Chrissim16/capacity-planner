@@ -105,15 +105,15 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   const icons = {
     success: <CheckCircle  className="w-4 h-4 text-[#16A34A] shrink-0" />,
     error:   <XCircle      className="w-4 h-4 text-[#DC2626] shrink-0" />,
-    warning: <AlertTriangle className="w-4 h-4 text-[#F97316] shrink-0" />,
+    warning: <AlertTriangle className="w-4 h-4 text-[#D97706] shrink-0" />,
     info:    <Info          className="w-4 h-4 text-[#0089DD] shrink-0" />,
   };
 
   const backgrounds = {
     success: 'bg-white border-[#A7F3D0]',
     error:   'bg-white border-[#FECACA]',
-    warning: 'bg-white border-[#FED7AA]',
-    info:    'bg-white border-[#B3D9F5]',
+    warning: 'bg-white border-[#D97706]',
+    info:    'bg-white border-[#CCE4F9]',
   };
 
   return (
@@ -126,22 +126,22 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
       )}
     >
       {icons[toast.type]}
-      <p className="text-sm font-medium text-[#003565] flex-1">
+      <p className="text-sm font-medium text-[#1E293B] flex-1">
         {toast.message}
       </p>
       {toast.action && (
         <button
           onClick={handleAction}
-          className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#EEEEF1] border border-[#CFCFD5] text-[#003565] hover:bg-[#CFCFD5] transition-colors"
+          className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#F0F2F5] border border-[#DEDFE3] text-[#1E293B] hover:bg-[#DEDFE3] transition-colors"
         >
           {toast.action.label}
         </button>
       )}
       <button
         onClick={handleClose}
-        className="ml-1 p-1 rounded-lg hover:bg-[#EEEEF1] transition-colors shrink-0"
+        className="ml-1 p-1 rounded-lg hover:bg-[#F0F2F5] transition-colors shrink-0"
       >
-        <X className="w-3.5 h-3.5 text-[#B5BDC4]" />
+        <X className="w-3.5 h-3.5 text-[#94A3B8]" />
       </button>
     </div>
   );

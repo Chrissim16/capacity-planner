@@ -106,7 +106,7 @@ export function BusinessContactsSection() {
  <div className="flex items-center gap-2">
  <button
  onClick={() => setShowArchived(v => !v)}
- className="text-xs text-[#6C7A89] hover:text-[#003565] transition-colors"
+ className="text-xs text-[#94A3B8] hover:text-[#1E293B] transition-colors"
  >
  {showArchived ? 'Hide archived' : 'Show archived'}
  </button>
@@ -119,7 +119,7 @@ export function BusinessContactsSection() {
  </CardHeader>
  <CardContent className="space-y-3">
  {visibleContacts.length === 0 && (
- <p className="text-center py-8 text-[#6C7A89] text-sm">
+ <p className="text-center py-8 text-[#94A3B8] text-sm">
  No business contacts yet. Add Finance Controllers, UAT leads, or process owners.
  </p>
  )}
@@ -130,18 +130,18 @@ export function BusinessContactsSection() {
  const country = countries.find(c => c.id === contact.countryId);
 
  return (
- <div key={contact.id} className={`rounded-lg border ${contact.archived ? 'border-[#CFCFD5] opacity-60' : 'border-[#CFCFD5] '} overflow-hidden`}>
+ <div key={contact.id} className={`rounded-lg border ${contact.archived ? 'border-[#DEDFE3] opacity-60' : 'border-[#DEDFE3] '} overflow-hidden`}>
  {/* Contact header row */}
- <div className="flex items-center gap-3 px-4 py-3 bg-[#EEEEF1] /50">
+ <div className="flex items-center gap-3 px-4 py-3 bg-[#F0F2F5] /50">
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2">
- <span className="font-medium text-[#003565] text-sm">{contact.name}</span>
+ <span className="font-medium text-[#1E293B] text-sm">{contact.name}</span>
  {contact.archived && (
- <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#DEDFE3] text-[#6C7A89] uppercase font-bold tracking-wide">Archived</span>
+ <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#DEDFE3] text-[#94A3B8] uppercase font-bold tracking-wide">Archived</span>
  )}
-             <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EEEEF1] text-[#6C7A89] font-bold uppercase tracking-wide">BIZ</span>
+             <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#F0F2F5] text-[#94A3B8] font-bold uppercase tracking-wide">BIZ</span>
  </div>
- <div className="flex items-center gap-2 mt-0.5 text-xs text-[#6C7A89] ">
+ <div className="flex items-center gap-2 mt-0.5 text-xs text-[#94A3B8] ">
  {contact.title && <span>{contact.title}</span>}
  {contact.title && contact.department && <span>·</span>}
  {contact.department && <span>{contact.department}</span>}
@@ -151,28 +151,28 @@ export function BusinessContactsSection() {
  <div className="flex items-center gap-1 shrink-0">
  <button
  onClick={() => setExpandedTimeOff(isToExpanded ? null : contact.id)}
- className="p-1.5 text-[#6C7A89] hover:text-[#6C7A89] transition-colors"
+ className="p-1.5 text-[#94A3B8] hover:text-[#94A3B8] transition-colors"
  title="Time off"
  >
  {isToExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
  </button>
  <button
  onClick={() => openEdit(contact)}
- className="p-1.5 text-[#6C7A89] hover:text-[#0089DD] transition-colors"
+ className="p-1.5 text-[#94A3B8] hover:text-[#0089DD] transition-colors"
  title="Edit"
  >
  <Edit2 size={15} />
  </button>
  <button
  onClick={() => updateBusinessContact(contact.id, { archived: !contact.archived })}
- className="p-1.5 text-[#6C7A89] hover:text-amber-500 transition-colors"
+ className="p-1.5 text-[#94A3B8] hover:text-amber-500 transition-colors"
  title={contact.archived ? 'Restore' : 'Archive'}
  >
  {contact.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
  </button>
  <button
  onClick={() => setDeleteConfirm(contact)}
- className="p-1.5 text-[#6C7A89] hover:text-red-500 transition-colors"
+ className="p-1.5 text-[#94A3B8] hover:text-red-500 transition-colors"
  title="Delete"
  >
  <Trash2 size={15} />
@@ -182,21 +182,21 @@ export function BusinessContactsSection() {
 
  {/* Time off panel */}
  {isToExpanded && (
- <div className="px-4 py-3 space-y-3 border-t border-[#CFCFD5] ">
- <p className="text-xs font-semibold text-[#6C7A89] uppercase tracking-wide">Time off</p>
+ <div className="px-4 py-3 space-y-3 border-t border-[#DEDFE3] ">
+ <p className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">Time off</p>
 
  {contactTimeOff.length === 0 && (
- <p className="text-xs text-[#6C7A89]">No time off recorded.</p>
+ <p className="text-xs text-[#94A3B8]">No time off recorded.</p>
  )}
 
  {contactTimeOff.map(t => (
  <div key={t.id} className="flex items-center gap-3 text-xs">
- <span className="text-[#003565] ">{t.startDate} – {t.endDate}</span>
- <span className="text-[#6C7A89]">{t.type}</span>
- {t.notes && <span className="text-[#6C7A89] truncate">{t.notes}</span>}
+ <span className="text-[#1E293B] ">{t.startDate} – {t.endDate}</span>
+ <span className="text-[#94A3B8]">{t.type}</span>
+ {t.notes && <span className="text-[#94A3B8] truncate">{t.notes}</span>}
  <button
  onClick={() => removeBusinessTimeOff(t.id)}
- className="ml-auto shrink-0 text-[#B5BDC4] hover:text-red-500 transition-colors"
+ className="ml-auto shrink-0 text-[#94A3B8] hover:text-red-500 transition-colors"
  >
  <Trash2 size={13} />
  </button>
@@ -316,7 +316,7 @@ export function BusinessContactsSection() {
  />
  </div>
  <div>
- <label className="block text-sm font-medium text-[#003565] mb-1.5">
+ <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
  Notes (optional)
  </label>
  <textarea
@@ -324,7 +324,7 @@ export function BusinessContactsSection() {
  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
  rows={2}
  placeholder="Any context about this contact's availability…"
- className="w-full rounded-lg border border-[#B5BDC4] bg-white px-3 py-2 text-sm text-[#003565] placeholder-[#B5BDC4] focus:outline-none focus:ring-2 focus:ring-[#0089DD] resize-none"
+ className="w-full rounded-lg border border-[#94A3B8] bg-white px-3 py-2 text-sm text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0089DD] resize-none"
  />
  </div>
  </div>
@@ -344,7 +344,7 @@ export function BusinessContactsSection() {
  </>
  }
  >
- <p className="text-sm text-[#003565] ">
+ <p className="text-sm text-[#1E293B] ">
  Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>?
  Their time off and all phase commitments will also be removed.
  </p>

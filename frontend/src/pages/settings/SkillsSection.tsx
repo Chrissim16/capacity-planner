@@ -60,19 +60,19 @@ export function SkillsSection() {
  </div>
  {Object.entries(skillsByCategory).map(([category, categorySkills]) => (
  <div key={category}>
- <h3 className="text-sm font-medium text-[#6C7A89] mb-2 uppercase tracking-wide">
+ <h3 className="text-sm font-medium text-[#94A3B8] mb-2 uppercase tracking-wide">
  {category}
  </h3>
  <div className="space-y-2">
  {categorySkills.map((skill) => (
  <div
  key={skill.id}
- className="flex items-center justify-between p-3 bg-[#EEEEF1] /50 rounded-lg"
+ className="flex items-center justify-between p-3 bg-[#F0F2F5] /50 rounded-lg"
  >
- <span className="font-medium text-[#003565] ">{skill.name}</span>
+ <span className="font-medium text-[#1E293B] ">{skill.name}</span>
  <button
  onClick={() => setDeleteConfirm({ id: skill.id, name: skill.name })}
- className="p-1.5 text-[#6C7A89] hover:text-red-500 transition-colors"
+ className="p-1.5 text-[#94A3B8] hover:text-red-500 transition-colors"
  >
  <Trash2 size={16} />
  </button>
@@ -82,7 +82,7 @@ export function SkillsSection() {
  </div>
  ))}
  {skills.length === 0 && (
- <p className="text-center py-8 text-[#6C7A89]">No skills defined</p>
+ <p className="text-center py-8 text-[#94A3B8]">No skills defined</p>
  )}
  </CardContent>
  </Card>

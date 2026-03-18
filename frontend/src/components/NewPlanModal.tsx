@@ -72,7 +72,7 @@ export function NewPlanModal({ onClose, onCreated, currentUserEmail }: NewPlanMo
             Start your plan
           </h2>
           <button
-            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
             onClick={onClose}
             aria-label="Close"
           >
@@ -143,7 +143,7 @@ export function NewPlanModal({ onClose, onCreated, currentUserEmail }: NewPlanMo
           style={{ borderColor: Border.subtle }}
         >
           <button
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Text.secondary }}
             onClick={onClose}
           >
@@ -188,7 +188,7 @@ function BaseOption({ selected, onSelect, title, description }: BaseOptionProps)
         'w-full flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all duration-150 focus:ring-2 focus:ring-mileway-light-blue',
         selected
           ? 'border-mileway-light-blue bg-[#E6F2FC]'
-          : 'hover:border-mileway-light-blue/50 hover:bg-[#EEEEF1]'
+          : 'hover:border-mileway-light-blue/50 hover:bg-[#F0F2F5]'
       )}
       style={{ borderColor: selected ? Accent.teal : Border.subtle }}
       onClick={onSelect}

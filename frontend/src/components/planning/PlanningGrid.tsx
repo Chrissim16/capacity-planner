@@ -152,7 +152,7 @@ function buildColumns(granularity: PlanningGranularity, quarters: string[]): Tim
 
 const PROJECT_COLORS = [
   Accent.teal, '#6366F1', '#F59E0B', '#EC4899', '#10B981', '#8B5CF6',
-  '#DC2626', '#14B8A6', '#F97316', '#3B82F6',
+  '#DC2626', '#14B8A6', '#D97706', '#3B82F6',
 ];
 
 function projectColor(projectId: string): string {
@@ -243,7 +243,7 @@ function PeopleRow({ memberId, columns, granularity, assignments, projects, jira
       <div
         ref={setDropRef}
         className={clsx(
-          'flex border-b transition-colors hover:bg-[#EEEEF1] group',
+          'flex border-b transition-colors hover:bg-[#F0F2F5] group',
           dragScore && (isOver ? 'ring-2 ring-inset ring-mileway-light-blue' : FIT_GLOW[dragScore]),
           isOver && !dragScore && 'ring-2 ring-inset ring-mileway-light-blue',
         )}
@@ -452,7 +452,7 @@ function ProjectRow({ project, columns, granularity, assignments, dragScore, isS
       <div
         ref={setDropRef}
         className={clsx(
-          'flex border-b transition-colors hover:bg-[#EEEEF1] group',
+          'flex border-b transition-colors hover:bg-[#F0F2F5] group',
           dragScore && (isOver ? 'ring-2 ring-inset' : FIT_GLOW[dragScore]),
         )}
         style={{
@@ -742,7 +742,7 @@ function JiraEpicRow({ item, columns, granularity, assignments, dragScore, isSel
       <div
         ref={setDropRef}
         className={clsx(
-          'flex border-b transition-colors hover:bg-[#EEEEF1] group',
+          'flex border-b transition-colors hover:bg-[#F0F2F5] group',
           dragScore && (isOver ? 'ring-2 ring-inset' : FIT_GLOW[dragScore]),
         )}
         style={{

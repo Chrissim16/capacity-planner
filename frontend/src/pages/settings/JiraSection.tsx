@@ -270,16 +270,16 @@ export function JiraSection() {
 
         {/* Sync settings panel */}
         {expandedSettingsId === conn.id && (
-          <div className="border-t bg-[#EEEEF1] /50 px-4 py-4 space-y-4">
-            <p className="text-xs font-semibold text-[#6C7A89] uppercase tracking-wide">
+          <div className="border-t bg-[#F0F2F5] /50 px-4 py-4 space-y-4">
+            <p className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">
               Sync Settings
             </p>
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                <label className="text-sm font-medium text-[#003565] ">
+                <label className="text-sm font-medium text-[#1E293B] ">
                   Fallback days per item
                 </label>
-                <p className="text-xs text-[#6C7A89] mt-0.5">
+                <p className="text-xs text-[#94A3B8] mt-0.5">
                   Days to allocate for items without story points.
                 </p>
               </div>
@@ -298,23 +298,23 @@ export function JiraSection() {
 
  {/* Sync history panel (US-011) */}
  {expandedHistoryId === conn.id && conn.syncHistory && conn.syncHistory.length > 0 && (
- <div className="border-t bg-[#EEEEF1] /50 px-4 py-3">
- <p className="text-xs font-semibold text-[#6C7A89] uppercase tracking-wide mb-2">
+ <div className="border-t bg-[#F0F2F5] /50 px-4 py-3">
+ <p className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide mb-2">
  Sync History (last {conn.syncHistory.length})
  </p>
  <div className="space-y-1.5">
  {conn.syncHistory.map((entry, i) => (
  <div key={i} className="flex items-center gap-3 text-xs">
  <span className={`w-2 h-2 rounded-full shrink-0 ${entry.status === 'success' ? 'bg-[#16A34A]' : 'bg-red-500'}`} />
- <span className="text-[#6C7A89] w-36 shrink-0">
+ <span className="text-[#94A3B8] w-36 shrink-0">
  {new Date(entry.timestamp).toLocaleString()}
  </span>
  {entry.status === 'success' ? (
-                  <span className="text-[#003565] ">
+                  <span className="text-[#1E293B] ">
                     {entry.itemsSynced} synced — {entry.itemsCreated} new, {entry.itemsUpdated} updated, {entry.itemsRemoved} removed
                   </span>
  ) : (
- <span className="text-red-600 dark:text-red-400">{entry.error || 'Failed'}</span>
+ <span className="text-red-600">{entry.error || 'Failed'}</span>
  )}
  </div>
  ))}
@@ -352,10 +352,10 @@ export function JiraSection() {
  </thead>
  <tbody className="divide-y">
  {[
- { syncKey: 'syncEpics', filterKey: 'statusFilterEpics', label: 'Epics', color: 'text-[#003565] ' },
- { syncKey: 'syncFeatures', filterKey: 'statusFilterFeatures', label: 'Features', color: 'text-[#003565] ' },
- { syncKey: 'syncStories', filterKey: 'statusFilterStories', label: 'Stories', color: 'text-[#003565] ' },
- { syncKey: 'syncTasks', filterKey: 'statusFilterTasks', label: 'Tasks', color: 'text-[#003565] ' },
+ { syncKey: 'syncEpics', filterKey: 'statusFilterEpics', label: 'Epics', color: 'text-[#1E293B] ' },
+ { syncKey: 'syncFeatures', filterKey: 'statusFilterFeatures', label: 'Features', color: 'text-[#1E293B] ' },
+ { syncKey: 'syncStories', filterKey: 'statusFilterStories', label: 'Stories', color: 'text-[#1E293B] ' },
+ { syncKey: 'syncTasks', filterKey: 'statusFilterTasks', label: 'Tasks', color: 'text-[#1E293B] ' },
  { syncKey: 'syncBugs', filterKey: 'statusFilterBugs', label: 'Bugs', color: 'text-red-600' },
  ].map(({ syncKey, filterKey, label, color }) => {
  const enabled = jiraSettings[syncKey as keyof typeof jiraSettings] as boolean;
@@ -373,7 +373,7 @@ export function JiraSection() {
  type="checkbox"
  checked={enabled}
  onChange={(e) => updateJiraSettings({ [syncKey]: e.target.checked })}
- className="rounded border-[#B5BDC4]"
+ className="rounded border-[#94A3B8]"
  />
  </td>
  <td className={`px-4 py-2.5 font-medium ${color}`}>{label}</td>
@@ -414,9 +414,9 @@ export function JiraSection() {
  {jiraConnections.filter(c => c.isActive).map(conn => {
  const jql = buildJQL(conn, jiraSettings);
  return (
- <div key={conn.id} className="rounded-lg border bg-[#EEEEF1] /60 p-3">
+ <div key={conn.id} className="rounded-lg border bg-[#F0F2F5] /60 p-3">
  <div className="flex items-center justify-between mb-1">
- <span className="text-xs font-medium text-[#6C7A89] ">{conn.name} ({conn.jiraProjectKey})</span>
+ <span className="text-xs font-medium text-[#94A3B8] ">{conn.name} ({conn.jiraProjectKey})</span>
  <button
  type="button"
  onClick={() => jql && navigator.clipboard.writeText(jql)}
@@ -426,7 +426,7 @@ export function JiraSection() {
  <Copy size={12} /> Copy
  </button>
  </div>
- <code className="text-xs text-[#003565] break-all whitespace-pre-wrap">
+ <code className="text-xs text-[#1E293B] break-all whitespace-pre-wrap">
  {jql ?? '(no issue types enabled)'}
  </code>
  </div>
@@ -471,7 +471,7 @@ export function JiraSection() {
  type="checkbox"
  checked={jiraSettings.autoMapByName}
  onChange={(e) => updateJiraSettings({ autoMapByName: e.target.checked })}
- className="rounded border-[#B5BDC4]"
+ className="rounded border-[#94A3B8]"
  />
  <span className="text-sm font-medium">Auto-map by name</span>
  <span className="text-xs text-muted-foreground">
@@ -499,14 +499,14 @@ export function JiraSection() {
  onChange={e => setKeyLookupInput(e.target.value.toUpperCase())}
  onKeyDown={e => e.key === 'Enter' && handleKeyLookup()}
  placeholder="e.g. ERP-3647"
- className="flex-1 px-3 py-2 text-sm border border-[#B5BDC4] rounded-lg bg-white text-[#003565] font-mono"
+ className="flex-1 px-3 py-2 text-sm border border-[#94A3B8] rounded-lg bg-white text-[#1E293B] font-mono"
  />
  <Button onClick={handleKeyLookup} disabled={keyLookupLoading || !keyLookupInput.trim()}>
  {keyLookupLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
  </Button>
  </div>
  {keyLookupError && (
- <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+ <div className="flex items-center gap-2 text-sm text-red-600">
  <AlertCircle size={14} /> {keyLookupError}
  </div>
  )}
@@ -525,9 +525,9 @@ export function JiraSection() {
 
  return (
  <div className="space-y-3">
- <div className="rounded-lg border bg-[#EEEEF1] /60 overflow-hidden">
+ <div className="rounded-lg border bg-[#F0F2F5] /60 overflow-hidden">
  <table className="w-full text-sm">
- <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+ <tbody className="divide-y divide-slate-200">
  <tr>
  <td className="px-4 py-2.5 font-medium text-muted-foreground w-48">Key</td>
  <td className="px-4 py-2.5 font-mono font-semibold">{d.key}</td>
@@ -556,40 +556,40 @@ export function JiraSection() {
  <span className="text-xs text-muted-foreground ml-1">({d.statusCategory})</span>
  </td>
  </tr>
- <tr className={!d.parentKey ? 'bg-amber-50 dark:bg-amber-900/20' : ''}>
+ <tr className={!d.parentKey ? 'bg-amber-50' : ''}>
  <td className="px-4 py-2.5 font-medium text-muted-foreground">parent.key (hierarchy)</td>
  <td className="px-4 py-2.5 font-mono">
  {d.parentKey
- ? <span className="text-[#16A34A] dark:text-green-400">{d.parentKey}</span>
- : <span className="text-[#6C7A89] italic">not set</span>}
+ ? <span className="text-[#16A34A]">{d.parentKey}</span>
+ : <span className="text-[#94A3B8] italic">not set</span>}
  </td>
  </tr>
  <tr className={!d.cf10014 ? 'opacity-60' : ''}>
  <td className="px-4 py-2.5 font-medium text-muted-foreground">customfield_10014 (Epic Link)</td>
  <td className="px-4 py-2.5 font-mono">
  {d.cf10014
- ? <span className="text-blue-700 dark:text-blue-400">{d.cf10014}</span>
- : <span className="text-[#6C7A89] italic">not set</span>}
+ ? <span className="text-blue-700">{d.cf10014}</span>
+ : <span className="text-[#94A3B8] italic">not set</span>}
  </td>
  </tr>
  <tr className={!d.cf10008 ? 'opacity-60' : ''}>
  <td className="px-4 py-2.5 font-medium text-muted-foreground">customfield_10008 (alt. Epic Link)</td>
  <td className="px-4 py-2.5 font-mono">
  {d.cf10008
- ? <span className="text-blue-700 dark:text-blue-400">{d.cf10008}</span>
- : <span className="text-[#6C7A89] italic">not set</span>}
+ ? <span className="text-blue-700">{d.cf10008}</span>
+ : <span className="text-[#94A3B8] italic">not set</span>}
  </td>
  </tr>
- <tr className="bg-[#EEEEF1] /50">
+ <tr className="bg-[#F0F2F5] /50">
  <td className="px-4 py-2.5 font-semibold">Resolved parentKey (what sync stores)</td>
  <td className="px-4 py-2.5 font-mono font-semibold">
  {d.resolvedParentKey
- ? <span className="text-blue-700 dark:text-blue-300">{d.resolvedParentKey}</span>
+ ? <span className="text-blue-700">{d.resolvedParentKey}</span>
  : <span className="text-red-500 italic">none — would be unlinked</span>}
  </td>
  </tr>
  {d.typeEnabled !== undefined && (
- <tr className={d.typeEnabled ? '' : 'bg-red-50 dark:bg-red-900/20'}>
+ <tr className={d.typeEnabled ? '' : 'bg-red-50'}>
  <td className="px-4 py-2.5 font-medium text-muted-foreground">Type enabled in settings?</td>
  <td className="px-4 py-2.5 text-xs">
  {d.typeEnabled
@@ -599,10 +599,10 @@ export function JiraSection() {
  </tr>
  )}
  {d.statusPasses !== undefined && (
- <tr className={d.statusPasses ? '' : 'bg-red-50 dark:bg-red-900/20'}>
+ <tr className={d.statusPasses ? '' : 'bg-red-50'}>
  <td className="px-4 py-2.5 font-medium text-muted-foreground">
  Status passes filter?
- {d.statusFilterUsed && <span className="block text-xs text-[#6C7A89] font-normal">filter: {d.statusFilterUsed}</span>}
+ {d.statusFilterUsed && <span className="block text-xs text-[#94A3B8] font-normal">filter: {d.statusFilterUsed}</span>}
  </td>
  <td className="px-4 py-2.5 text-xs">
  {d.statusPasses
@@ -612,13 +612,13 @@ export function JiraSection() {
  </tr>
  )}
  {d.exclusionReason === null && d.typeEnabled && d.statusPasses && (
- <tr className="bg-amber-50 dark:bg-amber-900/20">
- <td className="px-4 py-2.5 font-medium text-amber-700 dark:text-amber-300">Why is it missing?</td>
- <td className="px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300">
+ <tr className="bg-amber-50">
+ <td className="px-4 py-2.5 font-medium text-amber-700">Why is it missing?</td>
+ <td className="px-4 py-2.5 text-xs text-amber-700">
  Type is enabled and status passes the filter — this item SHOULD be synced.
  Most likely causes: (1) has not been synced yet — run a sync now, or
  (2) project has more than 5,000 non-done items (Jira's search limit) — add an
- Additional JQL filter (e.g. <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">updatedDate &gt;= -180d</code>) in the connection settings.
+ Additional JQL filter (e.g. <code className="bg-amber-100 px-1 rounded">updatedDate &gt;= -180d</code>) in the connection settings.
  </td>
  </tr>
  )}
@@ -627,7 +627,7 @@ export function JiraSection() {
  <td className="px-4 py-2.5 font-medium text-muted-foreground">Sync JQL</td>
  <td className="px-4 py-2.5">
  <div className="flex items-start gap-2">
- <code className="text-xs break-all text-[#6C7A89] flex-1">{d.jqlUsed}</code>
+ <code className="text-xs break-all text-[#94A3B8] flex-1">{d.jqlUsed}</code>
  <button type="button" onClick={() => navigator.clipboard.writeText(d.jqlUsed!)} className="shrink-0 text-[#0089DD] hover:text-blue-700" title="Copy JQL">
  <Copy size={12} />
  </button>
@@ -635,14 +635,14 @@ export function JiraSection() {
  </td>
  </tr>
  )}
- <tr className={d.storyPoints != null ? 'bg-green-50 dark:bg-green-900/20' : 'bg-amber-50 dark:bg-amber-900/20'}>
+ <tr className={d.storyPoints != null ? 'bg-green-50' : 'bg-amber-50'}>
  <td className="px-4 py-2.5 font-medium text-muted-foreground">Story points</td>
  <td className="px-4 py-2.5 text-xs">
  {d.storyPoints != null
- ? <span className="text-[#16A34A] dark:text-green-400 font-medium">
+ ? <span className="text-[#16A34A] font-medium">
  ✓ {d.storyPoints} SP — from <code className="font-mono">{d.storyPointsFieldId}</code>
  </span>
- : <span className="text-amber-700 dark:text-amber-400 font-medium">
+ : <span className="text-amber-700 font-medium">
  None found in standard fields (10016, 10028, 10026)
  {d.numericCustomFields && Object.keys(d.numericCustomFields).length > 0
  ? <span> — numeric custom fields on this issue: {Object.entries(d.numericCustomFields).map(([k, v]) => `${k}=${v}`).join(', ')}</span>
@@ -652,28 +652,28 @@ export function JiraSection() {
  }
  </td>
  </tr>
- <tr className={d.sprintParsed ? 'bg-green-50 dark:bg-green-900/20' : 'bg-amber-50 dark:bg-amber-900/20'}>
+ <tr className={d.sprintParsed ? 'bg-green-50' : 'bg-amber-50'}>
  <td className="px-4 py-2.5 font-medium text-muted-foreground">Sprint field</td>
  <td className="px-4 py-2.5 text-xs font-mono">
  {d.sprintParsed
- ? <span className="text-[#16A34A] dark:text-green-400 font-medium">
+ ? <span className="text-[#16A34A] font-medium">
  ✓ Parsed: "{d.sprintParsed.name}" ({d.sprintParsed.state})
  {d.sprintParsed.startDate ? ` · ${d.sprintParsed.startDate?.slice(0,10)} → ${d.sprintParsed.endDate?.slice(0,10)}` : ' · no dates in sprint object'}
  </span>
- : <span className="text-amber-700 dark:text-amber-400 font-medium">
+ : <span className="text-amber-700 font-medium">
  Not parsed — raw: {d.sprintRaw}
  </span>
  }
  </td>
  </tr>
- <tr className={!localItem ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}>
+ <tr className={!localItem ? 'bg-red-50' : 'bg-green-50'}>
  <td className="px-4 py-2.5 font-semibold">In local sync store?</td>
  <td className="px-4 py-2.5">
  {localItem
- ? <span className="flex items-center gap-1 text-[#16A34A] dark:text-green-400 text-xs font-medium">
+ ? <span className="flex items-center gap-1 text-[#16A34A] text-xs font-medium">
  <CheckCircle size={12} /> Yes — stored parentKey: <code className="font-mono ml-1">{localItem.parentKey ?? 'none'}</code>
  </span>
- : <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium">
+ : <span className="flex items-center gap-1 text-red-600 text-xs font-medium">
  <AlertCircle size={12} /> Not in local store — run a sync to fetch it
  </span>
  }
@@ -683,14 +683,14 @@ export function JiraSection() {
  </table>
  </div>
  {d.resolvedParentKey && d.resolvedParentKey !== 'ERP-3394' && (
- <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-200">
+ <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
  <strong>The resolved parent key is not ERP-3394.</strong>
  {' '}Jira is linking this item to <code className="font-mono">{d.resolvedParentKey}</code> rather than ERP-3394.
  This is what Jira's API returns — the hierarchy in the planner will reflect this.
  </div>
  )}
  {!d.resolvedParentKey && (
- <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3 text-xs text-red-800 dark:text-red-200">
+ <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-800">
  <strong>No parent key found in any field.</strong>
  {' '}This item will appear as an unlinked item after sync. In Jira, ensure it has a parent set
  (in a next-gen project) or an Epic Link (in a classic project).
@@ -731,7 +731,7 @@ export function JiraSection() {
  ))}
  </div>
  {issueTypeCheckError && (
- <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+ <div className="flex items-center gap-2 text-sm text-red-600">
  <AlertCircle size={14} /> {issueTypeCheckError}
  </div>
  )}
@@ -782,7 +782,7 @@ export function JiraSection() {
  </table>
  </div>
  {issueTypeCheckResult.some(t => !SYNCED_NAMES.has(t.name)) && (
- <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-200">
+ <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
  <strong>Types not matching the 5 supported names will never be synced.</strong>
  {' '}Use the <em>Additional JQL filter</em> field in your connection settings to narrow scope,
  or check in Jira what exact type ERP-3423, ERP-2841, ERP-3647 are assigned.
@@ -806,7 +806,7 @@ export function JiraSection() {
  <CardContent className="space-y-4">
  <div className="grid md:grid-cols-3 gap-4 text-sm">
  <div className="p-3 rounded-lg bg-muted/50">
- <div className="font-medium text-[#003565] ">Jira Epic</div>
+ <div className="font-medium text-[#1E293B] ">Jira Epic</div>
  <div className="text-muted-foreground text-xs mt-0.5">becomes</div>
  <div className="font-medium">→ Epic</div>
  </div>
@@ -847,20 +847,20 @@ export function JiraSection() {
  >
  {pendingDiff && (
  <div className="space-y-4">
- <p className="text-sm text-[#6C7A89] ">
+ <p className="text-sm text-[#94A3B8] ">
  Review the changes below before applying. Your local mappings will <strong>not</strong> be affected.
  </p>
  <div className="flex flex-wrap gap-3">
- <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-sm">
+ <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm">
  <span className="w-2 h-2 rounded-full bg-[#16A34A]" />
  <strong>{pendingDiff.toAdd.length}</strong> new items to add
  </div>
- <div className="flex items-center gap-2 px-3 py-2 bg-[#E6F2FC] dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
+ <div className="flex items-center gap-2 px-3 py-2 bg-[#E6F2FC] border border-blue-200 rounded-lg text-sm">
  <span className="w-2 h-2 rounded-full bg-[#E6F2FC]0" />
  <strong>{pendingDiff.toUpdate.length}</strong> existing items to update
  </div>
  {pendingDiff.toRemove.length > 0 && (
- <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm">
+ <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm">
  <span className="w-2 h-2 rounded-full bg-red-500" />
  <strong>{pendingDiff.toRemove.length}</strong> items no longer in Jira
  </div>
@@ -870,12 +870,12 @@ export function JiraSection() {
 
  {/* Truly removed items — no mappings, gone from Jira */}
  {pendingDiff.toRemove.length > 0 && (
- <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
- <p className="text-sm font-semibold text-red-700 dark:text-red-300 mb-2">Items that will be removed:</p>
+ <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+ <p className="text-sm font-semibold text-red-700 mb-2">Items that will be removed:</p>
  <ul className="space-y-1">
  {pendingDiff.toRemove.slice(0, 10).map((item) => (
- <li key={item.id} className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
- <span className="font-mono text-xs bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded">{item.jiraKey}</span>
+ <li key={item.id} className="flex items-center gap-2 text-sm text-red-600">
+ <span className="font-mono text-xs bg-red-100 px-1.5 py-0.5 rounded">{item.jiraKey}</span>
  <span className="truncate">{item.summary}</span>
  </li>
  ))}
@@ -888,15 +888,15 @@ export function JiraSection() {
 
  {pendingDiff.toAdd.length > 0 && (
  <div>
- <p className="text-sm font-semibold text-[#003565] mb-2">New items (first 5):</p>
+ <p className="text-sm font-semibold text-[#1E293B] mb-2">New items (first 5):</p>
  <ul className="space-y-1">
  {pendingDiff.toAdd.slice(0, 5).map((item) => (
- <li key={item.id} className="flex items-center gap-2 text-sm text-[#6C7A89] ">
- <span className="font-mono text-xs bg-green-100 dark:bg-green-900/40 px-1.5 py-0.5 rounded text-[#16A34A] dark:text-green-300">{item.jiraKey}</span>
+ <li key={item.id} className="flex items-center gap-2 text-sm text-[#94A3B8] ">
+ <span className="font-mono text-xs bg-green-100 px-1.5 py-0.5 rounded text-[#16A34A]">{item.jiraKey}</span>
  <span className="truncate">{item.summary}</span>
  </li>
  ))}
- {pendingDiff.toAdd.length > 5 && <li className="text-xs text-[#6C7A89]">… and {pendingDiff.toAdd.length - 5} more</li>}
+ {pendingDiff.toAdd.length > 5 && <li className="text-xs text-[#94A3B8]">… and {pendingDiff.toAdd.length - 5} more</li>}
  </ul>
  </div>
  )}

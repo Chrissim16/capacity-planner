@@ -14,10 +14,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variants = {
       primary:   'bg-[#0089DD] text-white hover:bg-[#0077C2]',
-      secondary: 'bg-white text-[#003565] border border-[#CFCFD5] hover:bg-[#EEEEF1]',
+      secondary: 'bg-white text-[#1E293B] border border-[#DEDFE3] hover:bg-[#F0F2F5]',
       danger:    'bg-[#DC2626] text-white hover:bg-[#B91C1C]',
       warning:   'bg-[#D97706] text-white hover:bg-[#B45309]',
-      ghost:     'text-[#6C7A89] hover:bg-[#EEEEF1] hover:text-[#003565]',
+      ghost:     'text-[#94A3B8] hover:bg-[#F0F2F5] hover:text-[#1E293B]',
     };
 
     const sizes = {

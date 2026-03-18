@@ -95,16 +95,16 @@ export function Login() {
 
         <div className="rounded-card border border-[#DEDFE3] bg-white shadow-sm p-8">
           <h1
-            className="text-3xl font-bold text-[#003565] tracking-tight"
-            style={{ fontFamily: "'Plus Jakarta Sans', Georgia, serif", letterSpacing: '-0.02em' }}
+            className="text-3xl font-bold text-[#1E293B] tracking-tight"
+            style={{ fontFamily: "'DM Sans', ui-sans-serif, sans-serif", letterSpacing: '-0.02em' }}
           >
             Capacity Planner
           </h1>
-          <p className="mt-1.5 text-sm text-[#6C7A89]">Sign in to continue</p>
+          <p className="mt-1.5 text-sm text-[#94A3B8]">Sign in to continue</p>
 
           <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-medium text-[#003565] mb-1.5" htmlFor="email">
+              <label className="block text-sm font-medium text-[#1E293B] mb-1.5" htmlFor="email">
                 Email
               </label>
               <input
@@ -112,14 +112,14 @@ export function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-[#CFCFD5] bg-white px-3 py-2 text-sm text-[#003565] placeholder-[#B5BDC4] focus:outline-none focus:ring-2 focus:ring-[#0089DD]/40 focus:border-[#0089DD] transition-colors"
+                className="w-full rounded-lg border border-[#DEDFE3] bg-white px-3 py-2 text-sm text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0089DD]/40 focus:border-[#0089DD] transition-colors"
                 autoComplete="email"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#003565] mb-1.5" htmlFor="password">
+              <label className="block text-sm font-medium text-[#1E293B] mb-1.5" htmlFor="password">
                 Password
               </label>
               <input
@@ -127,7 +127,7 @@ export function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-[#CFCFD5] bg-white px-3 py-2 text-sm text-[#003565] placeholder-[#B5BDC4] focus:outline-none focus:ring-2 focus:ring-[#0089DD]/40 focus:border-[#0089DD] transition-colors"
+                className="w-full rounded-lg border border-[#DEDFE3] bg-white px-3 py-2 text-sm text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0089DD]/40 focus:border-[#0089DD] transition-colors"
                 autoComplete={isSignUpMode ? 'new-password' : 'current-password'}
                 required
               />
@@ -146,7 +146,7 @@ export function Login() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-lg bg-[#003565] hover:opacity-85 disabled:opacity-50 text-white font-medium py-2.5 transition-opacity duration-150 mt-2"
+              className="w-full rounded-lg bg-[#1E293B] hover:opacity-85 disabled:opacity-50 text-white font-medium py-2.5 transition-opacity duration-150 mt-2"
             >
               {isSubmitting ? 'Please wait…' : isSignUpMode ? 'Create account' : 'Sign in'}
             </button>
@@ -165,7 +165,7 @@ export function Login() {
           </button>
         </div>
 
-        <p className="mt-6 text-center text-xs text-[#B5BDC4]">
+        <p className="mt-6 text-center text-xs text-[#94A3B8]">
           Mileway IT Capacity Planner · VS Finance
         </p>
       </div>

@@ -31,10 +31,10 @@ export function Settings() {
 
   if (!can('manage_settings')) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4 text-[#B5BDC4]">
-        <Lock size={40} className="text-[#D1D5DB]" />
-        <p className="text-lg font-medium text-[#003565]">Access restricted</p>
-        <p className="text-sm text-[#6C7A89]">You don't have permission to view Settings.</p>
+      <div className="flex flex-col items-center justify-center h-96 gap-4 text-[#94A3B8]">
+        <Lock size={40} className="text-[#DEDFE3]" />
+        <p className="text-lg font-medium text-[#1E293B]">Access restricted</p>
+        <p className="text-sm text-[#94A3B8]">You don't have permission to view Settings.</p>
       </div>
     );
   }
@@ -47,7 +47,7 @@ export function Settings() {
       />
 
       {/* Horizontal tab bar */}
-      <div className="flex items-center gap-1 border-b border-[#CFCFD5]">
+      <div className="flex items-center gap-1 border-b border-[#DEDFE3]">
         {groups.map((group) => {
           const Icon = group.icon;
           return (
@@ -56,8 +56,8 @@ export function Settings() {
               onClick={() => setActiveGroup(group.id)}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${
                 activeGroup === group.id
-                  ? 'border-[#0089DD] text-[#003565]'
-                  : 'border-transparent text-[#B5BDC4] hover:text-[#6C7A89]'
+                  ? 'border-[#0089DD] text-[#1E293B]'
+                  : 'border-transparent text-[#94A3B8] hover:text-[#94A3B8]'
               }`}
             >
               <Icon size={16} />

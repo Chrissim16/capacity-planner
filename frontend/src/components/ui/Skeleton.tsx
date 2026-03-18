@@ -7,7 +7,7 @@ export function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>
       aria-hidden="true"
       className={clsx(
         'rounded-md bg-gradient-to-r',
-        'from-[#EEEEF1] via-[#F5F8FC] to-[#EEEEF1]',
+        'from-[#F0F2F5] via-[#F5F8FC] to-[#F0F2F5]',
         'bg-[length:200%_100%] animate-shimmer',
         className
       )}

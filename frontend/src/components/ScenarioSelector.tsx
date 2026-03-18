@@ -13,7 +13,7 @@ export function getSmartScenarioName(): string {
 }
 
 export const SCENARIO_COLORS: { id: ScenarioColor; bg: string; ring: string; dot: string }[] = [
-  { id: 'purple', bg: 'bg-[#E6EAF0]', ring: 'ring-[#809AB2]', dot: 'bg-[#003565]' },
+  { id: 'purple', bg: 'bg-[#F0F2F5]', ring: 'ring-[#DEDFE3]',  dot: 'bg-[#1E293B]' },
   { id: 'blue',   bg: 'bg-[#E6F2FC]', ring: 'ring-[#0089DD]', dot: 'bg-[#0089DD]' },
   { id: 'green',  bg: 'bg-[#DCFCE7]', ring: 'ring-[#16A34A]', dot: 'bg-[#16A34A]' },
   { id: 'orange', bg: 'bg-[#FEF3C7]', ring: 'ring-[#D97706]', dot: 'bg-[#D97706]' },
@@ -57,8 +57,8 @@ export function ScenarioSelector() {
         className={clsx(
           'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 border',
           isBaseline
-            ? 'border-[#CFCFD5] text-[#6C7A89] hover:bg-[#F5F8FC]'
-            : 'border-[#B3D9F5] bg-[#E6F2FC] text-[#0089DD]'
+            ? 'border-[#DEDFE3] text-[#94A3B8] hover:bg-[#F5F8FC]'
+            : 'border-[#CCE4F9] bg-[#E6F2FC] text-[#0089DD]'
         )}
       >
         {isBaseline ? (
@@ -73,7 +73,7 @@ export function ScenarioSelector() {
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-0 left-full ml-2 w-72 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-md border border-[#CFCFD5] py-2 z-50">
+        <div className="absolute bottom-0 left-full ml-2 w-72 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-md border border-[#DEDFE3] py-2 z-50">
 
           <button
             onClick={() => { switchScenario(null); setIsOpen(false); }}
@@ -84,8 +84,8 @@ export function ScenarioSelector() {
           >
             <Database size={16} className="text-[#0089DD] shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-[#003565]">Jira Baseline</div>
-              <div className="text-xs text-[#6C7A89]">Live data</div>
+              <div className="font-medium text-[#1E293B]">Jira Baseline</div>
+              <div className="text-xs text-[#94A3B8]">Live data</div>
             </div>
             {isBaseline && <Check size={16} className="text-[#0089DD] shrink-0" />}
           </button>
@@ -103,9 +103,9 @@ export function ScenarioSelector() {
             >
               <span className={clsx('w-3 h-3 rounded-full shrink-0', scenarioColorDot(scenario.color).dot)} />
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-[#003565] truncate">{scenario.name}</div>
+                <div className="font-medium text-[#1E293B] truncate">{scenario.name}</div>
                 {scenario.description && (
-                  <div className="text-xs text-[#6C7A89] truncate">{scenario.description}</div>
+                  <div className="text-xs text-[#94A3B8] truncate">{scenario.description}</div>
                 )}
               </div>
               {activeScenarioId === scenario.id && <Check size={16} className="text-[#0089DD] shrink-0" />}
@@ -120,7 +120,7 @@ export function ScenarioSelector() {
           >
             <Plus size={16} />
             <span className="font-medium">New scenario</span>
-            <ExternalLink size={12} className="ml-auto text-[#6C7A89]" />
+            <ExternalLink size={12} className="ml-auto text-[#94A3B8]" />
           </button>
         </div>
       )}

@@ -10,7 +10,7 @@ export interface AvatarPerson {
 
 interface AvatarStackProps {
   people: AvatarPerson[];
-  /** 'it' = Light Blue (#0089DD); 'biz' = Cool Grey (#6C7A89) */
+  /** 'it' = Light Blue (#0089DD); 'biz' = Cool Grey (#94A3B8) */
   variant: 'it' | 'biz';
   /** Max avatars before "+N" overflow (default: 2) */
   max?: number;
@@ -47,8 +47,8 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
   className,
 }) => {
   const isIt = variant === 'it';
-  const avatarBg = isIt ? 'bg-[#0089DD]' : 'bg-[#6C7A89]';
-  const labelColor = isIt ? 'text-[#0089DD]' : 'text-[#6C7A89]';
+  const avatarBg = isIt ? 'bg-[#0089DD]' : 'bg-[#94A3B8]';
+  const labelColor = isIt ? 'text-[#0089DD]' : 'text-[#94A3B8]';
 
   if (unassigned || people.length === 0) {
     return (
@@ -58,13 +58,13 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
         className={clsx(
           'flex items-center gap-1.5 text-xs rounded-full px-2 py-1 transition-colors duration-150',
           onClick
-            ? 'text-[#F97316] hover:bg-[#FFF7ED] cursor-pointer border border-dashed border-[#FED7AA]'
-            : 'text-[#B5BDC4] border border-dashed border-[#CFCFD5] cursor-default',
+            ? 'text-[#D97706] hover:bg-[#FEF9C3] cursor-pointer border border-dashed border-[#D97706]'
+            : 'text-[#94A3B8] border border-dashed border-[#DEDFE3] cursor-default',
           className
         )}
         disabled={!onClick}
       >
-        <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', onClick ? 'bg-[#F97316]' : 'bg-[#D1D5DB]')} />
+        <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0', onClick ? 'bg-[#D97706]' : 'bg-[#DEDFE3]')} />
         <span>{onClick ? '+ Assign' : 'Unassigned'}</span>
       </button>
     );
@@ -80,7 +80,7 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
       onClick={onClick}
       className={clsx(
         'flex items-center gap-1.5 text-xs rounded-full px-2 py-1 transition-colors duration-150',
-        onClick ? 'hover:bg-[#EEEEF1] cursor-pointer' : 'cursor-default',
+        onClick ? 'hover:bg-[#F0F2F5] cursor-pointer' : 'cursor-default',
         className
       )}
       disabled={!onClick}
@@ -103,7 +103,7 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
         ))}
         {overflow > 0 && (
           <span
-            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#EEEEF1] text-[#6C7A89] font-medium border-2 border-white -ml-1.5"
+            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#F0F2F5] text-[#94A3B8] font-medium border-2 border-white -ml-1.5"
             style={{ fontSize: '9px', lineHeight: 1 }}
           >
             +{overflow}

@@ -15,7 +15,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         {label && (
           <label
             htmlFor={id}
-            className="block text-sm font-medium text-[#003565]"
+            className="block text-sm font-medium text-[#1E293B]"
           >
             {label}
             {required && <span className="text-[#DC2626] ml-1">*</span>}
@@ -27,11 +27,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           required={required}
           className={clsx(
             'w-full px-3 py-2 rounded-lg border bg-white',
-            'text-[#003565]',
+            'text-[#1E293B]',
             'focus:outline-none focus:ring-2 focus:border-transparent transition-colors duration-150 cursor-pointer',
             error
               ? 'border-[#DC2626] ring-[#DC2626]/20 ring-2 focus:ring-[#DC2626]'
-              : 'border-[#CFCFD5] focus:ring-[#0089DD]/40 focus:border-[#0089DD]',
+              : 'border-[#DEDFE3] focus:ring-[#0089DD]/40 focus:border-[#0089DD]',
             className
           )}
           {...props}

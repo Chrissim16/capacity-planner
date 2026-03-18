@@ -118,7 +118,7 @@ function PlanCard({ scenario, onOpen, onRename, onDuplicate, onPromote, onDelete
           className={clsx(
             'shrink-0 w-7 h-7 rounded-md flex items-center justify-center transition-opacity duration-150',
             hovered || menuOpen ? 'opacity-100' : 'opacity-0',
-            'hover:bg-[#EEEEF1] focus:opacity-100 focus:ring-2 focus:ring-mileway-light-blue'
+            'hover:bg-[#F0F2F5] focus:opacity-100 focus:ring-2 focus:ring-mileway-light-blue'
           )}
           style={{ color: Text.secondary }}
           onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }}
@@ -191,7 +191,7 @@ function PlanCard({ scenario, onOpen, onRename, onDuplicate, onPromote, onDelete
           onClick={(e) => e.stopPropagation()}
         >
           <button
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Text.secondary }}
             role="menuitem"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRename(); }}
@@ -200,7 +200,7 @@ function PlanCard({ scenario, onOpen, onRename, onDuplicate, onPromote, onDelete
             Rename
           </button>
           <button
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Text.secondary }}
             role="menuitem"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDuplicate(); }}
@@ -209,7 +209,7 @@ function PlanCard({ scenario, onOpen, onRename, onDuplicate, onPromote, onDelete
             Duplicate
           </button>
           <button
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Text.secondary }}
             role="menuitem"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onPromote(); }}
@@ -292,7 +292,7 @@ function RenameModal({ scenario, onClose, currentUserEmail }: RenameModalProps) 
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold" style={{ color: Text.primary }}>Rename plan</h2>
           <button
-            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
             onClick={onClose}
             aria-label="Close"
           >
@@ -311,7 +311,7 @@ function RenameModal({ scenario, onClose, currentUserEmail }: RenameModalProps) 
         />
         <div className="flex justify-end gap-2">
           <button
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[#F0F2F5] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Text.secondary }}
             onClick={onClose}
           >
@@ -425,7 +425,7 @@ export function PlanningHub() {
         <div>
           <h1
             className="text-2xl font-semibold"
-            style={{ fontFamily: "'Plus Jakarta Sans', Georgia, serif", color: Text.primary }}
+            style={{ fontFamily: "'DM Sans', ui-sans-serif, sans-serif", color: Text.primary }}
           >
             Planning
           </h1>

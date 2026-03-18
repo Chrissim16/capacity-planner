@@ -56,26 +56,26 @@ export function CountriesSection() {
  <Button onClick={handleAdd}><Plus size={16} />Add</Button>
  </div>
  {code && (
- <p className="text-sm text-[#6C7A89]">
+ <p className="text-sm text-[#94A3B8]">
  Flag preview: {countryFlags[code.toUpperCase()] || '🏳️'}
  {!countryFlags[code.toUpperCase()] && ' (generic flag — code not recognized)'}
  </p>
  )}
  <div className="space-y-2">
  {countries.map((country) => (
- <div key={country.id} className="flex items-center justify-between p-3 bg-[#EEEEF1] /50 rounded-lg">
+ <div key={country.id} className="flex items-center justify-between p-3 bg-[#F0F2F5] /50 rounded-lg">
  <div className="flex items-center gap-3">
  <span className="text-2xl">{country.flag || '🏳️'}</span>
- <span className="font-medium text-[#003565] ">{country.name}</span>
+ <span className="font-medium text-[#1E293B] ">{country.name}</span>
  <Badge variant="default">{country.code}</Badge>
  </div>
  <div className="flex items-center gap-3">
- <span className="text-sm text-[#6C7A89]">
+ <span className="text-sm text-[#94A3B8]">
  {publicHolidays.filter((h) => h.countryId === country.id).length} holidays
  </span>
  <button
  onClick={() => setDeleteConfirm({ id: country.id, name: country.name })}
- className="p-1.5 text-[#6C7A89] hover:text-red-500 transition-colors"
+ className="p-1.5 text-[#94A3B8] hover:text-red-500 transition-colors"
  title="Delete (will also remove all holidays)"
  >
  <Trash2 size={16} />
@@ -84,7 +84,7 @@ export function CountriesSection() {
  </div>
  ))}
  {countries.length === 0 && (
- <p className="text-center py-8 text-[#6C7A89]">
+ <p className="text-center py-8 text-[#94A3B8]">
  No countries defined. Add a country to manage holidays.
  </p>
  )}

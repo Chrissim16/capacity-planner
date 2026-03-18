@@ -15,7 +15,7 @@ const SHORTCUTS = [
 
 function Key({ label }: { label: string }) {
   return (
-    <kbd className="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 text-xs font-semibold text-[#6C7A89] bg-[#EEEEF1] border border-[#CFCFD5] rounded-md shadow-sm">
+    <kbd className="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 text-xs font-semibold text-[#94A3B8] bg-[#F0F2F5] border border-[#DEDFE3] rounded-md shadow-sm">
       {label}
     </kbd>
   );
@@ -27,11 +27,11 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
       <div className="space-y-3">
         {SHORTCUTS.map(({ keys, description }) => (
           <div key={keys.join('+')} className="flex items-center justify-between gap-4">
-            <span className="text-sm text-[#6C7A89]">{description}</span>
+            <span className="text-sm text-[#94A3B8]">{description}</span>
             <div className="flex items-center gap-1 shrink-0">
               {keys.map((k, i) => (
                 <span key={k} className="flex items-center gap-1">
-                  {i > 0 && <span className="text-[#6C7A89] text-xs">+</span>}
+                  {i > 0 && <span className="text-[#94A3B8] text-xs">+</span>}
                   <Key label={k} />
                 </span>
               ))}

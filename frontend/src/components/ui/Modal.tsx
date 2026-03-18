@@ -40,7 +40,7 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
-        className="absolute inset-0 bg-[#003565]/30 backdrop-blur-sm"
+        className="absolute inset-0 bg-[#1E293B]/30 backdrop-blur-sm"
         onClick={onClose}
       />
 
@@ -51,14 +51,14 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
       )}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#DEDFE3]">
           <h2
-            className="text-lg font-semibold text-[#003565]"
-            style={{ fontFamily: "'Plus Jakarta Sans', Georgia, serif" }}
+            className="text-lg font-semibold text-[#1E293B]"
+            style={{ fontFamily: "'DM Sans', ui-sans-serif, sans-serif" }}
           >
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#B5BDC4] hover:text-[#6C7A89] hover:bg-[#EEEEF1] transition-colors duration-150"
+            className="p-1.5 rounded-lg text-[#94A3B8] hover:text-[#94A3B8] hover:bg-[#F0F2F5] transition-colors duration-150"
           >
             <X size={18} />
           </button>
