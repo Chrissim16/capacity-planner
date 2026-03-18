@@ -57,8 +57,8 @@ export function ScenarioSelector() {
         className={clsx(
           'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 border',
           isBaseline
-            ? 'border-white/20 text-white/70 hover:bg-white/10'
-            : 'border-[#0089DD]/40 bg-[#0089DD]/20 text-white'
+            ? 'border-[#CFCFD5] text-[#6C7A89] hover:bg-[#F5F8FC]'
+            : 'border-[#B3D9F5] bg-[#E6F2FC] text-[#0089DD]'
         )}
       >
         {isBaseline ? (

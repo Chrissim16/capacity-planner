@@ -170,10 +170,12 @@ Never go below 11px. Never use 400 weight at 12px or smaller — it looks unfini
 
 ## Navigation Sidebar
 
-- Background: Dark Blue (#003565)
-- Active item: Light Blue (#0089DD) background tint + white text
-- Inactive items: white at 70% opacity text, no background
-- Logo/brand area: white text on Dark Blue
+- Background: white (#FFFFFF)
+- Right border: 1px solid #CFCFD5 — separates sidebar from content
+- Active item: Light Blue 10% tint (#E6F2FC) background + Light Blue text (#0089DD) + 3px left accent line in #0089DD
+- Inactive items: Cool Grey text (#6C7A89), no background, hover gets off-white (#F5F8FC)
+- Logo/brand area: Dark Blue text (#003565) on white background
+- Nav labels: 14px, weight 500
 
 ---
 

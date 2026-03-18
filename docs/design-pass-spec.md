@@ -102,22 +102,25 @@ Remove any remaining `.dark` CSS blocks entirely.
 
 ### 2.1 — `frontend/src/components/layout/Sidebar.tsx`
 
-This is the highest-visibility change. The sidebar must use Dark Blue as its background.
+The sidebar must be light — white background with subtle grey inactive text,
+matching the reference screenshot style.
 
-**Background:** Replace whatever background class is currently on the sidebar root element
-with `bg-[#003565]`.
+**Background:** `bg-white`
 
-**Nav items — inactive:** Text should be white at 70% opacity.
-Replace current inactive text classes with `text-white/70 hover:text-white`.
+**Right border:** `border-r border-[#CFCFD5]` — separates sidebar from main content
 
-**Nav items — active:** Light Blue background tint with white text.
-Replace current active classes with `bg-[#0089DD] text-white rounded-lg`.
+**Nav items — inactive:** Cool Grey text, no background, subtle hover.
+Replace current classes with `text-[#6C7A89] hover:bg-[#F5F8FC]`.
+
+**Nav items — active:** Light Blue tint background + Light Blue text + left accent line.
+Replace current active classes with:
+`bg-[#E6F2FC] text-[#0089DD] border-l-[3px] border-[#0089DD]`
 
 **Remove all `dark:` variants** from this file — they are no longer needed.
 
-**Logo/brand area:** White text on Dark Blue — `text-white`.
+**Logo/brand area:** Dark Blue text on white — `text-[#003565]`.
 
-**Borders and dividers inside the sidebar:** Use white at 10% opacity — `border-white/10`.
+**Borders and dividers inside the sidebar:** `border-[#CFCFD5]`.
 
 ---
 

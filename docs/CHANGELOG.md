@@ -5,6 +5,14 @@ Newest entry at the top. Format: `[YYYY-MM-DD] — Short title`.
 
 ---
 
+## [2026-03-18] — Sidebar redesign — white background, light blue active state
+
+### Changed
+- `Sidebar.tsx` — background changed from Dark Blue (#003565) to white with right border (#CFCFD5); active nav item now uses Light Blue 10% tint (#E6F2FC) background + Light Blue text (#0089DD) + 3px left accent line; inactive items use Cool Grey (#6C7A89) with off-white hover (#F5F8FC); logo area uses Dark Blue text on white; all dividers updated to #CFCFD5; avatar uses light blue tint; collapse toggle, sync indicator, and sign-out button adapted to light background
+- `ScenarioSelector.tsx` — trigger button colours updated from dark-background white opacity to light-background brand colours (#CFCFD5 border, #6C7A89 text for baseline; #E6F2FC bg, #0089DD text for active scenario)
+
+---
+
 ## [2026-03-18] — Design pass — Mileway brand palette, removed dark mode, removed BIZ purple
 
 ### Changed
