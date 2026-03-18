@@ -10,7 +10,7 @@ export interface AvatarPerson {
 
 interface AvatarStackProps {
   people: AvatarPerson[];
-  /** 'it' = Mileway blue (#0089DD); 'biz' = purple (#7C3AED) */
+  /** 'it' = Light Blue (#0089DD); 'biz' = Cool Grey (#6C7A89) */
   variant: 'it' | 'biz';
   /** Max avatars before "+N" overflow (default: 2) */
   max?: number;
@@ -47,9 +47,8 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
   className,
 }) => {
   const isIt = variant === 'it';
-  // IT track uses teal, BIZ track keeps purple (functional data distinction)
-  const avatarBg = isIt ? 'bg-[#0ED3CF]' : 'bg-[#7C3AED]';
-  const labelColor = isIt ? 'text-[#0BB8B5]' : 'text-[#7C3AED]';
+  const avatarBg = isIt ? 'bg-[#0089DD]' : 'bg-[#6C7A89]';
+  const labelColor = isIt ? 'text-[#0089DD]' : 'text-[#6C7A89]';
 
   if (unassigned || people.length === 0) {
     return (
@@ -60,7 +59,7 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
           'flex items-center gap-1.5 text-xs rounded-full px-2 py-1 transition-colors duration-150',
           onClick
             ? 'text-[#F97316] hover:bg-[#FFF7ED] cursor-pointer border border-dashed border-[#FED7AA]'
-            : 'text-[#9CA3AF] border border-dashed border-[#E5E5E3] cursor-default',
+            : 'text-[#B5BDC4] border border-dashed border-[#CFCFD5] cursor-default',
           className
         )}
         disabled={!onClick}
@@ -81,7 +80,7 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
       onClick={onClick}
       className={clsx(
         'flex items-center gap-1.5 text-xs rounded-full px-2 py-1 transition-colors duration-150',
-        onClick ? 'hover:bg-[#F5F3F0] cursor-pointer' : 'cursor-default',
+        onClick ? 'hover:bg-[#EEEEF1] cursor-pointer' : 'cursor-default',
         className
       )}
       disabled={!onClick}
@@ -104,7 +103,7 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
         ))}
         {overflow > 0 && (
           <span
-            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#F5F3F0] text-[#6B7280] font-medium border-2 border-white -ml-1.5"
+            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#EEEEF1] text-[#6C7A89] font-medium border-2 border-white -ml-1.5"
             style={{ fontSize: '9px', lineHeight: 1 }}
           >
             +{overflow}

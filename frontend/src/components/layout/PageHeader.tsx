@@ -11,12 +11,11 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
     <div className="flex items-start justify-between gap-4 mb-8">
       <div>
         <h1
-          className="text-4xl font-bold tracking-tight text-[#1A1A1A] leading-tight"
-          style={{ fontFamily: "'Source Serif 4', Georgia, serif", letterSpacing: '-0.02em' }}
+          className="text-2xl font-bold text-[#003565] leading-tight"
         >
           {title}
         </h1>
-        <p className="text-base text-[#6B7280] mt-1.5">{subtitle}</p>
+        <p className="text-sm text-[#6C7A89] mt-1">{subtitle}</p>
       </div>
       {actions ? <div className="flex items-center gap-2 shrink-0 pt-1">{actions}</div> : null}
     </div>

@@ -120,18 +120,18 @@ export function SprintForm({ sprint, onSave, onCancel }: SprintFormProps) {
 
  <div className="grid grid-cols-2 gap-4">
  <div>
- <label className="block text-sm font-medium text-slate-700 mb-1.5">
+ <label className="block text-sm font-medium text-[#003565] mb-1.5">
  Quarter (auto-calculated)
  </label>
- <div className="px-3 py-2 bg-slate-100 rounded-lg text-slate-600 ">
+ <div className="px-3 py-2 bg-[#EEEEF1] rounded-lg text-[#6C7A89] ">
  {calculateQuarter(startDate) || '—'}
  </div>
  </div>
  <div>
- <label className="block text-sm font-medium text-slate-700 mb-1.5">
+ <label className="block text-sm font-medium text-[#003565] mb-1.5">
  Year
  </label>
- <div className="px-3 py-2 bg-slate-100 rounded-lg text-slate-600 ">
+ <div className="px-3 py-2 bg-[#EEEEF1] rounded-lg text-[#6C7A89] ">
  {year}
  </div>
  </div>
@@ -143,14 +143,14 @@ export function SprintForm({ sprint, onSave, onCancel }: SprintFormProps) {
  id="is-bye-week"
  checked={isByeWeek}
  onChange={(e) => setIsByeWeek(e.target.checked)}
- className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-[#0ED3CF]"
+ className="w-4 h-4 rounded border-[#B5BDC4] text-blue-600 focus:ring-[#0089DD]"
  />
- <label htmlFor="is-bye-week" className="text-sm text-slate-700 ">
+ <label htmlFor="is-bye-week" className="text-sm text-[#003565] ">
  Mark as Bye Week (no work scheduled)
  </label>
  </div>
 
- <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 ">
+ <div className="flex justify-end gap-3 pt-4 border-t border-[#CFCFD5] ">
  <Button type="button" variant="secondary" onClick={onCancel}>
  Cancel
  </Button>

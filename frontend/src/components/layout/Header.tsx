@@ -44,7 +44,7 @@ function SyncIndicator() {
 
   if (status === 'offline') {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-[#9CA3AF]" title="Supabase not configured — data saved to browser only">
+      <div className="flex items-center gap-1.5 text-xs text-[#B5BDC4]" title="Supabase not configured — data saved to browser only">
         <WifiOff size={13} />
         <span>Local only</span>
       </div>
@@ -53,7 +53,7 @@ function SyncIndicator() {
 
   if (status === 'saving') {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-[#0ED3CF]">
+      <div className="flex items-center gap-1.5 text-xs text-[#0089DD]">
         <Loader2 size={13} className="animate-spin" />
         <span>Saving…</span>
       </div>
@@ -82,7 +82,7 @@ function SyncIndicator() {
   }
 
   return (
-    <div className="flex items-center gap-1.5 text-xs text-[#22C55E]">
+    <div className="flex items-center gap-1.5 text-xs text-[#16A34A]">
       <CheckCircle2 size={13} />
       <span>Saved</span>
     </div>
@@ -105,19 +105,19 @@ function RefreshFromJiraButton({ scenarioId, scenarioName: _scenarioName }: { sc
 
   if (showConfirm) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#E8F8F8] border border-[#99F6E4] rounded-lg text-sm">
-        <span className="text-[#1A1A1A] text-xs">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#E6F2FC] border border-[#B3D9F5] rounded-lg text-sm">
+        <span className="text-[#003565] text-xs">
           {hasChanges
             ? `${toAdd} new · ${toUpdate} updated · ${toRemove} removed — apply?`
             : `${toUpdate} items will be updated — apply?`}
         </span>
         <button
           onClick={() => { refreshScenarioFromJira(scenarioId); setShowConfirm(false); }}
-          className="px-2 py-0.5 bg-[#1A1A1A] hover:opacity-80 text-white text-xs rounded-md"
+          className="px-2 py-0.5 bg-[#003565] hover:opacity-80 text-white text-xs rounded-md"
         >
           Yes
         </button>
-        <button onClick={() => setShowConfirm(false)} className="text-[#9CA3AF] hover:text-[#6B7280] text-xs">
+        <button onClick={() => setShowConfirm(false)} className="text-[#B5BDC4] hover:text-[#6C7A89] text-xs">
           Cancel
         </button>
       </div>
@@ -127,7 +127,7 @@ function RefreshFromJiraButton({ scenarioId, scenarioName: _scenarioName }: { sc
   return (
     <button
       onClick={() => setShowConfirm(true)}
-      className="flex items-center gap-2 px-3 py-1.5 bg-[#E8F8F8] text-[#0BB8B5] text-sm font-medium rounded-lg hover:bg-[#CCFBF1] transition-colors duration-150"
+      className="flex items-center gap-2 px-3 py-1.5 bg-[#E6F2FC] text-[#0077C2] text-sm font-medium rounded-lg hover:bg-[#E6F2FC] transition-colors duration-150"
     >
       <RefreshCw size={14} />
       Refresh from Jira
@@ -192,7 +192,7 @@ export function Header() {
                   if (e.key === 'Enter') confirmBannerCreate();
                   if (e.key === 'Escape') setShowBannerCreate(false);
                 }}
-                className="flex-1 max-w-xs px-2.5 py-1 text-sm border border-[#FED7AA] rounded-lg bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#F97316]/40"
+                className="flex-1 max-w-xs px-2.5 py-1 text-sm border border-[#FED7AA] rounded-lg bg-white text-[#003565] focus:outline-none focus:ring-2 focus:ring-[#F97316]/40"
               />
               <button
                 onClick={confirmBannerCreate}
@@ -219,24 +219,24 @@ export function Header() {
 
       {/* Scenario active banner */}
       {isViewingScenario && activeScenario && (
-        <div className="bg-[#E8F8F8] border-b border-[#99F6E4] px-6 py-3">
+        <div className="bg-[#E6F2FC] border-b border-[#B3D9F5] px-6 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-[#0BB8B5] flex-wrap">
+            <div className="flex items-center gap-3 text-[#0077C2] flex-wrap">
               <GitBranch size={18} className="shrink-0" />
-              <span className="font-medium text-[#1A1A1A]">{activeScenario.name}</span>
+              <span className="font-medium text-[#003565]">{activeScenario.name}</span>
 
               {scenarioDiff !== null && (
                 scenarioDiff.total === 0 ? (
                   <button
                     onClick={() => setShowDiff(true)}
-                    className="text-xs px-2 py-0.5 bg-[#CCFBF1] text-[#0BB8B5] rounded-full hover:bg-[#99F6E4] transition-colors"
+                    className="text-xs px-2 py-0.5 bg-[#E6F2FC] text-[#0077C2] rounded-full hover:bg-[#B3D9F5] transition-colors"
                   >
                     No changes yet
                   </button>
                 ) : (
                   <button
                     onClick={() => setShowDiff(true)}
-                    className="text-xs px-2 py-0.5 bg-[#0ED3CF]/15 text-[#0BB8B5] rounded-full font-medium hover:bg-[#0ED3CF]/25 transition-colors"
+                    className="text-xs px-2 py-0.5 bg-[#0089DD]/15 text-[#0077C2] rounded-full font-medium hover:bg-[#0089DD]/25 transition-colors"
                     title="Click to view full diff and promote to baseline"
                   >
                     {scenarioDiff.total} change{scenarioDiff.total !== 1 ? 's' : ''} · View →
@@ -244,7 +244,7 @@ export function Header() {
                 )
               )}
 
-              <span className="text-[#9CA3AF] text-sm hidden sm:inline">
+              <span className="text-[#B5BDC4] text-sm hidden sm:inline">
                 · edits here don't affect the baseline
               </span>
             </div>
@@ -254,8 +254,8 @@ export function Header() {
               <button
                 onClick={() => switchScenario(null)}
                 className={clsx(
-                  'px-3 py-1.5 bg-[#F5F3F0] text-[#6B7280] text-sm font-medium rounded-lg',
-                  'hover:bg-[#E5E5E3] hover:text-[#1A1A1A] transition-colors duration-150'
+                  'px-3 py-1.5 bg-[#EEEEF1] text-[#6C7A89] text-sm font-medium rounded-lg',
+                  'hover:bg-[#CFCFD5] hover:text-[#003565] transition-colors duration-150'
                 )}
               >
                 Back to Baseline
@@ -266,7 +266,7 @@ export function Header() {
       )}
 
       {/* Top sync bar — shown only when there's something to display */}
-      <div className="border-b border-[#F0EFED] bg-[#FAF9F7] px-6 py-2 flex items-center justify-end gap-4">
+      <div className="border-b border-[#DEDFE3] bg-[#F5F8FC] px-6 py-2 flex items-center justify-end gap-4">
         <SyncIndicator />
         <ScenarioSelector />
       </div>

@@ -253,8 +253,8 @@ export function Team() {
  <div className="space-y-6">
  {/* Scenario isolation notice */}
  {activeScenarioId && activeScenario && (
- <div className="flex items-center gap-2 px-4 py-2.5 bg-[#E8F8F8] border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-200">
- <GitBranch size={15} className="shrink-0 text-[#0ED3CF]" />
+ <div className="flex items-center gap-2 px-4 py-2.5 bg-[#E6F2FC] border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-200">
+ <GitBranch size={15} className="shrink-0 text-[#0089DD]" />
  <span>
  <strong>Scenario: {activeScenario.name}</strong> — Team members and time off shown here are isolated to this scenario. Changes won't affect the baseline.
  </span>
@@ -292,11 +292,11 @@ export function Team() {
  />
 
  {/* Tab switcher */}
- <div className="flex items-center gap-1 border-b border-slate-200 ">
+ <div className="flex items-center gap-1 border-b border-[#CFCFD5] ">
  {([
- { id: 'it' as TabType, icon: Users, label: 'IT Members', count: teamMembers.length, activeColor: 'border-[#0089DD] text-[#0ED3CF]', badgeActive: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
- { id: 'biz' as TabType, icon: Building2, label: 'Business Contacts', count: state.businessContacts.filter(c => !c.archived).length, activeColor: 'border-purple-600 text-purple-600', badgeActive: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
- { id: 'all' as TabType, icon: Users, label: 'All', count: teamMembers.length + state.businessContacts.filter(c => !c.archived).length, activeColor: 'border-slate-600 text-slate-700 ', badgeActive: 'bg-slate-200 text-slate-700 dark:bg-slate-600 ' },
+ { id: 'it' as TabType, icon: Users, label: 'IT Members', count: teamMembers.length, activeColor: 'border-[#0089DD] text-[#0089DD]', badgeActive: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+ { id: 'biz' as TabType, icon: Building2, label: 'Business Contacts', count: state.businessContacts.filter(c => !c.archived).length, activeColor: 'border-[#6C7A89] text-[#6C7A89]', badgeActive: 'bg-[#EEEEF1] text-[#003565]' },
+ { id: 'all' as TabType, icon: Users, label: 'All', count: teamMembers.length + state.businessContacts.filter(c => !c.archived).length, activeColor: 'border-slate-600 text-[#003565] ', badgeActive: 'bg-[#DEDFE3] text-[#003565] dark:bg-slate-600 ' },
  ] as const).map(tab => {
  const Icon = tab.icon;
  const isActive = activeTab === tab.id;
@@ -305,12 +305,12 @@ export function Team() {
  key={tab.id}
  onClick={() => setActiveTab(tab.id)}
  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
- isActive ? tab.activeColor : 'border-transparent text-slate-500 hover:text-slate-700 '
+ isActive ? tab.activeColor : 'border-transparent text-[#6C7A89] hover:text-[#003565] '
  }`}
  >
  <Icon size={15} />
  {tab.label}
- <span className={`text-xs px-1.5 py-0.5 rounded-full ${isActive ? tab.badgeActive : 'bg-slate-100 text-slate-500'}`}>
+ <span className={`text-xs px-1.5 py-0.5 rounded-full ${isActive ? tab.badgeActive : 'bg-[#EEEEF1] text-[#6C7A89]'}`}>
  {tab.count}
  </span>
  </button>
@@ -322,13 +322,13 @@ export function Team() {
  <div className="flex flex-wrap gap-3 items-center">
  <div className="flex-1 min-w-[200px]">
  <div className="relative">
- <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+ <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6C7A89]" />
  <input
  type="text"
  placeholder={activeTab === 'biz' ? 'Search contacts…' : 'Search members…'}
  value={search}
  onChange={e => setSearch(e.target.value)}
- className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF]"
+ className="w-full pl-10 pr-4 py-2 rounded-lg border border-[#B5BDC4] bg-white text-[#003565] placeholder-[#B5BDC4] focus:outline-none focus:ring-2 focus:ring-[#0089DD]"
  />
  </div>
  </div>
@@ -349,17 +349,17 @@ export function Team() {
  options={groupByOptions}
  />
  {/* View mode toggle */}
- <div className="flex items-center rounded-lg border border-slate-200 overflow-hidden shrink-0">
+ <div className="flex items-center rounded-lg border border-[#CFCFD5] overflow-hidden shrink-0">
  <button
  onClick={() => setViewMode('card')}
- className={`p-2 transition-colors ${viewMode === 'card' ? 'bg-[#0ED3CF] text-white' : 'bg-white text-slate-400 hover:text-slate-600 '}`}
+ className={`p-2 transition-colors ${viewMode === 'card' ? 'bg-[#0089DD] text-white' : 'bg-white text-[#6C7A89] hover:text-[#6C7A89] '}`}
  title="Card view"
  >
  <LayoutGrid size={16} />
  </button>
  <button
  onClick={() => setViewMode('list')}
- className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[#0ED3CF] text-white' : 'bg-white text-slate-400 hover:text-slate-600 '}`}
+ className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[#0089DD] text-white' : 'bg-white text-[#6C7A89] hover:text-[#6C7A89] '}`}
  title="List view"
  >
  <List size={16} />
@@ -420,7 +420,7 @@ export function Team() {
  <div className="space-y-6">
  {itGroups.map(({ label, items: members }) => (
  <div key={label}>
- <h2 className="text-sm font-medium text-slate-500 mb-3 uppercase tracking-wide">
+ <h2 className="text-sm font-medium text-[#6C7A89] mb-3 uppercase tracking-wide">
  {label} ({members.length})
  </h2>
  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -439,7 +439,7 @@ export function Team() {
  <div className="flex items-start justify-between mb-3">
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2">
- <h3 className="font-semibold text-slate-900 truncate">
+ <h3 className="font-semibold text-[#003565] truncate">
  {member.name}
  </h3>
  {member.needsEnrichment && (
@@ -454,22 +454,22 @@ export function Team() {
  </button>
  )}
  {member.syncedFromJira && !member.needsEnrichment && (
- <span className="px-1.5 py-0.5 text-xs bg-slate-100 text-slate-600 rounded" title="Synced from Jira">
+ <span className="px-1.5 py-0.5 text-xs bg-[#EEEEF1] text-[#6C7A89] rounded" title="Synced from Jira">
  Jira
  </span>
  )}
  {member.excludedFromCapacity && (
- <span className="px-1.5 py-0.5 text-xs bg-slate-200 text-slate-500 rounded font-bold uppercase tracking-wide" title="Excluded from capacity calculation">
+ <span className="px-1.5 py-0.5 text-xs bg-[#DEDFE3] text-[#6C7A89] rounded font-bold uppercase tracking-wide" title="Excluded from capacity calculation">
  Excluded
  </span>
  )}
  </div>
- <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5">
+ <p className="text-sm text-[#6C7A89] flex items-center gap-1.5 mt-0.5">
  <span>{countryInfo.flag}</span>
  <span>{countryInfo.name}</span>
  </p>
  {member.email && (
- <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5 truncate" title={member.email}>
+ <p className="text-xs text-[#6C7A89] flex items-center gap-1 mt-0.5 truncate" title={member.email}>
  <Mail size={11} className="shrink-0" />
  {member.email}
  </p>
@@ -480,7 +480,7 @@ export function Team() {
  {member.squadId && (() => {
  const squad = squads.find(s => s.id === member.squadId);
  return squad ? (
- <span className="px-1.5 py-0 text-xs font-medium bg-slate-100 text-slate-600 rounded">
+ <span className="px-1.5 py-0 text-xs font-medium bg-[#EEEEF1] text-[#6C7A89] rounded">
  {squad.name}
  </span>
  ) : null;
@@ -488,7 +488,7 @@ export function Team() {
  {(member.processTeamIds ?? []).map(ptId => {
  const pt = processTeams.find(p => p.id === ptId);
  return pt ? (
- <span key={ptId} className="px-1.5 py-0 text-xs font-medium bg-slate-100 text-slate-600 rounded">
+ <span key={ptId} className="px-1.5 py-0 text-xs font-medium bg-[#EEEEF1] text-[#6C7A89] rounded">
  {pt.name}
  </span>
  ) : null;
@@ -499,35 +499,35 @@ export function Team() {
  <div className="flex items-center gap-1 ml-2">
  <button
  onClick={() => setConvertMember(member)}
- className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-[#003565] hover:bg-[#EEEEF1] rounded transition-colors"
  title="Convert to Business Contact"
  >
  <ArrowRightLeft size={14} />
  </button>
  <button
  onClick={() => handleAddTimeOff(member.id)}
- className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-amber-500 hover:bg-[#EEEEF1] rounded transition-colors"
  title="Manage Time Off"
  >
  <CalendarOff size={14} />
  </button>
  <button
  onClick={() => setCalendarMember(member)}
- className="p-1.5 text-slate-400 hover:text-[#0ED3CF] hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-[#0089DD] hover:bg-[#EEEEF1] rounded transition-colors"
  title="View Availability Calendar"
  >
  <CalendarDays size={14} />
  </button>
  <button
  onClick={() => handleEdit(member)}
- className="p-1.5 text-slate-400 hover:text-[#0ED3CF] hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-[#0089DD] hover:bg-[#EEEEF1] rounded transition-colors"
  title="Edit"
  >
  <Edit2 size={14} />
  </button>
  <button
  onClick={() => handleDelete(member)}
- className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-red-500 hover:bg-[#EEEEF1] rounded transition-colors"
  title="Delete"
  >
  <Trash2 size={14} />
@@ -541,13 +541,13 @@ export function Team() {
  {memberSkills.slice(0, 4).map(skill => (
  <span 
  key={skill} 
- className="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded"
+ className="px-2 py-0.5 text-xs bg-[#EEEEF1] text-[#6C7A89] rounded"
  >
  {skill}
  </span>
  ))}
  {memberSkills.length > 4 && (
- <span className="px-2 py-0.5 text-xs text-slate-400">
+ <span className="px-2 py-0.5 text-xs text-[#6C7A89]">
  +{memberSkills.length - 4}
  </span>
  )}
@@ -577,8 +577,8 @@ export function Team() {
  })()}
  
  {/* Max projects */}
- <div className="mt-2 pt-2 border-t border-slate-100 ">
- <p className="text-xs text-slate-400">
+ <div className="mt-2 pt-2 border-t border-[#DEDFE3] ">
+ <p className="text-xs text-[#6C7A89]">
  Max {member.maxConcurrentProjects} concurrent epics
  </p>
  </div>
@@ -595,20 +595,20 @@ export function Team() {
  <Card>
  <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
  {/* Table header */}
- <div className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-[#F5F3F0] /50">
+ <div className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-[#EEEEF1] /50">
  <span />
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Name</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Role</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Country</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Skills / Squad</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 text-right pr-1">Actions</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Name</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Role</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Country</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Skills / Squad</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89] text-right pr-1">Actions</span>
  </div>
 
  {itGroups.map(({ label, items: members }) => (
  <div key={label}>
  {/* Group header */}
- <div className="px-4 py-1.5 bg-[#F5F3F0]/60 /30 border-b border-slate-100 /40">
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+ <div className="px-4 py-1.5 bg-[#EEEEF1]/60 /30 border-b border-[#DEDFE3] /40">
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">
  {label} · {members.length}
  </span>
  </div>
@@ -632,23 +632,23 @@ export function Team() {
  return (
  <div
  key={member.id}
- className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 items-center px-4 py-2.5 hover:bg-[#F5F3F0] /40 transition-colors group"
+ className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 items-center px-4 py-2.5 hover:bg-[#EEEEF1] /40 transition-colors group"
  >
  {/* Checkbox */}
  <input
  type="checkbox"
  checked={selectedIds.has(member.id)}
  onChange={() => toggleSelect(member.id)}
- className="rounded border-slate-300 text-[#0ED3CF] focus:ring-[#0ED3CF] cursor-pointer"
+ className="rounded border-[#B5BDC4] text-[#0089DD] focus:ring-[#0089DD] cursor-pointer"
  />
  {/* Name + badges */}
  <div className="flex items-center gap-2.5 min-w-0">
- <div className="w-7 h-7 rounded-full bg-[#0ED3CF]/10 text-[#0ED3CF] text-[10px] font-bold flex items-center justify-center shrink-0 select-none">
+ <div className="w-7 h-7 rounded-full bg-[#0089DD]/10 text-[#0089DD] text-[10px] font-bold flex items-center justify-center shrink-0 select-none">
  {initials}
  </div>
  <div className="min-w-0">
  <div className="flex items-center gap-1.5 flex-wrap">
- <span className="text-sm font-medium text-slate-800 truncate">{member.name}</span>
+ <span className="text-sm font-medium text-[#003565] truncate">{member.name}</span>
  {member.needsEnrichment && (
  <button
  onClick={() => handleEdit(member)}
@@ -659,11 +659,11 @@ export function Team() {
  </button>
  )}
  {member.syncedFromJira && !member.needsEnrichment && (
- <span className="px-1 py-0.5 text-[10px] bg-slate-100 text-slate-500 rounded">Jira</span>
+ <span className="px-1 py-0.5 text-[10px] bg-[#EEEEF1] text-[#6C7A89] rounded">Jira</span>
  )}
  </div>
  {member.email && (
- <p className="text-[11px] text-slate-400 truncate">{member.email}</p>
+ <p className="text-[11px] text-[#6C7A89] truncate">{member.email}</p>
  )}
  {nextOff && (
  <p className="text-[10px] text-amber-500 flex items-center gap-0.5 mt-0.5">
@@ -675,24 +675,24 @@ export function Team() {
  </div>
 
  {/* Role */}
- <span className="text-sm text-slate-600 truncate">{member.role || <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+ <span className="text-sm text-[#6C7A89] truncate">{member.role || <span className="text-[#B5BDC4] dark:text-[#6C7A89]">—</span>}</span>
 
  {/* Country */}
- <span className="text-sm text-slate-600 flex items-center gap-1.5">
+ <span className="text-sm text-[#6C7A89] flex items-center gap-1.5">
  <span>{countryInfo.flag}</span>
- <span className="truncate">{countryInfo.name || <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
+ <span className="truncate">{countryInfo.name || <span className="text-[#B5BDC4] dark:text-[#6C7A89]">—</span>}</span>
  </span>
 
  {/* Skills / Squad */}
  <div className="flex items-center gap-1 flex-wrap">
  {squad && (
- <span className="px-1.5 py-0 text-[10px] font-medium bg-[#E8F4FB] text-[#0ED3CF] rounded shrink-0">{squad.name}</span>
+ <span className="px-1.5 py-0 text-[10px] font-medium bg-[#E8F4FB] text-[#0089DD] rounded shrink-0">{squad.name}</span>
  )}
  {memberSkills.slice(0, 2).map(skill => (
- <span key={skill} className="px-1.5 py-0 text-[10px] bg-slate-100 text-slate-500 rounded">{skill}</span>
+ <span key={skill} className="px-1.5 py-0 text-[10px] bg-[#EEEEF1] text-[#6C7A89] rounded">{skill}</span>
  ))}
  {memberSkills.length > 2 && (
- <span className="text-[10px] text-slate-400">+{memberSkills.length - 2}</span>
+ <span className="text-[10px] text-[#6C7A89]">+{memberSkills.length - 2}</span>
  )}
  </div>
 
@@ -700,35 +700,35 @@ export function Team() {
  <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
  <button
  onClick={() => setConvertMember(member)}
- className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-[#003565] hover:bg-[#EEEEF1] rounded transition-colors"
  title="Convert to Business Contact"
  >
  <ArrowRightLeft size={13} />
  </button>
  <button
  onClick={() => handleAddTimeOff(member.id)}
- className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-amber-500 hover:bg-[#EEEEF1] rounded transition-colors"
  title="Manage Time Off"
  >
  <CalendarOff size={13} />
  </button>
  <button
  onClick={() => setCalendarMember(member)}
- className="p-1.5 text-slate-400 hover:text-[#0ED3CF] hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-[#0089DD] hover:bg-[#EEEEF1] rounded transition-colors"
  title="View Availability Calendar"
  >
  <CalendarDays size={13} />
  </button>
  <button
  onClick={() => handleEdit(member)}
- className="p-1.5 text-slate-400 hover:text-[#0ED3CF] hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-[#0089DD] hover:bg-[#EEEEF1] rounded transition-colors"
  title="Edit"
  >
  <Edit2 size={13} />
  </button>
  <button
  onClick={() => handleDelete(member)}
- className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-red-500 hover:bg-[#EEEEF1] rounded transition-colors"
  title="Delete"
  >
  <Trash2 size={13} />
@@ -767,7 +767,7 @@ export function Team() {
  <>
  {bizGroups.map(({ label, items }) => (
  <div key={label}>
- <h2 className="text-sm font-medium text-slate-500 mb-3 uppercase tracking-wide">
+ <h2 className="text-sm font-medium text-[#6C7A89] mb-3 uppercase tracking-wide">
  {label} ({items.length})
  </h2>
  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -790,7 +790,7 @@ export function Team() {
  {/* Archived */}
  {filteredContacts.filter(c => c.archived).length > 0 && (
  <div>
- <h2 className="text-sm font-medium text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-wide">
+ <h2 className="text-sm font-medium text-[#6C7A89] dark:text-[#6C7A89] mb-3 uppercase tracking-wide">
  Archived ({filteredContacts.filter(c => c.archived).length})
  </h2>
  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 opacity-60">
@@ -812,62 +812,62 @@ export function Team() {
  /* ── Biz list view ── */
  <Card>
  <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
- <div className="grid grid-cols-[24px_1fr_180px_140px_200px_auto] gap-2 px-4 py-2 bg-[#F5F3F0] /50">
+ <div className="grid grid-cols-[24px_1fr_180px_140px_200px_auto] gap-2 px-4 py-2 bg-[#EEEEF1] /50">
  <span />
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Name</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Title / Dept</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Country</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Process Teams</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 text-right pr-1">Actions</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Name</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Title / Dept</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Country</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Process Teams</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89] text-right pr-1">Actions</span>
  </div>
  {bizGroups.map(({ label, items }) => (
  <div key={label}>
- <div className="px-4 py-1.5 bg-[#F5F3F0]/60 /30 border-b border-slate-100 /40">
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{label} · {items.length}</span>
+ <div className="px-4 py-1.5 bg-[#EEEEF1]/60 /30 border-b border-[#DEDFE3] /40">
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">{label} · {items.length}</span>
  </div>
  {items.map(contact => {
  const ci = getCountryInfo(contact.countryId);
  const initials = contact.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
  return (
- <div key={contact.id} className="grid grid-cols-[24px_1fr_180px_140px_200px_auto] gap-2 items-center px-4 py-2.5 hover:bg-[#F5F3F0] /40 transition-colors group">
+ <div key={contact.id} className="grid grid-cols-[24px_1fr_180px_140px_200px_auto] gap-2 items-center px-4 py-2.5 hover:bg-[#EEEEF1] /40 transition-colors group">
  <input
  type="checkbox"
  checked={selectedIds.has(contact.id)}
  onChange={() => toggleSelect(contact.id)}
- className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+ className="rounded border-[#CFCFD5] text-[#0089DD] focus:ring-[#0089DD] cursor-pointer"
  />
  <div className="flex items-center gap-2.5 min-w-0">
- <div className="w-7 h-7 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[10px] font-bold flex items-center justify-center shrink-0">
+                <div className="w-7 h-7 rounded-full bg-[#EEEEF1] text-[#6C7A89] text-[10px] font-bold flex items-center justify-center shrink-0">
  {initials}
  </div>
  <div className="min-w-0">
  <div className="flex items-center gap-1.5">
- <span className="text-sm font-medium text-slate-800 truncate">{contact.name}</span>
+ <span className="text-sm font-medium text-[#003565] truncate">{contact.name}</span>
  {contact.excludedFromCapacity && (
- <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-slate-200 text-slate-500 shrink-0">Excluded</span>
+ <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-[#DEDFE3] text-[#6C7A89] shrink-0">Excluded</span>
  )}
  </div>
- {contact.email && <span className="text-[11px] text-slate-400 truncate block">{contact.email}</span>}
+ {contact.email && <span className="text-[11px] text-[#6C7A89] truncate block">{contact.email}</span>}
  </div>
  </div>
- <span className="text-sm text-slate-500 truncate">{contact.title ?? contact.department ?? <span className="text-slate-300 dark:text-slate-600">—</span>}</span>
- <span className="text-sm text-slate-600 flex items-center gap-1">
+ <span className="text-sm text-[#6C7A89] truncate">{contact.title ?? contact.department ?? <span className="text-[#B5BDC4] dark:text-[#6C7A89]">—</span>}</span>
+ <span className="text-sm text-[#6C7A89] flex items-center gap-1">
  <span>{ci.flag}</span><span className="truncate">{ci.name}</span>
  </span>
  <div className="flex flex-wrap gap-1">
  {(contact.processTeamIds ?? []).map(ptId => {
  const pt = processTeams.find(p => p.id === ptId);
  return pt ? (
- <span key={ptId} className="px-1.5 py-0 text-[10px] font-medium bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 rounded">{pt.name}</span>
+                            <span key={ptId} className="px-1.5 py-0 text-[10px] font-medium bg-[#EEEEF1] text-[#6C7A89] rounded">{pt.name}</span>
  ) : null;
  })}
  </div>
  <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
- <button onClick={() => { setEditingContact(contact); setBizFormOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 rounded" title="Edit"><Edit2 size={13} /></button>
+                <button onClick={() => { setEditingContact(contact); setBizFormOpen(true); }} className="p-1.5 text-[#6C7A89] hover:text-[#003565] hover:bg-[#EEEEF1] rounded" title="Edit"><Edit2 size={13} /></button>
  <div className="relative">
  <button
  onClick={() => setOpenBizListMenu(openBizListMenu === contact.id ? null : contact.id)}
- className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-[#6C7A89] hover:bg-[#EEEEF1] rounded transition-colors"
  title="More actions"
  >
  <MoreHorizontal size={13} />
@@ -875,15 +875,15 @@ export function Team() {
  {openBizListMenu === contact.id && (
  <>
  <div className="fixed inset-0 z-10" onClick={() => setOpenBizListMenu(null)} />
- <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-slate-200 bg-white shadow-lg py-1">
+ <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-[#CFCFD5] bg-white shadow-lg py-1">
  <button
  onClick={() => { updateBusinessContact(contact.id, { archived: true }); setOpenBizListMenu(null); }}
- className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-[#F5F3F0] /60 transition-colors text-left"
+ className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#6C7A89] hover:bg-[#EEEEF1] /60 transition-colors text-left"
  >
- <Archive size={13} className="text-slate-400" />
+ <Archive size={13} className="text-[#6C7A89]" />
  Archive
  </button>
- <div className="my-1 border-t border-slate-100 " />
+ <div className="my-1 border-t border-[#DEDFE3] " />
  <button
  onClick={() => { setBizDeleteConfirm(contact); setOpenBizListMenu(null); }}
  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
@@ -941,7 +941,7 @@ export function Team() {
  <div className="space-y-6">
  {allGroups.map(({ label, members, contacts }) => (
  <div key={label}>
- <h2 className="text-sm font-medium text-slate-500 mb-3 uppercase tracking-wide">
+ <h2 className="text-sm font-medium text-[#6C7A89] mb-3 uppercase tracking-wide">
  {label} ({members.length + contacts.length})
  </h2>
  {viewMode === 'card' ? (
@@ -955,22 +955,22 @@ export function Team() {
  <div className="flex items-start justify-between">
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2">
- <span className="font-semibold text-slate-900 truncate text-sm">{member.name}</span>
- <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-[#E8F8F8] dark:bg-blue-900/30 text-[#0ED3CF] border border-blue-100 dark:border-blue-800 shrink-0">IT</span>
+ <span className="font-semibold text-[#003565] truncate text-sm">{member.name}</span>
+ <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-[#E6F2FC] dark:bg-blue-900/30 text-[#0089DD] border border-blue-100 dark:border-blue-800 shrink-0">IT</span>
  {member.excludedFromCapacity && (
- <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-slate-200 text-slate-500 shrink-0">Excluded</span>
+ <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-[#DEDFE3] text-[#6C7A89] shrink-0">Excluded</span>
  )}
  </div>
- <p className="text-xs text-slate-500 mt-0.5">{member.role || '—'}</p>
- <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">{countryInfo.flag} {countryInfo.name}</p>
+ <p className="text-xs text-[#6C7A89] mt-0.5">{member.role || '—'}</p>
+ <p className="text-xs text-[#6C7A89] flex items-center gap-1 mt-0.5">{countryInfo.flag} {countryInfo.name}</p>
  {memberSkills.length > 0 && (
  <div className="flex flex-wrap gap-1 mt-1.5">
- {memberSkills.slice(0, 3).map(s => <span key={s} className="px-1.5 py-0 text-[10px] bg-slate-100 text-slate-500 rounded">{s}</span>)}
- {memberSkills.length > 3 && <span className="text-[10px] text-slate-400">+{memberSkills.length - 3}</span>}
+ {memberSkills.slice(0, 3).map(s => <span key={s} className="px-1.5 py-0 text-[10px] bg-[#EEEEF1] text-[#6C7A89] rounded">{s}</span>)}
+ {memberSkills.length > 3 && <span className="text-[10px] text-[#6C7A89]">+{memberSkills.length - 3}</span>}
  </div>
  )}
  </div>
- <button onClick={() => handleEdit(member)} className="p-1.5 text-slate-400 hover:text-[#0ED3CF] hover:bg-slate-100 rounded"><Edit2 size={13} /></button>
+ <button onClick={() => handleEdit(member)} className="p-1.5 text-[#6C7A89] hover:text-[#0089DD] hover:bg-[#EEEEF1] rounded"><Edit2 size={13} /></button>
  </div>
  </CardContent>
  </Card>
@@ -989,36 +989,36 @@ export function Team() {
  ) : (
  <Card>
  <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
- <div className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-[#F5F3F0] /50">
- <span /><span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Name</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Role / Title</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Country</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Process Teams</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 text-right pr-1">Actions</span>
+ <div className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-[#EEEEF1] /50">
+ <span /><span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Name</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Role / Title</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Country</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89]">Process Teams</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89] text-right pr-1">Actions</span>
  </div>
  {members.map(m => {
  const ci = getCountryInfo(m.countryId);
  const initials = m.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
  return (
- <div key={m.id} className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 items-center px-4 py-2.5 hover:bg-[#F5F3F0] /40 transition-colors group">
- <input type="checkbox" checked={selectedIds.has(m.id)} onChange={() => toggleSelect(m.id)} className="rounded border-slate-300 text-[#0ED3CF] focus:ring-[#0ED3CF] cursor-pointer" />
+ <div key={m.id} className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 items-center px-4 py-2.5 hover:bg-[#EEEEF1] /40 transition-colors group">
+ <input type="checkbox" checked={selectedIds.has(m.id)} onChange={() => toggleSelect(m.id)} className="rounded border-[#B5BDC4] text-[#0089DD] focus:ring-[#0089DD] cursor-pointer" />
  <div className="flex items-center gap-2.5 min-w-0">
- <div className="w-7 h-7 rounded-full bg-[#E8F8F8] dark:bg-blue-900/30 text-[#0ED3CF] text-[10px] font-bold flex items-center justify-center shrink-0">{initials}</div>
+ <div className="w-7 h-7 rounded-full bg-[#E6F2FC] dark:bg-blue-900/30 text-[#0089DD] text-[10px] font-bold flex items-center justify-center shrink-0">{initials}</div>
  <div className="min-w-0">
- <span className="text-sm font-medium text-slate-800 truncate block">{m.name}</span>
- <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-[#E8F8F8] dark:bg-blue-900/30 text-[#0ED3CF] border border-blue-100">IT</span>
+ <span className="text-sm font-medium text-[#003565] truncate block">{m.name}</span>
+ <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-[#E6F2FC] dark:bg-blue-900/30 text-[#0089DD] border border-blue-100">IT</span>
  </div>
  </div>
- <span className="text-sm text-slate-600 truncate">{m.role || '—'}</span>
- <span className="text-sm text-slate-600 flex items-center gap-1"><span>{ci.flag}</span><span className="truncate">{ci.name}</span></span>
+ <span className="text-sm text-[#6C7A89] truncate">{m.role || '—'}</span>
+ <span className="text-sm text-[#6C7A89] flex items-center gap-1"><span>{ci.flag}</span><span className="truncate">{ci.name}</span></span>
  <div className="flex flex-wrap gap-1">
  {(m.processTeamIds ?? []).map(ptId => {
  const pt = processTeams.find(p => p.id === ptId);
- return pt ? <span key={ptId} className="px-1.5 py-0 text-[10px] bg-slate-100 text-slate-600 rounded">{pt.name}</span> : null;
+ return pt ? <span key={ptId} className="px-1.5 py-0 text-[10px] bg-[#EEEEF1] text-[#6C7A89] rounded">{pt.name}</span> : null;
  })}
  </div>
  <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
- <button onClick={() => handleEdit(m)} className="p-1.5 text-slate-400 hover:text-[#0ED3CF] rounded"><Edit2 size={13} /></button>
+ <button onClick={() => handleEdit(m)} className="p-1.5 text-[#6C7A89] hover:text-[#0089DD] rounded"><Edit2 size={13} /></button>
  </div>
  </div>
  );
@@ -1027,25 +1027,25 @@ export function Team() {
  const ci = getCountryInfo(c.countryId);
  const initials = c.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
  return (
- <div key={c.id} className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 items-center px-4 py-2.5 hover:bg-[#F5F3F0] /40 transition-colors group">
- <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer" />
+ <div key={c.id} className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 items-center px-4 py-2.5 hover:bg-[#EEEEF1] /40 transition-colors group">
+ <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="rounded border-[#CFCFD5] text-[#0089DD] focus:ring-[#0089DD] cursor-pointer" />
  <div className="flex items-center gap-2.5 min-w-0">
- <div className="w-7 h-7 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 text-[10px] font-bold flex items-center justify-center shrink-0">{initials}</div>
+                <div className="w-7 h-7 rounded-full bg-[#EEEEF1] text-[#6C7A89] text-[10px] font-bold flex items-center justify-center shrink-0">{initials}</div>
  <div className="min-w-0">
- <span className="text-sm font-medium text-slate-800 truncate block">{c.name}</span>
- <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-500 border border-purple-100">BIZ</span>
+ <span className="text-sm font-medium text-[#003565] truncate block">{c.name}</span>
+                  <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-[#EEEEF1] text-[#6C7A89] border border-[#CFCFD5]">BIZ</span>
  </div>
  </div>
- <span className="text-sm text-slate-500 truncate">{c.title ?? c.department ?? '—'}</span>
- <span className="text-sm text-slate-600 flex items-center gap-1"><span>{ci.flag}</span><span className="truncate">{ci.name}</span></span>
+ <span className="text-sm text-[#6C7A89] truncate">{c.title ?? c.department ?? '—'}</span>
+ <span className="text-sm text-[#6C7A89] flex items-center gap-1"><span>{ci.flag}</span><span className="truncate">{ci.name}</span></span>
  <div className="flex flex-wrap gap-1">
  {(c.processTeamIds ?? []).map(ptId => {
  const pt = processTeams.find(p => p.id === ptId);
- return pt ? <span key={ptId} className="px-1.5 py-0 text-[10px] bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 rounded">{pt.name}</span> : null;
+                return pt ? <span key={ptId} className="px-1.5 py-0 text-[10px] bg-[#EEEEF1] text-[#6C7A89] rounded">{pt.name}</span> : null;
  })}
  </div>
  <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
- <button onClick={() => { setEditingContact(c); setBizFormOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 rounded"><Edit2 size={13} /></button>
+                <button onClick={() => { setEditingContact(c); setBizFormOpen(true); }} className="p-1.5 text-[#6C7A89] hover:text-[#003565] rounded"><Edit2 size={13} /></button>
  </div>
  </div>
  );
@@ -1093,7 +1093,7 @@ export function Team() {
  </>
  }
  >
- <p className="text-slate-600 ">
+ <p className="text-[#6C7A89] ">
  Are you sure you want to remove <strong>{bizDeleteConfirm?.name}</strong>? This will also remove their capacity assignments.
  </p>
  </Modal>
@@ -1132,7 +1132,7 @@ export function Team() {
  </>
  }
  >
- <p className="text-slate-600 ">
+ <p className="text-[#6C7A89] ">
  Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>?
  This will also remove all their project assignments. You can undo for 10 seconds after deletion.
  </p>
@@ -1180,19 +1180,19 @@ export function Team() {
 
  {/* ── Bulk action bar ────────────────────────────────────────────────── */}
  {selectedIds.size > 0 && (
- <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-xl shadow-2xl">
- <CheckSquare size={16} className="text-blue-400 dark:text-[#0ED3CF]" />
+ <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-[#001E3C] dark:bg-[#EEEEF1] text-white dark:text-[#003565] rounded-xl shadow-2xl">
+ <CheckSquare size={16} className="text-blue-400 dark:text-[#0089DD]" />
  <span className="text-sm font-medium">{selectedIds.size} selected</span>
- <div className="w-px h-5 bg-slate-700 dark:bg-slate-300 mx-1" />
+ <div className="w-px h-5 bg-slate-700 dark:bg-[#CFCFD5] mx-1" />
  <button
  onClick={() => setMassUpdateOpen(true)}
- className="text-sm font-medium text-blue-400 dark:text-[#0ED3CF] hover:text-blue-300 dark:hover:text-blue-700 transition-colors"
+ className="text-sm font-medium text-blue-400 dark:text-[#0089DD] hover:text-blue-300 dark:hover:text-blue-700 transition-colors"
  >
  Bulk edit
  </button>
  <button
  onClick={clearSelection}
- className="p-1 text-slate-400 dark:text-slate-500 hover:text-white dark:hover:text-slate-900 rounded transition-colors"
+ className="p-1 text-[#6C7A89] dark:text-[#6C7A89] hover:text-white dark:hover:text-[#003565] rounded transition-colors"
  title="Clear selection"
  >
  <X size={14} />
@@ -1256,26 +1256,26 @@ function BizContactCard({
  const [menuOpen, setMenuOpen] = useState(false);
 
  return (
- <Card className={`hover:border-purple-300 dark:hover:border-purple-700 transition-colors ${isArchived ? 'opacity-70' : ''}`}>
+                <Card className={`hover:border-[#CFCFD5] transition-colors ${isArchived ? 'opacity-70' : ''}`}>
  <CardContent className="p-4">
  <div className="flex items-start justify-between mb-3">
  <div className="flex items-center gap-2.5 min-w-0">
- <div className="w-9 h-9 rounded-full bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 flex items-center justify-center text-sm font-bold text-purple-600 dark:text-purple-400 shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-[#EEEEF1] border border-[#CFCFD5] flex items-center justify-center text-sm font-bold text-[#6C7A89] shrink-0">
  {initials}
  </div>
  <div className="min-w-0">
  <div className="flex items-center gap-1.5">
- <span className="text-sm font-semibold text-slate-900 truncate">{contact.name}</span>
- <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-500 border border-purple-100 dark:border-purple-800 shrink-0">BIZ</span>
+ <span className="text-sm font-semibold text-[#003565] truncate">{contact.name}</span>
+                      <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-[#EEEEF1] text-[#6C7A89] border border-[#CFCFD5] shrink-0">BIZ</span>
  {contact.excludedFromCapacity && (
- <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-slate-200 text-slate-500 shrink-0">Excluded</span>
+ <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-[#DEDFE3] text-[#6C7A89] shrink-0">Excluded</span>
  )}
  </div>
  {(contact.title || contact.department) && (
- <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{contact.title ?? contact.department}</p>
+ <p className="text-xs text-[#6C7A89] dark:text-[#6C7A89] truncate">{contact.title ?? contact.department}</p>
  )}
  {contact.email && (
- <p className="text-xs text-slate-400 flex items-center gap-1 truncate mt-0.5">
+ <p className="text-xs text-[#6C7A89] flex items-center gap-1 truncate mt-0.5">
  <Mail size={10} className="shrink-0" />{contact.email}
  </p>
  )}
@@ -1284,7 +1284,7 @@ function BizContactCard({
  <div className="flex items-center gap-0.5 ml-1 shrink-0">
  <button
  onClick={onEdit}
- className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-[#003565] hover:bg-[#EEEEF1] rounded transition-colors"
  title="Edit"
  >
  <Edit2 size={13} />
@@ -1293,7 +1293,7 @@ function BizContactCard({
  <div className="relative">
  <button
  onClick={() => setMenuOpen(v => !v)}
- className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-[#6C7A89] hover:bg-[#EEEEF1] rounded transition-colors"
  title="More actions"
  >
  <MoreHorizontal size={13} />
@@ -1302,15 +1302,15 @@ function BizContactCard({
  <>
  {/* Backdrop to close on outside click */}
  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
- <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-slate-200 bg-white shadow-lg py-1">
+ <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-[#CFCFD5] bg-white shadow-lg py-1">
  <button
  onClick={() => { onArchive(); setMenuOpen(false); }}
- className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-[#F5F3F0] /60 transition-colors text-left"
+ className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#6C7A89] hover:bg-[#EEEEF1] /60 transition-colors text-left"
  >
- {isArchived ? <ArchiveRestore size={13} className="text-slate-400" /> : <Archive size={13} className="text-slate-400" />}
+ {isArchived ? <ArchiveRestore size={13} className="text-[#6C7A89]" /> : <Archive size={13} className="text-[#6C7A89]" />}
  {isArchived ? 'Unarchive' : 'Archive'}
  </button>
- <div className="my-1 border-t border-slate-100 " />
+ <div className="my-1 border-t border-[#DEDFE3] " />
  <button
  onClick={() => { onDelete(); setMenuOpen(false); }}
  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
@@ -1331,7 +1331,7 @@ function BizContactCard({
  {(contact.processTeamIds ?? []).map(ptId => {
  const pt = processTeams.find(p => p.id === ptId);
  return pt ? (
- <span key={ptId} className="px-1.5 py-0 text-[10px] font-medium bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800 rounded">
+                            <span key={ptId} className="px-1.5 py-0 text-[10px] font-medium bg-[#EEEEF1] text-[#6C7A89] border border-[#CFCFD5] rounded">
  {pt.name}
  </span>
  ) : null;
@@ -1340,15 +1340,15 @@ function BizContactCard({
  )}
 
  {/* Country + capacity row */}
- <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 ">
- <span className="text-xs text-slate-500 flex items-center gap-1">
+ <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#DEDFE3] ">
+ <span className="text-xs text-[#6C7A89] flex items-center gap-1">
  {country ? `${country.flag || '🏳️'} ${country.name}` : '—'}
  </span>
  <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold ${
  isOver ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
  : isWarn ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
- : pct > 0 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
- : 'bg-[#F5F3F0] /40 text-slate-400'
+ : pct > 0 ? 'bg-green-50 dark:bg-green-900/20 text-[#16A34A] dark:text-green-300'
+ : 'bg-[#EEEEF1] /40 text-[#6C7A89]'
  }`} title={`${currentQuarter} · ${cap.allocatedDays.toFixed(1)}d allocated of ${cap.availableDays.toFixed(1)}d available`}>
  {pct > 0 ? `${pct}% · ${currentQuarter}` : `Free · ${currentQuarter}`}
  </div>
@@ -1389,8 +1389,8 @@ function MassUpdateModal({
  const togglePt = (id: string) =>
  setProcessTeamIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
- const fieldClass = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF]";
- const labelClass = "block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1";
+ const fieldClass = "w-full rounded-lg border border-[#B5BDC4] bg-white px-3 py-2 text-sm text-[#003565] focus:outline-none focus:ring-2 focus:ring-[#0089DD]";
+ const labelClass = "block text-xs font-semibold uppercase tracking-wide text-[#6C7A89] mb-1";
 
  const handleSave = () => {
  const arrayMode: 'add' | 'replace' = ptMode;
@@ -1442,7 +1442,7 @@ function MassUpdateModal({
  }
  >
  <div className="space-y-4">
- <p className="text-xs text-slate-500 ">
+ <p className="text-xs text-[#6C7A89] ">
  Only fields you fill in will be updated. Leave blank to keep existing values.
  </p>
 
@@ -1460,13 +1460,13 @@ function MassUpdateModal({
  <div>
  <div className="flex items-center justify-between mb-1">
  <label className={labelClass + ' mb-0'}>Process teams</label>
- <div className="flex items-center gap-2 text-xs text-slate-500">
+ <div className="flex items-center gap-2 text-xs text-[#6C7A89]">
  <label className="flex items-center gap-1 cursor-pointer">
- <input type="radio" name="ptMode" value="add" checked={ptMode === 'add'} onChange={() => setPtMode('add')} className="text-[#0ED3CF]" />
+ <input type="radio" name="ptMode" value="add" checked={ptMode === 'add'} onChange={() => setPtMode('add')} className="text-[#0089DD]" />
  Add
  </label>
  <label className="flex items-center gap-1 cursor-pointer">
- <input type="radio" name="ptMode" value="replace" checked={ptMode === 'replace'} onChange={() => setPtMode('replace')} className="text-[#0ED3CF]" />
+ <input type="radio" name="ptMode" value="replace" checked={ptMode === 'replace'} onChange={() => setPtMode('replace')} className="text-[#0089DD]" />
  Replace
  </label>
  </div>
@@ -1478,7 +1478,7 @@ function MassUpdateModal({
  <button
  key={pt.id} type="button" onClick={() => togglePt(pt.id)}
  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
- active ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 text-slate-600 hover:border-[#0ED3CF]'
+ active ? 'bg-blue-600 border-blue-600 text-white' : 'border-[#B5BDC4] text-[#6C7A89] hover:border-[#0089DD]'
  }`}
  >{pt.name}</button>
  );
@@ -1567,8 +1567,8 @@ function ConvertToBizModal({
 
  const step1Valid = name.trim().length > 0 && countryId.length > 0;
 
- const fieldClass = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500";
- const labelClass = "block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1";
+ const fieldClass = "w-full rounded-lg border border-[#CFCFD5] bg-white px-3 py-2 text-sm text-[#003565] focus:outline-none focus:ring-2 focus:ring-[#0089DD]";
+ const labelClass = "block text-xs font-semibold uppercase tracking-wide text-[#6C7A89] mb-1";
 
  const handleConfirm = () => {
  onConfirm({
@@ -1608,7 +1608,7 @@ function ConvertToBizModal({
  <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
  <Button
  onClick={handleConfirm}
- className="bg-purple-600 hover:bg-purple-700 text-white"
+                className="bg-[#6C7A89] hover:bg-[#003565] text-white"
  >
  Convert {checkedKeys.size > 0 ? `& migrate ${checkedKeys.size} item${checkedKeys.size !== 1 ? 's' : ''}` : ''}
  </Button>
@@ -1618,7 +1618,7 @@ function ConvertToBizModal({
  >
  {step === 1 ? (
  <div className="space-y-4">
- <div className="flex items-center gap-2 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-lg text-xs text-purple-700 dark:text-purple-300">
+                <div className="flex items-center gap-2 p-3 bg-[#EEEEF1] border border-[#CFCFD5] rounded-lg text-xs text-[#003565]">
  <ArrowRightLeft size={13} className="shrink-0" />
  <span><strong>{member.name}</strong> will be removed from IT members and added as a business contact. IT-specific data (skills, squad, assignments) will be dropped.</span>
  </div>
@@ -1663,7 +1663,7 @@ function ConvertToBizModal({
  <button
  key={pt.id} type="button" onClick={() => toggleProcessTeam(pt.id)}
  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
- active ? 'bg-purple-600 border-purple-600 text-white' : 'border-slate-300 text-slate-600 hover:border-purple-400'
+                active ? 'bg-[#0089DD] border-[#0089DD] text-white' : 'border-[#CFCFD5] text-[#6C7A89] hover:border-[#0089DD]'
  }`}
  >{pt.name}</button>
  );
@@ -1675,43 +1675,43 @@ function ConvertToBizModal({
  ) : (
  <div className="space-y-3">
  {assignedItems.length === 0 ? (
- <div className="text-center py-6 text-slate-500 text-sm">
+ <div className="text-center py-6 text-[#6C7A89] text-sm">
  <Mail size={24} className="mx-auto mb-2 opacity-30" />
  No Jira items found assigned to {member.name}.<br />
- <span className="text-xs text-slate-400">The conversion will proceed without migrating any assignments.</span>
+ <span className="text-xs text-[#6C7A89]">The conversion will proceed without migrating any assignments.</span>
  </div>
  ) : (
  <>
- <p className="text-sm text-slate-600 ">
+ <p className="text-sm text-[#6C7A89] ">
  Select which Jira items to migrate to <strong>{name}</strong> as BIZ assignments (days = 0, fill in effort later via the Epics page).
  </p>
- <div className="flex items-center justify-between py-1.5 border-b border-slate-100 ">
- <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-500 uppercase tracking-wide">
+ <div className="flex items-center justify-between py-1.5 border-b border-[#DEDFE3] ">
+ <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[#6C7A89] uppercase tracking-wide">
  <input
  type="checkbox"
  checked={checkedKeys.size === assignedItems.length}
  onChange={toggleAll}
- className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
- />
+                className="rounded border-[#CFCFD5] text-[#0089DD] focus:ring-[#0089DD]"
+              />
  {checkedKeys.size === assignedItems.length ? 'Deselect all' : 'Select all'} ({assignedItems.length})
  </label>
- <span className="text-xs text-slate-400">{checkedKeys.size} selected</span>
+ <span className="text-xs text-[#6C7A89]">{checkedKeys.size} selected</span>
  </div>
  <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
  {assignedItems.map(item => (
- <label key={item.jiraKey} className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[#F5F3F0] /40 cursor-pointer group">
+ <label key={item.jiraKey} className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[#EEEEF1] /40 cursor-pointer group">
  <input
  type="checkbox"
  checked={checkedKeys.has(item.jiraKey)}
  onChange={() => toggleKey(item.jiraKey)}
- className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 shrink-0"
+                className="rounded border-[#CFCFD5] text-[#0089DD] focus:ring-[#0089DD] shrink-0"
  />
  <div className="min-w-0 flex-1">
  <div className="flex items-center gap-1.5">
- <span className="text-[10px] font-mono font-semibold text-slate-400 shrink-0">{item.jiraKey}</span>
- <span className="text-xs text-slate-500 uppercase tracking-wide shrink-0">{item.typeName}</span>
+ <span className="text-[10px] font-mono font-semibold text-[#6C7A89] shrink-0">{item.jiraKey}</span>
+ <span className="text-xs text-[#6C7A89] uppercase tracking-wide shrink-0">{item.typeName}</span>
  </div>
- <span className="text-sm text-slate-700 truncate block">{item.summary}</span>
+ <span className="text-sm text-[#003565] truncate block">{item.summary}</span>
  </div>
  </label>
  ))}
@@ -1770,8 +1770,8 @@ function BizContactFormModal({
  });
  };
 
- const fieldClass = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500";
- const labelClass = "block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1";
+ const fieldClass = "w-full rounded-lg border border-[#CFCFD5] bg-white px-3 py-2 text-sm text-[#003565] focus:outline-none focus:ring-2 focus:ring-[#0089DD]";
+ const labelClass = "block text-xs font-semibold uppercase tracking-wide text-[#6C7A89] mb-1";
 
  return (
  <Modal
@@ -1785,7 +1785,7 @@ function BizContactFormModal({
  <Button
  onClick={handleSave}
  disabled={!isValid}
- className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-40"
+                className="bg-[#0089DD] hover:bg-[#0077C2] text-white disabled:opacity-40"
  >
  {contact ? 'Save changes' : 'Add contact'}
  </Button>
@@ -1846,9 +1846,9 @@ function BizContactFormModal({
  type="button"
  onClick={() => toggleProcessTeam(pt.id)}
  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
- active
- ? 'bg-purple-600 border-purple-600 text-white'
- : 'border-slate-300 text-slate-600 hover:border-purple-400'
+                active
+                ? 'bg-[#0089DD] border-[#0089DD] text-white'
+                : 'border-[#CFCFD5] text-[#6C7A89] hover:border-[#0089DD]'
  }`}
  >
  {pt.name}
@@ -1861,14 +1861,14 @@ function BizContactFormModal({
 
  <label className="flex items-center justify-between gap-3 py-1 cursor-pointer select-none">
  <div>
- <span className="text-sm font-medium text-slate-700 ">Exclude from capacity calculation</span>
- <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Contact is still visible but not counted in capacity totals</p>
+ <span className="text-sm font-medium text-[#003565] ">Exclude from capacity calculation</span>
+ <p className="text-xs text-[#6C7A89] dark:text-[#6C7A89] mt-0.5">Contact is still visible but not counted in capacity totals</p>
  </div>
  <input
  type="checkbox"
  checked={excludedFromCapacity}
  onChange={e => setExcludedFromCapacity(e.target.checked)}
- className="w-4 h-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                className="w-4 h-4 rounded border-[#CFCFD5] text-[#0089DD] focus:ring-[#0089DD] cursor-pointer"
  />
  </label>
  </div>

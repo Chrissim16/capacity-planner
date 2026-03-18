@@ -4,7 +4,7 @@ interface LoadingScreenProps {
 
 export function LoadingScreen({ message = 'Loading your data…' }: LoadingScreenProps) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#FAF9F7]">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F5F8FC]">
       <img
         src="/mileway-logo.png"
         alt="Mileway"
@@ -12,10 +12,10 @@ export function LoadingScreen({ message = 'Loading your data…' }: LoadingScree
         draggable={false}
       />
 
-      <div className="w-6 h-6 border-[2px] border-[#E5E5E3] border-t-[#0ED3CF] rounded-full animate-spin mb-5" />
+      <div className="w-6 h-6 border-[2px] border-[#CFCFD5] border-t-[#0089DD] rounded-full animate-spin mb-5" />
 
-      <p className="text-[#6B7280] text-sm font-medium">{message}</p>
-      <p className="text-[#9CA3AF] text-xs mt-1">Connecting to database…</p>
+      <p className="text-[#6C7A89] text-sm font-medium">{message}</p>
+      <p className="text-[#B5BDC4] text-xs mt-1">Connecting to database…</p>
     </div>
   );
 }

@@ -24,7 +24,7 @@ export function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#FAF9F7]">
+    <div className="flex h-screen overflow-hidden bg-[#F5F8FC]">
       <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <NotificationBanners />

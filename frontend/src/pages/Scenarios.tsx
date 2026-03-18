@@ -87,51 +87,51 @@ function CreateModal({ duplicateFrom, onClose }: CreateModalProps) {
  className="bg-white rounded-xl shadow-xl w-full max-w-md p-6"
  onClick={(e) => e.stopPropagation()}
  >
- <h3 className="text-lg font-semibold text-slate-900 mb-1">
+ <h3 className="text-lg font-semibold text-[#003565] mb-1">
  {duplicateFrom ? 'Duplicate Scenario' : 'New Scenario'}
  </h3>
- <p className="text-sm text-slate-500 mb-4">
+ <p className="text-sm text-[#6C7A89] mb-4">
  {duplicateFrom
  ? 'Creates an independent copy. Changes to either scenario won\'t affect the other.'
  : 'A scenario is a safe copy of your current data. Edit freely without affecting your Jira baseline.'}
  </p>
 
  {/* What will be copied */}
- <div className="mb-4 p-3 bg-[#E8F8F8] border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
+ <div className="mb-4 p-3 bg-[#E6F2FC] border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
  <div className="flex items-center gap-1.5 font-medium text-blue-800 dark:text-blue-200 mb-2">
  <Info size={14} />
  <span>This scenario will include a snapshot of:</span>
  </div>
  <ul className="space-y-1 text-blue-700 dark:text-blue-300 text-xs">
    <li className="flex items-center gap-2">
- <Check size={12} className="text-[#0ED3CF] shrink-0" />
+ <Check size={12} className="text-[#0089DD] shrink-0" />
  <FolderKanban size={12} className="shrink-0" />
  <span><strong>{stats.epics}</strong> epic{stats.epics !== 1 ? 's' : ''} · <strong>{stats.bizAssignments}</strong> BIZ assignment{stats.bizAssignments !== 1 ? 's' : ''}</span>
  </li>
  <li className="flex items-center gap-2">
- <Check size={12} className="text-[#0ED3CF] shrink-0" />
+ <Check size={12} className="text-[#0089DD] shrink-0" />
  <Users size={12} className="shrink-0" />
  <span><strong>{stats.members}</strong> team member{stats.members !== 1 ? 's' : ''}</span>
  </li>
  <li className="flex items-center gap-2">
- <Check size={12} className="text-[#0ED3CF] shrink-0" />
+ <Check size={12} className="text-[#0089DD] shrink-0" />
  <CalendarOff size={12} className="shrink-0" />
  <span><strong>{stats.timeOff}</strong> time-off entr{stats.timeOff !== 1 ? 'ies' : 'y'}</span>
  </li>
  <li className="flex items-center gap-2">
- <Check size={12} className="text-[#0ED3CF] shrink-0" />
+ <Check size={12} className="text-[#0089DD] shrink-0" />
  <Link2 size={12} className="shrink-0" />
  <span><strong>{source ? source.jiraWorkItems.length : data.jiraWorkItems.length}</strong> Jira work items</span>
  </li>
  </ul>
- <p className="text-xs text-[#0ED3CF] mt-2 border-t border-blue-200 dark:border-blue-700 pt-2">
+ <p className="text-xs text-[#0089DD] mt-2 border-t border-blue-200 dark:border-blue-700 pt-2">
  Settings, Public Holidays and Sprints are shared across all scenarios.
  </p>
  </div>
 
  {/* Color */}
  <div className="mb-4">
- <label className="block text-sm font-medium text-slate-700 mb-2">Colour</label>
+ <label className="block text-sm font-medium text-[#003565] mb-2">Colour</label>
  <div className="flex items-center gap-2">
  {SCENARIO_COLORS.map(c => (
  <button
@@ -145,32 +145,32 @@ function CreateModal({ duplicateFrom, onClose }: CreateModalProps) {
  </div>
  </div>
 
- <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+ <label className="block text-sm font-medium text-[#003565] mb-1">Name</label>
  <input
  type="text"
  value={name}
  onChange={(e) => setName(e.target.value)}
  placeholder="e.g. Q1 2026 – Plan A"
- className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF] mb-3"
+ className="w-full px-3 py-2 border border-[#B5BDC4] rounded-lg bg-white text-[#003565] placeholder-[#B5BDC4] focus:outline-none focus:ring-2 focus:ring-[#0089DD] mb-3"
  autoFocus
  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
  />
 
- <label className="block text-sm font-medium text-slate-700 mb-1">
- Notes <span className="font-normal text-slate-400">(optional)</span>
+ <label className="block text-sm font-medium text-[#003565] mb-1">
+ Notes <span className="font-normal text-[#6C7A89]">(optional)</span>
  </label>
  <textarea
  value={description}
  onChange={(e) => setDescription(e.target.value)}
  placeholder="e.g. Exploring a reduced team size for Q1 planning"
  rows={2}
- className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF] resize-none mb-5"
+ className="w-full px-3 py-2 border border-[#B5BDC4] rounded-lg bg-white text-[#003565] placeholder-[#B5BDC4] focus:outline-none focus:ring-2 focus:ring-[#0089DD] resize-none mb-5"
  />
 
  <div className="flex justify-end gap-3">
  <button
  onClick={onClose}
- className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+ className="px-4 py-2 text-sm font-medium text-[#003565] hover:bg-[#EEEEF1] rounded-lg"
  >
  Cancel
  </button>
@@ -231,7 +231,7 @@ export function Scenarios() {
  return (
  <div className="flex flex-col h-full">
  {/* Tab bar — Board tab hidden when no active scenario */}
- <div className="flex border-b border-[#F0EFED] bg-white px-6">
+ <div className="flex border-b border-[#DEDFE3] bg-white px-6">
    {([
      ['scenarios', 'Scenarios'] as const,
      ...(activeScenarioId ? [['board', 'Board'] as const] : []),
@@ -241,8 +241,8 @@ export function Scenarios() {
        onClick={() => setActiveTab(tab)}
        className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
          activeTab === tab
-           ? 'border-[#0ED3CF] text-[#1A1A1A]'
-           : 'border-transparent text-[#9CA3AF] hover:text-[#6B7280]'
+           ? 'border-[#0089DD] text-[#003565]'
+           : 'border-transparent text-[#B5BDC4] hover:text-[#6C7A89]'
        }`}
      >
        {label}
@@ -253,7 +253,7 @@ export function Scenarios() {
  {/* Board view */}
  {activeTab === 'board' && activeScenarioId && (
    <div className="flex-1 overflow-hidden">
-     <Suspense fallback={<div className="flex items-center justify-center h-64 text-[#9CA3AF] text-sm">Loading board…</div>}>
+     <Suspense fallback={<div className="flex items-center justify-center h-64 text-[#B5BDC4] text-sm">Loading board…</div>}>
        <PlanningBoard />
      </Suspense>
    </div>
@@ -269,7 +269,7 @@ export function Scenarios() {
  actions={canManage ? (
    <div className="flex gap-2">
      <Button variant="secondary" onClick={() => setShowWizard(true)}>
-       <Sparkles size={16} className="mr-1 text-[#0ED3CF]" />
+       <Sparkles size={16} className="mr-1 text-[#0089DD]" />
        What if…
      </Button>
      <Button onClick={() => { setDuplicateSource(null); setShowCreate(true); }}>
@@ -281,21 +281,21 @@ export function Scenarios() {
  />
 
  {/* What is isolated info box */}
- <div className="flex items-start gap-3 p-3 rounded-lg bg-[#F5F3F0] border border-slate-200 text-sm text-slate-600 ">
- <Info size={16} className="text-[#0ED3CF] shrink-0 mt-0.5" />
+ <div className="flex items-start gap-3 p-3 rounded-lg bg-[#EEEEF1] border border-[#CFCFD5] text-sm text-[#6C7A89] ">
+ <Info size={16} className="text-[#0089DD] shrink-0 mt-0.5" />
  <span>
- Each scenario independently snapshots <strong className="text-slate-800 ">Jira Work Items, BIZ Assignments, Team Members and Time Off</strong>.
+ Each scenario independently snapshots <strong className="text-[#003565] ">Jira Work Items, BIZ Assignments, Team Members and Time Off</strong>.
  &nbsp;Settings, Public Holidays and Sprints are shared across all scenarios.
  </span>
  </div>
 
  {/* Baseline card */}
- <Card className={clsx('border-2 transition-colors', !activeScenarioId ? 'border-[#0ED3CF] dark:border-blue-600' : 'border-slate-200 ')}>
+ <Card className={clsx('border-2 transition-colors', !activeScenarioId ? 'border-[#0089DD] dark:border-blue-600' : 'border-[#CFCFD5] ')}>
  <CardHeader>
  <div className="flex items-start justify-between gap-3">
  <div className="flex items-center gap-3">
  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
- <Database size={20} className="text-[#0ED3CF]" />
+ <Database size={20} className="text-[#0089DD]" />
  </div>
  <div>
  <div className="flex items-center gap-2">
@@ -303,7 +303,7 @@ export function Scenarios() {
  <Badge variant="primary">Read-only source</Badge>
  {!activeScenarioId && <Badge variant="success">Active</Badge>}
  </div>
- <p className="text-xs text-slate-500 mt-0.5">
+ <p className="text-xs text-[#6C7A89] mt-0.5">
  Live data — changes here may be overwritten on next Jira sync.
  {baselineStats.lastSync && ` Last synced ${new Date(baselineStats.lastSync).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}.`}
  </p>
@@ -326,18 +326,18 @@ export function Scenarios() {
  </div>
  </CardHeader>
  <CardContent>
- <div className="flex items-center gap-6 text-sm text-slate-600 ">
+ <div className="flex items-center gap-6 text-sm text-[#6C7A89] ">
  <span className="flex items-center gap-1.5">
- <FolderKanban size={14} className="text-slate-400" />
-   <strong className="text-slate-800 ">{baselineStats.epics}</strong> epics
+ <FolderKanban size={14} className="text-[#6C7A89]" />
+   <strong className="text-[#003565] ">{baselineStats.epics}</strong> epics
  </span>
  <span className="flex items-center gap-1.5">
- <Users size={14} className="text-slate-400" />
- <strong className="text-slate-800 ">{baselineStats.members}</strong> members
+ <Users size={14} className="text-[#6C7A89]" />
+ <strong className="text-[#003565] ">{baselineStats.members}</strong> members
  </span>
  <span className="flex items-center gap-1.5">
- <CalendarOff size={14} className="text-slate-400" />
- <strong className="text-slate-800 ">{baselineStats.timeOff}</strong> time-off entries
+ <CalendarOff size={14} className="text-[#6C7A89]" />
+ <strong className="text-[#003565] ">{baselineStats.timeOff}</strong> time-off entries
  </span>
  </div>
  {!activeScenarioId && canManage && (
@@ -377,13 +377,13 @@ export function Scenarios() {
  return (
  <Card
  key={scenario.id}
- className={clsx('border-2 transition-colors', isActive ? 'border-[#0ED3CF] dark:border-blue-600' : 'border-slate-200 ')}
+ className={clsx('border-2 transition-colors', isActive ? 'border-[#0089DD] dark:border-blue-600' : 'border-[#CFCFD5] ')}
  >
  <CardHeader>
  <div className="flex items-start justify-between gap-3">
  <div className="flex items-center gap-3">
  <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center', colorSet.bg)}>
- <GitBranch size={20} className="text-[#0ED3CF]" />
+ <GitBranch size={20} className="text-[#0089DD]" />
  </div>
  <div className="min-w-0">
  <div className="flex items-center gap-2 flex-wrap">
@@ -393,18 +393,18 @@ export function Scenarios() {
  onChange={e => setRenameValue(e.target.value)}
  onBlur={cancelRename}
  onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') cancelRename(); }}
- className="text-base font-semibold bg-white border border-[#0ED3CF] rounded px-1.5 py-0.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0ED3CF]"
+ className="text-base font-semibold bg-white border border-[#0089DD] rounded px-1.5 py-0.5 text-[#003565] focus:outline-none focus:ring-1 focus:ring-[#0089DD]"
  autoFocus
  />
  ) : (
- <h3 className="font-semibold text-slate-900 ">{scenario.name}</h3>
+ <h3 className="font-semibold text-[#003565] ">{scenario.name}</h3>
  )}
  {isActive && <Badge variant="success">Active</Badge>}
  </div>
  {scenario.description && (
- <p className="text-xs text-slate-500 mt-0.5 truncate">{scenario.description}</p>
+ <p className="text-xs text-[#6C7A89] mt-0.5 truncate">{scenario.description}</p>
  )}
- <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+ <p className="text-xs text-[#6C7A89] dark:text-[#6C7A89] mt-0.5">
  {scenario.updatedAt !== scenario.createdAt
  ? `Updated ${new Date(scenario.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
  : `Created ${new Date(scenario.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
@@ -461,22 +461,22 @@ export function Scenarios() {
  </div>
  </CardHeader>
  <CardContent>
- <div className="flex items-center gap-6 text-sm text-slate-600 ">
+ <div className="flex items-center gap-6 text-sm text-[#6C7A89] ">
    <span className="flex items-center gap-1.5">
- <FolderKanban size={14} className="text-slate-400" />
- <strong className="text-slate-800 ">{stats.epics}</strong> epics
+ <FolderKanban size={14} className="text-[#6C7A89]" />
+ <strong className="text-[#003565] ">{stats.epics}</strong> epics
  </span>
  <span className="flex items-center gap-1.5">
- <Users size={14} className="text-slate-400" />
- <strong className="text-slate-800 ">{stats.members}</strong> members
+ <Users size={14} className="text-[#6C7A89]" />
+ <strong className="text-[#003565] ">{stats.members}</strong> members
  </span>
  <span className="flex items-center gap-1.5">
- <CalendarOff size={14} className="text-slate-400" />
- <strong className="text-slate-800 ">{stats.timeOff}</strong> time-off entries
+ <CalendarOff size={14} className="text-[#6C7A89]" />
+ <strong className="text-[#003565] ">{stats.timeOff}</strong> time-off entries
  </span>
  <span className="flex items-center gap-1.5">
- <Link2 size={14} className="text-slate-400" />
- <strong className="text-slate-800 ">{stats.bizAssignments}</strong> BIZ assignments
+ <Link2 size={14} className="text-[#6C7A89]" />
+ <strong className="text-[#003565] ">{stats.bizAssignments}</strong> BIZ assignments
  </span>
  </div>
  </CardContent>

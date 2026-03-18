@@ -101,7 +101,7 @@ function StepDots({ current, total }: { current: number; total: number }) {
           key={i}
           className={clsx(
             'rounded-full transition-all duration-200',
-            i + 1 === current ? 'w-6 h-2 bg-[#0ED3CF]' : i + 1 < current ? 'w-2 h-2 bg-[#0ED3CF]/40' : 'w-2 h-2 bg-[#E5E5E3]'
+            i + 1 === current ? 'w-6 h-2 bg-[#0089DD]' : i + 1 < current ? 'w-2 h-2 bg-[#0089DD]/40' : 'w-2 h-2 bg-[#CFCFD5]'
           )}
         />
       ))}
@@ -163,7 +163,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
   const step1 = (
     <div className="space-y-6">
       <div>
-        <label className="block text-xs font-semibold uppercase tracking-widest text-[#9CA3AF] mb-2">
+        <label className="block text-xs font-semibold uppercase tracking-widest text-[#B5BDC4] mb-2">
           Project name *
         </label>
         <input
@@ -172,12 +172,12 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
           value={wiz.name}
           onChange={e => dispatch({ type: 'SET_NAME', payload: e.target.value })}
           placeholder="e.g. ERP Migration Phase 2"
-          className="w-full text-lg border-0 border-b-2 border-[#E5E5E3] focus:border-[#0ED3CF] outline-none py-2 bg-transparent text-[#1A1A1A] placeholder-[#D1D5DB] transition-colors"
+          className="w-full text-lg border-0 border-b-2 border-[#CFCFD5] focus:border-[#0089DD] outline-none py-2 bg-transparent text-[#003565] placeholder-[#D1D5DB] transition-colors"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-semibold uppercase tracking-widest text-[#9CA3AF] mb-2">Priority</label>
+        <label className="block text-xs font-semibold uppercase tracking-widest text-[#B5BDC4] mb-2">Priority</label>
         <div className="flex gap-2 flex-wrap">
           {(['critical', 'high', 'medium', 'low'] as ProjectPriority[]).map(p => (
             <button
@@ -186,8 +186,8 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
               className={clsx(
                 'px-3 py-1.5 rounded-lg text-sm font-medium border transition-all capitalize',
                 wiz.priority === p
-                  ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
-                  : 'bg-white text-[#6B7280] border-[#E5E5E3] hover:border-[#1A1A1A]'
+                  ? 'bg-[#003565] text-white border-[#003565]'
+                  : 'bg-white text-[#6C7A89] border-[#CFCFD5] hover:border-[#003565]'
               )}
             >
               {p}
@@ -199,7 +199,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
       {/* Base on toggle — only shown when a scenario is active (D4) */}
       {activeScenarioId && (
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[#9CA3AF] mb-2">Base on</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[#B5BDC4] mb-2">Base on</label>
           <div className="flex gap-2">
             {(['baseline', 'active'] as const).map(opt => (
               <button
@@ -208,8 +208,8 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
                 className={clsx(
                   'px-3 py-1.5 rounded-lg text-sm border transition-all',
                   wiz.baseOn === opt
-                    ? 'bg-[#0ED3CF]/10 text-[#0ED3CF] border-[#0ED3CF]'
-                    : 'bg-white text-[#6B7280] border-[#E5E5E3] hover:border-[#9CA3AF]'
+                    ? 'bg-[#0089DD]/10 text-[#0089DD] border-[#0089DD]'
+                    : 'bg-white text-[#6C7A89] border-[#CFCFD5] hover:border-[#B5BDC4]'
                 )}
               >
                 {opt === 'baseline' ? 'Baseline' : `Current: ${activeScenarioName}`}
@@ -225,7 +225,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
   const step2 = (
     <div className="space-y-6">
       <div>
-        <label className="block text-xs font-semibold uppercase tracking-widest text-[#9CA3AF] mb-2">
+        <label className="block text-xs font-semibold uppercase tracking-widest text-[#B5BDC4] mb-2">
           Quarters involved
         </label>
         <div className="flex flex-wrap gap-2">
@@ -247,8 +247,8 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
                 className={clsx(
                   'px-3 py-1.5 rounded-lg text-sm border transition-all',
                   selected
-                    ? 'bg-[#0ED3CF]/10 text-[#0ED3CF] border-[#0ED3CF]'
-                    : 'bg-white text-[#6B7280] border-[#E5E5E3] hover:border-[#9CA3AF]'
+                    ? 'bg-[#0089DD]/10 text-[#0089DD] border-[#0089DD]'
+                    : 'bg-white text-[#6C7A89] border-[#CFCFD5] hover:border-[#B5BDC4]'
                 )}
               >
                 {q}
@@ -260,13 +260,13 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
 
       {wiz.quarters.length > 0 && (
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest text-[#9CA3AF] mb-2">
+          <label className="block text-xs font-semibold uppercase tracking-widest text-[#B5BDC4] mb-2">
             Days required per quarter
           </label>
           <div className="space-y-3">
             {wiz.quarters.map(q => (
               <div key={q} className="flex items-center gap-3">
-                <span className="text-sm text-[#6B7280] w-20 shrink-0">{q}</span>
+                <span className="text-sm text-[#6C7A89] w-20 shrink-0">{q}</span>
                 <input
                   type="number"
                   min={1}
@@ -276,9 +276,9 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
                     type: 'SET_DAYS_PER_QUARTER',
                     payload: { ...wiz.daysPerQuarter, [q]: parseInt(e.target.value, 10) || 0 }
                   })}
-                  className="w-20 h-9 text-center text-sm rounded-lg border border-[#E5E5E3] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0ED3CF]"
+                  className="w-20 h-9 text-center text-sm rounded-lg border border-[#CFCFD5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD]"
                 />
-                <span className="text-sm text-[#9CA3AF]">days</span>
+                <span className="text-sm text-[#B5BDC4]">days</span>
               </div>
             ))}
           </div>
@@ -286,7 +286,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
       )}
 
       <div>
-        <label className="block text-xs font-semibold uppercase tracking-widest text-[#9CA3AF] mb-2">
+        <label className="block text-xs font-semibold uppercase tracking-widest text-[#B5BDC4] mb-2">
           Skills needed (optional)
         </label>
         <div className="flex flex-wrap gap-2">
@@ -302,8 +302,8 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
                 className={clsx(
                   'px-2.5 py-1 rounded-lg text-xs border transition-all',
                   selected
-                    ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
-                    : 'bg-white text-[#6B7280] border-[#E5E5E3] hover:border-[#9CA3AF]'
+                    ? 'bg-[#003565] text-white border-[#003565]'
+                    : 'bg-white text-[#6C7A89] border-[#CFCFD5] hover:border-[#B5BDC4]'
                 )}
               >
                 {skill.name}
@@ -312,7 +312,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
           })}
         </div>
         {availableSkills.length === 0 && (
-          <p className="text-sm text-[#9CA3AF]">No skills configured. You can add them in Settings.</p>
+          <p className="text-sm text-[#B5BDC4]">No skills configured. You can add them in Settings.</p>
         )}
       </div>
     </div>
@@ -321,7 +321,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
   // ── Step 3 ────────────────────────────────────────────────────────────────
   const step3 = (
     <div>
-      <p className="text-sm text-[#6B7280] mb-4">
+      <p className="text-sm text-[#6C7A89] mb-4">
         Select people to tentatively assign to <strong>{wiz.name}</strong> for {primaryQuarter}.
         Scores update live as you make selections.
       </p>
@@ -360,27 +360,27 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
 
   const step4 = (
     <div className="space-y-4">
-      <p className="text-sm text-[#6B7280]">
+      <p className="text-sm text-[#6C7A89]">
         Capacity impact of adding <strong>{wiz.name}</strong> for selected team members.
       </p>
       {impactRows.length === 0 ? (
-        <p className="text-sm text-[#9CA3AF] italic">No tentative assignments to show impact for.</p>
+        <p className="text-sm text-[#B5BDC4] italic">No tentative assignments to show impact for.</p>
       ) : (
         <div className="space-y-4">
           {impactRows.map((row, i) => (
             <div key={i}>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-sm font-medium text-[#1A1A1A]">{row.name}</span>
-                <span className="text-xs text-[#9CA3AF]">{row.quarter}</span>
+                <span className="text-sm font-medium text-[#003565]">{row.name}</span>
+                <span className="text-xs text-[#B5BDC4]">{row.quarter}</span>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#9CA3AF] w-10 text-right shrink-0">Before</span>
+                  <span className="text-xs text-[#B5BDC4] w-10 text-right shrink-0">Before</span>
                   <ProgressBar value={row.beforePct} max={100} size="sm" className="flex-1" />
-                  <span className="text-xs text-[#9CA3AF] w-8">{row.beforePct}%</span>
+                  <span className="text-xs text-[#B5BDC4] w-8">{row.beforePct}%</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#9CA3AF] w-10 text-right shrink-0">After</span>
+                  <span className="text-xs text-[#B5BDC4] w-10 text-right shrink-0">After</span>
                   <ProgressBar
                     value={row.afterPct}
                     max={100}
@@ -389,7 +389,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
                     status={row.afterPct > 100 ? 'danger' : row.afterPct > 90 ? 'warning' : 'normal'}
                   />
                   <span className="text-xs font-medium w-8"
-                    style={{ color: row.afterPct > 100 ? '#EF4444' : row.afterPct > 90 ? '#F97316' : '#22C55E' }}>
+                    style={{ color: row.afterPct > 100 ? '#DC2626' : row.afterPct > 90 ? '#F97316' : '#16A34A' }}>
                     {row.afterPct}%
                   </span>
                 </div>
@@ -431,13 +431,13 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
 
   const step5 = (
     <div className="space-y-5">
-      <div className="bg-[#FAF9F7] rounded-xl p-4 space-y-3 border border-[#F0EFED]">
+      <div className="bg-[#F5F8FC] rounded-xl p-4 space-y-3 border border-[#DEDFE3]">
         <div className="flex items-center gap-2">
-          <Sparkles size={16} className="text-[#0ED3CF]" />
-          <h3 className="text-base font-semibold text-[#1A1A1A]">{wiz.name}</h3>
-          <span className="text-xs font-medium bg-[#E5E5E3] text-[#6B7280] px-2 py-0.5 rounded-full capitalize">{wiz.priority}</span>
+          <Sparkles size={16} className="text-[#0089DD]" />
+          <h3 className="text-base font-semibold text-[#003565]">{wiz.name}</h3>
+          <span className="text-xs font-medium bg-[#CFCFD5] text-[#6C7A89] px-2 py-0.5 rounded-full capitalize">{wiz.priority}</span>
         </div>
-        <div className="text-sm text-[#6B7280] space-y-1">
+        <div className="text-sm text-[#6C7A89] space-y-1">
           <p>Quarters: {wiz.quarters.join(', ') || '—'}</p>
           <p>Base on: {wiz.baseOn === 'active' ? `"${activeScenarioName}"` : 'Baseline'}</p>
           {wiz.skillIds.length > 0 && (
@@ -448,15 +448,15 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
 
       {wiz.tentativeAssignments.length > 0 && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#9CA3AF] mb-2">Assignments</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#B5BDC4] mb-2">Assignments</p>
           <div className="space-y-1.5">
             {wiz.tentativeAssignments.map(ta => {
               const member = currentState.teamMembers.find(m => m.id === ta.memberId)
                 ?? currentState.businessContacts.find(c => c.id === ta.memberId);
               return (
                 <div key={ta.memberId} className="flex justify-between items-center text-sm">
-                  <span className="text-[#1A1A1A]">{member?.name ?? ta.memberId}</span>
-                  <span className="text-[#9CA3AF]">{ta.days}d · {primaryQuarter}</span>
+                  <span className="text-[#003565]">{member?.name ?? ta.memberId}</span>
+                  <span className="text-[#B5BDC4]">{ta.days}d · {primaryQuarter}</span>
                 </div>
               );
             })}

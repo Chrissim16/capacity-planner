@@ -12,7 +12,7 @@ const LEVELS: { id: ConfidenceLevel; label: string; description: string; color: 
  id: 'high',
  label: 'High',
  description: 'Well-understood work with few unknowns',
- color: 'text-green-700 dark:text-green-300',
+ color: 'text-[#16A34A] dark:text-green-300',
  bg: 'bg-green-50 dark:bg-green-900/20',
  border: 'border-green-200 dark:border-green-700/50',
  },
@@ -21,7 +21,7 @@ const LEVELS: { id: ConfidenceLevel; label: string; description: string; color: 
  label: 'Medium',
  description: 'Some uncertainty; scope mostly defined',
  color: 'text-blue-700 dark:text-blue-300',
- bg: 'bg-[#E8F8F8] dark:bg-blue-900/20',
+ bg: 'bg-[#E6F2FC] dark:bg-blue-900/20',
  border: 'border-blue-200 dark:border-blue-700/50',
  },
  {
@@ -69,7 +69,7 @@ export function ConfidenceSection() {
  <CardTitle>Confidence Levels</CardTitle>
  </CardHeader>
  <CardContent className="space-y-4">
- <p className="text-sm text-slate-500 ">
+ <p className="text-sm text-[#6C7A89] ">
  Each confidence level adds a buffer on top of the raw estimated days.
  Forecasted days = estimated days × (1 + buffer%).
  </p>
@@ -91,14 +91,14 @@ export function ConfidenceSection() {
  </span>
  )}
  </span>
- <p className="text-xs text-slate-500 mt-0.5 leading-tight">
+ <p className="text-xs text-[#6C7A89] mt-0.5 leading-tight">
  {level.description}
  </p>
  </div>
 
  {/* Buffer input */}
  <div className="flex items-center gap-2 ml-auto">
- <label className="text-xs text-slate-500 whitespace-nowrap">
+ <label className="text-xs text-[#6C7A89] whitespace-nowrap">
  Buffer
  </label>
  <div className="relative w-24">
@@ -108,9 +108,9 @@ export function ConfidenceSection() {
  max={100}
  value={values[level.id]}
  onChange={e => setters[level.id](Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
- className="w-full pr-7 pl-3 py-1.5 text-sm font-semibold rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0089DD] text-right"
+ className="w-full pr-7 pl-3 py-1.5 text-sm font-semibold rounded-lg border border-[#B5BDC4] bg-white text-[#003565] focus:outline-none focus:ring-2 focus:ring-[#0089DD] text-right"
  />
- <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 pointer-events-none">%</span>
+ <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-[#6C7A89] pointer-events-none">%</span>
  </div>
 
  {/* Set as default button */}
@@ -118,8 +118,8 @@ export function ConfidenceSection() {
  onClick={() => setDefaultLevel(level.id)}
  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors whitespace-nowrap ${
  defaultLevel === level.id
- ? 'bg-[#0ED3CF] text-white border-[#0089DD]'
- : 'bg-white text-slate-500 border-slate-300 hover:border-[#0089DD] hover:text-[#0ED3CF]'
+ ? 'bg-[#0089DD] text-white border-[#0089DD]'
+ : 'bg-white text-[#6C7A89] border-[#B5BDC4] hover:border-[#0089DD] hover:text-[#0089DD]'
  }`}
  >
  {defaultLevel === level.id ? 'Default ✓' : 'Set default'}
@@ -137,8 +137,8 @@ export function ConfidenceSection() {
  )}
 
  {/* Example calculation */}
- <div className="rounded-lg bg-[#F5F3F0] /50 border border-slate-200 p-3 text-xs text-slate-500 space-y-1">
- <p className="font-semibold text-slate-600 ">Example</p>
+ <div className="rounded-lg bg-[#EEEEF1] /50 border border-[#CFCFD5] p-3 text-xs text-[#6C7A89] space-y-1">
+ <p className="font-semibold text-[#6C7A89] ">Example</p>
  <p>10 estimated days with <strong>High</strong> confidence → {(10 * (1 + high / 100)).toFixed(1)}d forecasted ({high}% buffer)</p>
  <p>10 estimated days with <strong>Medium</strong> confidence → {(10 * (1 + medium / 100)).toFixed(1)}d forecasted ({medium}% buffer)</p>
  <p>10 estimated days with <strong>Low</strong> confidence → {(10 * (1 + low / 100)).toFixed(1)}d forecasted ({low}% buffer)</p>

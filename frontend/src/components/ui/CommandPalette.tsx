@@ -125,9 +125,9 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
 
   const typeIcon = (type: SearchResult['type']) => {
     switch (type) {
-      case 'epic': return <FolderKanban size={14} className="text-[#0ED3CF] shrink-0" />;
-      case 'member':  return <Users size={14} className="text-[#9CA3AF] shrink-0" />;
-      case 'jira':    return <ExternalLink size={14} className="text-[#9CA3AF] shrink-0" />;
+      case 'epic': return <FolderKanban size={14} className="text-[#0089DD] shrink-0" />;
+      case 'member':  return <Users size={14} className="text-[#B5BDC4] shrink-0" />;
+      case 'jira':    return <ExternalLink size={14} className="text-[#B5BDC4] shrink-0" />;
     }
   };
 
@@ -169,21 +169,21 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
 
       {/* Palette */}
       <div
-        className="relative w-full max-w-xl bg-white rounded-card shadow-lg border border-[#E5E5E3] overflow-hidden animate-fade-in"
+        className="relative w-full max-w-xl bg-white rounded-card shadow-lg border border-[#CFCFD5] overflow-hidden animate-fade-in"
         onClick={e => e.stopPropagation()}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#F0EFED]">
-          <Search size={18} className="text-[#9CA3AF] shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#DEDFE3]">
+          <Search size={18} className="text-[#B5BDC4] shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search epics, team members, Jira items…"
-            className="flex-1 bg-transparent text-[#1A1A1A] placeholder-[#9CA3AF] text-sm focus:outline-none"
+            className="flex-1 bg-transparent text-[#003565] placeholder-[#B5BDC4] text-sm focus:outline-none"
           />
-          <kbd className="hidden sm:inline text-xs text-[#9CA3AF] bg-[#F5F3F0] px-1.5 py-0.5 rounded-md border border-[#E5E5E3]">
+          <kbd className="hidden sm:inline text-xs text-[#B5BDC4] bg-[#EEEEF1] px-1.5 py-0.5 rounded-md border border-[#CFCFD5]">
             Esc
           </kbd>
         </div>
@@ -191,21 +191,21 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
         {/* Results */}
         <div className="max-h-96 overflow-y-auto">
           {query.trim() === '' && (
-            <div className="py-8 text-center text-sm text-[#9CA3AF]">
+            <div className="py-8 text-center text-sm text-[#B5BDC4]">
               Type to search across epics, members, and Jira items
             </div>
           )}
 
           {query.trim() !== '' && results.length === 0 && (
-            <div className="py-8 text-center text-sm text-[#9CA3AF]">
-              No results for <strong className="text-[#6B7280]">"{query}"</strong>
+            <div className="py-8 text-center text-sm text-[#B5BDC4]">
+              No results for <strong className="text-[#6C7A89]">"{query}"</strong>
             </div>
           )}
 
           {grouped.map(group => (
             <div key={group.type}>
               <div className="px-4 pt-3 pb-1">
-                <span className="text-[10px] font-medium uppercase tracking-widest text-[#9CA3AF]">
+                <span className="text-[10px] font-medium uppercase tracking-widest text-[#B5BDC4]">
                   {group.label}s
                 </span>
               </div>
@@ -218,22 +218,22 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
                     onClick={() => select(result)}
                     onMouseEnter={() => setActiveIndex(idx)}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors duration-100 ${
-                      isActive ? 'bg-[#E8F8F8]' : 'hover:bg-[#FAF9F7]'
+                      isActive ? 'bg-[#E6F2FC]' : 'hover:bg-[#F5F8FC]'
                     }`}
                   >
                     {typeIcon(result.type)}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#1A1A1A] truncate">
+                      <p className="text-sm font-medium text-[#003565] truncate">
                         {result.label}
                       </p>
                       {result.sublabel && (
-                        <p className="text-xs text-[#9CA3AF] truncate">
+                        <p className="text-xs text-[#B5BDC4] truncate">
                           {result.sublabel}
                         </p>
                       )}
                     </div>
                     {isActive && (
-                      <ArrowRight size={14} className="text-[#0ED3CF] shrink-0" />
+                      <ArrowRight size={14} className="text-[#0089DD] shrink-0" />
                     )}
                   </button>
                 );
@@ -244,10 +244,10 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
 
         {/* Footer hint */}
         {results.length > 0 && (
-          <div className="px-4 py-2 border-t border-[#F0EFED] flex items-center gap-3 text-xs text-[#9CA3AF]">
-            <span><kbd className="bg-[#F5F3F0] px-1 rounded border border-[#E5E5E3]">↑↓</kbd> navigate</span>
-            <span><kbd className="bg-[#F5F3F0] px-1 rounded border border-[#E5E5E3]">↵</kbd> select</span>
-            <span><kbd className="bg-[#F5F3F0] px-1 rounded border border-[#E5E5E3]">Esc</kbd> close</span>
+          <div className="px-4 py-2 border-t border-[#DEDFE3] flex items-center gap-3 text-xs text-[#B5BDC4]">
+            <span><kbd className="bg-[#EEEEF1] px-1 rounded border border-[#CFCFD5]">↑↓</kbd> navigate</span>
+            <span><kbd className="bg-[#EEEEF1] px-1 rounded border border-[#CFCFD5]">↵</kbd> select</span>
+            <span><kbd className="bg-[#EEEEF1] px-1 rounded border border-[#CFCFD5]">Esc</kbd> close</span>
           </div>
         )}
       </div>

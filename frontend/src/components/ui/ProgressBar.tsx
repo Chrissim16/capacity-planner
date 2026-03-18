@@ -18,10 +18,10 @@ export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
     const computedStatus = status || (percentage > 100 ? 'danger' : percentage > 90 ? 'warning' : 'normal');
 
     const statusColors: Record<string, string> = {
-      normal:      'bg-[#22C55E]',
+      normal:      'bg-[#16A34A]',
       warning:     'bg-[#F97316]',
-      danger:      'bg-[#EF4444]',
-      overallocated:'bg-[#EF4444]',
+      danger:      'bg-[#DC2626]',
+      overallocated:'bg-[#DC2626]',
     };
 
     const sizes = {
@@ -34,20 +34,20 @@ export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
       <div ref={ref} className={clsx('w-full', className)} {...props}>
         {showLabel && (
           <div className="flex justify-between text-xs mb-1.5">
-            <span className="text-[#6B7280]">{actualValue}d / {max}d</span>
+            <span className="text-[#6C7A89]">{actualValue}d / {max}d</span>
             <span className={clsx(
               'font-medium',
-              computedStatus === 'normal'  && 'text-[#22C55E]',
+              computedStatus === 'normal'  && 'text-[#16A34A]',
               computedStatus === 'warning' && 'text-[#F97316]',
-              (computedStatus === 'danger' || computedStatus === 'overallocated') && 'text-[#EF4444]',
+              (computedStatus === 'danger' || computedStatus === 'overallocated') && 'text-[#DC2626]',
             )}>
               {Math.round(percentage)}%
             </span>
           </div>
         )}
-        <div className={clsx('w-full bg-[#F0EFED] rounded-full overflow-hidden', sizes[size])}>
+        <div className={clsx('w-full bg-[#DEDFE3] rounded-full overflow-hidden', sizes[size])}>
           <div
-            className={clsx('h-full rounded-full transition-all duration-300', statusColors[computedStatus] ?? 'bg-[#22C55E]')}
+            className={clsx('h-full rounded-full transition-all duration-300', statusColors[computedStatus] ?? 'bg-[#16A34A]')}
             style={{ width: `${Math.min(percentage, 100)}%` }}
           />
         </div>

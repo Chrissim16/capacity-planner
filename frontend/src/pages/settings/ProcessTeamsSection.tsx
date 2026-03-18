@@ -26,7 +26,7 @@ export function ProcessTeamsSection() {
  <CardTitle>Process Teams</CardTitle>
  </CardHeader>
  <CardContent className="space-y-4">
- <p className="text-sm text-slate-500 ">
+ <p className="text-sm text-[#6C7A89] ">
  Define process teams (e.g. R2R, P2P, Treasury) that can be assigned to both IT members and Business Contacts.
  </p>
  <div className="flex gap-3">
@@ -45,19 +45,19 @@ export function ProcessTeamsSection() {
  {processTeams.map((pt) => (
  <div
  key={pt.id}
- className="flex items-center justify-between p-3 bg-[#F5F3F0] /50 rounded-lg"
+ className="flex items-center justify-between p-3 bg-[#EEEEF1] /50 rounded-lg"
  >
- <span className="font-medium text-slate-700 ">{pt.name}</span>
+ <span className="font-medium text-[#003565] ">{pt.name}</span>
  <button
  onClick={() => setDeleteConfirm({ id: pt.id, name: pt.name })}
- className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-red-500 transition-colors"
  >
  <Trash2 size={16} />
  </button>
  </div>
  ))}
  {processTeams.length === 0 && (
- <p className="text-center py-8 text-slate-400">No process teams defined yet</p>
+ <p className="text-center py-8 text-[#6C7A89]">No process teams defined yet</p>
  )}
  </div>
  </CardContent>

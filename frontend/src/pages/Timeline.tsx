@@ -174,7 +174,7 @@ export function Timeline() {
  actions={
  <div className="flex items-center gap-3">
  {/* View Toggle */}
- <div className="flex rounded-lg bg-slate-100 p-1">
+ <div className="flex rounded-lg bg-[#EEEEF1] p-1">
  {([
  { id: 'gantt', label: 'Gantt', Icon: BarChart2 },
  { id: 'team', label: 'Team', Icon: User },
@@ -184,8 +184,8 @@ export function Timeline() {
  onClick={() => setViewMode(id)}
  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
  viewMode === id
- ? 'bg-white text-slate-900 shadow-sm'
- : 'text-slate-600 '
+ ? 'bg-white text-[#003565] shadow-sm'
+ : 'text-[#6C7A89] '
  }`}
  >
  <Icon size={16} />
@@ -196,7 +196,7 @@ export function Timeline() {
 
  {/* Granularity toggle — Team only */}
  {viewMode === 'team' && (
- <div className="flex rounded-lg bg-slate-100 p-1">
+ <div className="flex rounded-lg bg-[#EEEEF1] p-1">
  {([
  { id: 'quarter', label: 'Quarters', Icon: Calendar },
  { id: 'sprint', label: 'Sprints', Icon: Zap },
@@ -207,8 +207,8 @@ export function Timeline() {
  onClick={() => setGranularity(id)}
  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
  granularity === id
- ? 'bg-white text-slate-900 shadow-sm'
- : 'text-slate-600 '
+ ? 'bg-white text-[#003565] shadow-sm'
+ : 'text-[#6C7A89] '
  }`}
  >
  <Icon size={14} />
@@ -221,7 +221,7 @@ export function Timeline() {
  {/* Date-range filter — Team only */}
  {viewMode === 'team' && (
  <div className="flex items-center gap-1.5">
- <span className="text-xs text-slate-500 whitespace-nowrap">From</span>
+ <span className="text-xs text-[#6C7A89] whitespace-nowrap">From</span>
  <Select
  value={String(fromIdx)}
  onChange={(e) => {
@@ -231,7 +231,7 @@ export function Timeline() {
  }}
  options={fromOptions}
  />
- <span className="text-xs text-slate-500 ">to</span>
+ <span className="text-xs text-[#6C7A89] ">to</span>
  <Select
  value={String(toIdx)}
  onChange={(e) => setToIdx(parseInt(e.target.value))}
@@ -242,7 +242,7 @@ export function Timeline() {
 
          {/* Label filter — Gantt only */}
          {viewMode === 'gantt' && allLabels.length > 0 && (
-           <select value={filterLabel} onChange={e => setFilterLabel(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF] cursor-pointer">
+           <select value={filterLabel} onChange={e => setFilterLabel(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-[#B5BDC4] bg-white text-[#003565] focus:outline-none focus:ring-2 focus:ring-[#0089DD] cursor-pointer">
              <option value="">All Labels</option>
              {allLabels.map(l => <option key={l} value={l}>{l}</option>)}
            </select>
@@ -250,12 +250,12 @@ export function Timeline() {
 
          {/* Person filters */}
          {state.squads.length > 0 && (
-           <select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF] cursor-pointer">
+           <select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} className="w-36 text-sm px-3 py-1.5 rounded-lg border border-[#B5BDC4] bg-white text-[#003565] focus:outline-none focus:ring-2 focus:ring-[#0089DD] cursor-pointer">
  {squadOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
  </select>
  )}
  {state.processTeams.length > 0 && (
- <select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} className="w-44 text-sm px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF] cursor-pointer">
+ <select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} className="w-44 text-sm px-3 py-1.5 rounded-lg border border-[#B5BDC4] bg-white text-[#003565] focus:outline-none focus:ring-2 focus:ring-[#0089DD] cursor-pointer">
  {processTeamOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
  </select>
  )}
@@ -264,21 +264,21 @@ export function Timeline() {
  placeholder="IT member…"
  value={memberSearch}
  onChange={e => setMemberSearch(e.target.value)}
- className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF] w-36"
+ className="px-3 py-1.5 rounded-lg border border-[#B5BDC4] bg-white text-sm text-[#003565] placeholder-[#B5BDC4] focus:outline-none focus:ring-2 focus:ring-[#0089DD] w-36"
  />
  <input
  type="text"
  placeholder="BIZ contact…"
  value={bizSearch}
  onChange={e => setBizSearch(e.target.value)}
- className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 w-36"
+                className="px-3 py-1.5 rounded-lg border border-[#CFCFD5] bg-white text-sm text-[#003565] placeholder-[#B5BDC4] focus:outline-none focus:ring-2 focus:ring-[#0089DD] w-36"
  />
- <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none whitespace-nowrap">
+ <label className="flex items-center gap-1.5 text-sm text-[#6C7A89] cursor-pointer select-none whitespace-nowrap">
  <input
  type="checkbox"
  checked={showCompleted}
  onChange={e => setShowCompleted(e.target.checked)}
- className="accent-mw-primary"
+ className="accent-[#0089DD]"
  />
  Show completed
  </label>
@@ -330,18 +330,18 @@ export function Timeline() {
  style={{ '--lw': `${labelWidth}px` } as React.CSSProperties}
  >
  {/* Column headers */}
- <div className="flex items-center border-b border-slate-200 bg-[#F5F3F0] /50">
+ <div className="flex items-center border-b border-[#CFCFD5] bg-[#EEEEF1] /50">
  <div
- className="shrink-0 px-4 py-3 flex items-center justify-between border-r border-slate-200 relative"
+ className="shrink-0 px-4 py-3 flex items-center justify-between border-r border-[#CFCFD5] relative"
  style={{ width: 'var(--lw)', minWidth: 'var(--lw)' }}
  >
- <span className="font-medium text-slate-700 ">Team Member</span>
+ <span className="font-medium text-[#003565] ">Team Member</span>
  <div
  onMouseDown={startLabelResize}
  className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group select-none"
  title="Drag to resize column"
  >
- <GripVertical size={12} className="text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
+ <GripVertical size={12} className="text-[#B5BDC4] dark:text-[#6C7A89] group-hover:text-[#6C7A89] dark:group-hover:text-[#6C7A89] transition-colors" />
  </div>
  </div>
 
@@ -351,7 +351,7 @@ export function Timeline() {
  return (
  <div
  key={label}
- className={`flex-1 min-w-[100px] px-2 py-3 text-center ${isCurrent ? 'bg-[#E8F8F8] text-blue-700 dark:text-blue-400' : 'text-slate-600 '}`}
+ className={`flex-1 min-w-[100px] px-2 py-3 text-center ${isCurrent ? 'bg-[#E6F2FC] text-blue-700 dark:text-blue-400' : 'text-[#6C7A89] '}`}
  >
  <div className="font-medium text-xs">{label}</div>
  </div>
@@ -363,10 +363,10 @@ export function Timeline() {
  return (
  <div
  key={quarter}
- className={`flex-1 min-w-[150px] px-3 py-3 text-center ${quarter === currentQuarter ? 'bg-[#E8F8F8] text-blue-700 dark:text-blue-400' : 'text-slate-600 '}`}
+ className={`flex-1 min-w-[150px] px-3 py-3 text-center ${quarter === currentQuarter ? 'bg-[#E6F2FC] text-blue-700 dark:text-blue-400' : 'text-[#6C7A89] '}`}
  >
  <div className="font-medium">{quarter}</div>
- <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{workDays} working days</div>
+ <div className="text-xs text-[#6C7A89] dark:text-[#6C7A89] mt-0.5">{workDays} working days</div>
  </div>
  );
  })
@@ -378,13 +378,13 @@ export function Timeline() {
  return (
  <div
  key={sprint.id}
- className="flex-1 min-w-[120px] px-2 py-2 text-center border-l border-slate-200 "
+ className="flex-1 min-w-[120px] px-2 py-2 text-center border-l border-[#CFCFD5] "
  >
- <div className={`font-medium text-xs ${sprint.isByeWeek ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 '}`}>
+ <div className={`font-medium text-xs ${sprint.isByeWeek ? 'text-[#6C7A89] dark:text-[#6C7A89]' : 'text-[#6C7A89] '}`}>
  {sprint.isByeWeek ? `${sprint.name} 🏖️` : sprint.name}
  </div>
- <div className="text-xs text-slate-400 mt-0.5">{formatDateRange(sprint.startDate, sprint.endDate)}</div>
- {!sprint.isByeWeek && <div className="text-xs text-slate-400 dark:text-slate-500">{sprintWorkdays}d</div>}
+ <div className="text-xs text-[#6C7A89] mt-0.5">{formatDateRange(sprint.startDate, sprint.endDate)}</div>
+ {!sprint.isByeWeek && <div className="text-xs text-[#6C7A89] dark:text-[#6C7A89]">{sprintWorkdays}d</div>}
  </div>
  );
  });
@@ -444,10 +444,10 @@ interface TeamMemberRowProps {
 function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter, state }: TeamMemberRowProps) {
  if (granularity === 'quarter') {
  return (
- <div className="flex hover:bg-[#F5F3F0] /30 transition-colors">
- <div className="shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800" style={{ width: 'var(--lw)', minWidth: 'var(--lw)' }}>
- <div className="font-medium text-slate-900 truncate" title={member.name}>{member.name}</div>
- <div className="text-xs text-slate-500 mt-0.5">{member.role}</div>
+ <div className="flex hover:bg-[#EEEEF1] /30 transition-colors">
+ <div className="shrink-0 px-4 py-3 border-r border-[#DEDFE3] dark:border-slate-800" style={{ width: 'var(--lw)', minWidth: 'var(--lw)' }}>
+ <div className="font-medium text-[#003565] truncate" title={member.name}>{member.name}</div>
+ <div className="text-xs text-[#6C7A89] mt-0.5">{member.role}</div>
  </div>
  {quarters.map(quarter => {
  const capacity = calculateCapacity(member.id, quarter, state);
@@ -460,11 +460,11 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
  return (
  <div
  key={quarter}
- className={`flex-1 min-w-[150px] px-3 py-3 ${quarter === currentQuarter ? 'bg-[#E8F8F8]/50 dark:bg-blue-900/10' : ''}`}
+ className={`flex-1 min-w-[150px] px-3 py-3 ${quarter === currentQuarter ? 'bg-[#E6F2FC]/50 dark:bg-blue-900/10' : ''}`}
  >
  <ProgressBar value={capacity.usedDays} max={capacity.totalWorkdays} status={capacity.status} size="sm" />
  <div className="flex justify-between items-center mt-1">
- <span className="text-xs text-slate-500 ">{capacity.usedDays.toFixed(0)}d / {capacity.totalWorkdays}d</span>
+ <span className="text-xs text-[#6C7A89] ">{capacity.usedDays.toFixed(0)}d / {capacity.totalWorkdays}d</span>
  <span className={`text-xs font-medium ${capacity.status === 'overallocated' ? 'text-red-500' : capacity.status === 'warning' ? 'text-amber-500' : 'text-green-500'}`}>
  {capacity.usedPercent}%
  </span>
@@ -518,19 +518,19 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
  });
 
  return (
- <div className="flex hover:bg-[#F5F3F0] /30 transition-colors">
- <div className="shrink-0 px-4 py-3 border-r border-slate-100 dark:border-slate-800" style={{ width: 'var(--lw)', minWidth: 'var(--lw)' }}>
- <div className="font-medium text-slate-900 truncate" title={member.name}>{member.name}</div>
- <div className="text-xs text-slate-500 mt-0.5">{member.role}</div>
+ <div className="flex hover:bg-[#EEEEF1] /30 transition-colors">
+ <div className="shrink-0 px-4 py-3 border-r border-[#DEDFE3] dark:border-slate-800" style={{ width: 'var(--lw)', minWidth: 'var(--lw)' }}>
+ <div className="font-medium text-[#003565] truncate" title={member.name}>{member.name}</div>
+ <div className="text-xs text-[#6C7A89] mt-0.5">{member.role}</div>
  </div>
  {sprintCells.map(({ sprint, sprintDays, sprintWorkdays, usedPercent, status }) => (
  <div
  key={sprint.id}
- className={`flex-1 min-w-[120px] px-2 py-3 border-l border-slate-100 dark:border-slate-800 ${sprint.quarter === currentQuarter ? 'bg-[#E8F8F8]/50 dark:bg-blue-900/10' : ''}`}
+ className={`flex-1 min-w-[120px] px-2 py-3 border-l border-[#DEDFE3] dark:border-slate-800 ${sprint.quarter === currentQuarter ? 'bg-[#E6F2FC]/50 dark:bg-blue-900/10' : ''}`}
  >
  <ProgressBar value={sprintDays} max={sprintWorkdays} status={status} size="sm" />
  <div className="flex justify-between items-center mt-1">
- <span className="text-xs text-slate-500 ">{sprintDays.toFixed(0)}d</span>
+ <span className="text-xs text-[#6C7A89] ">{sprintDays.toFixed(0)}d</span>
  <span className={`text-xs font-medium ${status === 'overallocated' ? 'text-red-500' : status === 'warning' ? 'text-amber-500' : 'text-green-500'}`}>
  {usedPercent}%
  </span>

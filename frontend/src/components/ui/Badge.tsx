@@ -25,22 +25,22 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant = 'default', ...props }, ref) => {
     const variants: Record<string, string> = {
-      default:      'bg-[#F5F3F0] text-[#6B7280] border border-[#E5E5E3]',
+      default:      'bg-[#EEEEF1] text-[#6C7A89] border border-[#CFCFD5]',
       success:      'bg-[#DCFCE7] text-[#166534] border border-[#A7F3D0]',
       warning:      'bg-[#FFF7ED] text-[#92400E] border border-[#FED7AA]',
       danger:       'bg-[#FFF5F5] text-[#991B1B] border border-[#FECACA]',
-      primary:      'bg-[#CCFBF1] text-[#0BB8B5] border border-[#99F6E4]',
-      outline:      'border border-[#E5E5E3] text-[#6B7280]',
+      primary:      'bg-[#E6F2FC] text-[#0077C2] border border-[#B3D9F5]',
+      outline:      'border border-[#CFCFD5] text-[#6C7A89]',
       green:        'bg-[#DCFCE7] text-[#166534] border border-[#A7F3D0]',
       amber:        'bg-[#FFF7ED] text-[#92400E] border border-[#FED7AA]',
       red:          'bg-[#FFF5F5] text-[#991B1B] border border-[#FECACA]',
-      blue:         'bg-[#CCFBF1] text-[#0BB8B5] border border-[#99F6E4]',
-      grey:         'bg-[#F5F3F0] text-[#6B7280] border border-[#E5E5E3]',
-      tentative:    'bg-[#F5F3F0] text-[#6B7280] border border-dashed border-[#9CA3AF]',
+      blue:         'bg-[#E6F2FC] text-[#0077C2] border border-[#B3D9F5]',
+      grey:         'bg-[#EEEEF1] text-[#6C7A89] border border-[#CFCFD5]',
+      tentative:    'bg-[#EEEEF1] text-[#6C7A89] border border-dashed border-[#B5BDC4]',
       beginner:     'bg-[#FFF7ED] text-[#92400E] border border-[#FED7AA]',
-      intermediate: 'bg-[#CCFBF1] text-[#0BB8B5] border border-[#99F6E4]',
-      advanced:     'bg-[#E8F8F8] text-[#0ED3CF] border border-[#99F6E4]',
-      expert:       'bg-[#1A1A1A] text-white border border-[#1A1A1A]',
+      intermediate: 'bg-[#E6F2FC] text-[#0077C2] border border-[#B3D9F5]',
+      advanced:     'bg-[#E6F2FC] text-[#0089DD] border border-[#B3D9F5]',
+      expert:       'bg-[#003565] text-white border border-[#003565]',
     };
 
     return (

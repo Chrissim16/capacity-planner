@@ -127,12 +127,12 @@ export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps)
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 ">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#CFCFD5] ">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 ">
+            <h2 className="text-lg font-semibold text-[#003565] ">
               Changes in "{scenario.name}"
             </h2>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <p className="text-sm text-[#6C7A89] mt-0.5">
               {totalChanges === 0
                 ? 'No changes from the baseline yet.'
                 : `${totalChanges} change${totalChanges !== 1 ? 's' : ''} compared to the Jira Baseline`}
@@ -140,7 +140,7 @@ export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps)
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 "
+            className="p-2 rounded-lg text-[#6C7A89] hover:text-[#6C7A89] hover:bg-[#EEEEF1] "
           >
             <X size={18} />
           </button>
@@ -149,7 +149,7 @@ export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps)
         {/* Body — scrollable */}
         <div className="overflow-y-auto flex-1 px-6 py-4 space-y-6">
           {totalChanges === 0 && (
-            <div className="text-center py-8 text-slate-400 dark:text-slate-500">
+            <div className="text-center py-8 text-[#6C7A89] dark:text-[#6C7A89]">
               <p className="text-sm">Start editing Jira items or team members in this scenario to see changes here.</p>
             </div>
           )}
@@ -157,7 +157,7 @@ export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps)
           {/* Epics */}
           {epicChanges.length > 0 && (
             <section>
-              <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">
+              <h3 className="text-sm font-semibold text-[#003565] uppercase tracking-wide mb-3">
                 Epics ({epicChanges.length})
               </h3>
               <div className="space-y-2">
@@ -176,7 +176,7 @@ export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps)
           {/* Team Members */}
           {memberChanges.length > 0 && (
             <section>
-              <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">
+              <h3 className="text-sm font-semibold text-[#003565] uppercase tracking-wide mb-3">
                 Team Members ({memberChanges.length})
               </h3>
               <div className="space-y-2">
@@ -194,17 +194,17 @@ export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps)
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between gap-4">
+        <div className="px-6 py-4 border-t border-[#CFCFD5] flex items-center justify-between gap-4">
           {!confirming ? (
             <>
-              <p className="text-xs text-slate-500 max-w-sm">
+              <p className="text-xs text-[#6C7A89] max-w-sm">
                 <strong>Promote to baseline</strong> copies this scenario's Jira items and team members into your live data.
                 The scenario is kept as an archive.
               </p>
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="px-4 py-2 text-sm text-[#6C7A89] hover:bg-[#EEEEF1] rounded-lg"
                 >
                   Close
                 </button>
@@ -226,7 +226,7 @@ export function ScenarioDiffModal({ scenario, onClose }: ScenarioDiffModalProps)
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => setConfirming(false)}
-                  className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="px-4 py-2 text-sm text-[#6C7A89] hover:bg-[#EEEEF1] rounded-lg"
                 >
                   Cancel
                 </button>
@@ -256,7 +256,7 @@ function DiffRow({ type, label, details }: {
   details: string[];
 }) {
   const config = {
-    added: { bg: 'bg-green-50 dark:bg-green-900/20', border: 'border-green-200 dark:border-green-800', icon: <Plus size={14} className="text-green-600 dark:text-green-400" />, text: 'text-green-800 dark:text-green-300' },
+    added: { bg: 'bg-green-50 dark:bg-green-900/20', border: 'border-green-200 dark:border-green-800', icon: <Plus size={14} className="text-[#16A34A] dark:text-green-400" />, text: 'text-green-800 dark:text-green-300' },
     removed: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800', icon: <Minus size={14} className="text-red-600 dark:text-red-400" />, text: 'text-red-800 dark:text-red-300' },
     modified: { bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800', icon: <Pencil size={14} className="text-amber-600 dark:text-amber-400" />, text: 'text-amber-800 dark:text-amber-300' },
   }[type];
@@ -269,7 +269,7 @@ function DiffRow({ type, label, details }: {
         {details.length > 0 && (
           <ul className="mt-1 space-y-0.5">
             {details.map((d, i) => (
-              <li key={i} className="text-xs text-slate-500 ">{d}</li>
+              <li key={i} className="text-xs text-[#6C7A89] ">{d}</li>
             ))}
           </ul>
         )}

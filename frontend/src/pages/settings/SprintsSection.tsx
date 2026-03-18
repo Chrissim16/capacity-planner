@@ -66,11 +66,11 @@ export function SprintsSection() {
  </CardHeader>
  <CardContent className="space-y-6">
  {/* Auto-generate */}
- <div className="bg-[#E8F8F8] dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+ <div className="bg-[#E6F2FC] dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
  <h4 className="font-medium text-blue-700 dark:text-blue-300 mb-2 flex items-center gap-2">
  <RefreshCw size={16} />Auto-Generate Sprints
  </h4>
- <p className="text-sm text-[#0ED3CF] mb-3">
+ <p className="text-sm text-[#0089DD] mb-3">
  Automatically generate all sprints for a year based on your settings ({settings.sprintsPerYear} sprints/year, {settings.sprintDurationWeeks} weeks each).
  </p>
  <div className="flex items-center gap-3">
@@ -94,16 +94,16 @@ export function SprintsSection() {
  {/* Sprint list */}
  {Object.keys(sprintsByYear).length === 0 ? (
  <div className="text-center py-12">
- <Zap size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-4" />
- <p className="text-slate-500 mb-2">No sprints defined</p>
- <p className="text-sm text-slate-400 dark:text-slate-500">Use auto-generate above or add sprints manually</p>
+ <Zap size={48} className="mx-auto text-[#B5BDC4] dark:text-[#6C7A89] mb-4" />
+ <p className="text-[#6C7A89] mb-2">No sprints defined</p>
+ <p className="text-sm text-[#6C7A89] dark:text-[#6C7A89]">Use auto-generate above or add sprints manually</p>
  </div>
  ) : (
  Object.entries(sprintsByYear)
  .sort(([a], [b]) => Number(b) - Number(a))
  .map(([year, yearSprints]) => (
- <div key={year} className="border-t border-slate-200 pt-4 first:border-t-0 first:pt-0">
- <h3 className="flex items-center gap-2 text-lg font-medium text-slate-700 mb-3">
+ <div key={year} className="border-t border-[#CFCFD5] pt-4 first:border-t-0 first:pt-0">
+ <h3 className="flex items-center gap-2 text-lg font-medium text-[#003565] mb-3">
  {year}
  <Badge variant="default">{yearSprints.length} sprints</Badge>
  </h3>
@@ -116,15 +116,15 @@ export function SprintsSection() {
  className={`flex items-center justify-between p-3 rounded-lg ${
  sprint.isByeWeek
  ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
- : 'bg-[#F5F3F0] /50'
+ : 'bg-[#EEEEF1] /50'
  }`}
  >
  <div className="min-w-0 flex-1">
  <div className="flex items-center gap-2">
- <span className="font-medium text-slate-700 truncate">{sprint.name}</span>
+ <span className="font-medium text-[#003565] truncate">{sprint.name}</span>
  {sprint.isByeWeek && <Badge variant="warning" className="text-xs">Bye</Badge>}
  </div>
- <p className="text-xs text-slate-500 ">
+ <p className="text-xs text-[#6C7A89] ">
  {new Date(sprint.startDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} –{' '}
  {new Date(sprint.endDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {sprint.quarter}
  </p>
@@ -132,13 +132,13 @@ export function SprintsSection() {
  <div className="flex items-center gap-1 ml-2">
  <button
  onClick={() => { setEditingSprint(sprint); setSprintModalOpen(true); }}
- className="p-1.5 text-slate-400 hover:text-[#0ED3CF] transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-[#0089DD] transition-colors"
  >
  <Edit2 size={14} />
  </button>
  <button
  onClick={() => setDeleteConfirm({ id: sprint.id, name: sprint.name })}
- className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+ className="p-1.5 text-[#6C7A89] hover:text-red-500 transition-colors"
  >
  <Trash2 size={14} />
  </button>

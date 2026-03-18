@@ -1,86 +1,81 @@
 /**
  * Design tokens — single source of truth for the Mileway Capacity Planner.
  *
- * Rules:
- *  - All colour, radius, shadow, spacing, and duration values live here.
- *  - Tailwind config imports from here where possible.
- *  - JS-side logic (Gantt bar colours, heatmap cells) must reference these
- *    constants instead of embedding literals.
- *  - Never hardcode a hex value in a component or screen file.
- *
- * Design language: Sana Labs "editorial calm" —
- *  warm off-white backgrounds, serif headings, teal/orange accents, no blue primary.
+ * Design language: Mileway brand palette —
+ *  Light Blue (#0089DD) primary, Dark Blue (#003565) surfaces, Cool Grey (#6C7A89) neutral.
  */
 
 // ── Background palette ────────────────────────────────────────────────────────
 
 export const Background = {
-  /** Warm off-white page background */
-  primary:     '#FAF9F7',
-  /** Slightly deeper warm off-white for secondary surfaces */
-  secondary:   '#F5F3F0',
+  /** Off-white page background */
+  primary:     '#F5F8FC',
+  /** Cool grey 10% tint for secondary surfaces */
+  secondary:   '#EEEEF1',
   /** Pure white card / modal surfaces */
   card:        '#FFFFFF',
-  /** Teal tint for highlight panels */
-  highlight:   '#E8F8F8',
-  /** Warm orange tint for alert panels */
-  highlightAlt:'#FFF7ED',
+  /** Light blue 10% tint for highlight panels */
+  highlight:   '#E6F2FC',
+  /** Dark blue 10% tint for alternate panels */
+  highlightAlt:'#E6EAF0',
 } as const
 
 // ── Text palette ──────────────────────────────────────────────────────────────
 
 export const Text = {
-  primary:   '#1A1A1A',
-  secondary: '#6B7280',
-  tertiary:  '#9CA3AF',
+  primary:   '#003565',
+  secondary: '#6C7A89',
+  tertiary:  '#B5BDC4',
   inverse:   '#FFFFFF',
 } as const
 
 // ── Accent palette ────────────────────────────────────────────────────────────
 
 export const Accent = {
-  teal:         '#0ED3CF',
-  tealLight:    '#CCFBF1',
-  orange:       '#F97316',
-  orangeLight:  '#FED7AA',
-  coral:        '#FB7185',
-  magenta:      '#D946EF',
-  green:        '#22C55E',
-  red:          '#EF4444',
+  blue:        '#0089DD',
+  blueLight:   '#E6F2FC',
+  orange:      '#D97706',
+  orangeLight: '#FEF3C7',
+  coral:       '#DC2626',
+  green:       '#16A34A',
+  red:         '#DC2626',
+  // legacy aliases — kept for files that still import Accent.teal
+  teal:        '#0089DD',
+  tealLight:   '#E6F2FC',
 } as const
 
 // ── Border palette ────────────────────────────────────────────────────────────
 
 export const Border = {
-  subtle: '#E5E5E3',
-  light:  '#F0EFED',
+  subtle: '#CFCFD5',
+  light:  '#DEDFE3',
 } as const
 
-// ── BIZ (business contact) track — kept for dual IT/BIZ data model ────────────
+// ── BIZ (business contact) track — cool grey family (no purple) ───────────────
 
 export const Biz = {
-  DEFAULT:   '#7C3AED',
-  light:     '#F5F3FF',
-  mid:       '#EDE9FE',
-  border:    '#C4B5FD',
-  hover:     '#6D28D9',
+  DEFAULT:   '#6C7A89',
+  light:     '#EEEEF1',
+  mid:       '#DEDFE3',
+  border:    '#CFCFD5',
+  hover:     '#B5BDC4',
 } as const
 
 // ── Semantic colours ──────────────────────────────────────────────────────────
 
 export const Semantic = {
-  success:       '#22C55E',
+  success:       '#16A34A',
   successBg:     '#DCFCE7',
   successBorder: '#A7F3D0',
-  warning:       '#F97316',
-  warningBg:     '#FFF7ED',
-  warningBorder: '#FED7AA',
-  danger:        '#EF4444',
-  dangerBg:      '#FFF5F5',
+  warning:       '#D97706',
+  warningBg:     '#FEF3C7',
+  warningBorder: '#FDE68A',
+  danger:        '#DC2626',
+  dangerBg:      '#FEE2E2',
   dangerBorder:  '#FECACA',
-  info:          '#0ED3CF',
-  infoBg:        '#E8F8F8',
-  infoBorder:    '#99F6E4',
+  info:          '#0089DD',
+  infoBg:        '#E6F2FC',
+  infoBorder:    '#B3D9F5',
 } as const
 
 // ── Heatmap cell tier colours ─────────────────────────────────────────────────
@@ -88,28 +83,28 @@ export const Semantic = {
 // These are SEMANTIC — do not restyle to match brand.
 
 export const HeatmapTiers = {
-  empty:     { bg: '#FAF9F7',                    text: '#94a3b8' },
-  tier1:     { bg: 'rgba(74,181,100,0.15)',       text: '#1A1A1A' },
-  tier2:     { bg: 'rgba(74,181,100,0.35)',       text: '#1A1A1A' },
-  tier3:     { bg: 'rgba(255,210,60,0.35)',       text: '#1A1A1A' },
-  tier4:     { bg: 'rgba(255,175,40,0.45)',       text: '#1A1A1A' },
-  tier5:     { bg: 'rgba(255,130,50,0.45)',       text: '#1A1A1A' },
-  tier6:     { bg: 'rgba(220,80,50,0.40)',        text: '#1A1A1A' },
-  overloaded:{ bg: 'rgba(220,53,69,0.25)',        text: '#8B0000', borderLeft: '#DC3545' },
+  empty:     { bg: '#F5F8FC',                    text: '#B5BDC4' },
+  tier1:     { bg: 'rgba(74,181,100,0.15)',       text: '#003565' },
+  tier2:     { bg: 'rgba(74,181,100,0.35)',       text: '#003565' },
+  tier3:     { bg: 'rgba(255,210,60,0.35)',       text: '#003565' },
+  tier4:     { bg: 'rgba(255,175,40,0.45)',       text: '#003565' },
+  tier5:     { bg: 'rgba(255,130,50,0.45)',       text: '#003565' },
+  tier6:     { bg: 'rgba(220,80,50,0.40)',        text: '#003565' },
+  overloaded:{ bg: 'rgba(220,53,69,0.25)',        text: '#8B0000', borderLeft: '#DC2626' },
 } as const
 
 // ── Gantt bar colour palette ───────────────────────────────────────────────────
-// Consumed by JiraGantt.tsx BAR map — SEMANTIC, do not restyle.
+// Consumed by JiraGantt.tsx BAR map.
 
 export const GanttBar = {
-  epic:     { bg: '#DBEAFE', border: '#60A5FA', borderW: 1.5, radius: '6px' },
-  feature:  { bg: '#EDE9FE', border: '#A78BFA', borderW: 1,   radius: '5px' },
-  story:    { bg: '#DCFCE7', border: '#4ADE80', borderW: 1,   radius: '4px' },
-  task:     { bg: '#FEF9C3', border: '#FACC15', borderW: 1,   radius: '4px' },
-  bug:      { bg: '#FFE4E6', border: '#F87171', borderW: 1,   radius: '4px' },
-  uat:      { bg: '#EDE9FE', border: Biz.DEFAULT, borderW: 1.5, radius: '5px' },
-  hypercare:{ bg: '#F3E8FF', border: '#A855F7', borderW: 1,   radius: '5px' },
-  custom:   { bg: '#FFF7ED', border: '#FB923C', borderW: 1,   radius: '5px' },
+  epic:     { bg: 'rgba(0,137,221,0.10)', border: '#0089DD', borderW: 2,   radius: '6px' },
+  feature:  { bg: '#CCE4F9',             border: '#0089DD', borderW: 1,   radius: '5px' },
+  story:    { bg: '#DEDFE3',             border: '#B5BDC4', borderW: 1,   radius: '4px' },
+  task:     { bg: '#DEDFE3',             border: '#B5BDC4', borderW: 1,   radius: '4px' },
+  bug:      { bg: '#FEE2E2',             border: '#DC2626', borderW: 1,   radius: '4px' },
+  uat:      { bg: '#CCD3DC',             border: '#6C7A89', borderW: 1,   radius: '4px' },
+  hypercare:{ bg: '#B3D9F5',             border: '#0089DD', borderW: 1,   radius: '5px' },
+  custom:   { bg: '#EEEEF1',             border: '#CFCFD5', borderW: 1,   radius: '5px' },
 } as const
 
 // ── Border radius ─────────────────────────────────────────────────────────────
@@ -149,31 +144,32 @@ export const MIN_TAP_TARGET = 44 // px
 // ── Row hover ────────────────────────────────────────────────────────────────
 
 export const RowHover = {
-  light: 'rgba(14, 211, 207, 0.06)',
-  dark:  'rgba(14, 211, 207, 0.10)',
-  teal:  Accent.teal,
+  light: 'rgba(0, 137, 221, 0.06)',
+  dark:  'rgba(0, 137, 221, 0.10)',
+  blue:  Accent.blue,
+  // legacy alias
+  teal:  Accent.blue,
 } as const
 
 // ── Chart colours ─────────────────────────────────────────────────────────────
 
 export const ChartColors = {
-  primary:   '#F97316',  // orange — primary series
-  secondary: '#D946EF',  // magenta — secondary series
-  tertiary:  '#0ED3CF',  // teal — tertiary series
-  muted:     '#D1D5DB',  // grey — empty/placeholder
+  primary:   '#0089DD',  // light blue — primary series
+  secondary: '#003565',  // dark blue — secondary series
+  tertiary:  '#6C7A89',  // cool grey — tertiary series
+  muted:     '#CFCFD5',  // cool grey 30% — empty/placeholder
 } as const
 
 // ── Legacy aliases (kept for gradual migration in component files) ─────────────
-// Components still referencing Brand.* will continue to work.
 
 /** @deprecated Use Background, Text, Accent, Border directly */
 export const Brand = {
-  primary:      Accent.teal,
-  primaryLight: Accent.tealLight,
-  primaryMid:   Accent.teal,
-  primaryHover: '#0BB8B5',
+  primary:      Accent.blue,
+  primaryLight: Accent.blueLight,
+  primaryMid:   Accent.blue,
+  primaryHover: '#0077C2',
   dark:         Text.primary,
-  darkHover:    '#111111',
+  darkHover:    '#002550',
   biz:          Biz.DEFAULT,
   bizLight:     Biz.light,
   bizMid:       Biz.mid,
@@ -181,7 +177,7 @@ export const Brand = {
   bizHover:     Biz.hover,
 } as const
 
-/** @deprecated Dark mode is deferred. Remove dark: variants from components. */
+/** @deprecated No longer used — dark mode removed */
 export const DarkSurface = {} as const
 
 /** @deprecated Use Semantic directly */

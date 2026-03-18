@@ -131,7 +131,7 @@ export function PlanningBar({
       ) : (
         // ── Display mode ──────────────────────────────────────────────────────
         <button
-          className="absolute inset-0 flex items-center justify-between rounded-md px-1.5 transition-opacity duration-100 focus:ring-2 focus:ring-offset-1 focus:ring-sana-teal"
+          className="absolute inset-0 flex items-center justify-between rounded-md px-1.5 transition-opacity duration-100 focus:ring-2 focus:ring-offset-1 focus:ring-mileway-light-blue"
           style={{ backgroundColor: color }}
           onClick={startEdit}
           aria-label={`${days}d — click to edit`}
@@ -164,14 +164,14 @@ export function PlanningBar({
         <div
           className="absolute bottom-full left-0 mb-2 z-50 rounded-lg shadow-lg px-3 py-2 text-xs whitespace-nowrap pointer-events-none"
           style={{
-            backgroundColor: '#1A1A1A',
+            backgroundColor: '#003565',
             color: '#FFFFFF',
             border: `1px solid ${Semantic.infoBorder}`,
           }}
           role="tooltip"
         >
           <div className="font-medium">{personName}</div>
-          <div style={{ color: '#9CA3AF' }}>{projectName} · {quarter}</div>
+          <div style={{ color: '#B5BDC4' }}>{projectName} · {quarter}</div>
           <div className="mt-1 font-semibold" style={{ color: Accent.teal }}>{days} days</div>
         </div>
       )}

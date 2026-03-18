@@ -4,72 +4,78 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'class',
+  darkMode: false,
   theme: {
     extend: {
       fontFamily: {
-        sans:    ['DM Sans', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
-        heading: ['"Source Serif 4"', 'Georgia', 'serif'],
+        sans:    ['"Plus Jakarta Sans"', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        heading: ['"Plus Jakarta Sans"', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
-        // ── Sana Labs design tokens ───────────────────────────────────────────
-        sana: {
-          // Backgrounds
-          'bg':           '#FAF9F7',
-          'bg-secondary': '#F5F3F0',
-          'bg-card':      '#FFFFFF',
-          'bg-highlight': '#E8F8F8',
-          'bg-alt':       '#FFF7ED',
-          // Text
-          'text':         '#1A1A1A',
-          'text-muted':   '#6B7280',
-          'text-faint':   '#9CA3AF',
-          // Accents
-          'teal':         '#0ED3CF',
-          'teal-light':   '#CCFBF1',
-          'orange':       '#F97316',
-          'orange-light': '#FED7AA',
-          'coral':        '#FB7185',
-          'magenta':      '#D946EF',
-          // Borders
-          'border':       '#E5E5E3',
-          'border-light': '#F0EFED',
+        // ── Mileway brand tokens ──────────────────────────────────────────────
+        mileway: {
+          'light-blue':    '#0089DD',
+          'light-blue-50': '#80C4EE',
+          'light-blue-30': '#B3D9F5',
+          'light-blue-20': '#CCE4F9',
+          'light-blue-10': '#E6F2FC',
+          'dark-blue':     '#003565',
+          'dark-blue-50':  '#809AB2',
+          'dark-blue-30':  '#B3C2CF',
+          'dark-blue-20':  '#CCD3DC',
+          'dark-blue-10':  '#E6EAF0',
+          'cool-grey':     '#6C7A89',
+          'cool-grey-50':  '#B5BDC4',
+          'cool-grey-30':  '#CFCFD5',
+          'cool-grey-20':  '#DEDFE3',
+          'cool-grey-10':  '#EEEEF1',
+          'off-white':     '#F5F8FC',
         },
-        // ── BIZ track — preserved for dual IT/BIZ data model ─────────────────
+        // ── BIZ track — updated to Mileway brand (cool grey family) ──────────
         biz: {
-          DEFAULT: '#7C3AED',
-          light:   '#F5F3FF',
-          mid:     '#EDE9FE',
-          border:  '#C4B5FD',
-          hover:   '#6D28D9',
+          DEFAULT: '#6C7A89',
+          light:   '#EEEEF1',
+          mid:     '#DEDFE3',
+          border:  '#CFCFD5',
+          hover:   '#B5BDC4',
         },
         // ── Semantic ──────────────────────────────────────────────────────────
         util: {
-          bench:   '#F5F3F0',
-          healthy: '#22C55E',
-          near:    '#F97316',
-          over:    '#EF4444',
+          bench:   '#F5F8FC',
+          healthy: '#16A34A',
+          near:    '#D97706',
+          over:    '#DC2626',
         },
-        // ── Legacy mw-* aliases — kept for gradual migration ─────────────────
-        // Components still using mw-* classes continue to work.
+        // ── Legacy mw-* aliases — mapped to new Mileway brand values ─────────
         mw: {
-          primary:         '#0ED3CF',   // remapped to teal
-          'primary-light': '#CCFBF1',
-          'primary-mid':   '#0ED3CF',
-          'primary-hover': '#0BB8B5',
-          dark:            '#1A1A1A',   // remapped to near-black
-          'dark-hover':    '#111111',
-          grey:            '#6B7280',
-          'grey-light':    '#E5E5E3',
-          'grey-lighter':  '#F5F3F0',
-          // Dark-mode surface tokens (kept as stubs so dark: classes compile cleanly)
-          'surface-dark':      '#FAF9F7',
-          'card-border-dark':  '#E5E5E3',
-          'muted-dark':        '#F5F3F0',
-          'muted-border-dark': '#E5E5E3',
-          'muted-text-dark':   '#6B7280',
-          'accent-text-dark':  '#0ED3CF',
-          'scrollbar-dark':    '#D1D5DB',
+          primary:         '#0089DD',
+          'primary-light': '#E6F2FC',
+          'primary-mid':   '#0089DD',
+          'primary-hover': '#0077C2',
+          dark:            '#003565',
+          'dark-hover':    '#002550',
+          grey:            '#6C7A89',
+          'grey-light':    '#CFCFD5',
+          'grey-lighter':  '#EEEEF1',
+        },
+        // ── Legacy sana-* aliases — kept so existing classes still compile ────
+        sana: {
+          'bg':           '#F5F8FC',
+          'bg-secondary': '#EEEEF1',
+          'bg-card':      '#FFFFFF',
+          'bg-highlight': '#E6F2FC',
+          'bg-alt':       '#E6EAF0',
+          'text':         '#003565',
+          'text-muted':   '#6C7A89',
+          'text-faint':   '#B5BDC4',
+          'teal':         '#0089DD',
+          'teal-light':   '#E6F2FC',
+          'orange':       '#D97706',
+          'orange-light': '#FEF3C7',
+          'coral':        '#DC2626',
+          'magenta':      '#6C7A89',
+          'border':       '#CFCFD5',
+          'border-light': '#DEDFE3',
         },
       },
       fontSize: {
@@ -85,11 +91,11 @@ export default {
         '5xl': ['48px', { lineHeight: '1.1'  }],
       },
       borderRadius: {
-        sm:   '8px',
-        md:   '12px',
-        lg:   '16px',
-        xl:   '20px',
-        card: '16px',
+        sm:   '6px',
+        md:   '8px',
+        lg:   '10px',
+        xl:   '12px',
+        card: '10px',
         pill: '9999px',
       },
       boxShadow: {

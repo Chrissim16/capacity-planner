@@ -7,7 +7,7 @@ export function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>
       aria-hidden="true"
       className={clsx(
         'rounded-md bg-gradient-to-r',
-        'from-[#F5F3F0] via-[#FAF9F7] to-[#F5F3F0]',
+        'from-[#EEEEF1] via-[#F5F8FC] to-[#EEEEF1]',
         'bg-[length:200%_100%] animate-shimmer',
         className
       )}
@@ -39,7 +39,7 @@ export function SkeletonCard({
       aria-busy="true"
       aria-label="Loading…"
       className={clsx(
-        'rounded-card border border-[#F0EFED] bg-white p-6 space-y-4',
+        'rounded-card border border-[#DEDFE3] bg-white p-6 space-y-4',
         className
       )}
     >
@@ -72,7 +72,7 @@ export function SkeletonList({
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
-          className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[#F0EFED] bg-white"
+          className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[#DEDFE3] bg-white"
         >
           <Skeleton className="h-8 w-8 rounded-full shrink-0" />
           <div className="flex-1 space-y-2">
@@ -113,7 +113,7 @@ export function SkeletonGantt({
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
-          className="flex items-center gap-3 px-4 py-2 border-b border-[#F0EFED]"
+          className="flex items-center gap-3 px-4 py-2 border-b border-[#DEDFE3]"
         >
           <Skeleton className={clsx('h-4 shrink-0', widths[i % widths.length])} style={{ maxWidth: '12rem' }} />
           <div className="flex-1 flex items-center">

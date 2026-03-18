@@ -81,7 +81,7 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F7] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#F5F8FC] flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex justify-center mb-10">
@@ -93,18 +93,18 @@ export function Login() {
           />
         </div>
 
-        <div className="rounded-card border border-[#F0EFED] bg-white shadow-sm p-8">
+        <div className="rounded-card border border-[#DEDFE3] bg-white shadow-sm p-8">
           <h1
-            className="text-3xl font-bold text-[#1A1A1A] tracking-tight"
-            style={{ fontFamily: "'Source Serif 4', Georgia, serif", letterSpacing: '-0.02em' }}
+            className="text-3xl font-bold text-[#003565] tracking-tight"
+            style={{ fontFamily: "'Plus Jakarta Sans', Georgia, serif", letterSpacing: '-0.02em' }}
           >
             Capacity Planner
           </h1>
-          <p className="mt-1.5 text-sm text-[#6B7280]">Sign in to continue</p>
+          <p className="mt-1.5 text-sm text-[#6C7A89]">Sign in to continue</p>
 
           <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5" htmlFor="email">
+              <label className="block text-sm font-medium text-[#003565] mb-1.5" htmlFor="email">
                 Email
               </label>
               <input
@@ -112,14 +112,14 @@ export function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-[#E5E5E3] bg-white px-3 py-2 text-sm text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0ED3CF]/40 focus:border-[#0ED3CF] transition-colors"
+                className="w-full rounded-lg border border-[#CFCFD5] bg-white px-3 py-2 text-sm text-[#003565] placeholder-[#B5BDC4] focus:outline-none focus:ring-2 focus:ring-[#0089DD]/40 focus:border-[#0089DD] transition-colors"
                 autoComplete="email"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5" htmlFor="password">
+              <label className="block text-sm font-medium text-[#003565] mb-1.5" htmlFor="password">
                 Password
               </label>
               <input
@@ -127,26 +127,26 @@ export function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-[#E5E5E3] bg-white px-3 py-2 text-sm text-[#1A1A1A] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#0ED3CF]/40 focus:border-[#0ED3CF] transition-colors"
+                className="w-full rounded-lg border border-[#CFCFD5] bg-white px-3 py-2 text-sm text-[#003565] placeholder-[#B5BDC4] focus:outline-none focus:ring-2 focus:ring-[#0089DD]/40 focus:border-[#0089DD] transition-colors"
                 autoComplete={isSignUpMode ? 'new-password' : 'current-password'}
                 required
               />
             </div>
 
             {error && (
-              <p className="text-sm text-[#EF4444] flex items-start gap-1.5">
+              <p className="text-sm text-[#DC2626] flex items-start gap-1.5">
                 <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
                 {error}
               </p>
             )}
-            {info && <p className="text-sm text-[#22C55E]">{info}</p>}
+            {info && <p className="text-sm text-[#16A34A]">{info}</p>}
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-lg bg-[#1A1A1A] hover:opacity-85 disabled:opacity-50 text-white font-medium py-2.5 transition-opacity duration-150 mt-2"
+              className="w-full rounded-lg bg-[#003565] hover:opacity-85 disabled:opacity-50 text-white font-medium py-2.5 transition-opacity duration-150 mt-2"
             >
               {isSubmitting ? 'Please wait…' : isSignUpMode ? 'Create account' : 'Sign in'}
             </button>
@@ -159,13 +159,13 @@ export function Login() {
               setError(null);
               setInfo(null);
             }}
-            className="mt-4 w-full text-sm text-[#0ED3CF] hover:underline transition-colors"
+            className="mt-4 w-full text-sm text-[#0089DD] hover:underline transition-colors"
           >
             {isSignUpMode ? 'Have an account? Sign in' : 'Need an account? Create one'}
           </button>
         </div>
 
-        <p className="mt-6 text-center text-xs text-[#9CA3AF]">
+        <p className="mt-6 text-center text-xs text-[#B5BDC4]">
           Mileway IT Capacity Planner · VS Finance
         </p>
       </div>

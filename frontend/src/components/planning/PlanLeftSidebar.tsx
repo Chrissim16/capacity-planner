@@ -65,7 +65,7 @@ export function PlanLeftSidebar({
         style={{ width: 40, borderColor: Border.subtle, backgroundColor: Background.card }}
       >
         <button
-          className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#F5F3F0] transition-colors focus:ring-2 focus:ring-sana-teal"
+          className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#EEEEF1] transition-colors focus:ring-2 focus:ring-mileway-light-blue"
           style={{ color: Text.tertiary }}
           onClick={onToggleCollapse}
           aria-label="Expand projects sidebar"
@@ -94,7 +94,7 @@ export function PlanLeftSidebar({
           Projects
         </span>
         <button
-          className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#F5F3F0] transition-colors focus:ring-2 focus:ring-sana-teal"
+          className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#EEEEF1] transition-colors focus:ring-2 focus:ring-mileway-light-blue"
           style={{ color: Text.tertiary }}
           onClick={onToggleCollapse}
           aria-label="Collapse projects sidebar"

@@ -40,25 +40,25 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
-        className="absolute inset-0 bg-[#1A1A1A]/30 backdrop-blur-sm"
+        className="absolute inset-0 bg-[#003565]/30 backdrop-blur-sm"
         onClick={onClose}
       />
 
       <div className={clsx(
-        'relative w-full mx-4 bg-white rounded-card shadow-lg border border-[#F0EFED]',
+        'relative w-full mx-4 bg-white rounded-card shadow-lg border border-[#DEDFE3]',
         'max-h-[90vh] flex flex-col animate-fade-in',
         sizes[size]
       )}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F0EFED]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#DEDFE3]">
           <h2
-            className="text-lg font-semibold text-[#1A1A1A]"
-            style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+            className="text-lg font-semibold text-[#003565]"
+            style={{ fontFamily: "'Plus Jakarta Sans', Georgia, serif" }}
           >
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-[#6B7280] hover:bg-[#F5F3F0] transition-colors duration-150"
+            className="p-1.5 rounded-lg text-[#B5BDC4] hover:text-[#6C7A89] hover:bg-[#EEEEF1] transition-colors duration-150"
           >
             <X size={18} />
           </button>
@@ -69,7 +69,7 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
         </div>
 
         {footer && (
-          <div className="px-6 py-4 border-t border-[#F0EFED] flex justify-end gap-3">
+          <div className="px-6 py-4 border-t border-[#DEDFE3] flex justify-end gap-3">
             {footer}
           </div>
         )}

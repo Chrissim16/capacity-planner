@@ -5,6 +5,26 @@ Newest entry at the top. Format: `[YYYY-MM-DD] — Short title`.
 
 ---
 
+## [2026-03-18] — Design pass — Mileway brand palette, removed dark mode, removed BIZ purple
+
+### Changed
+- `tailwind.config.js` — replaced Sana Labs token palette with Mileway brand tokens (`mileway-*`); updated `mw-*` legacy aliases to point to correct brand values; mapped `sana-*` aliases to brand equivalents; set `darkMode: false`; updated border-radius scale to match spec (card = 10px)
+- `frontend/src/index.css` — replaced all Sana Labs CSS custom properties with Mileway brand variables (`--color-primary`, `--color-bg`, etc.); updated `--row-hover`, `--blue`, accent references to brand blue
+- `Sidebar.tsx` — background changed from off-white to Dark Blue (#003565); nav active state uses Light Blue (#0089DD); inactive items use white/70; all dividers use white/10 opacity; logo/profile area updated to white text
+- `theme/tokens.ts` — full rewrite: `Background`, `Text`, `Accent`, `Border`, `Biz`, `Semantic`, `GanttBar`, `RowHover`, `ChartColors` all updated to Mileway brand palette; purple removed from `Biz` (now cool grey family)
+- `JiraGantt.tsx` — `BAR` constant updated to brand palette per spec; `TYPE_CHIP_STYLE` updated; BIZ slide-out panel section updated from purple to cool grey
+- `components/ui/Button.tsx` — primary button now Light Blue (#0089DD); secondary updated; danger/warning updated to brand status colours
+- `components/ui/Input.tsx` — label colour updated to Cool Grey; input padding updated to py-2.5; error colour updated to brand red
+- `components/ui/Card.tsx` — default border updated to Cool Grey 30% (#CFCFD5); border-radius updated to 10px
+- `components/layout/PageHeader.tsx` — title updated to 24px / font-bold per spec
+- `ScenarioSelector.tsx` — scenario colour map updated (purple ID kept, visual replaced with dark-blue tint); all Sana teal references replaced with brand blue; styled for dark sidebar context
+- **All pages and components** — 59+ files updated via batch replacement: `slate-*` → brand greys, `#FAF9F7/#F5F3F0/#E8F8F8/#0ED3CF/#1A1A1A` → brand equivalents, `sana-*` Tailwind classes replaced, `mw-blue/mw-purple` replaced
+- **Purple (BIZ track)** — removed from all component files: `AvatarStack`, `PlanningBoard`, `SmartAssignmentPanel`, `Dashboard`, `Projects`, `Team`, `Timeline`, `BusinessContactsSection`, `JiraGantt`; replaced with Cool Grey family
+- `App.tsx` — removed dark mode `useEffect` (classList.add/remove 'dark')
+- `ScenarioSelector.tsx` — scenario dropdown colours updated to brand palette
+
+---
+
 ## [2026-03-16] — Smart Staffing & Planning Board — plan review + docs
 
 ### Docs updated

@@ -164,7 +164,7 @@ export function UsersSection() {
  <div className="flex items-center justify-between">
  <div>
  <CardTitle>Users</CardTitle>
- <p className="mt-1 text-sm text-slate-500 ">
+ <p className="mt-1 text-sm text-[#6C7A89] ">
  {isAdmin
  ? 'Manage who has access and what they can do.'
  : 'View who has access to this workspace.'}
@@ -173,7 +173,7 @@ export function UsersSection() {
  <button
  onClick={() => void fetchUsers()}
  aria-label="Refresh user list"
- className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+ className="p-2 rounded-lg text-[#6C7A89] hover:text-[#6C7A89] hover:bg-[#EEEEF1] transition-colors"
  >
  <RefreshCw size={16} />
  </button>
@@ -183,7 +183,7 @@ export function UsersSection() {
  <CardContent className="space-y-4">
  {/* Invite row — admin only */}
  {isAdmin && (
- <div className="flex flex-col sm:flex-row gap-2 pb-4 border-b border-slate-200 ">
+ <div className="flex flex-col sm:flex-row gap-2 pb-4 border-b border-[#CFCFD5] ">
  <div className="flex-1">
  <Input
  type="email"
@@ -197,7 +197,7 @@ export function UsersSection() {
  <select
  value={inviteRole}
  onChange={(e) => setInviteRole(e.target.value as AppRole)}
- className="h-10 px-3 rounded-lg border-2 border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF]"
+ className="h-10 px-3 rounded-lg border-2 border-[#CFCFD5] bg-white text-sm text-[#003565] focus:outline-none focus:ring-2 focus:ring-[#0089DD]"
  >
  {ALL_ROLES.map((r) => (
  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
@@ -231,19 +231,19 @@ export function UsersSection() {
  )}
 
  {!loading && !error && users.length === 0 && (
- <p className="text-center py-8 text-slate-400">No users found.</p>
+ <p className="text-center py-8 text-[#6C7A89]">No users found.</p>
  )}
 
  {!loading && !error && users.length > 0 && (
  <div className="overflow-x-auto">
  <table className="w-full text-sm">
  <thead>
- <tr className="border-b border-slate-200 ">
- <th className="text-left py-2 px-3 font-medium text-slate-500 ">Email</th>
- <th className="text-left py-2 px-3 font-medium text-slate-500 ">Role</th>
- <th className="text-left py-2 px-3 font-medium text-slate-500 ">Joined</th>
+ <tr className="border-b border-[#CFCFD5] ">
+ <th className="text-left py-2 px-3 font-medium text-[#6C7A89] ">Email</th>
+ <th className="text-left py-2 px-3 font-medium text-[#6C7A89] ">Role</th>
+ <th className="text-left py-2 px-3 font-medium text-[#6C7A89] ">Joined</th>
  {isAdmin && (
- <th className="py-2 px-3 font-medium text-slate-500 w-16" />
+ <th className="py-2 px-3 font-medium text-[#6C7A89] w-16" />
  )}
  </tr>
  </thead>
@@ -254,12 +254,12 @@ export function UsersSection() {
  return (
  <tr
  key={u.id}
- className="border-b border-slate-100 dark:border-slate-800 hover:bg-[#F5F3F0] /40 transition-colors"
+ className="border-b border-[#DEDFE3] dark:border-slate-800 hover:bg-[#EEEEF1] /40 transition-colors"
  >
- <td className="py-3 px-3 text-slate-700 ">
+ <td className="py-3 px-3 text-[#003565] ">
  {u.email}
  {isCurrentUser && (
- <span className="ml-2 text-xs text-slate-400">(you)</span>
+ <span className="ml-2 text-xs text-[#6C7A89]">(you)</span>
  )}
  </td>
  <td className="py-3 px-3">
@@ -268,19 +268,19 @@ export function UsersSection() {
  value={u.role}
  disabled={isSavingThisRow}
  onChange={(e) => void handleRoleChange(u.id, e.target.value as AppRole)}
- className="h-8 px-2 rounded-md border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF] disabled:opacity-50"
+ className="h-8 px-2 rounded-md border border-[#CFCFD5] bg-white text-sm text-[#003565] focus:outline-none focus:ring-2 focus:ring-[#0089DD] disabled:opacity-50"
  >
  {ALL_ROLES.map((r) => (
  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
  ))}
  </select>
  ) : (
- <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 ">
+ <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#EEEEF1] text-[#6C7A89] ">
  {ROLE_LABELS[u.role] ?? u.role}
  </span>
  )}
  </td>
- <td className="py-3 px-3 text-slate-500 ">
+ <td className="py-3 px-3 text-[#6C7A89] ">
  {formatDate(u.created_at)}
  </td>
  {isAdmin && (
@@ -289,7 +289,7 @@ export function UsersSection() {
  <button
  onClick={() => setPendingRemove(u)}
  aria-label={`Remove ${u.email}`}
- className="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+ className="p-1.5 text-[#6C7A89] hover:text-red-500 transition-colors rounded focus:outline-none focus:ring-2 focus:ring-red-500"
  >
  <Trash2 size={15} />
  </button>

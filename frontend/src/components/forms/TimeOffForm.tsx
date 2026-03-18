@@ -83,7 +83,7 @@ export function TimeOffForm({ isOpen, onClose, memberId }: TimeOffFormProps) {
  <div className="space-y-5">
  {/* Add new entry */}
  <div className="space-y-3">
- <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+ <p className="text-xs font-medium text-[#6C7A89] uppercase tracking-wide">
  Add absence
  </p>
 
@@ -130,29 +130,29 @@ export function TimeOffForm({ isOpen, onClose, memberId }: TimeOffFormProps) {
  {/* Existing entries */}
  {existingEntries.length > 0 && (
  <div className="space-y-2">
- <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+ <p className="text-xs font-medium text-[#6C7A89] uppercase tracking-wide">
  Recorded absences
  </p>
  <div className="space-y-1.5">
  {existingEntries.map(entry => (
  <div
  key={entry.id}
- className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 "
+ className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#F5F8FC] "
  >
  <div className="flex items-center gap-2 min-w-0">
  <CalendarOff size={13} className="shrink-0 text-amber-500" />
  <div className="min-w-0">
- <p className="text-sm text-slate-700 truncate">
+ <p className="text-sm text-[#003565] truncate">
  {formatDateRange(entry.startDate, entry.endDate)}
  </p>
  {entry.note && (
- <p className="text-xs text-slate-400 truncate">{entry.note}</p>
+ <p className="text-xs text-[#6C7A89] truncate">{entry.note}</p>
  )}
  </div>
  </div>
  <button
  onClick={() => removeTimeOff(entry.id)}
- className="ml-2 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors shrink-0"
+ className="ml-2 p-1 text-[#6C7A89] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors shrink-0"
  title="Remove"
  >
  <Trash2 size={13} />
@@ -164,7 +164,7 @@ export function TimeOffForm({ isOpen, onClose, memberId }: TimeOffFormProps) {
  )}
 
  {existingEntries.length === 0 && (
- <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-2">
+ <p className="text-sm text-[#6C7A89] dark:text-[#6C7A89] text-center py-2">
  No absences recorded yet.
  </p>
  )}

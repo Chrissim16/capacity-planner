@@ -214,7 +214,7 @@ export function AssignPopover({
           {mode === 'project' ? 'Assign Project' : 'Assign Person'}
         </span>
         <button
-          className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+          className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
           onClick={onClose}
           aria-label="Close"
         >
@@ -264,7 +264,7 @@ export function AssignPopover({
                 key={id}
                 className={clsx(
                   'w-full flex items-center justify-between px-3 py-2 text-left text-sm transition-colors',
-                  isSelected ? 'bg-[#E8F8F8]' : 'hover:bg-[#F5F3F0]'
+                  isSelected ? 'bg-[#E6F2FC]' : 'hover:bg-[#EEEEF1]'
                 )}
                 onClick={() => setSelected(r)}
                 aria-pressed={isSelected}
@@ -303,10 +303,10 @@ export function AssignPopover({
           <div className="flex items-center gap-0 px-3 pt-2.5 pb-1">
             <button
               className={clsx(
-                'px-2.5 py-1 text-[11px] font-medium rounded-l-md border transition-colors focus:ring-2 focus:ring-inset focus:ring-sana-teal',
+                'px-2.5 py-1 text-[11px] font-medium rounded-l-md border transition-colors focus:ring-2 focus:ring-inset focus:ring-mileway-light-blue',
                 inputMode === 'days'
                   ? 'text-white'
-                  : 'hover:bg-[#F5F3F0]'
+                  : 'hover:bg-[#EEEEF1]'
               )}
               style={
                 inputMode === 'days'
@@ -320,10 +320,10 @@ export function AssignPopover({
             </button>
             <button
               className={clsx(
-                'px-2.5 py-1 text-[11px] font-medium rounded-r-md border-t border-b border-r transition-colors focus:ring-2 focus:ring-inset focus:ring-sana-teal',
+                'px-2.5 py-1 text-[11px] font-medium rounded-r-md border-t border-b border-r transition-colors focus:ring-2 focus:ring-inset focus:ring-mileway-light-blue',
                 inputMode === 'dates'
                   ? 'text-white'
-                  : 'hover:bg-[#F5F3F0]'
+                  : 'hover:bg-[#EEEEF1]'
               )}
               style={
                 inputMode === 'dates'
@@ -348,11 +348,11 @@ export function AssignPopover({
                 value={days}
                 onChange={(e) => setDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
-                className="w-16 border rounded px-2 py-1 text-sm text-center outline-none focus:ring-2 focus:ring-sana-teal"
+                className="w-16 border rounded px-2 py-1 text-sm text-center outline-none focus:ring-2 focus:ring-mileway-light-blue"
                 style={{ borderColor: Border.subtle, color: Text.primary, backgroundColor: Background.card }}
               />
               <button
-                className="ml-auto px-3 py-1 rounded-lg text-xs font-medium text-white focus:ring-2 focus:ring-sana-teal"
+                className="ml-auto px-3 py-1 rounded-lg text-xs font-medium text-white focus:ring-2 focus:ring-mileway-light-blue"
                 style={{ backgroundColor: Accent.teal }}
                 onClick={handleConfirm}
               >
@@ -370,7 +370,7 @@ export function AssignPopover({
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="flex-1 border rounded px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-sana-teal"
+                  className="flex-1 border rounded px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-mileway-light-blue"
                   style={{ borderColor: Border.subtle, color: Text.primary, backgroundColor: Background.card }}
                 />
               </div>
@@ -381,7 +381,7 @@ export function AssignPopover({
                   value={endDate}
                   min={startDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="flex-1 border rounded px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-sana-teal"
+                  className="flex-1 border rounded px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-mileway-light-blue"
                   style={{ borderColor: Border.subtle, color: Text.primary, backgroundColor: Background.card }}
                 />
               </div>
@@ -390,7 +390,7 @@ export function AssignPopover({
                   {computedDays}d workdays · {derivedQuarter}
                 </span>
                 <button
-                  className="px-3 py-1 rounded-lg text-xs font-medium text-white focus:ring-2 focus:ring-sana-teal"
+                  className="px-3 py-1 rounded-lg text-xs font-medium text-white focus:ring-2 focus:ring-mileway-light-blue"
                   style={{ backgroundColor: Accent.teal }}
                   onClick={handleConfirm}
                   disabled={computedDays <= 0}
@@ -420,7 +420,7 @@ export function ITBizBadge({ type }: ITBizBadgeProps) {
       className="inline-flex items-center rounded text-[9px] font-semibold px-1 py-0.5 uppercase tracking-wide"
       style={
         type === 'it'
-          ? { backgroundColor: '#E8F8F8', color: Accent.teal }
+          ? { backgroundColor: '#E6F2FC', color: Accent.teal }
           : { backgroundColor: Biz.mid, color: Biz.DEFAULT }
       }
     >

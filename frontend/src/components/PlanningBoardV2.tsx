@@ -374,7 +374,7 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
         <div className="text-center space-y-2">
           <p className="text-sm" style={{ color: Text.tertiary }}>No plan selected.</p>
           <button
-            className="text-sm font-medium focus:ring-2 focus:ring-sana-teal rounded"
+            className="text-sm font-medium focus:ring-2 focus:ring-mileway-light-blue rounded"
             style={{ color: Accent.teal }}
             onClick={onBack}
           >
@@ -399,7 +399,7 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
       >
         {/* Back button */}
         <button
-          className="flex items-center gap-1.5 text-sm transition-colors hover:text-sana-teal focus:ring-2 focus:ring-sana-teal rounded px-1 py-0.5"
+          className="flex items-center gap-1.5 text-sm transition-colors hover:text-mileway-light-blue focus:ring-2 focus:ring-mileway-light-blue rounded px-1 py-0.5"
           style={{ color: Text.tertiary }}
           onClick={onBack}
           aria-label="Back to Planning Hub"
@@ -428,7 +428,7 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
           />
         ) : (
           <button
-            className="flex items-center gap-1.5 text-sm font-semibold transition-colors group focus:ring-2 focus:ring-sana-teal rounded px-0.5"
+            className="flex items-center gap-1.5 text-sm font-semibold transition-colors group focus:ring-2 focus:ring-mileway-light-blue rounded px-0.5"
             style={{ color: Text.primary }}
             onClick={() => setEditingName(true)}
             aria-label="Click to rename plan"
@@ -446,7 +446,7 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
         <select
           value={boardQuarter}
           onChange={(e) => setBoardQuarter(e.target.value)}
-          className="text-xs border rounded px-2 py-1 focus:ring-2 focus:ring-sana-teal outline-none"
+          className="text-xs border rounded px-2 py-1 focus:ring-2 focus:ring-mileway-light-blue outline-none"
           style={{
             borderColor: Border.subtle,
             color: Text.secondary,
@@ -504,7 +504,7 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
 
         {/* Promote to Baseline */}
         <button
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
           style={{ borderColor: Border.subtle, color: Text.secondary }}
           onClick={() => setConfirmPromote(true)}
           aria-label="Promote this plan to baseline"
@@ -516,7 +516,7 @@ export default function PlanningBoardV2({ onBack }: PlanningBoardV2Props) {
         {/* Dot menu */}
         <div className="relative" ref={menuRef}>
           <button
-            className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ borderColor: Border.subtle, color: Text.secondary }}
             onClick={() => setMenuOpen(v => !v)}
             aria-label="More plan options"
@@ -734,7 +734,7 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
             onChange={(e) => setDays(Math.max(1, parseInt(e.target.value) || 1))}
             onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
             autoFocus
-            className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sana-teal"
+            className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-mileway-light-blue"
             style={{
               borderColor: Border.subtle,
               color: Text.primary,
@@ -748,14 +748,14 @@ function DropDaysModal({ target, quarter, onConfirm, onClose }: DropDaysModalPro
           style={{ borderColor: Border.subtle, backgroundColor: Background.secondary }}
         >
           <button
-            className="px-4 py-1.5 text-sm rounded-lg border transition-colors hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+            className="px-4 py-1.5 text-sm rounded-lg border transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ borderColor: Border.subtle, color: Text.secondary }}
             onClick={onClose}
           >
             Cancel
           </button>
           <button
-            className="px-4 py-1.5 text-sm font-medium rounded-lg transition-colors focus:ring-2 focus:ring-sana-teal"
+            className="px-4 py-1.5 text-sm font-medium rounded-lg transition-colors focus:ring-2 focus:ring-mileway-light-blue"
             style={{ backgroundColor: Accent.teal, color: '#fff' }}
             onClick={handleConfirm}
             disabled={days < 1}
@@ -829,8 +829,8 @@ function ViewToggleButton({ label, active, onClick }: { label: string; active: b
   return (
     <button
       className={clsx(
-        'px-3 py-1.5 text-sm font-medium transition-colors focus:ring-2 focus:ring-inset focus:ring-sana-teal',
-        active ? 'text-white' : 'hover:bg-[#F5F3F0]'
+        'px-3 py-1.5 text-sm font-medium transition-colors focus:ring-2 focus:ring-inset focus:ring-mileway-light-blue',
+        active ? 'text-white' : 'hover:bg-[#EEEEF1]'
       )}
       style={active ? { backgroundColor: Accent.teal, color: '#fff' } : { color: Text.secondary }}
       onClick={onClick}
@@ -851,7 +851,7 @@ interface MenuItemProps {
 function MenuItem({ icon, label, onClick, danger = false }: MenuItemProps) {
   return (
     <button
-      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors focus:ring-2 focus:ring-sana-teal hover:bg-[#F5F3F0]"
+      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors focus:ring-2 focus:ring-mileway-light-blue hover:bg-[#EEEEF1]"
       style={{ color: danger ? Semantic.danger : Text.secondary }}
       onClick={onClick}
       role="menuitem"

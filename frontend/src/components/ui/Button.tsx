@@ -10,14 +10,14 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, disabled, children, ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0ED3CF] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
     const variants = {
-      primary:   'bg-[#1A1A1A] text-white hover:opacity-85',
-      secondary: 'bg-transparent text-[#1A1A1A] border border-[#E5E5E3] hover:bg-[#F5F3F0]',
-      danger:    'bg-[#EF4444] text-white hover:opacity-85',
-      warning:   'bg-[#F97316] text-white hover:opacity-85',
-      ghost:     'text-[#6B7280] hover:bg-[#F5F3F0] hover:text-[#1A1A1A]',
+      primary:   'bg-[#0089DD] text-white hover:bg-[#0077C2]',
+      secondary: 'bg-white text-[#003565] border border-[#CFCFD5] hover:bg-[#EEEEF1]',
+      danger:    'bg-[#DC2626] text-white hover:bg-[#B91C1C]',
+      warning:   'bg-[#D97706] text-white hover:bg-[#B45309]',
+      ghost:     'text-[#6C7A89] hover:bg-[#EEEEF1] hover:text-[#003565]',
     };
 
     const sizes = {

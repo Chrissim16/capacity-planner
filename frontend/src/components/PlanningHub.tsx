@@ -118,7 +118,7 @@ function PlanCard({ scenario, onOpen, onRename, onDuplicate, onPromote, onDelete
           className={clsx(
             'shrink-0 w-7 h-7 rounded-md flex items-center justify-center transition-opacity duration-150',
             hovered || menuOpen ? 'opacity-100' : 'opacity-0',
-            'hover:bg-[#F5F3F0] focus:opacity-100 focus:ring-2 focus:ring-sana-teal'
+            'hover:bg-[#EEEEF1] focus:opacity-100 focus:ring-2 focus:ring-mileway-light-blue'
           )}
           style={{ color: Text.secondary }}
           onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }}
@@ -191,7 +191,7 @@ function PlanCard({ scenario, onOpen, onRename, onDuplicate, onPromote, onDelete
           onClick={(e) => e.stopPropagation()}
         >
           <button
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Text.secondary }}
             role="menuitem"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRename(); }}
@@ -200,7 +200,7 @@ function PlanCard({ scenario, onOpen, onRename, onDuplicate, onPromote, onDelete
             Rename
           </button>
           <button
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Text.secondary }}
             role="menuitem"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDuplicate(); }}
@@ -209,7 +209,7 @@ function PlanCard({ scenario, onOpen, onRename, onDuplicate, onPromote, onDelete
             Duplicate
           </button>
           <button
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Text.secondary }}
             role="menuitem"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onPromote(); }}
@@ -219,7 +219,7 @@ function PlanCard({ scenario, onOpen, onRename, onDuplicate, onPromote, onDelete
           </button>
           <div className="h-px my-1" style={{ backgroundColor: Border.subtle }} />
           <button
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-red-50 focus:ring-2 focus:ring-sana-teal"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-red-50 focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Semantic.danger }}
             role="menuitem"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(); }}
@@ -240,13 +240,13 @@ function PlanCard({ scenario, onOpen, onRename, onDuplicate, onPromote, onDelete
 function NewPlanCard({ onClick }: { onClick: () => void }) {
   return (
     <button
-      className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 p-5 transition-colors duration-150 hover:border-sana-teal hover:bg-[#E8F8F8] focus:ring-2 focus:ring-sana-teal group"
+      className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 p-5 transition-colors duration-150 hover:border-mileway-light-blue hover:bg-[#E6F2FC] focus:ring-2 focus:ring-mileway-light-blue group"
       style={{ borderColor: Border.subtle, minHeight: 168 }}
       onClick={onClick}
       aria-label="Create new plan"
     >
       <div
-        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors duration-150 group-hover:bg-sana-teal"
+        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors duration-150 group-hover:bg-mileway-light-blue"
         style={{ backgroundColor: Background.secondary }}
       >
         <Plus size={18} className="transition-colors duration-150 group-hover:text-white" style={{ color: Text.tertiary }} />
@@ -292,7 +292,7 @@ function RenameModal({ scenario, onClose, currentUserEmail }: RenameModalProps) 
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold" style={{ color: Text.primary }}>Rename plan</h2>
           <button
-            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
             onClick={onClose}
             aria-label="Close"
           >
@@ -305,20 +305,20 @@ function RenameModal({ scenario, onClose, currentUserEmail }: RenameModalProps) 
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') onClose(); }}
-          className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sana-teal"
+          className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-mileway-light-blue"
           style={{ borderColor: Border.subtle, color: Text.primary }}
           placeholder="Plan name"
         />
         <div className="flex justify-end gap-2">
           <button
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Text.secondary }}
             onClick={onClose}
           >
             Cancel
           </button>
           <button
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors focus:ring-2 focus:ring-sana-teal disabled:opacity-50"
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors focus:ring-2 focus:ring-mileway-light-blue disabled:opacity-50"
             style={{ backgroundColor: Accent.teal }}
             disabled={!name.trim()}
             onClick={handleSubmit}
@@ -402,14 +402,14 @@ export function PlanningHub() {
           </span>
           <div className="flex items-center gap-3">
             <button
-              className="text-sm font-medium hover:underline focus:ring-2 focus:ring-sana-teal rounded"
+              className="text-sm font-medium hover:underline focus:ring-2 focus:ring-mileway-light-blue rounded"
               style={{ color: Accent.teal }}
               onClick={() => handleOpen(lastOpenedPlan.id)}
             >
               Continue Planning →
             </button>
             <button
-              className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#CCF9F8] focus:ring-2 focus:ring-sana-teal"
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#CCF9F8] focus:ring-2 focus:ring-mileway-light-blue"
               style={{ color: Text.tertiary }}
               onClick={() => setResumeDismissed(true)}
               aria-label="Dismiss"
@@ -425,7 +425,7 @@ export function PlanningHub() {
         <div>
           <h1
             className="text-2xl font-semibold"
-            style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: Text.primary }}
+            style={{ fontFamily: "'Plus Jakarta Sans', Georgia, serif", color: Text.primary }}
           >
             Planning
           </h1>
@@ -452,7 +452,7 @@ export function PlanningHub() {
               </p>
             </div>
             <button
-              className="mt-2 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white focus:ring-2 focus:ring-sana-teal transition-colors"
+              className="mt-2 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white focus:ring-2 focus:ring-mileway-light-blue transition-colors"
               style={{ backgroundColor: Accent.teal }}
               onClick={() => setShowNewPlanModal(true)}
             >

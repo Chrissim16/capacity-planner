@@ -152,7 +152,7 @@ function buildColumns(granularity: PlanningGranularity, quarters: string[]): Tim
 
 const PROJECT_COLORS = [
   Accent.teal, '#6366F1', '#F59E0B', '#EC4899', '#10B981', '#8B5CF6',
-  '#EF4444', '#14B8A6', '#F97316', '#3B82F6',
+  '#DC2626', '#14B8A6', '#F97316', '#3B82F6',
 ];
 
 function projectColor(projectId: string): string {
@@ -243,9 +243,9 @@ function PeopleRow({ memberId, columns, granularity, assignments, projects, jira
       <div
         ref={setDropRef}
         className={clsx(
-          'flex border-b transition-colors hover:bg-[#F5F3F0] group',
-          dragScore && (isOver ? 'ring-2 ring-inset ring-sana-teal' : FIT_GLOW[dragScore]),
-          isOver && !dragScore && 'ring-2 ring-inset ring-sana-teal',
+          'flex border-b transition-colors hover:bg-[#EEEEF1] group',
+          dragScore && (isOver ? 'ring-2 ring-inset ring-mileway-light-blue' : FIT_GLOW[dragScore]),
+          isOver && !dragScore && 'ring-2 ring-inset ring-mileway-light-blue',
         )}
         style={{ borderColor: Border.subtle }}
       >
@@ -265,7 +265,7 @@ function PeopleRow({ memberId, columns, granularity, assignments, projects, jira
           <ITBizBadge type="it" />
           {/* Hover + button */}
           <button
-            className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded hover:bg-[#E8F8F8] focus:ring-2 focus:ring-sana-teal shrink-0"
+            className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded hover:bg-[#E6F2FC] focus:ring-2 focus:ring-mileway-light-blue shrink-0"
             style={{ color: Accent.teal }}
             onClick={(e) => { e.stopPropagation(); setAssigningQuarter(firstQuarter); }}
             aria-label="Assign a project"
@@ -452,7 +452,7 @@ function ProjectRow({ project, columns, granularity, assignments, dragScore, isS
       <div
         ref={setDropRef}
         className={clsx(
-          'flex border-b transition-colors hover:bg-[#F5F3F0] group',
+          'flex border-b transition-colors hover:bg-[#EEEEF1] group',
           dragScore && (isOver ? 'ring-2 ring-inset' : FIT_GLOW[dragScore]),
         )}
         style={{
@@ -499,7 +499,7 @@ function ProjectRow({ project, columns, granularity, assignments, dragScore, isS
 
           {/* Hover + button */}
           <button
-            className="opacity-0 group-hover/label:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded hover:bg-[#E8F8F8] focus:ring-2 focus:ring-sana-teal shrink-0"
+            className="opacity-0 group-hover/label:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded hover:bg-[#E6F2FC] focus:ring-2 focus:ring-mileway-light-blue shrink-0"
             style={{ color: Accent.teal }}
             onClick={(e) => { e.stopPropagation(); setAssigningQuarter(firstQuarter); }}
             aria-label="Assign a person"
@@ -742,7 +742,7 @@ function JiraEpicRow({ item, columns, granularity, assignments, dragScore, isSel
       <div
         ref={setDropRef}
         className={clsx(
-          'flex border-b transition-colors hover:bg-[#F5F3F0] group',
+          'flex border-b transition-colors hover:bg-[#EEEEF1] group',
           dragScore && (isOver ? 'ring-2 ring-inset' : FIT_GLOW[dragScore]),
         )}
         style={{
@@ -791,7 +791,7 @@ function JiraEpicRow({ item, columns, granularity, assignments, dragScore, isSel
 
           {/* Hover + button */}
           <button
-            className="opacity-0 group-hover/label:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded hover:bg-[#E8F8F8] focus:ring-2 focus:ring-sana-teal shrink-0"
+            className="opacity-0 group-hover/label:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded hover:bg-[#E6F2FC] focus:ring-2 focus:ring-mileway-light-blue shrink-0"
             style={{ color: Accent.teal }}
             onClick={(e) => { e.stopPropagation(); setAssigningQuarter(firstQuarter); }}
             aria-label="Assign a person"
@@ -907,7 +907,7 @@ function AddProjectRow({ columns, isBaseline }: { columns: TimelineColumn[]; isB
           style={{ width: LABEL_WIDTH, borderRight: `1px solid ${Border.subtle}` }}
         >
           <button
-            className="flex items-center gap-1.5 text-xs transition-colors hover:text-sana-teal focus:ring-2 focus:ring-sana-teal rounded"
+            className="flex items-center gap-1.5 text-xs transition-colors hover:text-mileway-light-blue focus:ring-2 focus:ring-mileway-light-blue rounded"
             style={{ color: Text.tertiary }}
             onClick={() => setAdding(true)}
           >
@@ -945,11 +945,11 @@ function AddProjectRow({ columns, isBaseline }: { columns: TimelineColumn[]; isB
           }}
           onBlur={() => { if (!name.trim()) setAdding(false); }}
           placeholder="Project name…"
-          className="flex-1 text-sm outline-none bg-transparent border-b focus:border-sana-teal"
+          className="flex-1 text-sm outline-none bg-transparent border-b focus:border-mileway-light-blue"
           style={{ borderColor: Border.subtle, color: Text.primary }}
         />
         <button
-          className="text-xs font-medium focus:ring-2 focus:ring-sana-teal rounded px-1"
+          className="text-xs font-medium focus:ring-2 focus:ring-mileway-light-blue rounded px-1"
           style={{ color: Accent.teal }}
           onClick={handleAdd}
           disabled={!name.trim()}

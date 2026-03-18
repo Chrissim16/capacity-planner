@@ -103,17 +103,17 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   };
 
   const icons = {
-    success: <CheckCircle  className="w-4 h-4 text-[#22C55E] shrink-0" />,
-    error:   <XCircle      className="w-4 h-4 text-[#EF4444] shrink-0" />,
+    success: <CheckCircle  className="w-4 h-4 text-[#16A34A] shrink-0" />,
+    error:   <XCircle      className="w-4 h-4 text-[#DC2626] shrink-0" />,
     warning: <AlertTriangle className="w-4 h-4 text-[#F97316] shrink-0" />,
-    info:    <Info          className="w-4 h-4 text-[#0ED3CF] shrink-0" />,
+    info:    <Info          className="w-4 h-4 text-[#0089DD] shrink-0" />,
   };
 
   const backgrounds = {
     success: 'bg-white border-[#A7F3D0]',
     error:   'bg-white border-[#FECACA]',
     warning: 'bg-white border-[#FED7AA]',
-    info:    'bg-white border-[#99F6E4]',
+    info:    'bg-white border-[#B3D9F5]',
   };
 
   return (
@@ -126,22 +126,22 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
       )}
     >
       {icons[toast.type]}
-      <p className="text-sm font-medium text-[#1A1A1A] flex-1">
+      <p className="text-sm font-medium text-[#003565] flex-1">
         {toast.message}
       </p>
       {toast.action && (
         <button
           onClick={handleAction}
-          className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#F5F3F0] border border-[#E5E5E3] text-[#1A1A1A] hover:bg-[#E5E5E3] transition-colors"
+          className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#EEEEF1] border border-[#CFCFD5] text-[#003565] hover:bg-[#CFCFD5] transition-colors"
         >
           {toast.action.label}
         </button>
       )}
       <button
         onClick={handleClose}
-        className="ml-1 p-1 rounded-lg hover:bg-[#F5F3F0] transition-colors shrink-0"
+        className="ml-1 p-1 rounded-lg hover:bg-[#EEEEF1] transition-colors shrink-0"
       >
-        <X className="w-3.5 h-3.5 text-[#9CA3AF]" />
+        <X className="w-3.5 h-3.5 text-[#B5BDC4]" />
       </button>
     </div>
   );

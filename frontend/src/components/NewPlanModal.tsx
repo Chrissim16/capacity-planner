@@ -72,7 +72,7 @@ export function NewPlanModal({ onClose, onCreated, currentUserEmail }: NewPlanMo
             Start your plan
           </h2>
           <button
-            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
             onClick={onClose}
             aria-label="Close"
           >
@@ -114,7 +114,7 @@ export function NewPlanModal({ onClose, onCreated, currentUserEmail }: NewPlanMo
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
-              className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sana-teal"
+              className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-mileway-light-blue"
               style={{ borderColor: Border.subtle, color: Text.primary }}
               placeholder="e.g. Q2 2026 — Plan B"
             />
@@ -130,7 +130,7 @@ export function NewPlanModal({ onClose, onCreated, currentUserEmail }: NewPlanMo
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sana-teal resize-none"
+              className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-mileway-light-blue resize-none"
               style={{ borderColor: Border.subtle, color: Text.primary }}
               placeholder="Context, assumptions, or goals for this plan…"
             />
@@ -143,7 +143,7 @@ export function NewPlanModal({ onClose, onCreated, currentUserEmail }: NewPlanMo
           style={{ borderColor: Border.subtle }}
         >
           <button
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[#F5F3F0] focus:ring-2 focus:ring-sana-teal"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[#EEEEF1] focus:ring-2 focus:ring-mileway-light-blue"
             style={{ color: Text.secondary }}
             onClick={onClose}
           >
@@ -151,7 +151,7 @@ export function NewPlanModal({ onClose, onCreated, currentUserEmail }: NewPlanMo
           </button>
           <button
             className={clsx(
-              'px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors focus:ring-2 focus:ring-sana-teal',
+              'px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors focus:ring-2 focus:ring-mileway-light-blue',
               !name.trim() || creating ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
             )}
             style={{ backgroundColor: Accent.teal }}
@@ -185,10 +185,10 @@ function BaseOption({ selected, onSelect, title, description }: BaseOptionProps)
       role="radio"
       aria-checked={selected}
       className={clsx(
-        'w-full flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all duration-150 focus:ring-2 focus:ring-sana-teal',
+        'w-full flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all duration-150 focus:ring-2 focus:ring-mileway-light-blue',
         selected
-          ? 'border-sana-teal bg-[#E8F8F8]'
-          : 'hover:border-sana-teal/50 hover:bg-[#F5F3F0]'
+          ? 'border-mileway-light-blue bg-[#E6F2FC]'
+          : 'hover:border-mileway-light-blue/50 hover:bg-[#EEEEF1]'
       )}
       style={{ borderColor: selected ? Accent.teal : Border.subtle }}
       onClick={onSelect}

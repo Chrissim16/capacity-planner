@@ -91,16 +91,7 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentView]);
 
-  // Apply dark mode
-  useEffect(() => {
-    if (settings.darkMode) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.setAttribute('data-theme', 'light');
-    }
-  }, [settings.darkMode]);
+  // Dark mode is removed — always light mode
 
   // US-003: Warn before closing the tab when there are unsaved changes
   useEffect(() => {

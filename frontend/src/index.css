@@ -29,37 +29,49 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   SANA LABS DESIGN TOKENS — CSS custom properties
+   MILEWAY BRAND TOKENS — CSS custom properties
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 :root {
+  /* Mileway brand colours */
+  --color-primary:      #0089DD;
+  --color-primary-dark: #003565;
+  --color-grey:         #6C7A89;
+  --color-border:       #CFCFD5;
+  --color-bg:           #F5F8FC;
+  --color-surface:      #FFFFFF;
+  --color-text:         #003565;
+  --color-text-muted:   #6C7A89;
+  --today-line:         #DC2626;
+  --current-sprint-bg:  #E6F2FC;
+
   /* Backgrounds */
-  --bg-primary:       #FAF9F7;
-  --bg-secondary:     #F5F3F0;
+  --bg-primary:       #F5F8FC;
+  --bg-secondary:     #EEEEF1;
   --bg-card:          #FFFFFF;
   --bg-elevated:      #FFFFFF;
-  --bg-highlight:     #E8F8F8;
-  --bg-highlight-alt: #FFF7ED;
+  --bg-highlight:     #E6F2FC;
+  --bg-highlight-alt: #E6EAF0;
 
   /* Text */
-  --text-primary:   #1A1A1A;
-  --text-secondary: #6B7280;
-  --text-tertiary:  #9CA3AF;
+  --text-primary:   #003565;
+  --text-secondary: #6C7A89;
+  --text-tertiary:  #B5BDC4;
   --text-inverse:   #FFFFFF;
 
   /* Accents */
-  --accent-teal:         #0ED3CF;
-  --accent-teal-light:   #CCFBF1;
-  --accent-orange:       #F97316;
-  --accent-orange-light: #FED7AA;
-  --accent-coral:        #FB7185;
-  --accent-magenta:      #D946EF;
-  --accent-green:        #22C55E;
-  --accent-red:          #EF4444;
+  --accent-teal:         #0089DD;
+  --accent-teal-light:   #E6F2FC;
+  --accent-orange:       #D97706;
+  --accent-orange-light: #FEF3C7;
+  --accent-coral:        #DC2626;
+  --accent-magenta:      #6C7A89;
+  --accent-green:        #16A34A;
+  --accent-red:          #DC2626;
 
   /* Borders */
-  --border-subtle: #E5E5E3;
-  --border-light:  #F0EFED;
+  --border-subtle: #CFCFD5;
+  --border-light:  #DEDFE3;
 
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -68,14 +80,14 @@
 
   /* Radii */
   --radius-sm:   8px;
-  --radius-md:   12px;
-  --radius-lg:   16px;
-  --radius-xl:   20px;
+  --radius-md:   10px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
   --radius-pill: 9999px;
 
   /* Typography */
-  --font-heading: 'Source Serif 4', 'Georgia', serif;
-  --font-body:    'DM Sans', 'Inter', -apple-system, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+  --font-body:    'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
 
   /* Spacing (8px grid) */
   --space-1:  4px;
@@ -94,17 +106,17 @@
   --transition-base:  250ms ease;
   --transition-slow:  400ms ease;
 
-  /* Legacy aliases — referenced by index.css row-hover rules */
-  --mw-primary:        #0ED3CF;
-  --mw-primary-dark:   #0ED3CF;
-  --mw-dark:           #FAF9F7;
-  --row-hover:         rgba(14, 211, 207, 0.06);
-  --row-hover-dk:      rgba(14, 211, 207, 0.10);
+  /* Legacy aliases */
+  --mw-primary:        #0089DD;
+  --mw-primary-dark:   #003565;
+  --mw-dark:           #F5F8FC;
+  --row-hover:         rgba(0, 137, 221, 0.06);
+  --row-hover-dk:      rgba(0, 137, 221, 0.10);
   --duration-fast:     150ms;
   --duration-standard: 250ms;
   --duration-slow:     400ms;
-  --blue:              #0ED3CF;
-  --blue-light:        #CCFBF1;
+  --blue:              #0089DD;
+  --blue-light:        #E6F2FC;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -119,8 +131,8 @@ body {
   margin: 0;
   padding: 0;
   font-family: var(--font-body);
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: var(--color-bg);
+  color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -146,7 +158,7 @@ body {
 
 /* Focus styles */
 *:focus-visible {
-  outline: 2px solid var(--accent-teal);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -155,13 +167,13 @@ body {
    These are SEMANTIC — warm off-white replaces pure white for empty cells.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-.cell-empty      { background: #FAF9F7;                   color: #94a3b8; }
-.cell-tier1      { background: rgba(74, 181, 100, 0.15);  color: #1A1A1A; }
-.cell-tier2      { background: rgba(74, 181, 100, 0.35);  color: #1A1A1A; }
-.cell-tier3      { background: rgba(255, 210,  60, 0.35); color: #1A1A1A; }
-.cell-tier4      { background: rgba(255, 175,  40, 0.45); color: #1A1A1A; }
-.cell-tier5      { background: rgba(255, 130,  50, 0.45); color: #1A1A1A; }
-.cell-tier6      { background: rgba(220,  80,  50, 0.40); color: #1A1A1A; }
+.cell-empty      { background: #F5F8FC;                   color: #B5BDC4; }
+.cell-tier1      { background: rgba(74, 181, 100, 0.15);  color: #003565; }
+.cell-tier2      { background: rgba(74, 181, 100, 0.35);  color: #003565; }
+.cell-tier3      { background: rgba(255, 210,  60, 0.35); color: #003565; }
+.cell-tier4      { background: rgba(255, 175,  40, 0.45); color: #003565; }
+.cell-tier5      { background: rgba(255, 130,  50, 0.45); color: #003565; }
+.cell-tier6      { background: rgba(220,  80,  50, 0.40); color: #003565; }
 .cell-overloaded { background: rgba(220,  53,  69, 0.25); color: #8B0000; border-left: 2px solid #DC3545; }
 
 
@@ -189,7 +201,7 @@ body {
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 3px;
-  background: var(--accent-teal);
+  background: var(--color-primary);
   border-radius: 0 2px 2px 0;
   opacity: 0;
   transition: opacity var(--duration-fast) ease;
@@ -200,7 +212,7 @@ body {
   opacity: 1;
 }
 .epic-row:hover .epic-row-name {
-  color: var(--accent-teal);
+  color: var(--color-primary);
 }
 
 /* ── Gantt label column rows (flex divs) ──────────────────────────────────── */
@@ -212,7 +224,7 @@ body {
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 3px;
-  background: var(--accent-teal);
+  background: var(--color-primary);
   border-radius: 0 2px 2px 0;
   opacity: 0;
   transition: opacity var(--duration-fast) ease;
@@ -270,8 +282,8 @@ body {
 }
 .dd-item:hover {
   background: var(--row-hover);
-  border-left-color: var(--accent-teal) !important;
+  border-left-color: var(--color-primary) !important;
 }
 .dd-item:hover .dd-item-label {
-  color: var(--accent-teal);
+  color: var(--color-primary);
 }

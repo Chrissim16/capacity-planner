@@ -56,12 +56,12 @@ function MemberRow({ fit, quarter: _quarter, canAssign, onAssign, assigningId }:
   };
 
   return (
-    <div className="py-3 border-b border-[#F0EFED] last:border-0">
+    <div className="py-3 border-b border-[#DEDFE3] last:border-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-[#1A1A1A] truncate">{member.name}</span>
-            <span className="text-xs text-[#9CA3AF]">{member.role}</span>
+            <span className="text-sm font-medium text-[#003565] truncate">{member.name}</span>
+            <span className="text-xs text-[#B5BDC4]">{member.role}</span>
             <span className={clsx('text-xs font-medium px-1.5 py-0.5 rounded-full shrink-0', colours.badge)}>
               {fitLevel}
             </span>
@@ -75,7 +75,7 @@ function MemberRow({ fit, quarter: _quarter, canAssign, onAssign, assigningId }:
               size="sm"
               className="w-full"
             />
-            <span className="text-xs text-[#9CA3AF] mt-0.5 block">
+            <span className="text-xs text-[#B5BDC4] mt-0.5 block">
               {availableDays > 0 ? `${availableDays}d available` : 'No capacity'}
             </span>
           </div>
@@ -84,7 +84,7 @@ function MemberRow({ fit, quarter: _quarter, canAssign, onAssign, assigningId }:
           {(skillMatch.length > 0 || skillGap.length > 0) && (
             <div className="flex flex-wrap gap-1 mt-1.5">
               {skillMatch.map(s => (
-                <span key={s} className="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded">✓ {s}</span>
+                <span key={s} className="text-xs text-[#16A34A] bg-green-50 px-1.5 py-0.5 rounded">✓ {s}</span>
               ))}
               {skillGap.map(s => (
                 <span key={s} className="text-xs text-red-600 bg-red-50 px-1.5 py-0.5 rounded">✗ {s}</span>
@@ -94,7 +94,7 @@ function MemberRow({ fit, quarter: _quarter, canAssign, onAssign, assigningId }:
 
           {/* Already assigned badge (D7) */}
           {existingDays > 0 && (
-            <p className="text-xs text-[#9CA3AF] mt-1">Already assigned: {existingDays}d</p>
+            <p className="text-xs text-[#B5BDC4] mt-1">Already assigned: {existingDays}d</p>
           )}
         </div>
 
@@ -111,10 +111,10 @@ function MemberRow({ fit, quarter: _quarter, canAssign, onAssign, assigningId }:
                   onChange={e => handleDaysChange(e.target.value)}
                   className={clsx(
                     'w-16 h-8 text-center text-sm rounded-lg border px-2',
-                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0ED3CF]',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD]',
                     isOverbooked
                       ? 'border-amber-400 bg-amber-50'
-                      : 'border-[#E5E5E3] bg-white'
+                      : 'border-[#CFCFD5] bg-white'
                   )}
                   aria-label={`Days for ${member.name}`}
                 />
@@ -161,24 +161,24 @@ function BizRow({ fit, canAssign, onAssign, assigningId }: BizRowProps) {
   const isAssigning = assigningId === contact.id;
 
   return (
-    <div className="py-3 border-b border-[#F0EFED] last:border-0">
+    <div className="py-3 border-b border-[#DEDFE3] last:border-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-[#1A1A1A] truncate">{contact.name}</span>
-            {contact.title && <span className="text-xs text-[#9CA3AF]">{contact.title}</span>}
+            <span className="text-sm font-medium text-[#003565] truncate">{contact.name}</span>
+            {contact.title && <span className="text-xs text-[#B5BDC4]">{contact.title}</span>}
             <span className={clsx('text-xs font-medium px-1.5 py-0.5 rounded-full shrink-0', colours.badge)}>
               {fitLevel}
             </span>
           </div>
           <div className="mt-1.5">
             <ProgressBar value={usedPercent} max={100} size="sm" />
-            <span className="text-xs text-[#9CA3AF] mt-0.5 block">
+            <span className="text-xs text-[#B5BDC4] mt-0.5 block">
               {availableDays > 0 ? `${availableDays}d available` : 'No capacity'}
             </span>
           </div>
           {existingDays > 0 && (
-            <p className="text-xs text-[#9CA3AF] mt-1">Already assigned: {existingDays}d</p>
+            <p className="text-xs text-[#B5BDC4] mt-1">Already assigned: {existingDays}d</p>
           )}
         </div>
 
@@ -193,8 +193,8 @@ function BizRow({ fit, canAssign, onAssign, assigningId }: BizRowProps) {
                 onChange={e => setDays(parseInt(e.target.value, 10) || 0)}
                 className={clsx(
                   'w-16 h-8 text-center text-sm rounded-lg border px-2',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0ED3CF]',
-                  isOverbooked ? 'border-amber-400 bg-amber-50' : 'border-[#E5E5E3] bg-white'
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD]',
+                  isOverbooked ? 'border-amber-400 bg-amber-50' : 'border-[#CFCFD5] bg-white'
                 )}
                 aria-label={`Days for ${contact.name}`}
               />
@@ -204,7 +204,7 @@ function BizRow({ fit, canAssign, onAssign, assigningId }: BizRowProps) {
                 disabled={days <= 0 || isNaN(days) || isAssigning}
                 isLoading={isAssigning}
                 onClick={() => onAssign(contact.id, days)}
-                className="whitespace-nowrap text-violet-600 border-violet-200 hover:bg-violet-50"
+                className="whitespace-nowrap text-[#6C7A89] border-[#CFCFD5] hover:bg-[#EEEEF1]"
               >
                 {existingDays > 0 ? 'Add more' : 'Assign'}
               </Button>
@@ -291,11 +291,11 @@ export function SmartAssignmentPanel({
     <div className="flex flex-col h-full">
       {/* Quarter selector */}
       <div className="flex items-center gap-2 mb-4">
-        <label className="text-xs font-semibold uppercase tracking-widest text-[#9CA3AF]">Quarter</label>
+        <label className="text-xs font-semibold uppercase tracking-widest text-[#B5BDC4]">Quarter</label>
         <select
           value={quarter}
           onChange={e => setQuarter(e.target.value)}
-          className="text-sm border border-[#E5E5E3] rounded-lg px-2 py-1 bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0ED3CF] text-[#1A1A1A]"
+          className="text-sm border border-[#CFCFD5] rounded-lg px-2 py-1 bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD] text-[#003565]"
           aria-label="Select quarter"
         >
           {availableQuarters.map(q => (
@@ -307,12 +307,12 @@ export function SmartAssignmentPanel({
       {/* IT Team section */}
       <div className="flex-1 overflow-y-auto">
         <div className="flex items-center gap-2 mb-2">
-          <Users size={14} className="text-[#0ED3CF]" />
-          <h3 className="text-xs font-semibold uppercase tracking-widest text-[#9CA3AF]">IT Team</h3>
+          <Users size={14} className="text-[#0089DD]" />
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-[#B5BDC4]">IT Team</h3>
         </div>
 
         {itFits.length === 0 ? (
-          <p className="text-sm text-[#9CA3AF] py-4 text-center">No active team members</p>
+          <p className="text-sm text-[#B5BDC4] py-4 text-center">No active team members</p>
         ) : (
           <div>
             {itFits.map(fit => (
@@ -333,12 +333,12 @@ export function SmartAssignmentPanel({
           <div className="mt-4">
             <button
               onClick={() => setBizOpen(o => !o)}
-              className="flex items-center gap-2 w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0ED3CF] rounded"
+              className="flex items-center gap-2 w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD] rounded"
               aria-expanded={bizOpen}
             >
-              {bizOpen ? <ChevronDown size={14} className="text-violet-400" /> : <ChevronRight size={14} className="text-violet-400" />}
-              <Building2 size={14} className="text-violet-400" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-violet-400">
+              {bizOpen ? <ChevronDown size={14} className="text-[#6C7A89]" /> : <ChevronRight size={14} className="text-[#6C7A89]" />}
+              <Building2 size={14} className="text-[#6C7A89]" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-[#6C7A89]">
                 Business Contacts
               </span>
             </button>
@@ -362,8 +362,8 @@ export function SmartAssignmentPanel({
 
         {/* Tentative assignment chips (inline variant) */}
         {variant === 'inline' && tentativeAssignments.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-[#F0EFED]">
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#9CA3AF] mb-2">Tentatively assigned</p>
+          <div className="mt-4 pt-4 border-t border-[#DEDFE3]">
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#B5BDC4] mb-2">Tentatively assigned</p>
             <div className="flex flex-wrap gap-2">
               {tentativeAssignments.map(ta => {
                 const member = currentState.teamMembers.find(m => m.id === ta.memberId)
@@ -372,13 +372,13 @@ export function SmartAssignmentPanel({
                 return (
                   <span
                     key={ta.memberId}
-                    className="inline-flex items-center gap-1.5 text-xs bg-[#F5F3F0] text-[#1A1A1A] rounded-full px-2.5 py-1"
+                    className="inline-flex items-center gap-1.5 text-xs bg-[#EEEEF1] text-[#003565] rounded-full px-2.5 py-1"
                   >
                     {name} · {ta.days}d
                     {onTentativeRemove && (
                       <button
                         onClick={() => onTentativeRemove(ta.memberId)}
-                        className="text-[#9CA3AF] hover:text-[#EF4444] transition-colors"
+                        className="text-[#B5BDC4] hover:text-[#DC2626] transition-colors"
                         aria-label={`Remove ${name}`}
                       >
                         <X size={10} />
@@ -397,7 +397,7 @@ export function SmartAssignmentPanel({
   // ── Inline variant ──────────────────────────────────────────────────────────
   if (variant === 'inline') {
     return (
-      <div className="p-4 bg-white rounded-card border border-[#F0EFED] h-full">
+      <div className="p-4 bg-white rounded-card border border-[#DEDFE3] h-full">
         {content}
       </div>
     );
@@ -413,22 +413,22 @@ export function SmartAssignmentPanel({
     >
       {/* Backdrop */}
       <div
-        className="flex-1 bg-[#1A1A1A]/20"
+        className="flex-1 bg-[#003565]/20"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Panel */}
-      <div className="w-96 max-w-full bg-white shadow-xl border-l border-[#F0EFED] flex flex-col animate-slide-in-right">
+      <div className="w-96 max-w-full bg-white shadow-xl border-l border-[#DEDFE3] flex flex-col animate-slide-in-right">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0EFED]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#DEDFE3]">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#9CA3AF]">Staff this project</p>
-            <h2 className="text-base font-semibold text-[#1A1A1A] truncate mt-0.5">{projectName}</h2>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#B5BDC4]">Staff this project</p>
+            <h2 className="text-base font-semibold text-[#003565] truncate mt-0.5">{projectName}</h2>
           </div>
           <button
             onClick={onClose}
-            className="ml-3 p-1.5 rounded-lg text-[#9CA3AF] hover:text-[#6B7280] hover:bg-[#F5F3F0] transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0ED3CF]"
+            className="ml-3 p-1.5 rounded-lg text-[#B5BDC4] hover:text-[#6C7A89] hover:bg-[#EEEEF1] transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD]"
             aria-label="Close panel"
           >
             <X size={18} />

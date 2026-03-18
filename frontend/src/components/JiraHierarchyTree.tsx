@@ -19,17 +19,17 @@ import { computeRollup, getForecastedDays, getConfidenceLabel, type RollupResult
 // ─── shared colour maps (re-exported so other files don't duplicate them) ────
 
 export const TYPE_COLORS: Record<JiraItemType, string> = {
- epic: 'bg-slate-100 text-slate-700 ',
- feature: 'bg-slate-100 text-slate-700 ',
- story: 'bg-slate-100 text-slate-700 ',
- task: 'bg-slate-100 text-slate-700 ',
+ epic: 'bg-[#EEEEF1] text-[#003565] ',
+ feature: 'bg-[#EEEEF1] text-[#003565] ',
+ story: 'bg-[#EEEEF1] text-[#003565] ',
+ task: 'bg-[#EEEEF1] text-[#003565] ',
  bug: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300',
 };
 
 export const STATUS_CATEGORY_COLORS: Record<string, string> = {
- todo: 'bg-slate-100 text-slate-700 ',
+ todo: 'bg-[#EEEEF1] text-[#003565] ',
  in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
- done: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+ done: 'bg-green-100 text-[#16A34A] dark:bg-green-900/30 dark:text-green-300',
 };
 
 // ─── tree builder ─────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ export function JiraHierarchyTree({
  });
 
  if (items.length === 0) {
- return <p className="text-xs text-slate-400 italic py-3 px-4">No Jira items</p>;
+ return <p className="text-xs text-[#6C7A89] italic py-3 px-4">No Jira items</p>;
  }
 
  const renderNode = (item: JiraWorkItem, depth: number) => {
@@ -145,7 +145,7 @@ export function JiraHierarchyTree({
  };
 
  return (
- <div className="rounded-lg border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+ <div className="rounded-lg border border-[#DEDFE3] dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
  {sortByType(roots).map(r => renderNode(r, 0))}
  </div>
  );
@@ -183,8 +183,8 @@ function TreeRow({
  <div
  className={clsx(
  'flex items-start gap-2 py-2.5 text-sm transition-colors',
- isSelected ? 'bg-[#E8F8F8] dark:bg-blue-900/20' : 'hover:bg-slate-50 /30',
- depth > 0 && 'border-l-2 border-slate-200 ml-4',
+ isSelected ? 'bg-[#E6F2FC] dark:bg-blue-900/20' : 'hover:bg-[#F5F8FC] /30',
+ depth > 0 && 'border-l-2 border-[#CFCFD5] ml-4',
  )}
  style={{ paddingLeft: `${8 + depth * 16}px`, paddingRight: '12px' }}
  >
@@ -194,14 +194,14 @@ function TreeRow({
  type="checkbox"
  checked={isSelected}
  onChange={onToggleSelect}
- className="mt-1 w-4 h-4 rounded border-slate-300 shrink-0"
+ className="mt-1 w-4 h-4 rounded border-[#B5BDC4] shrink-0"
  />
  )}
 
     {/* Chevron (always rendered to preserve alignment; invisible when no children) */}
  <button
  onClick={onToggleCollapse}
- className={clsx('mt-0.5 shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200', !hasChildren && 'invisible')}
+ className={clsx('mt-0.5 shrink-0 text-[#6C7A89] hover:text-[#6C7A89] dark:hover:text-slate-200', !hasChildren && 'invisible')}
  >
  {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
  </button>
@@ -219,7 +219,7 @@ function TreeRow({
  href={`${jiraBaseUrl}/browse/${item.jiraKey}`}
  target="_blank"
  rel="noopener noreferrer"
- className="font-mono text-xs text-[#0ED3CF] dark:text-blue-400 hover:underline flex items-center gap-0.5 shrink-0"
+ className="font-mono text-xs text-[#0089DD] dark:text-blue-400 hover:underline flex items-center gap-0.5 shrink-0"
  onClick={e => e.stopPropagation()}
  >
  {item.jiraKey}
@@ -244,21 +244,21 @@ function TreeRow({
 
  {/* Parent items: rolled-up totals */}
  {!isLeaf && rollup && rollup.itemCount > 0 && (
- <span className="text-xs font-semibold text-[#0ED3CF] dark:text-blue-400">
+ <span className="text-xs font-semibold text-[#0089DD] dark:text-blue-400">
  {rollup.forecastedDays}d
- <span className="font-normal text-slate-400 ml-1">· {rollup.itemCount} items</span>
+ <span className="font-normal text-[#6C7A89] ml-1">· {rollup.itemCount} items</span>
  </span>
  )}
  </div>
 
  {/* Line 2: Summary */}
- <p className="text-sm text-slate-700 truncate mt-0.5">{item.summary}</p>
+ <p className="text-sm text-[#003565] truncate mt-0.5">{item.summary}</p>
 
     {/* Assignee */}
     {item.assigneeName && (
  <div className="flex items-center gap-1 mt-1">
- <User size={11} className="text-slate-400 shrink-0" />
- <span className="text-xs text-slate-600 font-medium">{item.assigneeName}</span>
+ <User size={11} className="text-[#6C7A89] shrink-0" />
+ <span className="text-xs text-[#6C7A89] font-medium">{item.assigneeName}</span>
  </div>
  )}
 
@@ -270,7 +270,7 @@ function TreeRow({
 // ─── Compact days + confidence cell ──────────────────────────────────────────
 
 const CONF_COLORS: Record<string, string> = {
- high: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+ high: 'bg-green-100 text-[#16A34A] dark:bg-green-900/30 dark:text-green-300',
  medium: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
  low: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
 };
@@ -310,9 +310,9 @@ export function DaysCell({ item, defaultConfidenceLevel, onConfidence, confidenc
 
  return (
  <span className="inline-flex items-center gap-1.5">
- <span className="text-xs text-slate-500 ">{raw}d</span>
- <span className="text-xs text-slate-400 dark:text-slate-500">→</span>
- <span className="text-xs font-semibold text-[#0ED3CF] dark:text-blue-400">{forecasted}d</span>
+ <span className="text-xs text-[#6C7A89] ">{raw}d</span>
+ <span className="text-xs text-[#6C7A89] dark:text-[#6C7A89]">→</span>
+ <span className="text-xs font-semibold text-[#0089DD] dark:text-blue-400">{forecasted}d</span>
  <button
  ref={btnRef}
  onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
@@ -327,7 +327,7 @@ export function DaysCell({ item, defaultConfidenceLevel, onConfidence, confidenc
  {open && (
  <span
  style={dropdownStyle}
- className="bg-white border border-slate-200 rounded-lg shadow-xl py-1 min-w-[160px]"
+ className="bg-white border border-[#CFCFD5] rounded-lg shadow-xl py-1 min-w-[160px]"
  onMouseDown={e => e.stopPropagation()}
  >
  {(['', 'high', 'medium', 'low'] as const).map(v => (
@@ -335,8 +335,8 @@ export function DaysCell({ item, defaultConfidenceLevel, onConfidence, confidenc
  key={v}
  onClick={e => { e.stopPropagation(); onConfidence(v); setOpen(false); }}
  className={clsx(
- 'w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 transition-colors',
- (v === '' ? !item.confidenceLevel : item.confidenceLevel === v) && 'font-semibold text-[#0ED3CF] dark:text-blue-400',
+ 'w-full text-left px-3 py-1.5 text-xs hover:bg-[#F5F8FC] transition-colors',
+ (v === '' ? !item.confidenceLevel : item.confidenceLevel === v) && 'font-semibold text-[#0089DD] dark:text-blue-400',
  )}
  >
  {v === '' ? `Default (${defaultConfidenceLevel})` : getConfidenceLabel(v, confidenceSettings)}

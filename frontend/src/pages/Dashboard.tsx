@@ -54,7 +54,7 @@ function getCellClass(pct: number): string {
 
 /** Text colour matching each heatmap tier — mirrors the .cell-* CSS classes in index.css */
 const CELL_EMPTY_TEXT = '#94a3b8';
-const CELL_NORMAL_TEXT = '#1A1A1A';
+const CELL_NORMAL_TEXT = '#003565';
 const CELL_OVERLOAD_TEXT = '#8B0000';
 
 function getCellColor(pct: number): string {
@@ -254,7 +254,7 @@ export function Dashboard() {
  <div className="h-4 w-64 rounded-md bg-mw-grey-light dark:bg-mw-muted-dark animate-shimmer bg-[length:200%_100%]" />
  </div>
  </div>
- <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
  <SkeletonCard lines={4} />
  <SkeletonCard lines={4} />
  </div>
@@ -272,7 +272,7 @@ export function Dashboard() {
 
  {/* Tab bar */}
  {!isEmpty && (
- <div className="flex border-b border-slate-200 -mt-2">
+ <div className="flex border-b border-[#CFCFD5] -mt-2">
  {([
  { id: 'overview', label: 'Overview' },
  { id: 'squad', label: 'By Squad / Team' },
@@ -282,8 +282,8 @@ export function Dashboard() {
  onClick={() => setActiveTab(tab.id)}
  className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
  activeTab === tab.id
- ? 'border-[#0ED3CF] text-[#1A1A1A]'
- : 'border-transparent text-slate-500 hover:text-slate-700 '
+ ? 'border-[#0089DD] text-[#003565]'
+ : 'border-transparent text-[#6C7A89] hover:text-[#003565] '
  }`}
  >
  {tab.label}
@@ -341,7 +341,7 @@ export function Dashboard() {
  />
  )}
  <div className="flex-1" />
- <span className="text-xs text-slate-400 dark:text-slate-500">{currentQuarter} (current)</span>
+ <span className="text-xs text-[#6C7A89] dark:text-[#6C7A89]">{currentQuarter} (current)</span>
  </div>
  )}
 
@@ -349,7 +349,7 @@ export function Dashboard() {
  {!isEmpty && activeTab === 'overview' && (
  <section>
  <SectionLabel title="Capacity Bank" subtitle="Team-wide remaining days per quarter" />
- <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+ <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
  {capacityBank.map(q => (
  <CapacityBankCard key={q.quarter} {...q} />
  ))}
@@ -363,7 +363,7 @@ export function Dashboard() {
  {/* ── Section 3: Timeline Preview ──────────────────────────────────────── */}
  {!isEmpty && activeTab === 'overview' && activeMembers.length > 0 && (
  <section>
- <div className="flex items-end justify-between mb-3">
+ <div className="flex items-end justify-between mb-6">
  <SectionLabel
  title="Team Timeline"
  subtitle="Capacity by member · current year"
@@ -371,16 +371,16 @@ export function Dashboard() {
  />
  <div className="flex items-center gap-2">
  {/* Heatmap / Bars toggle */}
- <div className="flex items-center rounded-lg border border-slate-200 overflow-hidden text-xs font-medium">
+ <div className="flex items-center rounded-lg border border-[#CFCFD5] overflow-hidden text-xs font-medium">
  <button
  onClick={() => setTimelineView('heatmap')}
- className={`px-2.5 py-1.5 transition-colors ${timelineView === 'heatmap' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-white text-slate-500 hover:text-slate-700 '}`}
+ className={`px-2.5 py-1.5 transition-colors ${timelineView === 'heatmap' ? 'bg-[#003565] text-white dark:bg-[#DEDFE3] dark:text-[#003565]' : 'bg-white text-[#6C7A89] hover:text-[#003565] '}`}
  >
  Heatmap
  </button>
  <button
  onClick={() => setTimelineView('bars')}
- className={`px-2.5 py-1.5 border-l border-slate-200 transition-colors ${timelineView === 'bars' ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-white text-slate-500 hover:text-slate-700 '}`}
+ className={`px-2.5 py-1.5 border-l border-[#CFCFD5] transition-colors ${timelineView === 'bars' ? 'bg-[#003565] text-white dark:bg-[#DEDFE3] dark:text-[#003565]' : 'bg-white text-[#6C7A89] hover:text-[#003565] '}`}
  >
  Bars
  </button>
@@ -388,7 +388,7 @@ export function Dashboard() {
  <select
  value={peopleFilter}
  onChange={e => setPeopleFilter(e.target.value as DashboardPeopleFilter)}
- className="text-xs rounded-lg border border-slate-200 bg-white text-slate-600 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0ED3CF]"
+ className="text-xs rounded-lg border border-[#CFCFD5] bg-white text-[#6C7A89] px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0089DD]"
  >
  <option value="it_only">IT team only</option>
  <option value="business_only">Business only</option>
@@ -396,7 +396,7 @@ export function Dashboard() {
  </select>
  <button
  onClick={() => setCurrentView('timeline')}
- className="inline-flex items-center gap-1 text-xs font-medium text-[#0ED3CF] hover:underline"
+ className="inline-flex items-center gap-1 text-xs font-medium text-[#0089DD] hover:underline"
  >
  Full view <ChevronRight size={13} />
  </button>
@@ -406,9 +406,9 @@ export function Dashboard() {
  <Card>
  <CardContent className="p-0 overflow-x-auto">
  {/* Header */}
- <div className="grid border-b border-slate-100 dark:border-slate-800 bg-slate-800 "
+ <div className="grid border-b border-[#DEDFE3] dark:border-slate-800 bg-[#003565] "
  style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}>
- <div className="px-4 py-3 text-xs font-bold tracking-wide uppercase text-slate-300">
+ <div className="px-4 py-3 text-xs font-bold tracking-wide uppercase text-[#B5BDC4]">
  {peopleFilter === 'business_only' ? 'Business contact' : 'Member'}
  </div>
  {yearQuarters.map(q => {
@@ -416,8 +416,8 @@ export function Dashboard() {
  const isCurrent = q === currentQuarter;
  return (
  <div key={q} className={`px-4 py-3 border-l border-white/10 ${isCurrent ? 'bg-blue-700/30' : ''}`}>
- <div className={`text-xs font-bold tracking-wide uppercase ${isCurrent ? 'text-blue-300' : 'text-slate-300'}`}>{q}</div>
- <div className="text-[10px] text-slate-400 mt-0.5">{workdays} working days</div>
+ <div className={`text-xs font-bold tracking-wide uppercase ${isCurrent ? 'text-blue-300' : 'text-[#B5BDC4]'}`}>{q}</div>
+ <div className="text-[10px] text-[#6C7A89] mt-0.5">{workdays} working days</div>
  </div>
  );
  })}
@@ -431,19 +431,19 @@ export function Dashboard() {
  return (
  <Fragment key={member.id}>
  <div
- className={`grid border-b border-slate-50 dark:border-slate-800/50 transition-colors hover:bg-[#E8F8F8]/40 dark:hover:bg-blue-900/5 ${isMemberSelected ? 'bg-[#E8F8F8]/60 dark:bg-blue-900/10' : ''}`}
+ className={`grid border-b border-[#EEEEF1] dark:border-slate-800/50 transition-colors hover:bg-[#E6F2FC]/40 dark:hover:bg-blue-900/5 ${isMemberSelected ? 'bg-[#E6F2FC]/60 dark:bg-blue-900/10' : ''}`}
  style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
  >
  {/* Identity */}
- <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
- <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0">
+ <div className="px-4 py-3 flex items-center gap-2.5 border-r border-[#DEDFE3] dark:border-slate-800">
+ <div className="w-7 h-7 rounded-full bg-[#EEEEF1] border border-[#CFCFD5] flex items-center justify-center text-[10px] font-bold text-[#6C7A89] shrink-0">
  {getInitials(member.name)}
  </div>
  <div className="min-w-0">
  <div className="flex items-center gap-1.5">
- <span className="text-sm font-semibold text-slate-900 truncate">{member.name}</span>
+ <span className="text-sm font-semibold text-[#003565] truncate">{member.name}</span>
  </div>
- <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
+ <div className="text-xs text-[#6C7A89] dark:text-[#6C7A89] truncate">
  {member.role}{country ? ` · ${country.code}` : ''}
  </div>
  </div>
@@ -462,7 +462,7 @@ export function Dashboard() {
  <button
  key={quarter}
  onClick={() => handleCellClick(member.id, quarter)}
- className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${effectiveCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
+ className={`px-3 py-3 border-l border-[#DEDFE3]/80 dark:border-slate-800 text-center transition-all ${effectiveCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
  style={{ filter: isCellSelected ? undefined : 'none' }}
  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
@@ -484,17 +484,17 @@ export function Dashboard() {
  <button
  key={quarter}
  onClick={() => handleCellClick(member.id, quarter)}
- className={`px-3 py-3 border-l border-slate-100 dark:border-slate-800 text-left transition-colors
+ className={`px-3 py-3 border-l border-[#DEDFE3] dark:border-slate-800 text-left transition-colors
  ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}
- ${quarter === currentQuarter ? 'bg-[#E8F8F8]/40 dark:bg-blue-900/5' : ''}
+ ${quarter === currentQuarter ? 'bg-[#E6F2FC]/40 dark:bg-blue-900/5' : ''}
  `}
  >
  {/* Stacked bar */}
- <div className="h-2 rounded-full bg-slate-100 overflow-hidden flex mb-1.5">
- <div className="h-full bg-slate-300 dark:bg-slate-600" style={{ width: `${bauPct}%` }} />
+ <div className="h-2 rounded-full bg-[#EEEEF1] overflow-hidden flex mb-1.5">
+ <div className="h-full bg-[#CFCFD5] dark:bg-slate-600" style={{ width: `${bauPct}%` }} />
  <div className="h-full bg-amber-300 dark:bg-amber-600" style={{ width: `${timeOffPct}%` }} />
  <div
- className={`h-full ${isOver ? 'bg-red-500' : isWarn ? 'bg-amber-400' : 'bg-[#0ED3CF]'}`}
+ className={`h-full ${isOver ? 'bg-red-500' : isWarn ? 'bg-amber-400' : 'bg-[#0089DD]'}`}
  style={{ width: `${projectPct}%` }}
  />
  </div>
@@ -503,12 +503,12 @@ export function Dashboard() {
  <span className={`text-xs font-semibold ${
  isOver ? 'text-red-600 dark:text-red-400'
  : remainingDays < 10 ? 'text-amber-600 dark:text-amber-400'
- : remainingDays > 30 ? 'text-green-600 dark:text-green-400'
- : 'text-slate-700 '
+ : remainingDays > 30 ? 'text-[#16A34A] dark:text-green-400'
+ : 'text-[#003565] '
  }`}>
  {isOver ? `−${Math.abs(Math.round(remainingDays))}d` : `${Math.round(remainingDays)}d free`}
  </span>
- <span className={`text-[10px] ${isOver ? 'text-red-500 dark:text-red-400' : isWarn ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
+ <span className={`text-[10px] ${isOver ? 'text-red-500 dark:text-red-400' : isWarn ? 'text-amber-500 dark:text-amber-400' : 'text-[#6C7A89] dark:text-[#6C7A89]'}`}>
  {cap.usedPercent}%
  </span>
  </div>
@@ -548,30 +548,30 @@ export function Dashboard() {
 
  const typePillClass = (type: string) => {
  switch (type.toLowerCase()) {
- case 'story': return 'bg-[#E8F8F8] text-[#0BB8B5] border-[#99F6E4]';
+ case 'story': return 'bg-[#E6F2FC] text-[#0077C2] border-[#B3D9F5]';
  case 'uat': return 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/30 dark:text-amber-300';
- case 'hypercare': return 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/30 dark:text-purple-300';
- default: return 'bg-[#F5F3F0] text-slate-600 border-slate-200 ';
+ case 'hypercare': return 'bg-[#E6F2FC] text-[#0089DD] border-[#B3D9F5]';
+ default: return 'bg-[#EEEEF1] text-[#6C7A89] border-[#CFCFD5] ';
  }
  };
 
  const remainingRaw = cap.totalWorkdays - cap.usedDays;
 
  return (
- <div className="border-b border-slate-200 bg-white ">
+ <div className="border-b border-[#CFCFD5] bg-white ">
  {/* Panel header */}
- <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+ <div className="flex items-center justify-between px-5 py-3 border-b border-[#DEDFE3] dark:border-slate-800">
  <div className="flex items-center gap-2">
- <span className="text-sm font-semibold text-slate-800 ">
+ <span className="text-sm font-semibold text-[#003565] ">
  {drillDown.quarter} — {drillDown.member.name}
  </span>
  {drillDown.member.role && (
- <span className="text-xs text-slate-400">{drillDown.member.role}</span>
+ <span className="text-xs text-[#6C7A89]">{drillDown.member.role}</span>
  )}
  </div>
  <button
  onClick={() => setSelectedCell(null)}
- className="p-1 rounded hover:bg-slate-100 text-slate-400 transition-colors"
+ className="p-1 rounded hover:bg-[#EEEEF1] text-[#6C7A89] transition-colors"
  >
  <X size={15} />
  </button>
@@ -581,9 +581,9 @@ export function Dashboard() {
  <div className="grid grid-cols-[1fr_180px] gap-0 px-5 py-4 max-w-4xl">
  {/* Left — assigned work */}
  <div className="pr-6 min-w-0">
- <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Assigned Work</p>
+ <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89] mb-2">Assigned Work</p>
  {workItems.length === 0 && overhead.length === 0 ? (
- <p className="text-sm italic text-slate-400">No work assigned this quarter.</p>
+ <p className="text-sm italic text-[#6C7A89]">No work assigned this quarter.</p>
  ) : (
  <div className="space-y-1.5">
  {workItems.map((item: CapacityBreakdownItem, i: number) => {
@@ -595,32 +595,32 @@ export function Dashboard() {
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-1.5 flex-wrap">
  {item.jiraKey && (
- <span className="text-[9px] font-mono text-slate-400 shrink-0">{item.jiraKey}</span>
+ <span className="text-[9px] font-mono text-[#6C7A89] shrink-0">{item.jiraKey}</span>
  )}
  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${typePillClass(typeLabel)}`}>{typeLabel.toUpperCase()}</span>
  </div>
- <p className="dd-item-label text-xs font-medium text-slate-700 truncate mt-0.5">{label}</p>
+ <p className="dd-item-label text-xs font-medium text-[#003565] truncate mt-0.5">{label}</p>
  {breadcrumb && (
- <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{breadcrumb}</p>
+ <p className="text-[10px] text-[#6C7A89] dark:text-[#6C7A89] truncate">{breadcrumb}</p>
  )}
  </div>
- <span className="text-xs text-slate-500 shrink-0 pt-3 tabular-nums">{item.days.toFixed(1)}d</span>
+ <span className="text-xs text-[#6C7A89] shrink-0 pt-3 tabular-nums">{item.days.toFixed(1)}d</span>
  </div>
  );
  })}
  {overhead.map((item: CapacityBreakdownItem, i: number) => (
- <div key={`oh-${i}`} className="dd-item flex items-center gap-2 pl-2 border-l-2 border-slate-200 ">
+ <div key={`oh-${i}`} className="dd-item flex items-center gap-2 pl-2 border-l-2 border-[#CFCFD5] ">
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-1.5">
  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${typePillClass(item.type)}`}>
  {item.type === 'bau' ? 'BAU' : 'TIME OFF'}
  </span>
  </div>
- <p className="dd-item-label text-xs font-medium text-slate-500 truncate mt-0.5">
+ <p className="dd-item-label text-xs font-medium text-[#6C7A89] truncate mt-0.5">
  {item.type === 'bau' ? 'BAU Reserve' : 'Time Off'}
  </p>
  </div>
- <span className="text-xs text-slate-400 shrink-0 tabular-nums">{item.days.toFixed(1)}d</span>
+ <span className="text-xs text-[#6C7A89] shrink-0 tabular-nums">{item.days.toFixed(1)}d</span>
  </div>
  ))}
  </div>
@@ -628,11 +628,11 @@ export function Dashboard() {
  </div>
 
  {/* Right — quarter summary */}
- <div className="border-l border-slate-100 dark:border-slate-800 pl-5">
- <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Quarter Summary</p>
+ <div className="border-l border-[#DEDFE3] dark:border-slate-800 pl-5">
+ <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89] mb-3">Quarter Summary</p>
  <div className="space-y-2.5">
  {[
- { label: 'Available', value: `${cap.totalWorkdays}d`, color: 'text-slate-600 ' },
+ { label: 'Available', value: `${cap.totalWorkdays}d`, color: 'text-[#6C7A89] ' },
  { label: 'Allocated', value: `${cap.usedDays.toFixed(1)}d`, color: summaryCellColor },
  {
  label: 'Remaining',
@@ -642,13 +642,13 @@ export function Dashboard() {
  { label: 'Utilization', value: `${pct}%`, color: summaryCellColor },
  ].map(row => (
  <div key={row.label} className="flex items-center justify-between">
- <span className="text-xs text-slate-500 ">{row.label}</span>
+ <span className="text-xs text-[#6C7A89] ">{row.label}</span>
  <span className="text-xs font-semibold tabular-nums" style={{ color: row.color }}>{row.value}</span>
  </div>
  ))}
  </div>
  {/* Mini utilization bar */}
- <div className="mt-4 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+ <div className="mt-4 h-1.5 rounded-full bg-[#EEEEF1] overflow-hidden">
  <div
  className="h-full rounded-full transition-all"
  style={{
@@ -668,9 +668,9 @@ export function Dashboard() {
 
  {/* Business divider */}
  {peopleFilter === 'both' && bizTimelineData.length > 0 && (
- <div className="px-4 py-1.5 bg-[#F5F3F0] /50 border-t-2 border-slate-200 ">
- <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400">Business</span>
- <span className="ml-2 text-[10px] text-slate-400 italic">(informational only)</span>
+ <div className="px-4 py-1.5 bg-[#EEEEF1] /50 border-t-2 border-[#CFCFD5] ">
+ <span className="text-[10px] font-bold tracking-wider uppercase text-[#6C7A89]">Business</span>
+ <span className="ml-2 text-[10px] text-[#6C7A89] italic">(informational only)</span>
  </div>
  )}
 
@@ -680,19 +680,19 @@ export function Dashboard() {
  return (
  <Fragment key={contact.id}>
  <div
- className={`grid border-b border-slate-50 dark:border-slate-800/50 transition-colors hover:bg-purple-50/20 dark:hover:bg-purple-900/5 ${isBizSelected ? 'bg-purple-50/30 dark:bg-purple-900/10' : ''}`}
- style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
- >
- <div className="px-4 py-3 flex items-center gap-2.5 border-r border-slate-100 dark:border-slate-800">
- <div className="w-7 h-7 rounded-full bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 flex items-center justify-center text-[10px] font-bold text-purple-600 dark:text-purple-400 shrink-0">
- {getInitials(contact.name)}
- </div>
- <div className="min-w-0">
- <div className="flex items-center gap-1.5">
- <span className="text-sm font-normal text-slate-600 truncate">{contact.name}</span>
- <span className="text-[9px] font-bold tracking-wide uppercase text-purple-400 shrink-0">BIZ</span>
- </div>
- <div className="text-xs text-slate-400 truncate">{contact.title ?? contact.department ?? ''}</div>
+ className={`grid border-b border-[#DEDFE3] transition-colors hover:bg-[#EEEEF1]/20 ${isBizSelected ? 'bg-[#EEEEF1]/30' : ''}`}
+                style={{ gridTemplateColumns: '200px repeat(4, 1fr)' }}
+              >
+                <div className="px-4 py-3 flex items-center gap-2.5 border-r border-[#DEDFE3]">
+                <div className="w-7 h-7 rounded-full bg-[#EEEEF1] border border-[#CFCFD5] flex items-center justify-center text-[10px] font-bold text-[#6C7A89] shrink-0">
+                {getInitials(contact.name)}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-normal text-[#6C7A89] truncate">{contact.name}</span>
+                    <span className="text-[9px] font-bold tracking-wide uppercase text-[#6C7A89] shrink-0">BIZ</span>
+                  </div>
+ <div className="text-xs text-[#6C7A89] truncate">{contact.title ?? contact.department ?? ''}</div>
  </div>
  </div>
  {cells.map(({ quarter, cell }) => {
@@ -708,7 +708,7 @@ export function Dashboard() {
  <button
  key={quarter}
  onClick={() => setSelectedBizCell(isCellSelected ? null : { contactId: contact.id, quarter })}
- className={`px-3 py-3 border-l border-slate-100/80 dark:border-slate-800 text-center transition-all ${effectiveBizCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-purple-500' : ''}`}
+                className={`px-3 py-3 border-l border-[#DEDFE3] text-center transition-all ${effectiveBizCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-[#6C7A89]' : ''}`}
  style={{ filter: isCellSelected ? undefined : 'none' }}
  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
@@ -730,19 +730,19 @@ export function Dashboard() {
  <div
  key={quarter}
  title={cell.breakdownByProject.map(b => `${b.projectName}${b.phaseName ? ` / ${b.phaseName}` : ''}: ${b.days.toFixed(1)}d`).join('\n')}
- className={`px-3 py-3 border-l border-slate-100 dark:border-slate-800 ${quarter === currentQuarter ? 'bg-[#E8F8F8]/30 dark:bg-blue-900/5' : ''}`}
+ className={`px-3 py-3 border-l border-[#DEDFE3] dark:border-slate-800 ${quarter === currentQuarter ? 'bg-[#E6F2FC]/30 dark:bg-blue-900/5' : ''}`}
  >
- <div className="h-2 rounded-full bg-slate-100 overflow-hidden mb-1.5">
+ <div className="h-2 rounded-full bg-[#EEEEF1] overflow-hidden mb-1.5">
  <div
- className={`h-full ${isOver ? 'bg-red-400' : isWarn ? 'bg-amber-400' : 'bg-purple-400'}`}
+                className={`h-full ${isOver ? 'bg-red-400' : isWarn ? 'bg-amber-400' : 'bg-[#6C7A89]'}`}
  style={{ width: `${Math.min(100, pct)}%` }}
  />
  </div>
  <div className="flex items-center justify-between">
- <span className="text-xs text-slate-500 ">
+ <span className="text-xs text-[#6C7A89] ">
  {pct > 0 ? `${cell.allocatedDays.toFixed(1)}d` : '—'}
  </span>
- <span className={`text-[10px] ${isOver ? 'text-red-500' : isWarn ? 'text-amber-500' : 'text-slate-400'}`}>
+ <span className={`text-[10px] ${isOver ? 'text-red-500' : isWarn ? 'text-amber-500' : 'text-[#6C7A89]'}`}>
  {pct > 0 ? `${pct}%` : ''}
  </span>
  </div>
@@ -765,21 +765,21 @@ export function Dashboard() {
  const bauEntry = cap.breakdownByProject.find(b => b.projectId === '__bau__');
 
  return (
- <div className="border-b border-slate-200 bg-white ">
+ <div className="border-b border-[#CFCFD5] bg-white ">
  {/* Panel header */}
- <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+ <div className="flex items-center justify-between px-5 py-3 border-b border-[#DEDFE3] dark:border-slate-800">
  <div className="flex items-center gap-2">
- <span className="text-sm font-semibold text-slate-800 ">
+ <span className="text-sm font-semibold text-[#003565] ">
  {selectedBizCell?.quarter} — {contact.name}
  </span>
  {(contact.title || contact.department) && (
- <span className="text-xs text-slate-400">{contact.title ?? contact.department}</span>
+ <span className="text-xs text-[#6C7A89]">{contact.title ?? contact.department}</span>
  )}
- <span className="text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-500 border border-purple-100 dark:border-purple-800">BIZ</span>
+                 <span className="text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded bg-[#EEEEF1] text-[#6C7A89] border border-[#CFCFD5]">BIZ</span>
  </div>
  <button
  onClick={() => setSelectedBizCell(null)}
- className="p-1 rounded hover:bg-slate-100 text-slate-400 transition-colors"
+ className="p-1 rounded hover:bg-[#EEEEF1] text-[#6C7A89] transition-colors"
  >
  <X size={15} />
  </button>
@@ -789,33 +789,33 @@ export function Dashboard() {
  <div className="grid grid-cols-[1fr_180px] gap-0 px-5 py-4 max-w-4xl">
  {/* Left — assigned work */}
  <div className="pr-6 min-w-0">
- <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Assigned Work</p>
+ <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89] mb-2">Assigned Work</p>
  {workItems.length === 0 && !bauEntry ? (
- <p className="text-sm italic text-slate-400">No work assigned this quarter.</p>
+ <p className="text-sm italic text-[#6C7A89]">No work assigned this quarter.</p>
  ) : (
  <div className="space-y-1.5">
  {workItems.map((item, i) => (
- <div key={i} className="dd-item flex items-start gap-2 pl-2 border-l-2 border-purple-200 dark:border-purple-800">
+                 <div key={i} className="dd-item flex items-start gap-2 pl-2 border-l-2 border-[#CFCFD5]">
  <div className="flex-1 min-w-0">
  {item.phaseName && (
- <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{item.projectName}</p>
+ <p className="text-[10px] text-[#6C7A89] dark:text-[#6C7A89] truncate">{item.projectName}</p>
  )}
- <p className="dd-item-label text-xs font-medium text-slate-700 truncate mt-0.5">
+ <p className="dd-item-label text-xs font-medium text-[#003565] truncate mt-0.5">
  {item.phaseName ?? item.projectName}
  </p>
  </div>
- <span className="text-xs text-slate-500 shrink-0 pt-0.5 tabular-nums">{item.days.toFixed(1)}d</span>
+ <span className="text-xs text-[#6C7A89] shrink-0 pt-0.5 tabular-nums">{item.days.toFixed(1)}d</span>
  </div>
  ))}
  {bauEntry && (
- <div className="dd-item flex items-center gap-2 pl-2 border-l-2 border-slate-200 ">
+ <div className="dd-item flex items-center gap-2 pl-2 border-l-2 border-[#CFCFD5] ">
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-1.5">
- <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded border bg-[#F5F3F0] text-slate-600 border-slate-200 ">BAU</span>
+ <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded border bg-[#EEEEF1] text-[#6C7A89] border-[#CFCFD5] ">BAU</span>
  </div>
- <p className="dd-item-label text-xs font-medium text-slate-500 truncate mt-0.5">BAU Reserve</p>
+ <p className="dd-item-label text-xs font-medium text-[#6C7A89] truncate mt-0.5">BAU Reserve</p>
  </div>
- <span className="text-xs text-slate-400 shrink-0 tabular-nums">{bauEntry.days.toFixed(1)}d</span>
+ <span className="text-xs text-[#6C7A89] shrink-0 tabular-nums">{bauEntry.days.toFixed(1)}d</span>
  </div>
  )}
  </div>
@@ -823,11 +823,11 @@ export function Dashboard() {
  </div>
 
  {/* Right — quarter summary */}
- <div className="border-l border-slate-100 dark:border-slate-800 pl-5">
- <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Quarter Summary</p>
+ <div className="border-l border-[#DEDFE3] dark:border-slate-800 pl-5">
+ <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6C7A89] mb-3">Quarter Summary</p>
  <div className="space-y-2.5">
  {[
- { label: 'Available', value: `${cap.availableDays.toFixed(1)}d`, color: 'text-slate-600 ' },
+ { label: 'Available', value: `${cap.availableDays.toFixed(1)}d`, color: 'text-[#6C7A89] ' },
  { label: 'Allocated', value: `${cap.allocatedDays.toFixed(1)}d`, color: summaryCellColor },
  {
  label: 'Remaining',
@@ -837,13 +837,13 @@ export function Dashboard() {
  { label: 'Utilization', value: `${pct}%`, color: summaryCellColor },
  ].map(row => (
  <div key={row.label} className="flex items-center justify-between">
- <span className="text-xs text-slate-500 ">{row.label}</span>
+ <span className="text-xs text-[#6C7A89] ">{row.label}</span>
  <span className="text-xs font-semibold tabular-nums" style={{ color: row.color }}>{row.value}</span>
  </div>
  ))}
  </div>
  {/* Mini utilization bar */}
- <div className="mt-4 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+ <div className="mt-4 h-1.5 rounded-full bg-[#EEEEF1] overflow-hidden">
  <div
  className="h-full rounded-full transition-all"
  style={{ width: `${Math.min(100, pct)}%`, background: summaryCellColor }}
@@ -861,25 +861,25 @@ export function Dashboard() {
 
  {/* Legend */}
  {timelineView === 'heatmap' ? (
- <div className="flex items-center gap-3 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-[#F5F3F0]/50 /30 flex-wrap">
- <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier1" /><span className="text-[10px] text-slate-500">11–30%</span></div>
- <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier2" /><span className="text-[10px] text-slate-500">31–50%</span></div>
- <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier3" /><span className="text-[10px] text-slate-500">51–70%</span></div>
- <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier4" /><span className="text-[10px] text-slate-500">71–80%</span></div>
- <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier5" /><span className="text-[10px] text-slate-500">81–90%</span></div>
- <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier6" /><span className="text-[10px] text-slate-500">91–99%</span></div>
- <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-overloaded" /><span className="text-[10px] text-slate-500">≥100%</span></div>
+ <div className="flex items-center gap-3 px-4 py-2.5 border-t border-[#DEDFE3] dark:border-slate-800 bg-[#EEEEF1]/50 /30 flex-wrap">
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier1" /><span className="text-[10px] text-[#6C7A89]">11–30%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier2" /><span className="text-[10px] text-[#6C7A89]">31–50%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier3" /><span className="text-[10px] text-[#6C7A89]">51–70%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier4" /><span className="text-[10px] text-[#6C7A89]">71–80%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier5" /><span className="text-[10px] text-[#6C7A89]">81–90%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-tier6" /><span className="text-[10px] text-[#6C7A89]">91–99%</span></div>
+ <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm cell-overloaded" /><span className="text-[10px] text-[#6C7A89]">≥100%</span></div>
  <div className="flex-1" />
- <span className="text-[10px] text-slate-400">Click any IT cell to drill down</span>
+ <span className="text-[10px] text-[#6C7A89]">Click any IT cell to drill down</span>
  </div>
  ) : (
- <div className="flex items-center gap-5 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-[#F5F3F0]/50 /30">
- <LegendDot color="bg-slate-300 dark:bg-slate-600" label="BAU" />
+ <div className="flex items-center gap-5 px-4 py-2.5 border-t border-[#DEDFE3] dark:border-slate-800 bg-[#EEEEF1]/50 /30">
+ <LegendDot color="bg-[#CFCFD5] dark:bg-slate-600" label="BAU" />
  <LegendDot color="bg-amber-300 dark:bg-amber-600" label="Time off" />
- <LegendDot color="bg-[#0ED3CF]" label="Epics" />
+ <LegendDot color="bg-[#0089DD]" label="Epics" />
  <LegendDot color="bg-red-500" label="Over-allocated" />
  <div className="flex-1" />
- <span className="text-[10px] text-slate-400">Click any cell to drill down</span>
+ <span className="text-[10px] text-[#6C7A89]">Click any cell to drill down</span>
  </div>
  )}
  </CardContent>
@@ -926,25 +926,25 @@ function GroupBar({ name, data }: { name: string; data: GroupCapacitySummary }) 
 
  return (
  <div
- className="py-3 border-b border-slate-100 dark:border-slate-800 last:border-0"
+ className="py-3 border-b border-[#DEDFE3] dark:border-slate-800 last:border-0"
  style={isOverloaded ? { borderLeft: '2px solid #DC3545', paddingLeft: '8px' } : undefined}
  >
  <div className="flex items-center gap-3 mb-1.5">
- <span className="text-sm font-medium text-slate-800 w-28 shrink-0 truncate">{name}</span>
- <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+ <span className="text-sm font-medium text-[#003565] w-28 shrink-0 truncate">{name}</span>
+ <div className="flex-1 h-2 rounded-full bg-[#EEEEF1] overflow-hidden">
  <div className="h-full rounded-full transition-all" style={{ width: barWidth, backgroundColor: barFill }} />
  </div>
- <span className={`text-xs font-semibold tabular-nums w-10 text-right ${isOverloaded ? 'text-red-600 dark:text-red-400' : 'text-slate-700 '}`}>
+ <span className={`text-xs font-semibold tabular-nums w-10 text-right ${isOverloaded ? 'text-red-600 dark:text-red-400' : 'text-[#003565] '}`}>
  {data.totalDays === 0 ? '—' : `${pct}%`}
  </span>
  </div>
  {data.totalDays > 0 && (
- <div className="text-xs text-slate-400 dark:text-slate-500 pl-[112px]">
+ <div className="text-xs text-[#6C7A89] dark:text-[#6C7A89] pl-[112px]">
  {data.usedDays}d used · {data.availableDays}d free
  </div>
  )}
  {data.totalDays === 0 && (
- <div className="text-xs text-slate-400 dark:text-slate-500 pl-[112px]">No members assigned</div>
+ <div className="text-xs text-[#6C7A89] dark:text-[#6C7A89] pl-[112px]">No members assigned</div>
  )}
  </div>
  );
@@ -973,24 +973,24 @@ function SquadTeamTab({
  onClick={() => onSelectQuarter(q)}
  className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
  selectedQuarter === q
- ? 'bg-[#1A1A1A] text-white'
- : 'bg-white border border-slate-200 text-slate-600 hover:border-[#0ED3CF] hover:text-[#0ED3CF]'
+ ? 'bg-[#003565] text-white'
+ : 'bg-white border border-[#CFCFD5] text-[#6C7A89] hover:border-[#0089DD] hover:text-[#0089DD]'
  }`}
  >
  {q.split(' ')[0]}
  </button>
  ))}
- <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">{selectedQuarter}</span>
+ <span className="text-xs text-[#6C7A89] dark:text-[#6C7A89] ml-1">{selectedQuarter}</span>
  </div>
 
  {/* Two-column grid */}
- <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
  {/* By Squad */}
  <Card>
  <CardContent className="pt-4">
- <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">By Squad</p>
+ <p className="text-xs font-semibold uppercase tracking-widest text-[#6C7A89] dark:text-[#6C7A89] mb-3">By Squad</p>
  {squadSummaries.length === 0 ? (
- <p className="text-sm text-slate-400 dark:text-slate-500 italic">No squads configured.</p>
+ <p className="text-sm text-[#6C7A89] dark:text-[#6C7A89] italic">No squads configured.</p>
  ) : (
  squadSummaries.map(s => <GroupBar key={s.id} name={s.name} data={s.data} />)
  )}
@@ -1000,9 +1000,9 @@ function SquadTeamTab({
  {/* By Process Team */}
  <Card>
  <CardContent className="pt-4">
- <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">By Process Team</p>
+ <p className="text-xs font-semibold uppercase tracking-widest text-[#6C7A89] dark:text-[#6C7A89] mb-3">By Process Team</p>
  {processTeamSummaries.length === 0 ? (
- <p className="text-sm text-slate-400 dark:text-slate-500 italic">No process teams configured.</p>
+ <p className="text-sm text-[#6C7A89] dark:text-[#6C7A89] italic">No process teams configured.</p>
  ) : (
  processTeamSummaries.map(pt => <GroupBar key={pt.id} name={pt.name} data={pt.data} />)
  )}
@@ -1028,28 +1028,28 @@ function CapacityBankCard({ quarter, remainingDays, bauPct, timeOffPct, projectP
 }) {
  const badgeLabel = isPast ? 'Closed' : isCurrent ? 'Current' : isTight ? 'Tight' : isOpen ? 'Open' : 'Planned';
  const badgeCls = isPast
- ? 'bg-slate-100 text-slate-500 '
+ ? 'bg-[#EEEEF1] text-[#6C7A89] '
  : isCurrent
  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
  : isTight
  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
  : isOpen
- ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
- : 'bg-slate-100 text-slate-500 ';
+ ? 'bg-green-100 dark:bg-green-900/30 text-[#16A34A] dark:text-green-300'
+ : 'bg-[#EEEEF1] text-[#6C7A89] ';
 
  const daysCls = isPast
- ? 'text-slate-400 dark:text-slate-500'
+ ? 'text-[#6C7A89] dark:text-[#6C7A89]'
  : isTight
  ? 'text-amber-600 dark:text-amber-400'
  : isOpen
- ? 'text-green-600 dark:text-green-400'
- : 'text-[#0ED3CF]';
+ ? 'text-[#16A34A] dark:text-green-400'
+ : 'text-[#0089DD]';
 
  return (
- <div className={`bg-white rounded-xl border border-slate-200 shadow-sm p-5 ${isCurrent ? 'border-t-2 border-t-blue-500' : ''}`}>
+ <div className={`bg-white rounded-xl border border-[#CFCFD5] shadow-sm p-5 ${isCurrent ? 'border-t-2 border-t-blue-500' : ''}`}>
  {/* Quarter + badge */}
  <div className="flex items-center justify-between mb-3">
- <span className="text-xs font-bold tracking-wide uppercase text-slate-500 ">{quarter}</span>
+ <span className="text-xs font-bold tracking-wide uppercase text-[#6C7A89] ">{quarter}</span>
  <span className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-full ${badgeCls}`}>
  {badgeLabel}
  </span>
@@ -1059,22 +1059,22 @@ function CapacityBankCard({ quarter, remainingDays, bauPct, timeOffPct, projectP
  <div className={`text-3xl font-bold leading-none tracking-tight ${daysCls}`}>
  {remainingDays < 0 ? `−${Math.abs(remainingDays)}` : remainingDays}
  </div>
- <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+ <div className="text-xs text-[#6C7A89] dark:text-[#6C7A89] mt-1">
  {remainingDays < 0 ? 'days over capacity' : 'days remaining'}
  </div>
 
  {/* Stacked bar */}
- <div className="mt-4 h-1.5 rounded-full bg-slate-100 overflow-hidden flex">
- <div className="h-full bg-slate-300 dark:bg-[#F5F3F0]0" style={{ width: `${bauPct}%` }} />
+ <div className="mt-4 h-1.5 rounded-full bg-[#EEEEF1] overflow-hidden flex">
+ <div className="h-full bg-[#CFCFD5] dark:bg-[#EEEEF1]0" style={{ width: `${bauPct}%` }} />
  <div className="h-full bg-amber-300 dark:bg-amber-600" style={{ width: `${timeOffPct}%` }} />
- <div className="h-full bg-[#0ED3CF]" style={{ width: `${projectPct}%` }} />
+ <div className="h-full bg-[#0089DD]" style={{ width: `${projectPct}%` }} />
  </div>
 
  {/* Legend */}
  <div className="flex items-center gap-3 mt-2.5">
- <LegendDot color="bg-slate-300 dark:bg-[#F5F3F0]0" label="BAU" />
+ <LegendDot color="bg-[#CFCFD5] dark:bg-[#EEEEF1]0" label="BAU" />
  <LegendDot color="bg-amber-300 dark:bg-amber-600" label="Leave" />
- <LegendDot color="bg-[#0ED3CF]" label="Epics" />
+ <LegendDot color="bg-[#0089DD]" label="Epics" />
  </div>
  </div>
  );
@@ -1129,7 +1129,7 @@ function AlertsGrid({ warnings }: {
  return (
  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800">
  <CheckCircle2 size={16} className="text-green-500 shrink-0" />
- <span className="text-sm text-green-700 dark:text-green-300 font-medium">All clear — no capacity alerts</span>
+ <span className="text-sm text-[#16A34A] dark:text-green-300 font-medium">All clear — no capacity alerts</span>
  </div>
  );
  }
@@ -1139,13 +1139,13 @@ function AlertsGrid({ warnings }: {
  <SectionLabel title="Alerts" subtitle={`${alerts.length} item${alerts.length !== 1 ? 's' : ''} require attention`} />
  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
  {alerts.map(a => (
- <div key={a.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-slate-200 shadow-sm">
+ <div key={a.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-[#CFCFD5] shadow-sm">
  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${a.iconBg}`}>
  {a.icon}
  </div>
  <div className="min-w-0 flex-1">
- <div className="text-sm font-semibold text-slate-800 truncate">{a.title}</div>
- <div className="text-xs text-slate-500 mt-0.5 truncate">{a.detail}</div>
+ <div className="text-sm font-semibold text-[#003565] truncate">{a.title}</div>
+ <div className="text-xs text-[#6C7A89] mt-0.5 truncate">{a.detail}</div>
  </div>
  <span className={`shrink-0 text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full ${a.badgeCls}`}>
  {a.badgeLabel}
@@ -1167,22 +1167,22 @@ function SectionLabel({ title, subtitle, inline = false }: {
  if (inline) {
  return (
  <div>
- <span className="text-sm font-bold text-slate-800 uppercase tracking-wide">{title}</span>
- <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">{subtitle}</span>
+ <span className="text-sm font-bold text-[#003565] uppercase tracking-wide">{title}</span>
+ <span className="ml-2 text-xs text-[#6C7A89] dark:text-[#6C7A89]">{subtitle}</span>
  </div>
  );
  }
  return (
  <div className="mb-3">
- <div className="text-sm font-bold text-slate-800 uppercase tracking-wide">{title}</div>
- <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{subtitle}</div>
+ <div className="text-sm font-bold text-[#003565] uppercase tracking-wide">{title}</div>
+ <div className="text-xs text-[#6C7A89] dark:text-[#6C7A89] mt-0.5">{subtitle}</div>
  </div>
  );
 }
 
 function LegendDot({ color, label }: { color: string; label: string }) {
  return (
- <span className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500">
+ <span className="flex items-center gap-1 text-[10px] text-[#6C7A89] dark:text-[#6C7A89]">
  <span className={`w-2 h-2 rounded-sm inline-block shrink-0 ${color}`} />
  {label}
  </span>
@@ -1195,12 +1195,12 @@ function Stat({ icon: Icon, label, value, color }: {
  value: string | number;
  color: 'blue' | 'slate' | 'red';
 }) {
- const iconColors = { blue: 'text-blue-500', slate: 'text-slate-400', red: 'text-red-500' };
+ const iconColors = { blue: 'text-blue-500', slate: 'text-[#6C7A89]', red: 'text-red-500' };
  return (
  <div className="flex items-center gap-2">
  <Icon size={16} className={iconColors[color]} />
- <span className="text-sm text-slate-500 ">{label}</span>
- <span className="text-sm font-bold text-slate-900 ">{value}</span>
+ <span className="text-sm text-[#6C7A89] ">{label}</span>
+ <span className="text-sm font-bold text-[#003565] ">{value}</span>
  </div>
  );
 }
@@ -1266,16 +1266,16 @@ function OnboardingChecklist({ state, navigate }: {
  <CardContent className="py-10 px-8">
  <div className="max-w-lg mx-auto">
  <div className="text-center mb-8">
- <div className="w-14 h-14 rounded-2xl bg-[#E8F8F8] flex items-center justify-center mx-auto mb-4">
+ <div className="w-14 h-14 rounded-2xl bg-[#E6F2FC] flex items-center justify-center mx-auto mb-4">
  <TrendingUp className="w-7 h-7 text-blue-500" />
  </div>
- <h2 className="text-xl font-bold text-slate-900 ">
+ <h2 className="text-xl font-bold text-[#003565] ">
  Welcome to the Capacity Planner
  </h2>
- <p className="text-sm text-slate-500 mt-1">
+ <p className="text-sm text-[#6C7A89] mt-1">
  Complete these steps to get your capacity heatmap up and running.
  </p>
- <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+ <p className="text-xs text-[#6C7A89] dark:text-[#6C7A89] mt-2">
  {completed} of {steps.length} complete
  </p>
  </div>
@@ -1286,20 +1286,20 @@ function OnboardingChecklist({ state, navigate }: {
  <button
  key={i}
  onClick={step.onClick}
- className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors hover:bg-[#F5F3F0] /50 group"
+ className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors hover:bg-[#EEEEF1] /50 group"
  >
  {step.done
  ? <CheckCircle2 size={20} className="text-green-500 shrink-0" />
- : <Circle size={20} className="text-slate-300 dark:text-slate-600 shrink-0" />
+ : <Circle size={20} className="text-[#B5BDC4] dark:text-[#6C7A89] shrink-0" />
  }
- <StepIcon size={16} className="text-slate-400 shrink-0" />
+ <StepIcon size={16} className="text-[#6C7A89] shrink-0" />
  <div className="flex-1 min-w-0">
- <p className={`text-sm font-medium ${step.done ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 '}`}>
+ <p className={`text-sm font-medium ${step.done ? 'text-[#6C7A89] dark:text-[#6C7A89] line-through' : 'text-[#003565] '}`}>
  {step.label}
  </p>
- <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{step.detail}</p>
+ <p className="text-xs text-[#6C7A89] dark:text-[#6C7A89] truncate">{step.detail}</p>
  </div>
- <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+ <ChevronRight size={14} className="text-[#B5BDC4] dark:text-[#6C7A89] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
  </button>
  );
  })}

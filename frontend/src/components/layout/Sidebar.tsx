@@ -64,7 +64,7 @@ function SyncIndicator({ collapsed }: { collapsed: boolean }) {
 
   if (status === 'offline') {
     return (
-      <div className={clsx('flex items-center text-[#9CA3AF]', collapsed ? 'justify-center' : 'gap-2')}>
+      <div className={clsx('flex items-center text-white/40', collapsed ? 'justify-center' : 'gap-2')}>
         <WifiOff size={14} />
         {!collapsed && <span className="text-xs">Local only</span>}
       </div>
@@ -73,7 +73,7 @@ function SyncIndicator({ collapsed }: { collapsed: boolean }) {
 
   if (status === 'saving') {
     return (
-      <div className={clsx('flex items-center text-[#6B7280]', collapsed ? 'justify-center' : 'gap-2')}>
+      <div className={clsx('flex items-center text-white/60', collapsed ? 'justify-center' : 'gap-2')}>
         <Loader2 size={14} className="animate-spin" />
         {!collapsed && <span className="text-xs">Saving…</span>}
       </div>
@@ -86,7 +86,7 @@ function SyncIndicator({ collapsed }: { collapsed: boolean }) {
         onClick={retrySyncToSupabase}
         title={error ?? 'Not saved. Click to retry'}
         className={clsx(
-          'flex items-center text-red-500 hover:text-red-600',
+          'flex items-center text-red-400 hover:text-red-300',
           collapsed ? 'justify-center' : 'gap-2'
         )}
       >
@@ -97,7 +97,7 @@ function SyncIndicator({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <div className={clsx('flex items-center text-[#22C55E]', collapsed ? 'justify-center' : 'gap-2')}>
+    <div className={clsx('flex items-center text-green-400', collapsed ? 'justify-center' : 'gap-2')}>
       <CheckCircle2 size={14} />
       {!collapsed && <span className="text-xs">Saved</span>}
     </div>
@@ -120,25 +120,23 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   return (
     <aside
       className={clsx(
-        'h-screen bg-[#FAF9F7] border-r border-[#E5E5E3] flex flex-col transition-[width] duration-250 ease-in-out',
+        'h-screen bg-[#003565] flex flex-col transition-[width] duration-250 ease-in-out',
         collapsed ? 'w-[60px]' : 'w-[240px]'
       )}
     >
       {/* Logo area */}
-      <div className={clsx('border-b border-[#E5E5E3]', collapsed ? 'p-3' : 'p-5')}>
+      <div className={clsx('border-b border-white/10', collapsed ? 'p-3' : 'p-5')}>
         {collapsed ? (
-          <div className="w-8 h-8 rounded-md bg-[#1A1A1A] text-white font-bold text-xs flex items-center justify-center mx-auto"
-               style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}>
+          <div className="w-8 h-8 rounded-md bg-[#0089DD] text-white font-bold text-xs flex items-center justify-center mx-auto">
             VS
           </div>
         ) : (
           <>
-            <div className="text-lg font-semibold tracking-tight text-[#1A1A1A]"
-                 style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}>
+            <div className="text-lg font-semibold tracking-tight text-white">
               VS Finance
             </div>
-            <div className="text-xs text-[#9CA3AF] mt-0.5">Capacity Planner</div>
-            <div className="mt-2 h-[2px] w-8 bg-[#0ED3CF] rounded-full" />
+            <div className="text-xs text-white/50 mt-0.5">Capacity Planner</div>
+            <div className="mt-2 h-[2px] w-8 bg-[#0089DD] rounded-full" />
           </>
         )}
       </div>
@@ -151,11 +149,11 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
             to={VIEW_TO_PATH[view]}
             onClick={view === 'planning' ? () => closePlan() : undefined}
             className={clsx(
-              'w-full flex items-center transition-colors duration-150 border-l-[3px]',
+              'w-full flex items-center transition-colors duration-150',
               collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-4 py-2.5',
               currentView === view
-                ? 'border-l-[#0ED3CF] bg-[#E8F8F8] text-[#1A1A1A] font-semibold'
-                : 'border-l-transparent text-[#6B7280] hover:text-[#1A1A1A] hover:bg-[#F5F3F0]'
+                ? 'bg-[#0089DD] text-white rounded-lg mx-2'
+                : 'text-white/70 hover:text-white'
             )}
             title={collapsed ? label : undefined}
           >
@@ -166,9 +164,9 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
       </nav>
 
       {/* Bottom area */}
-      <div className="border-t border-[#E5E5E3] p-3 space-y-3">
+      <div className="border-t border-white/10 p-3 space-y-3">
         {!collapsed && (
-          <div className="text-[10px] font-medium text-[#9CA3AF] uppercase tracking-widest px-1">
+          <div className="text-[10px] font-medium text-white/40 uppercase tracking-widest px-1">
             Context
           </div>
         )}
@@ -179,7 +177,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           <button
             onClick={() => void supabase.auth.signOut()}
             className={clsx(
-              'w-full flex items-center text-[#9CA3AF] hover:text-[#6B7280] hover:bg-[#F5F3F0] rounded-md transition-colors duration-150',
+              'w-full flex items-center text-white/50 hover:text-white/80 rounded-md transition-colors duration-150',
               collapsed ? 'justify-center h-8' : 'gap-2 px-2 py-1.5'
             )}
             title="Sign out"
@@ -191,15 +189,15 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
       </div>
 
       {/* User profile + collapse toggle */}
-      <div className={clsx('border-t border-[#E5E5E3]', collapsed ? 'p-2' : 'p-3')}>
+      <div className={clsx('border-t border-white/10', collapsed ? 'p-2' : 'p-3')}>
         <div className={clsx('flex items-center', collapsed ? 'justify-center' : 'gap-2')}>
-          <div className="w-8 h-8 rounded-full bg-[#E8F8F8] border border-[#0ED3CF]/40 text-[#0ED3CF] text-xs font-semibold flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[#0089DD]/20 border border-[#0089DD]/40 text-white text-xs font-semibold flex items-center justify-center shrink-0">
             {initials}
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <div className="text-xs text-[#1A1A1A] truncate">{user?.email ?? 'Local mode'}</div>
-              <div className="text-[11px] text-[#9CA3AF] truncate">
+              <div className="text-xs text-white truncate">{user?.email ?? 'Local mode'}</div>
+              <div className="text-[11px] text-white/50 truncate">
                 {role === 'system_admin'    ? 'System Administrator'
                   : role === 'project_manager' ? 'Project Manager'
                   : role === 'read_only'       ? 'Read Only'
@@ -211,7 +209,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
         <button
           onClick={onToggleCollapsed}
           className={clsx(
-            'mt-2 w-full flex items-center justify-center rounded-md hover:bg-[#F5F3F0] text-[#9CA3AF] hover:text-[#6B7280] transition-colors duration-150',
+            'mt-2 w-full flex items-center justify-center rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors duration-150',
             collapsed ? 'h-7' : 'h-8'
           )}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}

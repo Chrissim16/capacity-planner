@@ -51,7 +51,7 @@ export interface BizFit {
 // Import from here in components — never inline these mappings.
 
 export const FIT_COLOURS: Record<FitLevel, { badge: string; border: string; text: string }> = {
-  good:    { badge: 'bg-green-100 text-green-700',  border: 'border-green-500', text: 'text-green-700'  },
+  good:    { badge: 'bg-green-100 text-[#16A34A]',  border: 'border-green-500', text: 'text-[#16A34A]'  },
   partial: { badge: 'bg-amber-100 text-amber-700',  border: 'border-amber-500', text: 'text-amber-700'  },
   over:    { badge: 'bg-red-100 text-red-700',      border: 'border-red-500',   text: 'text-red-700'    },
 };
@@ -59,9 +59,9 @@ export const FIT_COLOURS: Record<FitLevel, { badge: string; border: string; text
 // ─── Glow classes for PlanningBoard drag interaction ─────────────────────────
 
 export const FIT_GLOW: Record<FitLevel, string> = {
-  good:    'ring-2 ring-[#0ED3CF]/20 shadow-[0_0_0_3px_rgba(14,211,207,0.2)]',
+  good:    'ring-2 ring-[#0089DD]/20 shadow-[0_0_0_3px_rgba(14,211,207,0.2)]',
   partial: 'ring-2 ring-[#F97316]/20 shadow-[0_0_0_3px_rgba(249,115,22,0.2)]',
-  over:    'ring-2 ring-[#EF4444]/20 shadow-[0_0_0_3px_rgba(239,68,68,0.2)]',
+  over:    'ring-2 ring-[#DC2626]/20 shadow-[0_0_0_3px_rgba(239,68,68,0.2)]',
 };
 
 // ─── scoreMember ─────────────────────────────────────────────────────────────

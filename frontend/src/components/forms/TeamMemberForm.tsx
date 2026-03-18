@@ -219,7 +219,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
 
  {processTeams.length > 0 && (
  <div>
- <label className="block text-sm font-medium text-slate-700 mb-2">
+ <label className="block text-sm font-medium text-[#003565] mb-2">
  Process Teams
  </label>
  <div className="flex flex-wrap gap-2">
@@ -231,7 +231,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
  selectedProcessTeamIds.includes(pt.id)
  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
- : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+ : 'bg-[#EEEEF1] text-[#6C7A89] hover:bg-[#DEDFE3] dark:hover:bg-slate-600'
  }`}
  >
  {pt.name}
@@ -253,26 +253,26 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
 
  <label className="flex items-center justify-between gap-3 py-1 cursor-pointer select-none">
  <div>
- <span className="text-sm font-medium text-slate-700 ">Exclude from capacity calculation</span>
- <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Member is still visible but not counted in capacity totals</p>
+ <span className="text-sm font-medium text-[#003565] ">Exclude from capacity calculation</span>
+ <p className="text-xs text-[#6C7A89] dark:text-[#6C7A89] mt-0.5">Member is still visible but not counted in capacity totals</p>
  </div>
  <input
  type="checkbox"
  checked={excludedFromCapacity}
  onChange={e => setExcludedFromCapacity(e.target.checked)}
- className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-[#0ED3CF] cursor-pointer"
+ className="w-4 h-4 rounded border-[#B5BDC4] text-blue-600 focus:ring-[#0089DD] cursor-pointer"
  />
  </label>
 
  {/* Skills */}
  <div>
- <label className="block text-sm font-medium text-slate-700 mb-3">
+ <label className="block text-sm font-medium text-[#003565] mb-3">
  Skills
  </label>
  <div className="space-y-4">
  {Object.entries(skillsByCategory).map(([category, categorySkills]) => (
  <div key={category}>
- <p className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wide">
+ <p className="text-xs font-medium text-[#6C7A89] mb-2 uppercase tracking-wide">
  {category}
  </p>
  <div className="flex flex-wrap gap-2">
@@ -284,7 +284,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
  selectedSkills.includes(skill.id)
  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
- : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+ : 'bg-[#EEEEF1] text-[#6C7A89] hover:bg-[#DEDFE3] dark:hover:bg-slate-600'
  }`}
  >
  {skill.name}
