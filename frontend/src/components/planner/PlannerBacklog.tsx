@@ -243,11 +243,11 @@ export function BacklogItem({ item }: BacklogItemProps) {
         isDragging ? 'opacity-50' : 'opacity-100 hover:border-mileway-blue cursor-grab',
       ].join(' ')}
       {...attributes}
+      {...listeners}
     >
-      {/* Drag handle — visible on hover only */}
+      {/* Drag handle — visual affordance only; entire card is draggable */}
       <div
-        {...listeners}
-        className="mt-0.5 flex-shrink-0 text-mileway-grey opacity-0 group-hover:opacity-100 transition-opacity duration-fast cursor-grab"
+        className="mt-0.5 flex-shrink-0 text-mileway-grey opacity-0 group-hover:opacity-100 transition-opacity duration-fast"
         aria-hidden="true"
       >
         <GripVertical size={14} />
