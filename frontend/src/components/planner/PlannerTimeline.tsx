@@ -669,7 +669,10 @@ export function PlannerTimeline({
   }, []);
 
   // ── Render ──────────────────────────────────────────────────────────────────
-  const totalH = visibleItems.length * ROW_H;
+  const contentH = visibleItems.length * ROW_H;
+  // Drop zones must always be hittable — enforce a minimum height so dragging
+  // onto an empty timeline still registers. 240px covers ~5 rows of visual space.
+  const totalH = Math.max(contentH, 240);
 
   if (quarterSprints.length === 0) {
     return (
@@ -752,6 +755,25 @@ export function PlannerTimeline({
                   dragOverNum={dragOverNum}
                 />
               ))}
+
+              {/* Empty-state hint — shown when no items are on the timeline yet */}
+              {visibleItems.length === 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 5,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <p className="text-xs text-mileway-grey italic">
+                    Drag items from the backlog to schedule them
+                  </p>
+                </div>
+              )}
 
               {/* Row dividers (z:5, pointer-events:none so bars stay interactive) */}
               {visibleItems.map((item, idx) => (
