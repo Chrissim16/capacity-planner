@@ -29,6 +29,7 @@ import {
   type MemberFit,
 } from '../../utils/staffing';
 import { getCurrentQuarter, generateQuarters } from '../../utils/calendar';
+import { calculateCapacity } from '../../utils/capacity';
 import { SmartAssignmentPanel } from '../SmartAssignmentPanel';
 import { ProgressBar } from '../ui/ProgressBar';
 import type { TeamMember, BusinessContact, JiraWorkItem } from '../../types';
@@ -171,19 +172,29 @@ function EpicCard({ epic, featureCount, assignedDays, isSelected, fitLevel, isDr
 
 // ── MemberCard ────────────────────────────────────────────────────────────────
 
+interface CapacityBreakdown {
+  totalWorkdays: number;
+  ptoDays: number;
+  bauDays: number;
+}
+
 interface MemberCardProps {
   member: TeamMember;
   usedPercent: number;
   availableDays: number;
+  breakdown: CapacityBreakdown;
   canAssign: boolean;
 }
 
-function MemberCard({ member, usedPercent, availableDays, canAssign }: MemberCardProps) {
+function MemberCard({ member, usedPercent, availableDays, breakdown, canAssign }: MemberCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `member-${member.id}`,
     disabled: !canAssign,
     data: { type: 'member-card', member },
   });
+
+  const hasAvailability = availableDays > 0;
+  const tooltipText = `${breakdown.totalWorkdays} working days · ${breakdown.ptoDays} days PTO · ${breakdown.bauDays} days BAU reserve`;
 
   return (
     <div
@@ -191,10 +202,10 @@ function MemberCard({ member, usedPercent, availableDays, canAssign }: MemberCar
       className={[
         'bg-white border border-mileway-border rounded-lg p-3 flex items-center gap-3',
         'transition-all duration-fast select-none',
-        canAssign ? 'cursor-grab hover:border-mileway-blue hover:bg-mileway-blue-10' : '',
+        canAssign && hasAvailability ? 'cursor-grab hover:border-mileway-blue hover:bg-mileway-blue-10' : '',
         isDragging ? 'opacity-40' : 'opacity-100',
       ].join(' ')}
-      {...(canAssign ? { ...attributes, ...listeners } : {})}
+      {...(canAssign && hasAvailability ? { ...attributes, ...listeners } : {})}
     >
       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-mileway-blue-10 text-mileway-blue flex items-center justify-center text-xs font-semibold">
         {initials(member.name)}
@@ -207,7 +218,15 @@ function MemberCard({ member, usedPercent, availableDays, canAssign }: MemberCar
           </span>
         </div>
         <ProgressBar value={usedPercent} max={100} size="sm" />
-        <p className="text-xs text-mileway-grey mt-0.5">{Math.max(0, availableDays)}d available</p>
+        {hasAvailability ? (
+          <p className="text-xs text-mileway-grey mt-0.5" title={tooltipText}>
+            {Math.max(0, availableDays)}d available
+          </p>
+        ) : (
+          <p className="text-xs text-mileway-grey mt-0.5 italic" title={tooltipText}>
+            No availability
+          </p>
+        )}
       </div>
     </div>
   );
@@ -220,9 +239,13 @@ interface BizContactCardProps {
   contact: BusinessContact;
   usedPercent: number;
   availableDays: number;
+  breakdown: CapacityBreakdown;
 }
 
-function BizContactCard({ contact, usedPercent, availableDays }: BizContactCardProps) {
+function BizContactCard({ contact, usedPercent, availableDays, breakdown }: BizContactCardProps) {
+  const hasAvailability = availableDays > 0;
+  const tooltipText = `${breakdown.totalWorkdays} working days · ${breakdown.ptoDays} days PTO · ${breakdown.bauDays} days BAU reserve`;
+
   return (
     <div className="bg-biz-light border border-mileway-border rounded-lg p-3 flex items-center gap-3">
       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#DEDFE3] text-mileway-grey flex items-center justify-center text-xs font-semibold">
@@ -236,7 +259,15 @@ function BizContactCard({ contact, usedPercent, availableDays }: BizContactCardP
           </span>
         </div>
         <ProgressBar value={usedPercent} max={100} size="sm" />
-        <p className="text-xs text-mileway-grey mt-0.5">{Math.max(0, availableDays)}d available</p>
+        {hasAvailability ? (
+          <p className="text-xs text-mileway-grey mt-0.5" title={tooltipText}>
+            {Math.max(0, availableDays)}d available
+          </p>
+        ) : (
+          <p className="text-xs text-mileway-grey mt-0.5 italic" title={tooltipText}>
+            No availability
+          </p>
+        )}
       </div>
     </div>
   );
@@ -374,27 +405,48 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
 
   // Capacity per member — computed once per render, animated by ProgressBar's own transition.
   // stateRef is used instead of `state` so these memos don't re-run on every store write.
+  type MemberCapEntry = { usedPercent: number; availableDays: number; breakdown: CapacityBreakdown };
+
   const memberCapacity = useMemo(() => {
-    const map = new Map<string, { usedPercent: number; availableDays: number }>();
+    const map = new Map<string, MemberCapEntry>();
+    const empty: MemberCapEntry = { usedPercent: 0, availableDays: 0, breakdown: { totalWorkdays: 0, ptoDays: 0, bauDays: 0 } };
     for (const m of activeMembers) {
       try {
         const fit = scoreMember(m, selectedQuarter, [], '', stateRef.current);
-        map.set(m.id, { usedPercent: fit.usedPercent, availableDays: fit.availableDays });
+        const cap = calculateCapacity(m.id, selectedQuarter, stateRef.current);
+        const ptoDays = cap.breakdown.filter(b => b.type === 'timeoff').reduce((s, b) => s + b.days, 0);
+        const bauDays = cap.breakdown.filter(b => b.type === 'bau').reduce((s, b) => s + b.days, 0);
+        map.set(m.id, {
+          usedPercent: fit.usedPercent,
+          availableDays: fit.availableDays,
+          breakdown: { totalWorkdays: cap.totalWorkdays, ptoDays, bauDays },
+        });
       } catch {
-        map.set(m.id, { usedPercent: 0, availableDays: 0 });
+        map.set(m.id, empty);
       }
     }
     return map;
   }, [activeMembers, selectedQuarter, assignVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bizCapacity = useMemo(() => {
-    const map = new Map<string, { usedPercent: number; availableDays: number }>();
+    const map = new Map<string, MemberCapEntry>();
+    const empty: MemberCapEntry = { usedPercent: 0, availableDays: 0, breakdown: { totalWorkdays: 0, ptoDays: 0, bauDays: 0 } };
     for (const c of activeContacts) {
       try {
         const fit = scoreBusinessContact(c, selectedQuarter, '', stateRef.current);
-        map.set(c.id, { usedPercent: fit.usedPercent, availableDays: fit.availableDays });
+        // BIZ contacts use a simpler capacity model; derive breakdown from the fit result
+        const sprintWorkdays = 10;
+        const sprintsPerQtr  = 6;
+        const scale = (c.workingDaysPerWeek ?? 5) / 5;
+        const totalWorkdays = Math.round(sprintWorkdays * sprintsPerQtr * scale);
+        const bauDays = c.bauReserveDays ?? 0;
+        map.set(c.id, {
+          usedPercent: fit.usedPercent,
+          availableDays: fit.availableDays,
+          breakdown: { totalWorkdays, ptoDays: 0, bauDays },
+        });
       } catch {
-        map.set(c.id, { usedPercent: 0, availableDays: 0 });
+        map.set(c.id, empty);
       }
     }
     return map;
@@ -527,6 +579,7 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
                     member={m}
                     usedPercent={memberCapacity.get(m.id)?.usedPercent ?? 0}
                     availableDays={memberCapacity.get(m.id)?.availableDays ?? 0}
+                    breakdown={memberCapacity.get(m.id)?.breakdown ?? { totalWorkdays: 0, ptoDays: 0, bauDays: 0 }}
                     canAssign={canAssign}
                   />
                 ))}
@@ -545,6 +598,7 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
                     contact={c}
                     usedPercent={bizCapacity.get(c.id)?.usedPercent ?? 0}
                     availableDays={bizCapacity.get(c.id)?.availableDays ?? 0}
+                    breakdown={bizCapacity.get(c.id)?.breakdown ?? { totalWorkdays: 0, ptoDays: 0, bauDays: 0 }}
                   />
                 ))}
               </>

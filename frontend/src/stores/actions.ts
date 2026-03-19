@@ -888,6 +888,30 @@ export function updatePlannerLayout(scenarioId: string, items: PlannerItem[]): v
 }
 
 /**
+ * SP-05 — Baseline initialization.
+ * Populates a scenario's plannerLayout by mapping each Jira item's sprint /
+ * date fields to sprint positions in the app's sprint list.
+ * Returns placement counts for the dismissible banner.
+ */
+export function initBaselineScenario(
+  scenarioId: string,
+): { placedCount: number; unscheduledCount: number } {
+  const { buildBaselineLayout } = require('../utils/plannerInit') as typeof import('../utils/plannerInit');
+  const state = useAppStore.getState();
+  const current = state.getCurrentState();
+  const scenario = current.scenarios.find(s => s.id === scenarioId);
+  if (!scenario) return { placedCount: 0, unscheduledCount: 0 };
+
+  const { items, placedCount, unscheduledCount } = buildBaselineLayout(
+    scenario.jiraWorkItems,
+    current.sprints,
+  );
+
+  updatePlannerLayout(scenarioId, items);
+  return { placedCount, unscheduledCount };
+}
+
+/**
  * Append one PlannerAssignment to a PlannerItem inside the active scenario.
  * No-op if there is no active scenario or the item is not found.
  */

@@ -12,7 +12,7 @@
  *   - No overflow:hidden on any gantt row
  *   - Bars are percentage-positioned, never grid-based
  */
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import {
   DragOverlay,
@@ -23,7 +23,8 @@ import {
   type DragMoveEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { ChevronRight, ChevronDown, Lock } from 'lucide-react';
+import { ChevronRight, ChevronDown, Lock, Plus, Pencil } from 'lucide-react';
+import { useToast } from '../ui/Toast';
 import type { PlannerItem, PlannerItemType, JiraWorkItem, Sprint } from '../../types';
 import { generateId } from '../../stores/actions';
 
@@ -35,7 +36,6 @@ const LABEL_W_MAX = 500;
 const ROW_H = 44;
 const BAR_PAD_Y = 7;
 const SPRINT_COUNT = 6;
-const NEW_ITEM_SPAN = 2;
 
 const BAR: Record<string, { bg: string; border: string; borderW: number; radius: number }> = {
   epic:      { bg: 'rgba(0,137,221,0.10)', border: '#0089DD', borderW: 2, radius: 6 },
@@ -64,11 +64,6 @@ interface ResizeState {
   previewSpan: number;
 }
 
-interface EpicMoveState {
-  itemId: string;
-  newStartSprint: number;
-}
-
 interface BarFracs { left: number; width: number; visible: boolean }
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -90,6 +85,12 @@ export interface PlannerTimelineProps {
   onActiveDragChange?: (preview: DragPreview | null) => void;
   /** All mutations flow through here — parent calls updatePlannerLayout(). */
   onItemsChange: (items: PlannerItem[]) => void;
+  /** Fires when a bar is clicked (not dragged) OR a person is dropped on it. Optional preSelectedMemberId for people-drawer drops. */
+  onBarClick?: (item: PlannerItem, anchorEl: HTMLElement, preSelectedMemberId?: string) => void;
+  /** SP-18: "+" button on a label row — open the create-child modal with the parent pre-filled. */
+  onAddChild?: (parentItem: PlannerItem) => void;
+  /** SP-19: right-click context menu on a timeline row. */
+  onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -192,18 +193,26 @@ function LabelCell({
   hasChildren,
   isExpanded,
   onToggle,
+  onAddChild,
+  onContextMenu,
 }: {
   item: PlannerItem;
   hasChildren: boolean;
   isExpanded: boolean;
   onToggle: (id: string) => void;
+  /** SP-18: "+" button — only rendered for epic/feature rows. */
+  onAddChild?: (parentItem: PlannerItem) => void;
+  /** SP-19: right-click context menu. */
+  onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
 }) {
   const indent = (INDENT[item.type] ?? 0) + 12;
+  const canAddChild = onAddChild && (item.type === 'epic' || item.type === 'feature');
 
   return (
     <div
-      className="flex items-center gap-1.5 h-full border-b border-mileway-divider hover:bg-mileway-bg transition-colors duration-fast"
+      className="group flex items-center gap-1.5 h-full border-b border-mileway-divider hover:bg-mileway-bg transition-colors duration-fast"
       style={{ paddingLeft: indent, paddingRight: 8 }}
+      onContextMenu={onContextMenu ? e => { e.preventDefault(); onContextMenu(item, e.clientX, e.clientY); } : undefined}
     >
       {/* Expand / collapse chevron */}
       <button
@@ -220,6 +229,16 @@ function LabelCell({
         {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
       </button>
 
+      {/* Manual item badge (SP-17) */}
+      {item.isManual && (
+        <span
+          className="flex-shrink-0"
+          title="Manually created — not in Jira"
+        >
+          <Pencil size={10} className="text-mileway-grey" />
+        </span>
+      )}
+
       {/* Name */}
       <span
         className="flex-1 min-w-0 text-sm text-mileway-text truncate"
@@ -227,6 +246,19 @@ function LabelCell({
       >
         {item.name}
       </span>
+
+      {/* SP-18: "+" add child button (visible on hover) */}
+      {canAddChild && (
+        <button
+          type="button"
+          onClick={e => { e.stopPropagation(); onAddChild!(item); }}
+          aria-label={`Add child to ${item.name}`}
+          title={item.type === 'epic' ? 'Create Feature under this Epic' : 'Create Story under this Feature'}
+          className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-mileway-grey opacity-0 group-hover:opacity-100 hover:bg-mileway-blue-10 hover:text-mileway-blue transition-all duration-fast focus:outline-none focus-visible:ring-1 focus-visible:ring-mileway-blue"
+        >
+          <Plus size={12} />
+        </button>
+      )}
 
       {/* Locked badge */}
       {item.locked && !item.unlockedInScenario && (
@@ -253,6 +285,11 @@ interface PlannerBarProps {
   onResizeStart: (e: ReactPointerEvent<HTMLDivElement>, itemId: string, edge: 'left' | 'right') => void;
   onResizeMove: (e: ReactPointerEvent<HTMLDivElement>) => void;
   onResizeEnd: () => void;
+  onBarClick?: (item: PlannerItem, anchorEl: HTMLElement) => void;
+  /** Registry setter so people-drag drops can find the DOM node. */
+  onRegisterNode?: (id: string, el: HTMLElement | null) => void;
+  /** SP-19: right-click context menu. */
+  onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
 }
 
 function PlannerBar({
@@ -263,6 +300,9 @@ function PlannerBar({
   onResizeStart,
   onResizeMove,
   onResizeEnd,
+  onBarClick,
+  onRegisterNode,
+  onContextMenu: onCtxMenu,
 }: PlannerBarProps) {
   const isInteractive = !item.locked || item.unlockedInScenario;
 
@@ -271,11 +311,25 @@ function PlannerBar({
   const frac = barFracs(displayStart, displaySpan, firstSprintNum);
   if (!frac.visible) return null;
 
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: item.id,
     disabled: !isInteractive,
     data: { type: 'timeline-bar', plannerItem: item },
   });
+
+  // Also act as a drop target for people-drag (SP-10)
+  const { isOver: isPersonOver, setNodeRef: setDropRef } = useDroppable({
+    id: `bar-${item.id}`,
+    data: { type: 'bar-drop', plannerItem: item },
+    disabled: !isInteractive,
+  });
+
+  // Merge drag + drop refs and register for people-drag lookup
+  const setNodeRef = useCallback((node: HTMLDivElement | null) => {
+    setDragRef(node);
+    setDropRef(node);
+    onRegisterNode?.(item.id, node);
+  }, [setDragRef, setDropRef, onRegisterNode, item.id]);
 
   const s = BAR[item.type] ?? BAR.custom;
   const borderStyle = item.unlockedInScenario ? 'dashed' : 'solid';
@@ -297,8 +351,20 @@ function PlannerBar({
         zIndex: 10,
         opacity: isDragging ? 0.35 : (item.locked && !item.unlockedInScenario ? 0.6 : 1),
         cursor: isInteractive ? 'grab' : 'not-allowed',
+        // SP-10: blue glow when a person card is dragged over this bar
+        boxShadow: isPersonOver && isInteractive ? '0 0 0 2px rgba(0,137,221,0.5), 0 0 8px rgba(0,137,221,0.25)' : undefined,
+        outline: isPersonOver && isInteractive ? '2px solid #0089DD' : undefined,
       }}
       {...(isInteractive ? { ...attributes, ...listeners } : {})}
+      onClick={onBarClick ? e => onBarClick(item, e.currentTarget) : undefined}
+      onContextMenu={onCtxMenu ? e => { e.preventDefault(); onCtxMenu(item, e.clientX, e.clientY); } : undefined}
+      title={
+        isInteractive
+          ? item.type === 'epic'
+            ? 'Click to assign · Drag to move all · Shift+drag to move Epic only'
+            : 'Click to assign · Drag to reposition'
+          : undefined
+      }
     >
       {/* Left resize handle */}
       {isInteractive && (
@@ -378,81 +444,70 @@ function BacklogItemOverlay({ item }: { item: JiraWorkItem }) {
 
 // ── BarDragOverlay ────────────────────────────────────────────────────────────
 
-function BarDragOverlay({ item }: { item: PlannerItem }) {
+function BarDragOverlay({ item, shiftHeld }: { item: PlannerItem; shiftHeld?: boolean }) {
   const s = BAR[item.type] ?? BAR.custom;
   return (
-    <div
-      style={{
-        height: ROW_H - BAR_PAD_Y * 2,
-        width: 200,
-        background: s.bg,
-        border: `${s.borderW}px solid ${s.border}`,
-        borderRadius: s.radius,
-        opacity: 0.9,
-        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-        display: 'flex',
-        alignItems: 'center',
-        paddingLeft: 10,
-        overflow: 'hidden',
-      }}
-    >
-      <span style={{ fontSize: 12, fontWeight: 500, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {item.name}
-      </span>
-    </div>
-  );
-}
-
-// ── EpicMovePrompt ────────────────────────────────────────────────────────────
-
-function EpicMovePrompt({
-  onConfirm,
-  onDismiss,
-}: {
-  onConfirm: (moveChildren: boolean) => void;
-  onDismiss: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-      <div className="bg-white border border-mileway-border rounded-lg p-5 shadow-md pointer-events-auto w-72 animate-fade-in">
-        <p className="text-sm font-semibold text-mileway-text mb-1">Move child items too?</p>
-        <p className="text-xs text-mileway-grey leading-relaxed mb-4">
-          This epic has features or stories. Should they shift by the same amount?
-        </p>
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={onDismiss}
-            className="text-sm font-medium text-mileway-grey px-3 py-1.5 rounded-lg hover:bg-mileway-bg transition-colors duration-fast"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm(false)}
-            className="text-sm font-medium text-mileway-text border border-mileway-border px-3 py-1.5 rounded-lg hover:bg-mileway-bg transition-colors duration-fast"
-          >
-            Epic only
-          </button>
-          <button
-            onClick={() => onConfirm(true)}
-            className="text-sm font-medium text-white bg-mileway-blue px-3 py-1.5 rounded-lg hover:bg-[#0077C2] transition-colors duration-fast"
-          >
-            Move all
-          </button>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div
+        style={{
+          height: ROW_H - BAR_PAD_Y * 2,
+          width: 200,
+          background: s.bg,
+          border: `${s.borderW}px solid ${s.border}`,
+          borderRadius: s.radius,
+          opacity: 0.9,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: 10,
+          overflow: 'hidden',
+        }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 500, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {item.name}
+        </span>
       </div>
+      {/* SP-09: Shift indicator shown only for epics */}
+      {item.type === 'epic' && shiftHeld && (
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: '#0089DD',
+            background: '#E0F0FB',
+            borderRadius: 4,
+            padding: '2px 6px',
+            alignSelf: 'flex-start',
+          }}
+        >
+          Shift held — Epic only
+        </div>
+      )}
     </div>
   );
 }
 
 // ── PlannerTimeline ───────────────────────────────────────────────────────────
 
+// Default spans per item type (SP-07/08)
+const TYPE_SPAN: Partial<Record<PlannerItemType, number>> = {
+  epic:    6,
+  feature: 2,
+};
+function defaultSpan(type: PlannerItemType): number {
+  return TYPE_SPAN[type] ?? 1;
+}
+
 export function PlannerTimeline({
   plannerItems,
-  jiraItems: _jiraItems,
+  jiraItems,
   sprints,
   selectedQuarter,
   onActiveDragChange,
   onItemsChange,
+  onBarClick,
+  onAddChild,
+  onContextMenu,
 }: PlannerTimelineProps) {
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
@@ -461,10 +516,38 @@ export function PlannerTimeline({
   const [activeItem, setActiveItem]           = useState<PlannerItem | null>(null);
   const [activeBacklogItem, setActiveBacklogItem] = useState<JiraWorkItem | null>(null);
   const [resize, setResize]                   = useState<ResizeState | null>(null);
-  const [epicMove, setEpicMove]               = useState<EpicMoveState | null>(null);
+  const [shiftDuringDrag, setShiftDuringDrag] = useState(false);
+
+  const { showToast } = useToast();
 
   const canvasRef    = useRef<HTMLDivElement>(null);
   const labelDragRef = useRef<{ startX: number; startW: number } | null>(null);
+  // SP-10: registry of bar DOM nodes, keyed by item.id — used for people-drag anchor
+  const barNodeRegistry = useRef<Map<string, HTMLElement>>(new Map());
+  const handleRegisterNode = useCallback((id: string, el: HTMLElement | null) => {
+    if (el) barNodeRegistry.current.set(id, el);
+    else barNodeRegistry.current.delete(id);
+  }, []);
+  // SP-09: track Shift key state for Epic-only move
+  const shiftHeldRef = useRef(false);
+  const activeItemRef = useRef<PlannerItem | null>(null);
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        shiftHeldRef.current = true;
+        if (activeItemRef.current?.type === 'epic') setShiftDuringDrag(true);
+      }
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        shiftHeldRef.current = false;
+        setShiftDuringDrag(false);
+      }
+    };
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp); };
+  }, []);
 
   // ── Quarter sprints ─────────────────────────────────────────────────────────
   const quarterSprints = useMemo(
@@ -522,7 +605,6 @@ export function PlannerTimeline({
       if (moveChildren && p.parentKey === item.jiraKey) return { ...p, startSprint: Math.max(1, p.startSprint + delta) };
       return p;
     }));
-    setEpicMove(null);
   }, [plannerItems, onItemsChange]);
 
   // ── Label column resize ─────────────────────────────────────────────────────
@@ -584,6 +666,8 @@ export function PlannerTimeline({
       const data = event.active.data.current as { type: string; plannerItem?: PlannerItem; jiraItem?: JiraWorkItem } | undefined;
       if (data?.type === 'timeline-bar' && data.plannerItem) {
         setActiveItem(data.plannerItem);
+        activeItemRef.current = data.plannerItem;
+        if (data.plannerItem.type === 'epic' && shiftHeldRef.current) setShiftDuringDrag(true);
         onActiveDragChange?.({ itemId: data.plannerItem.id, newStartSprint: data.plannerItem.startSprint });
       }
       if (data?.type === 'backlog-item' && data.jiraItem) {
@@ -608,6 +692,8 @@ export function PlannerTimeline({
       setActiveItem(null);
       setActiveBacklogItem(null);
       setDragOverNum(null);
+      setShiftDuringDrag(false);
+      activeItemRef.current = null;
       onActiveDragChange?.(null);
       if (!over) return;
 
@@ -621,11 +707,43 @@ export function PlannerTimeline({
         const item = aData.plannerItem!;
         const target = sprintNumFrom(overId);
         if (target === item.startSprint) return;
-        if (item.type === 'epic' && items.some(p => p.parentKey === item.jiraKey)) {
-          setEpicMove({ itemId: item.id, newStartSprint: target });
+
+        const epicOnly = shiftHeldRef.current;
+        if (item.type === 'epic' && items.some(p => p.parentKey === item.jiraKey) && !epicOnly) {
+          // SP-09 off: Move Epic and all children immediately; offer a 5-second undo.
+          const snapshot = items;
+          const delta = target - item.startSprint;
+          const children = items.filter(p => p.parentKey === item.jiraKey);
+          onItemsChange(items.map(p => {
+            if (p.id === item.id) return { ...p, startSprint: target };
+            if (p.parentKey === item.jiraKey) return { ...p, startSprint: Math.max(1, p.startSprint + delta) };
+            return p;
+          }));
+          const n = children.length;
+          showToast(`Moved "${item.name}" and ${n} item${n !== 1 ? 's' : ''}`, {
+            type: 'info',
+            duration: 5000,
+            action: { label: 'Undo', onClick: () => onItemsChange(snapshot) },
+          });
           return;
         }
+
+        // SP-09 on: Epic-only move (Shift held) or non-epic bar
         commitMove(item.id, target, false);
+        return;
+      }
+
+      // Case 4: person-drag → bar (SP-10 drag-to-assign)
+      if (aData.type === 'people-drag' && overId.startsWith('bar-')) {
+        const barItemId = overId.replace(/^bar-/, '');
+        const targetItem = items.find(p => p.id === barItemId);
+        if (targetItem && onBarClick) {
+          // Look up the bar's DOM node from the registry
+          const barEl = barNodeRegistry.current.get(barItemId);
+          if (barEl) {
+            onBarClick(targetItem, barEl, aData.memberId as string);
+          }
+        }
         return;
       }
 
@@ -639,20 +757,100 @@ export function PlannerTimeline({
       if (aData.type === 'backlog-item' && overId.startsWith('sprint-col-')) {
         const ji = aData.jiraItem!;
         const target = sprintNumFrom(overId);
-        const newItem: PlannerItem = {
-          id: generateId('planner'),
-          sourceId: ji.id,
-          name: ji.summary,
-          type: ji.type as PlannerItemType,
-          jiraKey: ji.jiraKey,
-          parentKey: ji.parentKey,
-          startSprint: target,
-          spanSprints: NEW_ITEM_SPAN,
-          assignees: [],
-          locked: ji.statusCategory === 'in_progress',
-          unlockedInScenario: false,
-        };
+
+        function makeItem(source: typeof ji, startSprint: number): PlannerItem {
+          return {
+            id: generateId('planner'),
+            sourceId: source.id,
+            name: source.summary,
+            type: source.type as PlannerItemType,
+            jiraKey: source.jiraKey,
+            parentKey: source.parentKey,
+            startSprint,
+            spanSprints: defaultSpan(source.type as PlannerItemType),
+            assignees: [],
+            locked: source.statusCategory === 'in_progress',
+            unlockedInScenario: false,
+            isManual: false,
+            labels: source.labels ?? [],
+            jiraAssignees: source.assigneeName ? [source.assigneeName] : [],
+            jiraStartDate: source.startDate,
+            jiraEndDate: source.dueDate,
+          };
+        }
+
+        // SP-07: Epic drop — place Epic + all unscheduled Features + their Stories
+        if (ji.type === 'epic') {
+          const epicItem = makeItem(ji, target);
+          const added: PlannerItem[] = [epicItem];
+          const alreadyScheduledCount = { features: 0 };
+
+          const features = jiraItems.filter(
+            f => f.parentKey === ji.jiraKey && f.type === 'feature',
+          );
+
+          let featuresPlaced = 0;
+          let storiesPlaced = 0;
+
+          for (const feat of features) {
+            const alreadyOnTimeline = items.some(p => p.jiraKey === feat.jiraKey);
+            if (alreadyOnTimeline) {
+              alreadyScheduledCount.features++;
+              continue;
+            }
+            const featItem = makeItem(feat, target);
+            added.push(featItem);
+            featuresPlaced++;
+
+            const stories = jiraItems.filter(s => s.parentKey === feat.jiraKey);
+            for (const story of stories) {
+              if (items.some(p => p.jiraKey === story.jiraKey)) continue;
+              added.push(makeItem(story, target));
+              storiesPlaced++;
+            }
+          }
+
+          // Also handle stories/tasks directly under the epic (no Feature intermediary)
+          const directChildren = jiraItems.filter(
+            c => c.parentKey === ji.jiraKey && c.type !== 'feature',
+          );
+          for (const child of directChildren) {
+            if (items.some(p => p.jiraKey === child.jiraKey)) continue;
+            added.push(makeItem(child, target));
+          }
+
+          const already = alreadyScheduledCount.features;
+          const snapshot = items;
+          onItemsChange([...items, ...added]);
+
+          const msg = already > 0
+            ? `Placed "${ji.summary}" with ${featuresPlaced} features — ${already} already scheduled, left in place`
+            : `Placed "${ji.summary}" with ${featuresPlaced} feature${featuresPlaced !== 1 ? 's' : ''} and ${storiesPlaced} stor${storiesPlaced !== 1 ? 'ies' : 'y'}`;
+
+          showToast(msg, {
+            type: 'info',
+            duration: 5000,
+            action: { label: 'Undo', onClick: () => onItemsChange(snapshot) },
+          });
+          return;
+        }
+
+        // SP-08: Feature or Story drop
+        const newItem = makeItem(ji, target);
+        const snapshot = items;
         onItemsChange([...items, newItem]);
+
+        // SP-08: parent-not-scheduled warning
+        if (ji.parentKey) {
+          const parentOnTimeline = items.some(p => p.jiraKey === ji.parentKey);
+          if (!parentOnTimeline) {
+            showToast(`"${ji.summary}" placed — parent not yet scheduled`, {
+              type: 'info',
+              duration: 4000,
+              action: { label: 'Undo', onClick: () => onItemsChange(snapshot) },
+            });
+          }
+        }
       }
     },
   });
@@ -719,6 +917,8 @@ export function PlannerTimeline({
                   hasChildren={hasChildrenSet.has(item.id)}
                   isExpanded={expandAll || expandedIds.has(item.id)}
                   onToggle={toggleExpand}
+                  onAddChild={onAddChild}
+                  onContextMenu={onContextMenu}
                 />
               </div>
             ))}
@@ -795,6 +995,9 @@ export function PlannerTimeline({
                   onResizeStart={handleResizeStart}
                   onResizeMove={handleResizeMove}
                   onResizeEnd={handleResizeEnd}
+                  onBarClick={onBarClick}
+                  onRegisterNode={handleRegisterNode}
+                  onContextMenu={onContextMenu}
                 />
               ))}
             </div>
@@ -804,17 +1007,9 @@ export function PlannerTimeline({
 
       {/* Ghost element following cursor during drag */}
       <DragOverlay dropAnimation={null}>
-        {activeItem && <BarDragOverlay item={activeItem} />}
+        {activeItem && <BarDragOverlay item={activeItem} shiftHeld={shiftDuringDrag} />}
         {activeBacklogItem && <BacklogItemOverlay item={activeBacklogItem} />}
       </DragOverlay>
-
-      {/* Epic move confirmation */}
-      {epicMove && (
-        <EpicMovePrompt
-          onConfirm={moveChildren => commitMove(epicMove.itemId, epicMove.newStartSprint, moveChildren)}
-          onDismiss={() => setEpicMove(null)}
-        />
-      )}
     </>
   );
 }

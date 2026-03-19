@@ -140,8 +140,8 @@ export function ScenarioTabs({ scenarios, activeScenarioId, onSelect, onCreate }
                 id="clone"
                 selected={startMode === 'clone'}
                 onSelect={() => setStartMode('clone')}
-                title="Clone current"
-                description="Copies all placed items, assignments, and lock states from the active scenario."
+                title="Clone current plan"
+                description="Pre-places all active Jira items on the timeline using their current Jira sprint and date positions. In-progress items are locked."
               />
               <RadioCard
                 id="blank"

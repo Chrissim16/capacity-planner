@@ -481,7 +481,7 @@ export interface PlannerAssignment {
 /** One item placed on the planner timeline — Jira-sourced or manually created. */
 export interface PlannerItem {
   id: string;
-  /** References JiraWorkItem.id when sourced from Jira */
+  /** References JiraWorkItem.id when sourced from Jira; empty string for manually created items */
   sourceId: string;
   name: string;
   type: PlannerItemType;
@@ -497,6 +497,16 @@ export interface PlannerItem {
   locked: boolean;
   /** PM explicitly unlocked this item for exploration in this scenario */
   unlockedInScenario: boolean;
+  /** True for items created directly in the planner, not sourced from Jira */
+  isManual: boolean;
+  /** Jira labels copied on import; editable for manually created items */
+  labels: string[];
+  /** Jira assignee display names — shown as suggestions in Blank Slate, pre-loaded as assignments in Baseline */
+  jiraAssignees: string[];
+  /** ISO date from Jira start date — used for Baseline sprint position mapping */
+  jiraStartDate?: string;
+  /** ISO date from Jira due date — used for Baseline sprint span calculation */
+  jiraEndDate?: string;
 }
 
 export interface Scenario {
