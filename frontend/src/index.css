@@ -23,6 +23,21 @@
 }
 .animate-slide-in-left { animation: slide-in-left 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
 
+/* Team drawer right-side overlay slide-in (reuses slide-in-right easing) */
+@keyframes slide-in-right-overlay {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+.animate-slide-in-right-overlay { animation: slide-in-right-overlay 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+/* Timeline bar pulse — fired when a member is focused from the Team drawer */
+@keyframes bar-focus-pulse {
+  0%   { opacity: 1; }
+  40%  { opacity: 0.35; }
+  100% { opacity: 1; }
+}
+.animate-bar-pulse { animation: bar-focus-pulse 400ms ease-in-out; }
+
 /* ══════════════════════════════════════════════════════════════════════════════
    REDUCED-MOTION — honour user preference
    ══════════════════════════════════════════════════════════════════════════════ */

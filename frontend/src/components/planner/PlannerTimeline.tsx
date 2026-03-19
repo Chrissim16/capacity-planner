@@ -91,6 +91,8 @@ export interface PlannerTimelineProps {
   onAddChild?: (parentItem: PlannerItem) => void;
   /** SP-19: right-click context menu on a timeline row. */
   onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
+  /** When set, bars assigned to this member receive a pulse animation */
+  focusedMemberId?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -290,6 +292,8 @@ interface PlannerBarProps {
   onRegisterNode?: (id: string, el: HTMLElement | null) => void;
   /** SP-19: right-click context menu. */
   onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
+  /** When set and bar has this assignee, a brief pulse animation is applied */
+  focusedMemberId?: string | null;
 }
 
 function PlannerBar({
@@ -303,6 +307,7 @@ function PlannerBar({
   onBarClick,
   onRegisterNode,
   onContextMenu: onCtxMenu,
+  focusedMemberId,
 }: PlannerBarProps) {
   const isInteractive = !item.locked || item.unlockedInScenario;
 
@@ -333,10 +338,13 @@ function PlannerBar({
 
   const s = BAR[item.type] ?? BAR.custom;
   const borderStyle = item.unlockedInScenario ? 'dashed' : 'solid';
+  const isFocusedBar = focusedMemberId != null &&
+    item.assignees.some(a => a.memberId === focusedMemberId);
 
   return (
     <div
       ref={setNodeRef}
+      className={isFocusedBar ? 'animate-bar-pulse' : undefined}
       style={{
         position: 'absolute',
         top: rowTop + BAR_PAD_Y,
@@ -508,6 +516,7 @@ export function PlannerTimeline({
   onBarClick,
   onAddChild,
   onContextMenu,
+  focusedMemberId,
 }: PlannerTimelineProps) {
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
@@ -998,6 +1007,7 @@ export function PlannerTimeline({
                   onBarClick={onBarClick}
                   onRegisterNode={handleRegisterNode}
                   onContextMenu={onContextMenu}
+                  focusedMemberId={focusedMemberId}
                 />
               ))}
             </div>

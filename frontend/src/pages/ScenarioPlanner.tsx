@@ -30,7 +30,7 @@ import { PlannerBacklog } from '../components/planner/PlannerBacklog';
 import { PlannerTimeline, type DragPreview } from '../components/planner/PlannerTimeline';
 import { PlannerCapacity } from '../components/planner/PlannerCapacity';
 import { AssignPopover } from '../components/planner/AssignPopover';
-import { PlannerPeopleDrawer } from '../components/planner/PlannerPeopleDrawer';
+import { PlannerTeamDrawer } from '../components/planner/PlannerTeamDrawer';
 import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
 import { PlannerContextMenu, type ContextMenuTarget } from '../components/planner/PlannerContextMenu';
 import type { PlannerItem, PlannerItemType } from '../types';
@@ -61,6 +61,8 @@ interface PlannerUIState {
   selectedProjectId: string | null;
   /** Any mode — which item is open in the Slide-out Detail Panel */
   detailItemId: string | null;
+  /** Timeline mode — which team member is focused (highlights bars + capacity row) */
+  focusedMemberId: string | null;
 }
 
 const INITIAL_PLANNER_UI: PlannerUIState = {
@@ -71,6 +73,7 @@ const INITIAL_PLANNER_UI: PlannerUIState = {
   currentQuarterIndex: 0,
   selectedProjectId: null,
   detailItemId: null,
+  focusedMemberId: null,
 };
 
 // ── ViewportNotice ────────────────────────────────────────────────────────────
@@ -741,6 +744,7 @@ export function ScenarioPlanner() {
                       onBarClick={handleBarClick}
                       onAddChild={handleAddChild}
                       onContextMenu={handleContextMenu}
+                      focusedMemberId={plannerUI.focusedMemberId}
                     />
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
@@ -756,14 +760,22 @@ export function ScenarioPlanner() {
                     selectedQuarter={selectedQuarter}
                     activeDragPreview={activeDragPreview}
                     isVisible={plannerUI.capacityOpen}
+                    focusedMemberId={plannerUI.focusedMemberId}
                   />
                 </div>
 
-                {/* People drawer — still flex sibling; replaced by PlannerTeamDrawer overlay in Phase 3 */}
-                {plannerUI.teamDrawerOpen && (
-                  <PlannerPeopleDrawer selectedQuarter={selectedQuarter} />
-                )}
               </div>
+
+              {/* Team drawer — absolute overlay on right edge of canvas */}
+              {plannerUI.teamDrawerOpen && (
+                <PlannerTeamDrawer
+                  selectedQuarter={selectedQuarter}
+                  activeMode="timeline"
+                  onClose={() => toggleUI('teamDrawerOpen')}
+                  onMemberFocus={id => setPlannerUI(prev => ({ ...prev, focusedMemberId: id }))}
+                  focusedMemberId={plannerUI.focusedMemberId}
+                />
+              )}
 
               {/* Backlog overlay — absolute-positioned within the relative canvas anchor */}
               {plannerUI.backlogOpen && (

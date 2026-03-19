@@ -36,6 +36,8 @@ export interface PlannerCapacityProps {
   selectedQuarter: string;
   activeDragPreview?: DragPreview | null;
   isVisible: boolean;
+  /** When set, highlights that person's row with a blue accent */
+  focusedMemberId?: string | null;
 }
 
 // ── Internal types ────────────────────────────────────────────────────────────
@@ -200,13 +202,19 @@ function PersonLabel({ row }: { row: PersonRow }) {
 
 // ── PersonRow ────────────────────────────────────────────────────────────────
 
-function PersonRowView({ row }: { row: PersonRow }) {
+function PersonRowView({ row, isFocused }: { row: PersonRow; isFocused?: boolean }) {
   return (
     <div
       style={{
         display: 'flex',
         borderBottom: '1px solid #F1F5F9',
-        borderLeft: row.isOverloaded ? '3px solid #DC2626' : '3px solid transparent',
+        borderLeft: row.isOverloaded
+          ? '3px solid #DC2626'
+          : isFocused
+          ? '3px solid #0089DD'
+          : '3px solid transparent',
+        background: isFocused ? 'rgba(0,137,221,0.06)' : undefined,
+        transition: 'background 300ms, border-left-color 300ms',
       }}
     >
       <PersonLabel row={row} />
@@ -223,10 +231,12 @@ function TeamGroupView({
   group,
   isExpanded,
   onToggle,
+  focusedMemberId,
 }: {
   group: TeamGroup;
   isExpanded: boolean;
   onToggle: () => void;
+  focusedMemberId?: string | null;
 }) {
   const summaryOverloaded = group.summary.some(c => pctFromCell(c) > 100);
 
@@ -294,7 +304,7 @@ function TeamGroupView({
 
       {/* Individual member rows */}
       {isExpanded && group.members.map(row => (
-        <PersonRowView key={row.id} row={row} />
+        <PersonRowView key={row.id} row={row} isFocused={focusedMemberId === row.id} />
       ))}
     </>
   );
@@ -308,6 +318,7 @@ export function PlannerCapacity({
   selectedQuarter,
   activeDragPreview,
   isVisible,
+  focusedMemberId,
 }: PlannerCapacityProps) {
   const state = useCurrentState();
   const [collapsedTeams, setCollapsedTeams] = useState<Set<string>>(new Set());
@@ -495,6 +506,7 @@ export function PlannerCapacity({
               group={group}
               isExpanded={!collapsedTeams.has(group.teamId)}
               onToggle={() => toggleTeam(group.teamId)}
+              focusedMemberId={focusedMemberId}
             />
           ))}
 
@@ -504,12 +516,13 @@ export function PlannerCapacity({
               group={unassignedGroup}
               isExpanded={!collapsedTeams.has('__unassigned__')}
               onToggle={() => toggleTeam('__unassigned__')}
+              focusedMemberId={focusedMemberId}
             />
           )}
         </>
       ) : (
-        // No process teams at all — flat list like before
-        allRows.map(row => <PersonRowView key={row.id} row={row} />)
+        // No process teams at all — flat list
+        allRows.map(row => <PersonRowView key={row.id} row={row} isFocused={focusedMemberId === row.id} />)
       )}
 
       {/* SP-15 AC7: Data quality notice when >20% of IT members have no process team */}
