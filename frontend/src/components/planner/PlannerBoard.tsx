@@ -1,14 +1,16 @@
 /**
  * PlannerBoard — Quarterly staffing board for the Scenario Planner.
  *
- * Left panel:  Epic cards (droppable) — show fit-colour border during member drag
- * Right panel: Team member cards (draggable IT) + BIZ contacts (read-only in v1)
- * Bottom:      SmartAssignmentPanel inline, shown when an epic is selected
+ * Epic cards are full-width droppable targets — show fit-colour border during member drag.
+ * Team member drag source is now PlannerTeamDrawer (passed as `overlays`), sharing this DndContext.
+ * Bottom: SmartAssignmentPanel inline, shown when an epic is selected.
  *
  * BIZ contact drag is deferred to v2 (TODO-002). BIZ assignment via SmartAssignmentPanel only.
  * Fit scores are precomputed on dragStart — not recalculated on every dragOver.
+ *
+ * US-UI-13 · US-UI-15
  */
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import {
   DndContext,
   useDraggable,
@@ -19,26 +21,34 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
+import { ArrowRight } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
 import { addAssignment } from '../../stores/actions';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import {
   scoreMember,
-  scoreBusinessContact,
   FIT_COLOURS,
   type MemberFit,
 } from '../../utils/staffing';
-import { getCurrentQuarter, generateQuarters } from '../../utils/calendar';
 import { calculateCapacity } from '../../utils/capacity';
 import { SmartAssignmentPanel } from '../SmartAssignmentPanel';
 import { ProgressBar } from '../ui/ProgressBar';
-import type { TeamMember, BusinessContact, JiraWorkItem } from '../../types';
+import type { TeamMember, JiraWorkItem } from '../../types';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
+export type BoardSort = 'priority' | 'name' | 'assigned';
+
 export interface PlannerBoardProps {
-  /** Used for future scenario-specific overrides; passed through to SmartAssignmentPanel. */
   scenarioId: string;
+  /** Quarter string, e.g. "Q1 2026" — controlled by ScenarioPlanner */
+  selectedQuarter: string;
+  /** Sort order for the epic grid */
+  sort: BoardSort;
+  /** Called when the user clicks the details (→) button on an epic card */
+  onOpenDetail?: (jiraKey: string) => void;
+  /** Rendered inside this DndContext so overlays (e.g. PlannerTeamDrawer) share drag events */
+  overlays?: ReactNode;
 }
 
 // ── Internal types ────────────────────────────────────────────────────────────
@@ -73,25 +83,6 @@ function priorityBadge(priority?: string): { label: string; cls: string } | null
   return { label: labelMap[p] ?? priority.toUpperCase(), cls: PRIORITY_TEXT[p] ?? 'text-mileway-grey' };
 }
 
-// ── QuarterSelector ───────────────────────────────────────────────────────────
-
-function QuarterSelector({ value, onChange }: { value: string; onChange: (q: string) => void }) {
-  const quarters = useMemo(() => generateQuarters(8), []);
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs font-medium text-mileway-grey">Quarter</span>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        aria-label="Select quarter"
-        className="text-sm border border-mileway-border rounded-lg px-3 py-1.5 text-mileway-text bg-white focus:outline-none focus:border-mileway-blue transition-colors duration-fast"
-      >
-        {quarters.map(q => <option key={q} value={q}>{q}</option>)}
-      </select>
-    </div>
-  );
-}
-
 // ── EpicCard ──────────────────────────────────────────────────────────────────
 
 interface EpicCardProps {
@@ -102,9 +93,10 @@ interface EpicCardProps {
   fitLevel: MemberFit['fitLevel'] | null;
   isDraggingMember: boolean;
   onSelect: (key: string) => void;
+  onOpenDetail?: (jiraKey: string) => void;
 }
 
-function EpicCard({ epic, featureCount, assignedDays, isSelected, fitLevel, isDraggingMember, onSelect }: EpicCardProps) {
+function EpicCard({ epic, featureCount, assignedDays, isSelected, fitLevel, isDraggingMember, onSelect, onOpenDetail }: EpicCardProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `epic-drop-${epic.jiraKey}`,
     data: { type: 'epic-card', jiraKey: epic.jiraKey },
@@ -125,21 +117,32 @@ function EpicCard({ epic, featureCount, assignedDays, isSelected, fitLevel, isDr
       ref={setNodeRef}
       onClick={() => onSelect(epic.jiraKey)}
       className={[
-        'bg-white rounded-[10px] p-4 border cursor-pointer',
+        'group bg-white rounded-[10px] p-4 border cursor-pointer',
         'transition-all duration-fast hover:border-mileway-blue',
         borderCls,
       ].join(' ')}
     >
-      {/* Name + priority */}
+      {/* Name + priority + details button */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <p className="text-sm font-semibold text-mileway-text leading-snug line-clamp-2 flex-1">
           {epic.summary}
         </p>
-        {badge && (
-          <span className={`flex-shrink-0 text-xs font-semibold ${badge.cls}`}>
-            {badge.label}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {badge && (
+            <span className={`text-xs font-semibold ${badge.cls}`}>
+              {badge.label}
+            </span>
+          )}
+          {onOpenDetail && (
+            <button
+              onClick={e => { e.stopPropagation(); onOpenDetail(epic.jiraKey); }}
+              aria-label={`Open details for ${epic.summary}`}
+              className="opacity-0 group-hover:opacity-100 transition-opacity duration-fast p-0.5 rounded text-mileway-grey hover:text-mileway-blue hover:bg-mileway-blue-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+            >
+              <ArrowRight size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Key + feature count */}
@@ -166,109 +169,6 @@ function EpicCard({ epic, featureCount, assignedDays, isSelected, fitLevel, isDr
       ) : (
         <p className="text-xs text-mileway-grey">{assignedDays}d assigned</p>
       )}
-    </div>
-  );
-}
-
-// ── MemberCard ────────────────────────────────────────────────────────────────
-
-interface CapacityBreakdown {
-  totalWorkdays: number;
-  ptoDays: number;
-  bauDays: number;
-}
-
-interface MemberCardProps {
-  member: TeamMember;
-  usedPercent: number;
-  availableDays: number;
-  breakdown: CapacityBreakdown;
-  canAssign: boolean;
-}
-
-function MemberCard({ member, usedPercent, availableDays, breakdown, canAssign }: MemberCardProps) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `member-${member.id}`,
-    disabled: !canAssign,
-    data: { type: 'member-card', member },
-  });
-
-  const hasAvailability = availableDays > 0;
-  const tooltipText = `${breakdown.totalWorkdays} working days · ${breakdown.ptoDays} days PTO · ${breakdown.bauDays} days BAU reserve`;
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={[
-        'bg-white border border-mileway-border rounded-lg p-3 flex items-center gap-3',
-        'transition-all duration-fast select-none',
-        canAssign && hasAvailability ? 'cursor-grab hover:border-mileway-blue hover:bg-mileway-blue-10' : '',
-        isDragging ? 'opacity-40' : 'opacity-100',
-      ].join(' ')}
-      {...(canAssign && hasAvailability ? { ...attributes, ...listeners } : {})}
-    >
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-mileway-blue-10 text-mileway-blue flex items-center justify-center text-xs font-semibold">
-        {initials(member.name)}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-1">
-          <p className="text-sm font-medium text-mileway-text truncate">{member.name}</p>
-          <span className="flex-shrink-0 text-[10px] font-semibold bg-mileway-blue-10 text-mileway-blue px-1.5 py-0.5 rounded">
-            IT
-          </span>
-        </div>
-        <ProgressBar value={usedPercent} max={100} size="sm" />
-        {hasAvailability ? (
-          <p className="text-xs text-mileway-grey mt-0.5" title={tooltipText}>
-            {Math.max(0, availableDays)}d available
-          </p>
-        ) : (
-          <p className="text-xs text-mileway-grey mt-0.5 italic" title={tooltipText}>
-            No availability
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── BizContactCard ────────────────────────────────────────────────────────────
-// Read-only in v1 — BIZ assignment via SmartAssignmentPanel only (TODO-002).
-
-interface BizContactCardProps {
-  contact: BusinessContact;
-  usedPercent: number;
-  availableDays: number;
-  breakdown: CapacityBreakdown;
-}
-
-function BizContactCard({ contact, usedPercent, availableDays, breakdown }: BizContactCardProps) {
-  const hasAvailability = availableDays > 0;
-  const tooltipText = `${breakdown.totalWorkdays} working days · ${breakdown.ptoDays} days PTO · ${breakdown.bauDays} days BAU reserve`;
-
-  return (
-    <div className="bg-biz-light border border-mileway-border rounded-lg p-3 flex items-center gap-3">
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#DEDFE3] text-mileway-grey flex items-center justify-center text-xs font-semibold">
-        {initials(contact.name)}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-1">
-          <p className="text-sm font-medium text-mileway-text truncate">{contact.name}</p>
-          <span className="flex-shrink-0 text-[10px] font-semibold bg-[#DEDFE3] text-mileway-grey px-1.5 py-0.5 rounded">
-            BIZ
-          </span>
-        </div>
-        <ProgressBar value={usedPercent} max={100} size="sm" />
-        {hasAvailability ? (
-          <p className="text-xs text-mileway-grey mt-0.5" title={tooltipText}>
-            {Math.max(0, availableDays)}d available
-          </p>
-        ) : (
-          <p className="text-xs text-mileway-grey mt-0.5 italic" title={tooltipText}>
-            No availability
-          </p>
-        )}
-      </div>
     </div>
   );
 }
@@ -347,12 +247,11 @@ function DaysPopover({ drop, canAssign, onConfirm, onDismiss }: DaysPopoverProps
 
 // ── PlannerBoard ──────────────────────────────────────────────────────────────
 
-export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
+export function PlannerBoard({ scenarioId: _scenarioId, selectedQuarter, sort, onOpenDetail, overlays }: PlannerBoardProps) {
   const state = useCurrentState();
   const { can } = useCurrentUser();
   const canAssign = can('edit_assignments');
 
-  const [selectedQuarter, setSelectedQuarter] = useState(getCurrentQuarter);
   const [selectedEpicKey, setSelectedEpicKey] = useState<string | null>(null);
   const [draggingMember, setDraggingMember]   = useState<TeamMember | null>(null);
   const [fitScores, setFitScores]             = useState<Map<string, MemberFit>>(new Map());
@@ -398,64 +297,43 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
     [state.teamMembers],
   );
 
-  const activeContacts = useMemo(
-    () => (state.businessContacts ?? []).filter(c => !c.archived && !c.excludedFromCapacity),
-    [state.businessContacts],
-  );
-
-  // Capacity per member — computed once per render, animated by ProgressBar's own transition.
-  // stateRef is used instead of `state` so these memos don't re-run on every store write.
-  type MemberCapEntry = { usedPercent: number; availableDays: number; breakdown: CapacityBreakdown };
+  // Capacity per member — used in handleDragEnd to calculate available days.
+  type MemberCapEntry = { usedPercent: number; availableDays: number };
 
   const memberCapacity = useMemo(() => {
     const map = new Map<string, MemberCapEntry>();
-    const empty: MemberCapEntry = { usedPercent: 0, availableDays: 0, breakdown: { totalWorkdays: 0, ptoDays: 0, bauDays: 0 } };
     for (const m of activeMembers) {
       try {
         const fit = scoreMember(m, selectedQuarter, [], '', stateRef.current);
-        const cap = calculateCapacity(m.id, selectedQuarter, stateRef.current);
-        const ptoDays = cap.breakdown.filter(b => b.type === 'timeoff').reduce((s, b) => s + b.days, 0);
-        const bauDays = cap.breakdown.filter(b => b.type === 'bau').reduce((s, b) => s + b.days, 0);
-        map.set(m.id, {
-          usedPercent: fit.usedPercent,
-          availableDays: fit.availableDays,
-          breakdown: { totalWorkdays: cap.totalWorkdays, ptoDays, bauDays },
-        });
+        map.set(m.id, { usedPercent: fit.usedPercent, availableDays: fit.availableDays });
       } catch {
-        map.set(m.id, empty);
+        map.set(m.id, { usedPercent: 0, availableDays: 0 });
       }
     }
     return map;
   }, [activeMembers, selectedQuarter, assignVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const bizCapacity = useMemo(() => {
-    const map = new Map<string, MemberCapEntry>();
-    const empty: MemberCapEntry = { usedPercent: 0, availableDays: 0, breakdown: { totalWorkdays: 0, ptoDays: 0, bauDays: 0 } };
-    for (const c of activeContacts) {
-      try {
-        const fit = scoreBusinessContact(c, selectedQuarter, '', stateRef.current);
-        // BIZ contacts use a simpler capacity model; derive breakdown from the fit result
-        const sprintWorkdays = 10;
-        const sprintsPerQtr  = 6;
-        const scale = (c.workingDaysPerWeek ?? 5) / 5;
-        const totalWorkdays = Math.round(sprintWorkdays * sprintsPerQtr * scale);
-        const bauDays = c.bauReserveDays ?? 0;
-        map.set(c.id, {
-          usedPercent: fit.usedPercent,
-          availableDays: fit.availableDays,
-          breakdown: { totalWorkdays, ptoDays: 0, bauDays },
-        });
-      } catch {
-        map.set(c.id, empty);
-      }
-    }
-    return map;
-  }, [activeContacts, selectedQuarter, assignVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Sort the epic grid
+  const sortedEpics = useMemo(() => {
+    if (sort === 'name') return [...quarterEpics].sort((a, b) => a.summary.localeCompare(b.summary));
+    if (sort === 'assigned') return [...quarterEpics].sort((a, b) => (assignedDaysByEpic.get(b.jiraKey) ?? 0) - (assignedDaysByEpic.get(a.jiraKey) ?? 0));
+    return quarterEpics; // 'priority' — keep Jira order
+  }, [quarterEpics, sort, assignedDaysByEpic]);
 
   // ── dnd-kit handlers ────────────────────────────────────────────────────────
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const member = event.active.data.current?.member as TeamMember | undefined;
+    const data = event.active.data.current;
+    let member: TeamMember | null = null;
+
+    if (data?.type === 'member-card') {
+      // Legacy format — kept for compatibility
+      member = data.member as TeamMember;
+    } else if (data?.type === 'people-drag' && data?.track === 'IT') {
+      // PlannerTeamDrawer format — look up member by id
+      member = stateRef.current.teamMembers?.find((m: TeamMember) => m.id === data.memberId) ?? null;
+    }
+
     if (!member) return;
     setDraggingMember(member);
 
@@ -518,99 +396,47 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  const selectedEpic = quarterEpics.find(e => e.jiraKey === selectedEpicKey) ?? null;
+  const selectedEpic = sortedEpics.find(e => e.jiraKey === selectedEpicKey) ?? null;
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col flex-1 overflow-hidden">
 
-        {/* Toolbar */}
-        <div className="flex items-center gap-4 px-6 py-3 border-b border-mileway-border bg-white flex-shrink-0">
-          <QuarterSelector value={selectedQuarter} onChange={setSelectedQuarter} />
-          {!canAssign && (
+        {!canAssign && (
+          <div className="px-6 py-2 bg-mileway-bg border-b border-mileway-border flex-shrink-0">
             <span className="text-xs text-mileway-grey italic">
               View-only — assignments are read-only
             </span>
+          </div>
+        )}
+
+        {/* Epic cards grid — full width */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {sortedEpics.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 gap-2 text-center">
+              <p className="text-sm font-medium text-mileway-text">No active epics</p>
+              <p className="text-xs text-mileway-grey">Sync Jira or add projects to get started.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 w-full">
+              {sortedEpics.map(epic => (
+                <EpicCard
+                  key={epic.jiraKey}
+                  epic={epic}
+                  featureCount={featureCountByEpic.get(epic.jiraKey) ?? 0}
+                  assignedDays={assignedDaysByEpic.get(epic.jiraKey) ?? 0}
+                  isSelected={selectedEpicKey === epic.jiraKey}
+                  fitLevel={draggingMember ? (fitScores.get(epic.jiraKey)?.fitLevel ?? null) : null}
+                  isDraggingMember={draggingMember !== null}
+                  onSelect={handleSelectEpic}
+                  onOpenDetail={onOpenDetail}
+                />
+              ))}
+            </div>
           )}
         </div>
 
-        {/* Main panels */}
-        <div className="flex flex-1 overflow-hidden">
-
-          {/* LEFT — Epic cards */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {quarterEpics.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-40 gap-2 text-center">
-                <p className="text-sm font-medium text-mileway-text">No active epics</p>
-                <p className="text-xs text-mileway-grey">Sync Jira or add projects to get started.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 max-w-xl">
-                {quarterEpics.map(epic => (
-                  <EpicCard
-                    key={epic.jiraKey}
-                    epic={epic}
-                    featureCount={featureCountByEpic.get(epic.jiraKey) ?? 0}
-                    assignedDays={assignedDaysByEpic.get(epic.jiraKey) ?? 0}
-                    isSelected={selectedEpicKey === epic.jiraKey}
-                    fitLevel={draggingMember ? (fitScores.get(epic.jiraKey)?.fitLevel ?? null) : null}
-                    isDraggingMember={draggingMember !== null}
-                    onSelect={handleSelectEpic}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT — Team member + BIZ contact cards */}
-          <div
-            className="flex-shrink-0 border-l border-mileway-border overflow-y-auto p-4 space-y-3"
-            style={{ width: 296 }}
-          >
-            {/* IT section */}
-            {activeMembers.length > 0 && (
-              <>
-                <p className="text-xs font-semibold text-mileway-grey uppercase tracking-wider px-1">
-                  IT
-                </p>
-                {activeMembers.map(m => (
-                  <MemberCard
-                    key={m.id}
-                    member={m}
-                    usedPercent={memberCapacity.get(m.id)?.usedPercent ?? 0}
-                    availableDays={memberCapacity.get(m.id)?.availableDays ?? 0}
-                    breakdown={memberCapacity.get(m.id)?.breakdown ?? { totalWorkdays: 0, ptoDays: 0, bauDays: 0 }}
-                    canAssign={canAssign}
-                  />
-                ))}
-              </>
-            )}
-
-            {/* BIZ section */}
-            {activeContacts.length > 0 && (
-              <>
-                <p className="text-xs font-semibold text-mileway-grey uppercase tracking-wider px-1 pt-2">
-                  BIZ
-                </p>
-                {activeContacts.map(c => (
-                  <BizContactCard
-                    key={c.id}
-                    contact={c}
-                    usedPercent={bizCapacity.get(c.id)?.usedPercent ?? 0}
-                    availableDays={bizCapacity.get(c.id)?.availableDays ?? 0}
-                    breakdown={bizCapacity.get(c.id)?.breakdown ?? { totalWorkdays: 0, ptoDays: 0, bauDays: 0 }}
-                  />
-                ))}
-              </>
-            )}
-
-            {activeMembers.length === 0 && activeContacts.length === 0 && (
-              <p className="text-xs text-mileway-grey text-center py-8">No team members found.</p>
-            )}
-          </div>
-        </div>
-
-        {/* BOTTOM — SmartAssignmentPanel (inline, shown when epic selected) */}
+        {/* Smart Assignment Panel — inline, shown when epic selected */}
         {selectedEpic && (
           <div
             className="flex-shrink-0 border-t border-mileway-border bg-white overflow-y-auto"
@@ -621,10 +447,16 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
               projectName={selectedEpic.summary}
               defaultQuarter={selectedQuarter}
               variant="inline"
+              onClose={() => setSelectedEpicKey(null)}
+              onOpenDetail={onOpenDetail}
             />
           </div>
         )}
       </div>
+
+      {/* Overlays (e.g. PlannerTeamDrawer) rendered inside this DndContext
+          so useDraggable in the drawer shares drag events with the epic drop zones */}
+      {overlays}
 
       {/* Days popover */}
       {pendingDrop && (

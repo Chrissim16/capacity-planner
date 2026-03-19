@@ -31,9 +31,11 @@ import { PlannerTimeline, type DragPreview } from '../components/planner/Planner
 import { PlannerCapacity } from '../components/planner/PlannerCapacity';
 import { AssignPopover } from '../components/planner/AssignPopover';
 import { PlannerTeamDrawer } from '../components/planner/PlannerTeamDrawer';
+import { BoardToolbar } from '../components/planner/BoardToolbar';
 import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
 import { PlannerContextMenu, type ContextMenuTarget } from '../components/planner/PlannerContextMenu';
 import type { PlannerItem, PlannerItemType } from '../types';
+import type { BoardSort } from '../components/planner/PlannerBoard';
 
 // PlannerBoard is lazy so @dnd-kit/core stays out of the initial bundle
 const PlannerBoard = lazy(() =>
@@ -165,6 +167,7 @@ function SaveButton() {
 
 export function ScenarioPlanner() {
   const [plannerUI, setPlannerUI] = useState<PlannerUIState>(INITIAL_PLANNER_UI);
+  const [boardSort, setBoardSort] = useState<BoardSort>('priority');
 
   // Convenience: toggle a single boolean field in plannerUI
   const toggleUI = useCallback((key: 'backlogOpen' | 'teamDrawerOpen' | 'capacityOpen') => {
@@ -689,10 +692,19 @@ export function ScenarioPlanner() {
             are absolutely positioned inside this container */}
         <div className="flex-1 relative overflow-hidden">
 
-          {/* Board mode — full-width card grid; capacity panel docked at bottom */}
+          {/* Board mode — full-width card grid with BoardToolbar; capacity panel docked at bottom */}
           {plannerUI.activeMode === 'board' && (
             <div className="flex flex-col h-full">
-              <div className="flex-1 overflow-y-auto">
+              <BoardToolbar
+                selectedQuarter={selectedQuarter}
+                onQuarterChange={q => {
+                  const idx = quarters.indexOf(q);
+                  if (idx >= 0) setPlannerUI(prev => ({ ...prev, currentQuarterIndex: idx }));
+                }}
+                sort={boardSort}
+                onSortChange={setBoardSort}
+              />
+              <div className="flex-1 overflow-hidden flex flex-col">
                 <Suspense
                   fallback={
                     <div className="flex-1 flex items-center justify-center h-full">
@@ -700,7 +712,21 @@ export function ScenarioPlanner() {
                     </div>
                   }
                 >
-                  <PlannerBoard scenarioId={activeScenarioId ?? ''} />
+                  <PlannerBoard
+                    scenarioId={activeScenarioId ?? ''}
+                    selectedQuarter={selectedQuarter}
+                    sort={boardSort}
+                    onOpenDetail={jiraKey => setPlannerUI(prev => ({ ...prev, detailItemId: jiraKey }))}
+                    overlays={plannerUI.teamDrawerOpen ? (
+                      <PlannerTeamDrawer
+                        selectedQuarter={selectedQuarter}
+                        activeMode="board"
+                        onClose={() => toggleUI('teamDrawerOpen')}
+                        onMemberFocus={() => {}}
+                        focusedMemberId={null}
+                      />
+                    ) : undefined}
+                  />
                 </Suspense>
               </div>
               <PlannerCapacity

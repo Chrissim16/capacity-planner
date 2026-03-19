@@ -31,6 +31,8 @@ export interface SmartAssignmentPanelProps {
   onTentativeAssign?: (memberId: string, days: number) => void;
   onTentativeRemove?: (memberId: string) => void;
   onClose?: () => void;
+  /** Inline variant only: renders a "View epic →" link in the panel header */
+  onOpenDetail?: (jiraKey: string) => void;
 }
 
 // ─── MemberRow ────────────────────────────────────────────────────────────────
@@ -234,6 +236,7 @@ export function SmartAssignmentPanel({
   onTentativeAssign,
   onTentativeRemove,
   onClose,
+  onOpenDetail,
 }: SmartAssignmentPanelProps) {
   const currentState = useCurrentState();
   const { can } = useCurrentUser();
@@ -396,9 +399,34 @@ export function SmartAssignmentPanel({
 
   // ── Inline variant ──────────────────────────────────────────────────────────
   if (variant === 'inline') {
+    const showInlineHeader = !!(onClose || onOpenDetail);
     return (
-      <div className="p-4 bg-white rounded-card border border-[#DEDFE3] h-full">
-        {content}
+      <div className="flex flex-col bg-white h-full">
+        {showInlineHeader && (
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#DEDFE3] flex-shrink-0">
+            <p className="text-sm font-semibold text-[#1E293B] truncate flex-1">{projectName}</p>
+            {onOpenDetail && (
+              <button
+                onClick={() => onOpenDetail(projectId)}
+                className="text-xs text-[#94A3B8] hover:text-[#0089DD] transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD] rounded px-1"
+              >
+                View epic →
+              </button>
+            )}
+            {onClose && (
+              <button
+                onClick={onClose}
+                aria-label="Close panel"
+                className="p-1 rounded text-[#94A3B8] hover:text-[#1E293B] hover:bg-[#F0F2F5] transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD]"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        )}
+        <div className="p-4 flex-1 overflow-y-auto">
+          {content}
+        </div>
       </div>
     );
   }
