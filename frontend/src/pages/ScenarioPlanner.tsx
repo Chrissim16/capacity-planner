@@ -42,6 +42,34 @@ const PlannerBoard = lazy(() =>
 
 type PlannerMode = 'board' | 'timeline';
 
+// ── PlannerUIState ────────────────────────────────────────────────────────────
+// All UI-only toggle state for the Scenario Planner shell. Lives here so the
+// toolbar, drawers, and canvases share one source of truth. No Zustand writes.
+
+interface PlannerUIState {
+  /** Left overlay drawer — Backlog items */
+  backlogOpen: boolean;
+  /** Right overlay drawer — Team members */
+  teamDrawerOpen: boolean;
+  /** Bottom capacity panel (Timeline mode only) */
+  capacityOpen: boolean;
+  /** Active canvas mode */
+  activeMode: PlannerMode;
+  /** Board mode — which epic card is selected (drives SmartAssignment panel) */
+  selectedProjectId: string | null;
+  /** Any mode — which item is open in the Slide-out Detail Panel */
+  detailItemId: string | null;
+}
+
+const INITIAL_PLANNER_UI: PlannerUIState = {
+  backlogOpen: false,
+  teamDrawerOpen: false,
+  capacityOpen: false,
+  activeMode: 'board',
+  selectedProjectId: null,
+  detailItemId: null,
+};
+
 // ── ViewportNotice ────────────────────────────────────────────────────────────
 
 function ViewportNotice() {
@@ -109,9 +137,23 @@ function SaveButton() {
 // ── ScenarioPlanner ───────────────────────────────────────────────────────────
 
 export function ScenarioPlanner() {
-  const [mode, setMode]               = useState<PlannerMode>('board');
-  const [showCapacity, setShowCapacity] = useState(true);
-  const [showPeople, setShowPeople]     = useState(false);
+  const [plannerUI, setPlannerUI] = useState<PlannerUIState>(INITIAL_PLANNER_UI);
+
+  // Convenience: toggle a single boolean field in plannerUI
+  const toggleUI = useCallback((key: 'backlogOpen' | 'teamDrawerOpen' | 'capacityOpen') => {
+    setPlannerUI(prev => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  // Switch mode and clear selection state that belongs to the previous mode
+  const handleModeChange = useCallback((m: PlannerMode) => {
+    setPlannerUI(prev => ({
+      ...prev,
+      activeMode: m,
+      selectedProjectId: null,
+      detailItemId: null,
+    }));
+  }, []);
+
   const [activeDragPreview, setActiveDragPreview] = useState<DragPreview | null>(null);
   const [selectedQuarter]             = useState(getCurrentQuarter);
   const [baselineBanner, setBaselineBanner] = useState<{ placed: number; unscheduled: number } | null>(null);
@@ -402,7 +444,7 @@ export function ScenarioPlanner() {
           />
 
           {/* SP-17: + Add Epic (Timeline mode only) */}
-          {mode === 'timeline' && activeScenarioId && (
+          {plannerUI.activeMode === 'timeline' && activeScenarioId && (
             <button
               onClick={() => setCreateModal({ defaultType: 'epic' })}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-mileway-blue bg-mileway-blue-10 hover:bg-mileway-blue hover:text-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
@@ -413,7 +455,7 @@ export function ScenarioPlanner() {
           )}
 
           {/* SP-20/21: Filters (Timeline mode only) */}
-          {mode === 'timeline' && (
+          {plannerUI.activeMode === 'timeline' && (
             <div className="flex items-center gap-2">
               {/* Label filter */}
               <select
@@ -467,17 +509,17 @@ export function ScenarioPlanner() {
           <div className="flex-1" />
 
           {/* Mode toggle */}
-          <ModeToggle mode={mode} onChange={setMode} />
+          <ModeToggle mode={plannerUI.activeMode} onChange={handleModeChange} />
 
           {/* People drawer toggle — only relevant in Timeline mode */}
-          {mode === 'timeline' && (
+          {plannerUI.activeMode === 'timeline' && (
             <button
-              onClick={() => setShowPeople(v => !v)}
-              title={showPeople ? 'Hide people panel' : 'Show people panel'}
+              onClick={() => toggleUI('teamDrawerOpen')}
+              title={plannerUI.teamDrawerOpen ? 'Hide people panel' : 'Show people panel'}
               className={[
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                showPeople
+                plannerUI.teamDrawerOpen
                   ? 'bg-mileway-blue-10 text-mileway-blue'
                   : 'text-mileway-grey hover:bg-mileway-bg',
               ].join(' ')}
@@ -489,12 +531,12 @@ export function ScenarioPlanner() {
 
           {/* Capacity panel toggle */}
           <button
-            onClick={() => setShowCapacity(v => !v)}
-            title={showCapacity ? 'Hide capacity panel' : 'Show capacity panel'}
+            onClick={() => toggleUI('capacityOpen')}
+            title={plannerUI.capacityOpen ? 'Hide capacity panel' : 'Show capacity panel'}
             className={[
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-              showCapacity
+              plannerUI.capacityOpen
                 ? 'bg-mileway-blue-10 text-mileway-blue'
                 : 'text-mileway-grey hover:bg-mileway-bg',
             ].join(' ')}
@@ -527,10 +569,12 @@ export function ScenarioPlanner() {
         )}
 
         {/* ── Content area ─────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-hidden">
+        {/* position:relative is the overlay anchor — all drawers and the detail
+            panel will be absolutely positioned inside this container (Phase 2+) */}
+        <div className="flex-1 relative overflow-hidden">
 
           {/* Board mode — natural scroll; capacity panel docked at the bottom */}
-          {mode === 'board' && (
+          {plannerUI.activeMode === 'board' && (
             <div className="flex flex-col h-full">
               <div className="flex-1 overflow-y-auto">
                 <Suspense
@@ -548,13 +592,13 @@ export function ScenarioPlanner() {
                 sprints={sprints}
                 selectedQuarter={selectedQuarter}
                 activeDragPreview={activeDragPreview}
-                isVisible={showCapacity}
+                isVisible={plannerUI.capacityOpen}
               />
             </div>
           )}
 
           {/* Timeline mode — DndContext wraps backlog + gantt so they share one drag context */}
-          {mode === 'timeline' && (
+          {plannerUI.activeMode === 'timeline' && (
             <DndContext sensors={timelineSensors}>
               <div className="flex h-full">
                 {/* Backlog sidebar */}
@@ -591,12 +635,13 @@ export function ScenarioPlanner() {
                     sprints={sprints}
                     selectedQuarter={selectedQuarter}
                     activeDragPreview={activeDragPreview}
-                    isVisible={showCapacity}
+                    isVisible={plannerUI.capacityOpen}
                   />
                 </div>
 
-                {/* People drawer — right side, collapsible (SP-10) */}
-                {showPeople && (
+                {/* People drawer — right side, collapsible (SP-10) — replaced by
+                    PlannerTeamDrawer with overlay positioning in Phase 3 */}
+                {plannerUI.teamDrawerOpen && (
                   <PlannerPeopleDrawer selectedQuarter={selectedQuarter} />
                 )}
               </div>
@@ -640,7 +685,7 @@ export function ScenarioPlanner() {
       )}
 
       {/* SP-20/21: Active filter chips (shown below toolbar when filters are active) */}
-      {hasFilters && mode === 'timeline' && (
+      {hasFilters && plannerUI.activeMode === 'timeline' && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-white rounded-full shadow-lg border border-mileway-border px-4 py-2">
           <Filter size={12} className="text-mileway-grey" />
           {filterLabels.map(l => (
