@@ -11,8 +11,8 @@
  * useDroppable({ id: 'backlog' }) participates in the same context and the
  * drag-to-unschedule gesture works natively.
  */
-import { useState, useCallback, useMemo, lazy, Suspense } from 'react';
-import { Loader2, BarChart2, Users, Plus, Filter, X } from 'lucide-react';
+import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
+import { Loader2, BarChart2, Users, Plus, Filter, X, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus } from '../stores/appStore';
 import {
@@ -22,7 +22,7 @@ import {
   initBaselineScenario,
   generateId,
 } from '../stores/actions';
-import { getCurrentQuarter } from '../utils/calendar';
+import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 import { migratePlannerLayout } from '../utils/plannerMigration';
 import { useToast } from '../components/ui/Toast';
 import { ScenarioTabs } from '../components/planner/ScenarioTabs';
@@ -55,6 +55,8 @@ interface PlannerUIState {
   capacityOpen: boolean;
   /** Active canvas mode */
   activeMode: PlannerMode;
+  /** Index into the generateQuarters(8) array — drives the quarter navigator */
+  currentQuarterIndex: number;
   /** Board mode — which epic card is selected (drives SmartAssignment panel) */
   selectedProjectId: string | null;
   /** Any mode — which item is open in the Slide-out Detail Panel */
@@ -66,6 +68,7 @@ const INITIAL_PLANNER_UI: PlannerUIState = {
   teamDrawerOpen: false,
   capacityOpen: false,
   activeMode: 'board',
+  currentQuarterIndex: 0,
   selectedProjectId: null,
   detailItemId: null,
 };
@@ -115,21 +118,42 @@ function ModeToggle({ mode, onChange }: { mode: PlannerMode; onChange: (m: Plann
 function SaveButton() {
   const { status } = useSyncStatus();
   const retrySyncToSupabase = useAppStore(s => s.retrySyncToSupabase);
+  const [showSaved, setShowSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Show "Saved ✓" for 2 s when status transitions to 'saved'
+  useEffect(() => {
+    if (status === 'saved') {
+      setShowSaved(true);
+      savedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
+    } else {
+      setShowSaved(false);
+    }
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, [status]);
+
+  const isError   = status === 'error';
+  const isSaving  = status === 'saving';
+  const isSaved   = showSaved;
 
   return (
     <button
       onClick={() => void retrySyncToSupabase()}
-      disabled={status === 'saving'}
+      disabled={isSaving}
       className={[
         'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-fast',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-        status === 'saving'
-          ? 'bg-mileway-blue-10 text-mileway-blue cursor-not-allowed'
-          : 'bg-mileway-blue text-white hover:bg-[#0077C2]',
+        isSaving  ? 'bg-mileway-blue-10 text-mileway-blue cursor-not-allowed'
+        : isError ? 'bg-white border-2 border-red-500 text-red-600 hover:bg-red-50'
+        : isSaved ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'bg-mileway-blue text-white hover:bg-[#0077C2]',
       ].join(' ')}
     >
-      {status === 'saving' && <Loader2 size={14} className="animate-spin" />}
-      {status === 'saving' ? 'Saving…' : 'Save'}
+      {isSaving && <Loader2 size={14} className="animate-spin" />}
+      {isSaved  && <Check   size={14} />}
+      {isSaving ? 'Saving…' : isError ? 'Retry' : isSaved ? 'Saved' : 'Save'}
     </button>
   );
 }
@@ -155,8 +179,11 @@ export function ScenarioPlanner() {
   }, []);
 
   const [activeDragPreview, setActiveDragPreview] = useState<DragPreview | null>(null);
-  const [selectedQuarter]             = useState(getCurrentQuarter);
   const [baselineBanner, setBaselineBanner] = useState<{ placed: number; unscheduled: number } | null>(null);
+
+  // Quarter navigation — 8 quarters forward from today, current quarter at index 0
+  const quarters = useMemo(() => generateQuarters(8), []);
+  const selectedQuarter = quarters[plannerUI.currentQuarterIndex] ?? getCurrentQuarter();
   const [assignTarget, setAssignTarget] = useState<{ item: PlannerItem; anchorEl: HTMLElement; preSelectedMemberId?: string } | null>(null);
 
   // SP-17/18/19: Create/edit modal and context menu
@@ -423,6 +450,39 @@ export function ScenarioPlanner() {
     return Array.from(map, ([key, name]) => ({ key, name }));
   }, [plannerItems, jiraItems]);
 
+  // ── Toolbar badge counts ───────────────────────────────────────────────────
+
+  // Backlog badge: unscheduled epics in jiraItems (not yet placed on timeline)
+  const backlogBadgeCount = useMemo(() => {
+    const scheduledSourceIds = new Set(plannerItems.map(p => p.sourceId));
+    return jiraItems.filter(i => i.type === 'epic' && !scheduledSourceIds.has(i.id)).length;
+  }, [plannerItems, jiraItems]);
+
+  // Team badge: active IT members + non-archived BIZ contacts
+  const teamBadgeCount = useMemo(() => {
+    const itCount = (allState.teamMembers ?? []).filter(m => !m.excludedFromCapacity).length;
+    const bizCount = (allState.businessContacts ?? []).filter(c => !c.archived && !c.excludedFromCapacity).length;
+    return itCount + bizCount;
+  }, [allState.teamMembers, allState.businessContacts]);
+
+  // ── Keyboard shortcuts (B = Backlog, T = Team) ────────────────────────────
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'b' || e.key === 'B') {
+        setPlannerUI(prev => ({ ...prev, backlogOpen: !prev.backlogOpen }));
+      }
+      if (e.key === 't' || e.key === 'T') {
+        setPlannerUI(prev => ({ ...prev, teamDrawerOpen: !prev.teamDrawerOpen }));
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -434,8 +494,15 @@ export function ScenarioPlanner() {
       <div className="hidden min-[1200px]:flex flex-col h-full bg-mileway-bg">
 
         {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-        <div className="flex-shrink-0 bg-white border-b border-mileway-border px-8 py-3 flex items-center gap-4">
-          {/* Scenario tabs */}
+        {/*
+          Layout: [Scenario chip] [Scenario pill ▾] [+] [|] [Board|Timeline]
+                  [flex-1 spacer]
+                  [(timeline) Add Epic] [(timeline) Filters] [(timeline) ‹ Q ›]
+                  [Backlog (N)] [Team (N)] [(timeline) Capacity] [Save]
+        */}
+        <div className="flex-shrink-0 bg-white border-b border-mileway-border px-6 py-3 flex items-center gap-3">
+
+          {/* Left group: scenario controls + mode toggle (ScenarioTabs renders chip, pill, +, divider) */}
           <ScenarioTabs
             scenarios={scenarios}
             activeScenarioId={activeScenarioId}
@@ -443,107 +510,153 @@ export function ScenarioPlanner() {
             onCreate={handleCreateScenario}
           />
 
-          {/* SP-17: + Add Epic (Timeline mode only) */}
-          {plannerUI.activeMode === 'timeline' && activeScenarioId && (
-            <button
-              onClick={() => setCreateModal({ defaultType: 'epic' })}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-mileway-blue bg-mileway-blue-10 hover:bg-mileway-blue hover:text-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-            >
-              <Plus size={14} />
-              Add Epic
-            </button>
-          )}
-
-          {/* SP-20/21: Filters (Timeline mode only) */}
-          {plannerUI.activeMode === 'timeline' && (
-            <div className="flex items-center gap-2">
-              {/* Label filter */}
-              <select
-                value=""
-                onChange={e => {
-                  const v = e.target.value;
-                  if (v && !filterLabels.includes(v)) setFilterLabels(prev => [...prev, v]);
-                  e.target.value = '';
-                }}
-                className="text-xs border border-mileway-border rounded-lg px-2 py-1.5 text-mileway-text bg-white focus:outline-none focus:border-mileway-blue transition-colors max-w-[120px]"
-                title="Filter by label"
-              >
-                <option value="">Labels{filterLabels.length > 0 ? ` (${filterLabels.length})` : ''}</option>
-                {allUniqueLabels.map(l => (
-                  <option key={l} value={l}>{l}</option>
-                ))}
-              </select>
-
-              {/* Epic filter */}
-              <select
-                value=""
-                onChange={e => {
-                  const v = e.target.value;
-                  if (v && !filterEpics.includes(v)) setFilterEpics(prev => [...prev, v]);
-                  e.target.value = '';
-                }}
-                className="text-xs border border-mileway-border rounded-lg px-2 py-1.5 text-mileway-text bg-white focus:outline-none focus:border-mileway-blue transition-colors max-w-[120px]"
-                title="Filter by epic"
-              >
-                <option value="">Epics{filterEpics.length > 0 ? ` (${filterEpics.length})` : ''}</option>
-                {allEpicOptions.map(e => (
-                  <option key={e.key} value={e.key}>{e.name.length > 25 ? e.name.slice(0, 25) + '…' : e.name}</option>
-                ))}
-              </select>
-
-              {/* Clear filters */}
-              {hasFilters && (
-                <button
-                  onClick={() => { setFilterLabels([]); setFilterEpics([]); }}
-                  title="Clear all filters"
-                  className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                >
-                  <X size={12} />
-                  Clear
-                </button>
-              )}
-            </div>
-          )}
+          {/* Mode toggle — follows the left divider */}
+          <ModeToggle mode={plannerUI.activeMode} onChange={handleModeChange} />
 
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Mode toggle */}
-          <ModeToggle mode={plannerUI.activeMode} onChange={handleModeChange} />
-
-          {/* People drawer toggle — only relevant in Timeline mode */}
+          {/* Right group — Timeline-only controls */}
           {plannerUI.activeMode === 'timeline' && (
-            <button
-              onClick={() => toggleUI('teamDrawerOpen')}
-              title={plannerUI.teamDrawerOpen ? 'Hide people panel' : 'Show people panel'}
-              className={[
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                plannerUI.teamDrawerOpen
-                  ? 'bg-mileway-blue-10 text-mileway-blue'
-                  : 'text-mileway-grey hover:bg-mileway-bg',
-              ].join(' ')}
-            >
-              <Users size={14} />
-              People
-            </button>
+            <>
+              {/* SP-17: Add Epic */}
+              {activeScenarioId && (
+                <button
+                  onClick={() => setCreateModal({ defaultType: 'epic' })}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-mileway-blue bg-mileway-blue-10 hover:bg-mileway-blue hover:text-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  Add Epic
+                </button>
+              )}
+
+              {/* SP-20/21: Label + Epic filters */}
+              <div className="flex items-center gap-2">
+                <select
+                  value=""
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v && !filterLabels.includes(v)) setFilterLabels(prev => [...prev, v]);
+                    e.target.value = '';
+                  }}
+                  className="text-xs border border-mileway-border rounded-lg px-2 py-1.5 text-mileway-text bg-white focus:outline-none focus:border-mileway-blue transition-colors max-w-[120px]"
+                  title="Filter by label"
+                >
+                  <option value="">Labels{filterLabels.length > 0 ? ` (${filterLabels.length})` : ''}</option>
+                  {allUniqueLabels.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+
+                <select
+                  value=""
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v && !filterEpics.includes(v)) setFilterEpics(prev => [...prev, v]);
+                    e.target.value = '';
+                  }}
+                  className="text-xs border border-mileway-border rounded-lg px-2 py-1.5 text-mileway-text bg-white focus:outline-none focus:border-mileway-blue transition-colors max-w-[120px]"
+                  title="Filter by epic"
+                >
+                  <option value="">Epics{filterEpics.length > 0 ? ` (${filterEpics.length})` : ''}</option>
+                  {allEpicOptions.map(e => (
+                    <option key={e.key} value={e.key}>{e.name.length > 25 ? e.name.slice(0, 25) + '…' : e.name}</option>
+                  ))}
+                </select>
+
+                {hasFilters && (
+                  <button
+                    onClick={() => { setFilterLabels([]); setFilterEpics([]); }}
+                    title="Clear all filters"
+                    className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  >
+                    <X size={12} aria-hidden="true" />
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Quarter navigator — ‹ Q1 2026 › */}
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => setPlannerUI(prev => ({ ...prev, currentQuarterIndex: prev.currentQuarterIndex - 1 }))}
+                  disabled={plannerUI.currentQuarterIndex === 0}
+                  aria-label="Previous quarter"
+                  className="flex items-center justify-center w-6 h-7 rounded text-mileway-grey hover:bg-mileway-bg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={14} aria-hidden="true" />
+                </button>
+                <span className="text-xs font-semibold text-mileway-text px-1 min-w-[60px] text-center select-none">
+                  {selectedQuarter}
+                </span>
+                <button
+                  onClick={() => setPlannerUI(prev => ({ ...prev, currentQuarterIndex: prev.currentQuarterIndex + 1 }))}
+                  disabled={plannerUI.currentQuarterIndex >= quarters.length - 1}
+                  aria-label="Next quarter"
+                  className="flex items-center justify-center w-6 h-7 rounded text-mileway-grey hover:bg-mileway-bg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={14} aria-hidden="true" />
+                </button>
+              </div>
+            </>
           )}
 
-          {/* Capacity panel toggle */}
+          {/* Backlog toggle (all modes) — keyboard shortcut: B */}
           <button
-            onClick={() => toggleUI('capacityOpen')}
-            title={plannerUI.capacityOpen ? 'Hide capacity panel' : 'Show capacity panel'}
+            onClick={() => toggleUI('backlogOpen')}
+            title={`${plannerUI.backlogOpen ? 'Hide' : 'Show'} backlog (B)`}
             className={[
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-              plannerUI.capacityOpen
+              plannerUI.backlogOpen
                 ? 'bg-mileway-blue-10 text-mileway-blue'
                 : 'text-mileway-grey hover:bg-mileway-bg',
             ].join(' ')}
           >
-            <BarChart2 size={14} />
-            Capacity
+            Backlog
+            {backlogBadgeCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-blue text-white leading-none">
+                {backlogBadgeCount}
+              </span>
+            )}
           </button>
+
+          {/* Team toggle (all modes) — keyboard shortcut: T */}
+          <button
+            onClick={() => toggleUI('teamDrawerOpen')}
+            title={`${plannerUI.teamDrawerOpen ? 'Hide' : 'Show'} team drawer (T)`}
+            className={[
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+              plannerUI.teamDrawerOpen
+                ? 'bg-mileway-blue-10 text-mileway-blue'
+                : 'text-mileway-grey hover:bg-mileway-bg',
+            ].join(' ')}
+          >
+            <Users size={14} aria-hidden="true" />
+            Team
+            {teamBadgeCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-grey/30 text-mileway-text leading-none">
+                {teamBadgeCount}
+              </span>
+            )}
+          </button>
+
+          {/* Capacity — Timeline mode only */}
+          {plannerUI.activeMode === 'timeline' && (
+            <button
+              onClick={() => toggleUI('capacityOpen')}
+              title={plannerUI.capacityOpen ? 'Hide capacity panel' : 'Show capacity panel'}
+              className={[
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                plannerUI.capacityOpen
+                  ? 'bg-mileway-blue-10 text-mileway-blue'
+                  : 'text-mileway-grey hover:bg-mileway-bg',
+              ].join(' ')}
+            >
+              <BarChart2 size={14} aria-hidden="true" />
+              Capacity
+            </button>
+          )}
 
           {/* Save */}
           <SaveButton />

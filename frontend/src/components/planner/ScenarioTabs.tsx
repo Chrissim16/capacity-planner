@@ -1,5 +1,14 @@
+/**
+ * ScenarioTabs — Toolbar left-side scenario controls.
+ *
+ * Renders:
+ *   [⚡ Scenario mode chip] [Active scenario ▾] [+ new] [| divider |]
+ *
+ * The tab strip is replaced by a single active-scenario pill that opens a
+ * dropdown to switch between scenarios. The creation modal is kept intact.
+ */
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronDown, Zap, Check } from 'lucide-react';
 import type { Scenario } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
@@ -17,30 +26,41 @@ export interface ScenarioTabsProps {
 type StartMode = 'clone' | 'blank';
 
 export function ScenarioTabs({ scenarios, activeScenarioId, onSelect, onCreate }: ScenarioTabsProps) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [startMode, setStartMode] = useState<StartMode>('clone');
+  const [dropdownOpen, setDropdownOpen]   = useState(false);
+  const [modalOpen, setModalOpen]         = useState(false);
+  const [name, setName]                   = useState('');
+  const [startMode, setStartMode]         = useState<StartMode>('clone');
 
+  const dropdownRef   = useRef<HTMLDivElement>(null);
+  const nameInputRef  = useRef<HTMLInputElement>(null);
+
+  const activeScenario = scenarios.find(s => s.id === activeScenarioId);
   const atLimit = scenarios.length >= MAX_SCENARIOS;
-  const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus the name field once the modal is open
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function onOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, [dropdownOpen]);
+
+  // Auto-focus name field when modal opens
   useEffect(() => {
     if (modalOpen) {
-      // The Modal renders with animate-fade-in; wait one frame before focusing
       const id = requestAnimationFrame(() => nameInputRef.current?.focus());
       return () => cancelAnimationFrame(id);
     }
   }, [modalOpen]);
 
-  const handleOpen = useCallback(() => {
+  const openCreateModal = useCallback(() => {
     setName('');
     setStartMode('clone');
     setModalOpen(true);
-  }, []);
-
-  const handleClose = useCallback(() => {
-    setModalOpen(false);
   }, []);
 
   const handleCreate = useCallback(() => {
@@ -52,49 +72,93 @@ export function ScenarioTabs({ scenarios, activeScenarioId, onSelect, onCreate }
 
   return (
     <>
-      {/* ── Tab strip ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1" role="tablist" aria-label="Scenarios">
-        {scenarios.map(scenario => {
-          const isActive = scenario.id === activeScenarioId;
-          return (
-            <button
-              key={scenario.id}
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => onSelect(scenario.id)}
-              className={[
-                'rounded-pill px-4 py-1.5 text-sm font-medium transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                isActive
-                  ? 'bg-mileway-blue-10 text-mileway-blue'
-                  : 'text-mileway-grey hover:bg-mileway-bg',
-              ].join(' ')}
-            >
-              {scenario.name}
-            </button>
-          );
-        })}
-
-        {/* ── Add button ───────────────────────────────────────────── */}
-        <button
-          onClick={atLimit ? undefined : handleOpen}
-          disabled={atLimit}
-          aria-label={atLimit ? 'Maximum 5 scenarios reached' : 'New scenario'}
-          title={atLimit ? 'Maximum 5 scenarios reached' : 'New scenario'}
-          className="flex items-center justify-center w-7 h-7 rounded-pill text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <Plus size={15} strokeWidth={2.5} />
-        </button>
+      {/* ── Scenario mode chip — display only ──────────────────────── */}
+      <div
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-mileway-bg text-mileway-grey text-xs font-medium select-none flex-shrink-0"
+        aria-label="Scenario mode"
+      >
+        <Zap size={12} aria-hidden="true" />
+        Scenario mode
       </div>
 
-      {/* ── Creation modal ───────────────────────────────────────── */}
+      {/* ── Active scenario pill + dropdown ────────────────────────── */}
+      <div className="relative flex-shrink-0" ref={dropdownRef}>
+        <button
+          onClick={() => setDropdownOpen(v => !v)}
+          aria-haspopup="listbox"
+          aria-expanded={dropdownOpen}
+          aria-label={`Active scenario: ${activeScenario?.name ?? 'none'}. Click to switch.`}
+          className={[
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+            'bg-mileway-blue-10 text-mileway-blue hover:bg-mileway-blue/15',
+          ].join(' ')}
+        >
+          <span className="max-w-[160px] truncate">
+            {activeScenario?.name ?? 'No scenario'}
+          </span>
+          <ChevronDown
+            size={13}
+            aria-hidden="true"
+            className={`transition-transform duration-fast flex-shrink-0 ${dropdownOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+
+        {dropdownOpen && (
+          <div
+            className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-lg border border-mileway-border z-50 py-1"
+            role="listbox"
+            aria-label="Switch scenario"
+          >
+            {scenarios.map(scenario => (
+              <button
+                key={scenario.id}
+                role="option"
+                aria-selected={scenario.id === activeScenarioId}
+                onClick={() => { onSelect(scenario.id); setDropdownOpen(false); }}
+                className={[
+                  'w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors duration-fast',
+                  scenario.id === activeScenarioId
+                    ? 'text-mileway-blue bg-mileway-blue-10'
+                    : 'text-mileway-text hover:bg-mileway-bg',
+                ].join(' ')}
+              >
+                <span className="flex-1 truncate">{scenario.name}</span>
+                {scenario.id === activeScenarioId && (
+                  <Check size={13} className="flex-shrink-0" aria-hidden="true" />
+                )}
+              </button>
+            ))}
+            {scenarios.length === 0 && (
+              <p className="px-3 py-2 text-xs text-mileway-grey italic">No scenarios yet</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── New scenario button ─────────────────────────────────────── */}
+      <button
+        onClick={atLimit ? undefined : openCreateModal}
+        disabled={atLimit}
+        aria-label={atLimit ? 'Maximum 5 scenarios' : 'New scenario'}
+        title={atLimit ? 'Maximum 5 scenarios' : 'New scenario'}
+        className="flex items-center justify-center w-7 h-7 rounded-lg text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+      >
+        <Plus size={15} strokeWidth={2.5} aria-hidden="true" />
+      </button>
+
+      {/* ── Toolbar divider ─────────────────────────────────────────── */}
+      <div className="h-6 w-px bg-mileway-border flex-shrink-0" aria-hidden="true" />
+
+      {/* ── Creation modal ──────────────────────────────────────────── */}
       <Modal
         isOpen={modalOpen}
-        onClose={handleClose}
+        onClose={() => setModalOpen(false)}
         title="New Scenario"
         size="sm"
         footer={
           <>
-            <Button variant="secondary" size="sm" onClick={handleClose}>
+            <Button variant="secondary" size="sm" onClick={() => setModalOpen(false)}>
               Cancel
             </Button>
             <Button
@@ -109,7 +173,6 @@ export function ScenarioTabs({ scenarios, activeScenarioId, onSelect, onCreate }
         }
       >
         <div className="space-y-5">
-          {/* Name */}
           <div>
             <label
               htmlFor="scenario-name"
@@ -123,16 +186,13 @@ export function ScenarioTabs({ scenarios, activeScenarioId, onSelect, onCreate }
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && name.trim()) handleCreate();
-              }}
+              onKeyDown={e => { if (e.key === 'Enter' && name.trim()) handleCreate(); }}
               placeholder="e.g. Q2 Optimistic"
               maxLength={60}
               className="w-full border border-mileway-border rounded-lg px-3 py-2.5 text-sm text-mileway-text placeholder:text-mileway-grey focus:outline-none focus:border-mileway-blue transition-colors duration-fast"
             />
           </div>
 
-          {/* Starting point */}
           <div>
             <p className="text-xs font-medium text-mileway-grey mb-2">Starting point</p>
             <div className="space-y-2" role="radiogroup" aria-label="Starting point">
@@ -185,7 +245,6 @@ function RadioCard({ id, selected, onSelect, title, description }: RadioCardProp
       ].join(' ')}
     >
       <div className="flex items-start gap-3">
-        {/* Custom radio dot */}
         <div
           aria-hidden="true"
           className={[
@@ -193,11 +252,8 @@ function RadioCard({ id, selected, onSelect, title, description }: RadioCardProp
             selected ? 'border-mileway-blue' : 'border-mileway-grey',
           ].join(' ')}
         >
-          {selected && (
-            <div className="w-2 h-2 rounded-full bg-mileway-blue" />
-          )}
+          {selected && <div className="w-2 h-2 rounded-full bg-mileway-blue" />}
         </div>
-
         <div>
           <p className="text-sm font-medium text-mileway-text leading-snug">{title}</p>
           <p className="text-xs text-mileway-grey mt-0.5 leading-relaxed">{description}</p>
