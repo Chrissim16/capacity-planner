@@ -17,7 +17,6 @@ import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus } from '../stores/appStore';
 import {
   createScenario,
-  duplicateScenario,
   switchScenario,
   updatePlannerLayout,
   initBaselineScenario,

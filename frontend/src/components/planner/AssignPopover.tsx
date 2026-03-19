@@ -18,7 +18,7 @@ import {
   FloatingFocusManager,
 } from '@floating-ui/react';
 import { X, Trash2, ChevronRight } from 'lucide-react';
-import type { PlannerItem, PlannerAssignment, TeamMember, BusinessContact } from '../../types';
+import type { PlannerItem, PlannerAssignment } from '../../types';
 import { useCurrentState } from '../../stores/appStore';
 import {
   scoreMember,

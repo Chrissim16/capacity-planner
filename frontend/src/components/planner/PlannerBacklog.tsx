@@ -79,7 +79,6 @@ function buildSections(
   plannerItems: PlannerItem[],
 ): BacklogSections {
   const scheduledSourceIds = new Set(plannerItems.map(p => p.sourceId));
-  const byKey = new Map(jiraItems.map(i => [i.jiraKey, i]));
 
   const isScheduled = (item: JiraWorkItem) => scheduledSourceIds.has(item.id);
   const isUnscheduled = (item: JiraWorkItem) => !isScheduled(item);

@@ -3,6 +3,7 @@
  */
 
 import { useAppStore } from './appStore';
+import { buildBaselineLayout } from '../utils/plannerInit';
 import type {
   TeamMember,
   TimeOff,
@@ -896,7 +897,6 @@ export function updatePlannerLayout(scenarioId: string, items: PlannerItem[]): v
 export function initBaselineScenario(
   scenarioId: string,
 ): { placedCount: number; unscheduledCount: number } {
-  const { buildBaselineLayout } = require('../utils/plannerInit') as typeof import('../utils/plannerInit');
   const state = useAppStore.getState();
   const current = state.getCurrentState();
   const scenario = current.scenarios.find(s => s.id === scenarioId);

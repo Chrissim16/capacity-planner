@@ -697,7 +697,7 @@ export function PlannerTimeline({
       onActiveDragChange?.(null);
       if (!over) return;
 
-      const aData = active.data.current as { type: string; plannerItem?: PlannerItem; jiraItem?: JiraWorkItem } | undefined;
+      const aData = active.data.current as { type: string; plannerItem?: PlannerItem; jiraItem?: JiraWorkItem; memberId?: string } | undefined;
       if (!aData) return;
       const overId = over.id.toString();
       const items = plannerItemsRef.current;
