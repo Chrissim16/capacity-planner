@@ -412,7 +412,7 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
   }, [quarterEpics, selectedQuarter, state]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
+    const { over } = event;
     const member = draggingMember;
     setDraggingMember(null);
     setFitScores(new Map());
