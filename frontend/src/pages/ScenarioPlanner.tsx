@@ -32,6 +32,7 @@ import { PlannerCapacity } from '../components/planner/PlannerCapacity';
 import { AssignPopover } from '../components/planner/AssignPopover';
 import { PlannerTeamDrawer } from '../components/planner/PlannerTeamDrawer';
 import { BoardToolbar } from '../components/planner/BoardToolbar';
+import { PlannerDetailPanel } from '../components/planner/PlannerDetailPanel';
 import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
 import { PlannerContextMenu, type ContextMenuTarget } from '../components/planner/PlannerContextMenu';
 import type { PlannerItem, PlannerItemType } from '../types';
@@ -298,7 +299,17 @@ export function ScenarioPlanner() {
   }, []);
 
   const handleBarClick = useCallback((item: PlannerItem, anchorEl: HTMLElement, preSelectedMemberId?: string) => {
-    setAssignTarget({ item, anchorEl, preSelectedMemberId });
+    if (preSelectedMemberId) {
+      // People-drag drop → open assign popover
+      setAssignTarget({ item, anchorEl, preSelectedMemberId });
+    } else {
+      // Direct bar click → open detail panel (US-UI-22)
+      setPlannerUI(prev => ({ ...prev, detailItemId: item.jiraKey ?? item.id }));
+    }
+  }, []);
+
+  const handleLabelClick = useCallback((item: PlannerItem) => {
+    setPlannerUI(prev => ({ ...prev, detailItemId: item.jiraKey ?? item.id }));
   }, []);
 
   // Keep the popover's item in sync with live plannerItems (so assignments reflect immediately)
@@ -817,6 +828,7 @@ export function ScenarioPlanner() {
                       onItemsChange={handleItemsChange}
                       onActiveDragChange={handleActiveDragChange}
                       onBarClick={handleBarClick}
+                      onLabelClick={handleLabelClick}
                       onAddChild={handleAddChild}
                       onContextMenu={handleContextMenu}
                       focusedMemberId={plannerUI.focusedMemberId}
@@ -863,6 +875,17 @@ export function ScenarioPlanner() {
                 />
               )}
             </DndContext>
+          )}
+
+          {/* Detail panel — z-50, renders over side drawers in both modes */}
+          {plannerUI.detailItemId && (
+            <PlannerDetailPanel
+              detailItemId={plannerUI.detailItemId}
+              plannerItems={plannerItems}
+              jiraItems={jiraItems}
+              sprints={sprints}
+              onClose={() => setPlannerUI(prev => ({ ...prev, detailItemId: null }))}
+            />
           )}
         </div>
       </div>

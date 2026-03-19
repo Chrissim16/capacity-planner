@@ -96,6 +96,8 @@ export interface PlannerTimelineProps {
   focusedMemberId?: string | null;
   /** Initial label column width in px — kept in sync with PlannerCapacity. Default: 260. */
   labelWidth?: number;
+  /** US-UI-22: fires when the detail (→) button is clicked on a label row */
+  onLabelClick?: (item: PlannerItem) => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -228,6 +230,7 @@ function LabelCell({
   onToggle,
   onAddChild,
   onContextMenu,
+  onLabelClick,
 }: {
   item: PlannerItem;
   hasChildren: boolean;
@@ -237,6 +240,8 @@ function LabelCell({
   onAddChild?: (parentItem: PlannerItem) => void;
   /** SP-19: right-click context menu. */
   onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
+  /** US-UI-22: opens detail panel for this item */
+  onLabelClick?: (item: PlannerItem) => void;
 }) {
   const indent = (INDENT[item.type] ?? 0) + 12;
   const canAddChild = onAddChild && (item.type === 'epic' || item.type === 'feature');
@@ -279,6 +284,19 @@ function LabelCell({
       >
         {item.name}
       </span>
+
+      {/* US-UI-22: detail panel button (visible on hover) */}
+      {onLabelClick && (
+        <button
+          type="button"
+          onClick={e => { e.stopPropagation(); onLabelClick(item); }}
+          aria-label={`Open details for ${item.name}`}
+          title="Open details"
+          className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-mileway-grey opacity-0 group-hover:opacity-100 hover:bg-mileway-blue-10 hover:text-mileway-blue transition-all duration-fast focus:outline-none focus-visible:ring-1 focus-visible:ring-mileway-blue"
+        >
+          <ChevronRight size={12} />
+        </button>
+      )}
 
       {/* SP-18: "+" add child button (visible on hover) */}
       {canAddChild && (
@@ -554,6 +572,7 @@ export function PlannerTimeline({
   onContextMenu,
   focusedMemberId,
   labelWidth: labelWidthProp,
+  onLabelClick,
 }: PlannerTimelineProps) {
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
@@ -995,6 +1014,7 @@ export function PlannerTimeline({
                   onToggle={toggleExpand}
                   onAddChild={onAddChild}
                   onContextMenu={onContextMenu}
+                  onLabelClick={onLabelClick}
                 />
               </div>
             ))}
