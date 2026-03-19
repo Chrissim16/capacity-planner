@@ -8,7 +8,7 @@
  * BIZ contact drag is deferred to v2 (TODO-002). BIZ assignment via SmartAssignmentPanel only.
  * Fit scores are precomputed on dragStart — not recalculated on every dragOver.
  */
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import {
   DndContext,
   useDraggable,
@@ -328,6 +328,11 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
+  // Keep a ref to the latest state so handleDragStart/End are stable (don't
+  // depend on `state` directly in the dep array, which changes every store update).
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   // ── Derived data ────────────────────────────────────────────────────────────
 
   const quarterEpics = useMemo(
@@ -365,32 +370,33 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
     [state.businessContacts],
   );
 
-  // Capacity per member — computed once per render, animated by ProgressBar's own transition
+  // Capacity per member — computed once per render, animated by ProgressBar's own transition.
+  // stateRef is used instead of `state` so these memos don't re-run on every store write.
   const memberCapacity = useMemo(() => {
     const map = new Map<string, { usedPercent: number; availableDays: number }>();
     for (const m of activeMembers) {
       try {
-        const fit = scoreMember(m, selectedQuarter, [], '', state);
+        const fit = scoreMember(m, selectedQuarter, [], '', stateRef.current);
         map.set(m.id, { usedPercent: fit.usedPercent, availableDays: fit.availableDays });
       } catch {
         map.set(m.id, { usedPercent: 0, availableDays: 0 });
       }
     }
     return map;
-  }, [activeMembers, selectedQuarter, state]);
+  }, [activeMembers, selectedQuarter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bizCapacity = useMemo(() => {
     const map = new Map<string, { usedPercent: number; availableDays: number }>();
     for (const c of activeContacts) {
       try {
-        const fit = scoreBusinessContact(c, selectedQuarter, '', state);
+        const fit = scoreBusinessContact(c, selectedQuarter, '', stateRef.current);
         map.set(c.id, { usedPercent: fit.usedPercent, availableDays: fit.availableDays });
       } catch {
         map.set(c.id, { usedPercent: 0, availableDays: 0 });
       }
     }
     return map;
-  }, [activeContacts, selectedQuarter, state]);
+  }, [activeContacts, selectedQuarter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── dnd-kit handlers ────────────────────────────────────────────────────────
 
@@ -403,13 +409,13 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
     const scores = new Map<string, MemberFit>();
     for (const epic of quarterEpics) {
       try {
-        scores.set(epic.jiraKey, scoreMember(member, selectedQuarter, [], epic.jiraKey, state));
+        scores.set(epic.jiraKey, scoreMember(member, selectedQuarter, [], epic.jiraKey, stateRef.current));
       } catch {
         // Leave no entry — EpicCard treats missing as null fit (no border)
       }
     }
     setFitScores(scores);
-  }, [quarterEpics, selectedQuarter, state]);
+  }, [quarterEpics, selectedQuarter]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { over } = event;

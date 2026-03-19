@@ -11,10 +11,9 @@
  * useDroppable({ id: 'backlog' }) participates in the same context and the
  * drag-to-unschedule gesture works natively.
  */
-import { useState, useCallback, lazy, Suspense } from 'react';
-import { useShallow } from 'zustand/react/shallow';
+import { useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { Loader2, BarChart2 } from 'lucide-react';
-import { useAppStore, useActiveScenarioId, useSyncStatus } from '../stores/appStore';
+import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus } from '../stores/appStore';
 import {
   createScenario,
   duplicateScenario,
@@ -109,19 +108,24 @@ export function ScenarioPlanner() {
 
   const activeScenarioId = useActiveScenarioId();
 
-  // Pull scenarios list + sprints from store
-  const { scenarios, sprints, jiraItems, plannerItems } = useAppStore(
-    useShallow(s => {
-      const st = s.getCurrentState();
-      const active = st.scenarios.find(sc => sc.id === s.data.activeScenarioId);
-      return {
-        scenarios: st.scenarios.filter(sc => !sc.isBaseline),
-        sprints: st.sprints ?? [],
-        jiraItems: st.jiraWorkItems ?? [],
-        plannerItems: (active?.plannerLayout ?? []) as PlannerItem[],
-      };
-    })
+  // Read raw store data — useCurrentState returns a stable ref via useShallow
+  // so it only triggers a re-render when the underlying arrays change, not on
+  // every store write.  Derived arrays are computed in useMemo below (never
+  // inside the selector) to keep the selector result reference-stable.
+  const allState = useCurrentState();
+
+  const scenarios = useMemo(
+    () => allState.scenarios.filter(sc => !sc.isBaseline),
+    [allState.scenarios],
   );
+
+  const plannerItems = useMemo((): PlannerItem[] => {
+    const active = allState.scenarios.find(sc => sc.id === activeScenarioId);
+    return active?.plannerLayout ?? [];
+  }, [allState.scenarios, activeScenarioId]);
+
+  const sprints   = allState.sprints       ?? [];
+  const jiraItems = allState.jiraWorkItems ?? [];
 
   // ── Scenario management ────────────────────────────────────────────────────
 
