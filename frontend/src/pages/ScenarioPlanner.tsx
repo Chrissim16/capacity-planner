@@ -82,11 +82,11 @@ const INITIAL_PLANNER_UI: PlannerUIState = {
 
 function ViewportNotice() {
   return (
-    <div className="hidden max-[1199px]:flex items-center justify-center h-screen bg-mileway-bg px-8">
+    <div className="hidden max-[1279px]:flex items-center justify-center h-screen bg-mileway-bg px-8">
       <div className="bg-mileway-blue-10 border-l-4 border-mileway-blue rounded-lg p-6 max-w-md text-center">
         <p className="text-sm font-semibold text-mileway-text mb-1">Best viewed on a wider display</p>
         <p className="text-xs text-mileway-grey leading-relaxed">
-          The Scenario Planner requires at least 1200px of horizontal space.
+          The Scenario Planner requires at least 1280px of horizontal space.
           Try maximising your browser window.
         </p>
       </div>
@@ -169,10 +169,44 @@ export function ScenarioPlanner() {
   const [plannerUI, setPlannerUI] = useState<PlannerUIState>(INITIAL_PLANNER_UI);
   const [boardSort, setBoardSort] = useState<BoardSort>('priority');
 
-  // Convenience: toggle a single boolean field in plannerUI
-  const toggleUI = useCallback((key: 'backlogOpen' | 'teamDrawerOpen' | 'capacityOpen') => {
+  // Convenience: toggle capacity panel (no coexistence rules apply)
+  const toggleUI = useCallback((key: 'capacityOpen') => {
     setPlannerUI(prev => ({ ...prev, [key]: !prev[key] }));
   }, []);
+
+  // ── Soft-responsive drawer coexistence (US-UI-20) ───────────────────────────
+  // Track canvas container width via ResizeObserver (excludes nav sidebar).
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1440,
+  );
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Smart toggle for Backlog: auto-closes Team drawer at < 1440px
+  const toggleBacklog = useCallback(() => {
+    setPlannerUI(prev => {
+      if (prev.backlogOpen) return { ...prev, backlogOpen: false };
+      const autoClose = prev.teamDrawerOpen && containerWidth < 1440;
+      return { ...prev, backlogOpen: true, ...(autoClose ? { teamDrawerOpen: false } : {}) };
+    });
+  }, [containerWidth]);
+
+  // Smart toggle for Team drawer: auto-closes Backlog at < 1440px
+  const toggleTeamDrawer = useCallback(() => {
+    setPlannerUI(prev => {
+      if (prev.teamDrawerOpen) return { ...prev, teamDrawerOpen: false };
+      const autoClose = prev.backlogOpen && containerWidth < 1440;
+      return { ...prev, teamDrawerOpen: true, ...(autoClose ? { backlogOpen: false } : {}) };
+    });
+  }, [containerWidth]);
 
   // Switch mode and clear selection state that belongs to the previous mode
   const handleModeChange = useCallback((m: PlannerMode) => {
@@ -471,19 +505,32 @@ export function ScenarioPlanner() {
     return itCount + bizCount;
   }, [allState.teamMembers, allState.businessContacts]);
 
+  // ── Detail panel coexistence (US-UI-21) ────────────────────────────────────
+  // Board mode at < 1440px: auto-close any open side drawer when detailItemId is set.
+  // Timeline mode: detail panel always overlays at z-50 — no drawer auto-close.
+  useEffect(() => {
+    if (!plannerUI.detailItemId) return;
+    if (plannerUI.activeMode !== 'board') return;
+    if (containerWidth >= 1440) return;
+    if (plannerUI.backlogOpen || plannerUI.teamDrawerOpen) {
+      setPlannerUI(prev => ({ ...prev, backlogOpen: false, teamDrawerOpen: false }));
+    }
+  }, [plannerUI.detailItemId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Keyboard shortcuts (B = Backlog, T = Team) ────────────────────────────
+  // Use refs to smart-toggles so the listener never goes stale.
+  const toggleBacklogRef  = useRef(toggleBacklog);
+  const toggleTeamRef     = useRef(toggleTeamDrawer);
+  toggleBacklogRef.current  = toggleBacklog;
+  toggleTeamRef.current     = toggleTeamDrawer;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'b' || e.key === 'B') {
-        setPlannerUI(prev => ({ ...prev, backlogOpen: !prev.backlogOpen }));
-      }
-      if (e.key === 't' || e.key === 'T') {
-        setPlannerUI(prev => ({ ...prev, teamDrawerOpen: !prev.teamDrawerOpen }));
-      }
+      if (e.key === 'b' || e.key === 'B') toggleBacklogRef.current();
+      if (e.key === 't' || e.key === 'T') toggleTeamRef.current();
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -607,7 +654,7 @@ export function ScenarioPlanner() {
 
           {/* Backlog toggle (all modes) — keyboard shortcut: B */}
           <button
-            onClick={() => toggleUI('backlogOpen')}
+            onClick={toggleBacklog}
             title={`${plannerUI.backlogOpen ? 'Hide' : 'Show'} backlog (B)`}
             className={[
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
@@ -627,7 +674,7 @@ export function ScenarioPlanner() {
 
           {/* Team toggle (all modes) — keyboard shortcut: T */}
           <button
-            onClick={() => toggleUI('teamDrawerOpen')}
+            onClick={toggleTeamDrawer}
             title={`${plannerUI.teamDrawerOpen ? 'Hide' : 'Show'} team drawer (T)`}
             className={[
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
@@ -689,8 +736,9 @@ export function ScenarioPlanner() {
 
         {/* ── Content area ─────────────────────────────────────────────────── */}
         {/* position:relative is the overlay anchor — drawers and the detail panel
-            are absolutely positioned inside this container */}
-        <div className="flex-1 relative overflow-hidden">
+            are absolutely positioned inside this container.
+            contentRef drives the ResizeObserver for soft-responsive coexistence. */}
+        <div ref={contentRef} className="flex-1 relative overflow-hidden">
 
           {/* Board mode — full-width card grid with BoardToolbar; capacity panel docked at bottom */}
           {plannerUI.activeMode === 'board' && (
@@ -721,7 +769,7 @@ export function ScenarioPlanner() {
                       <PlannerTeamDrawer
                         selectedQuarter={selectedQuarter}
                         activeMode="board"
-                        onClose={() => toggleUI('teamDrawerOpen')}
+                        onClose={() => setPlannerUI(prev => ({ ...prev, teamDrawerOpen: false }))}
                         onMemberFocus={() => {}}
                         focusedMemberId={null}
                       />
@@ -747,7 +795,7 @@ export function ScenarioPlanner() {
               <PlannerBacklog
                 jiraItems={jiraItems}
                 plannerItems={plannerItems}
-                onClose={() => toggleUI('backlogOpen')}
+                onClose={() => setPlannerUI(prev => ({ ...prev, backlogOpen: false }))}
               />
             </DndContext>
           )}
@@ -800,7 +848,7 @@ export function ScenarioPlanner() {
                 <PlannerTeamDrawer
                   selectedQuarter={selectedQuarter}
                   activeMode="timeline"
-                  onClose={() => toggleUI('teamDrawerOpen')}
+                  onClose={() => setPlannerUI(prev => ({ ...prev, teamDrawerOpen: false }))}
                   onMemberFocus={id => setPlannerUI(prev => ({ ...prev, focusedMemberId: id }))}
                   focusedMemberId={plannerUI.focusedMemberId}
                 />
@@ -811,7 +859,7 @@ export function ScenarioPlanner() {
                 <PlannerBacklog
                   jiraItems={jiraItems}
                   plannerItems={plannerItems}
-                  onClose={() => toggleUI('backlogOpen')}
+                  onClose={() => setPlannerUI(prev => ({ ...prev, backlogOpen: false }))}
                 />
               )}
             </DndContext>
