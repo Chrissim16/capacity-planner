@@ -252,9 +252,10 @@ interface DaysPopoverProps {
 }
 
 function DaysPopover({ drop, canAssign, onConfirm, onDismiss }: DaysPopoverProps) {
-  const [days, setDays] = useState(drop.suggestedDays);
-  const isOver = days > drop.availableDays && drop.availableDays > 0;
-  const isValid = days >= 1 && canAssign;
+  const [rawDays, setRawDays] = useState(String(drop.suggestedDays));
+  const parsedDays = Math.max(1, parseInt(rawDays, 10) || 1);
+  const isOver = parsedDays > drop.availableDays && drop.availableDays > 0;
+  const isValid = rawDays !== '' && parsedDays >= 1 && canAssign;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -274,10 +275,10 @@ function DaysPopover({ drop, canAssign, onConfirm, onDismiss }: DaysPopoverProps
         <input
           id="assign-days"
           type="number"
-          value={days}
+          value={rawDays}
           min={1}
-          onChange={e => setDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
-          onKeyDown={e => { if (e.key === 'Enter' && isValid) onConfirm(days); }}
+          onChange={e => setRawDays(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && isValid) onConfirm(parsedDays); }}
           autoFocus
           className="w-full border border-mileway-border rounded-lg px-3 py-2.5 text-sm text-mileway-text focus:outline-none focus:border-mileway-blue transition-colors duration-fast"
         />
@@ -301,7 +302,7 @@ function DaysPopover({ drop, canAssign, onConfirm, onDismiss }: DaysPopoverProps
             Cancel
           </button>
           <button
-            onClick={() => { if (isValid) onConfirm(days); }}
+            onClick={() => { if (isValid) onConfirm(parsedDays); }}
             disabled={!isValid}
             className="text-sm font-medium text-white bg-mileway-blue px-4 py-2 rounded-lg hover:bg-[#0077C2] transition-colors duration-fast disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
           >
@@ -325,6 +326,7 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
   const [draggingMember, setDraggingMember]   = useState<TeamMember | null>(null);
   const [fitScores, setFitScores]             = useState<Map<string, MemberFit>>(new Map());
   const [pendingDrop, setPendingDrop]         = useState<PendingDrop | null>(null);
+  const [assignVersion, setAssignVersion]     = useState(0);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -383,7 +385,7 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
       }
     }
     return map;
-  }, [activeMembers, selectedQuarter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeMembers, selectedQuarter, assignVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bizCapacity = useMemo(() => {
     const map = new Map<string, { usedPercent: number; availableDays: number }>();
@@ -396,7 +398,7 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
       }
     }
     return map;
-  }, [activeContacts, selectedQuarter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeContacts, selectedQuarter, assignVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── dnd-kit handlers ────────────────────────────────────────────────────────
 
@@ -455,6 +457,7 @@ export function PlannerBoard({ scenarioId: _scenarioId }: PlannerBoardProps) {
       isBizContact: false,
     });
     setPendingDrop(null);
+    setAssignVersion(v => v + 1);
   }, [pendingDrop, canAssign, selectedQuarter]);
 
   const handleSelectEpic = useCallback((key: string) => {

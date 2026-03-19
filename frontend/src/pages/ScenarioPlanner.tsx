@@ -13,6 +13,7 @@
  */
 import { useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { Loader2, BarChart2 } from 'lucide-react';
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus } from '../stores/appStore';
 import {
   createScenario,
@@ -106,6 +107,9 @@ export function ScenarioPlanner() {
   const [activeDragPreview, setActiveDragPreview] = useState<DragPreview | null>(null);
   const [selectedQuarter]             = useState(getCurrentQuarter);
 
+  // Shared sensors for Timeline mode DndContext
+  const timelineSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
   const activeScenarioId = useActiveScenarioId();
 
   // Read raw store data — useCurrentState returns a stable ref via useShallow
@@ -181,23 +185,21 @@ export function ScenarioPlanner() {
           {/* Mode toggle */}
           <ModeToggle mode={mode} onChange={setMode} />
 
-          {/* Capacity panel toggle (Timeline mode only) */}
-          {mode === 'timeline' && (
-            <button
-              onClick={() => setShowCapacity(v => !v)}
-              title={showCapacity ? 'Hide capacity panel' : 'Show capacity panel'}
-              className={[
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                showCapacity
-                  ? 'bg-mileway-blue-10 text-mileway-blue'
-                  : 'text-mileway-grey hover:bg-mileway-bg',
-              ].join(' ')}
-            >
-              <BarChart2 size={14} />
-              Capacity
-            </button>
-          )}
+          {/* Capacity panel toggle */}
+          <button
+            onClick={() => setShowCapacity(v => !v)}
+            title={showCapacity ? 'Hide capacity panel' : 'Show capacity panel'}
+            className={[
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+              showCapacity
+                ? 'bg-mileway-blue-10 text-mileway-blue'
+                : 'text-mileway-grey hover:bg-mileway-bg',
+            ].join(' ')}
+          >
+            <BarChart2 size={14} />
+            Capacity
+          </button>
 
           {/* Save */}
           <SaveButton />
@@ -206,30 +208,41 @@ export function ScenarioPlanner() {
         {/* ── Content area ─────────────────────────────────────────────────── */}
         <div className="flex-1 overflow-hidden">
 
-          {/* Board mode */}
+          {/* Board mode — natural scroll; capacity panel docked at the bottom */}
           {mode === 'board' && (
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center h-full">
-                  <Loader2 size={20} className="animate-spin text-mileway-grey" />
-                </div>
-              }
-            >
-              <PlannerBoard scenarioId={activeScenarioId ?? ''} />
-            </Suspense>
+            <div className="flex flex-col h-full">
+              <div className="flex-1 overflow-y-auto">
+                <Suspense
+                  fallback={
+                    <div className="flex-1 flex items-center justify-center h-full">
+                      <Loader2 size={20} className="animate-spin text-mileway-grey" />
+                    </div>
+                  }
+                >
+                  <PlannerBoard scenarioId={activeScenarioId ?? ''} />
+                </Suspense>
+              </div>
+              <PlannerCapacity
+                plannerItems={plannerItems}
+                sprints={sprints}
+                selectedQuarter={selectedQuarter}
+                activeDragPreview={activeDragPreview}
+                isVisible={showCapacity}
+              />
+            </div>
           )}
 
-          {/* Timeline mode */}
+          {/* Timeline mode — DndContext wraps backlog + gantt so they share one drag context */}
           {mode === 'timeline' && (
-            <div className="flex flex-col h-full">
-              <div className="flex flex-1 overflow-hidden">
+            <DndContext sensors={timelineSensors}>
+              <div className="flex h-full">
                 {/* Backlog sidebar */}
                 <PlannerBacklog
                   jiraItems={jiraItems}
                   plannerItems={plannerItems}
                 />
 
-                {/* Gantt canvas */}
+                {/* Gantt canvas — capacity panel is inside this column for column alignment */}
                 <div className="flex-1 flex flex-col overflow-hidden">
                   {activeScenarioId ? (
                     <PlannerTimeline
@@ -249,18 +262,16 @@ export function ScenarioPlanner() {
                       </p>
                     </div>
                   )}
+                  <PlannerCapacity
+                    plannerItems={plannerItems}
+                    sprints={sprints}
+                    selectedQuarter={selectedQuarter}
+                    activeDragPreview={activeDragPreview}
+                    isVisible={showCapacity}
+                  />
                 </div>
               </div>
-
-              {/* Capacity panel */}
-              <PlannerCapacity
-                plannerItems={plannerItems}
-                sprints={sprints}
-                selectedQuarter={selectedQuarter}
-                activeDragPreview={activeDragPreview}
-                isVisible={showCapacity}
-              />
-            </div>
+            </DndContext>
           )}
         </div>
       </div>

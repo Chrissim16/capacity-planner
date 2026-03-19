@@ -15,13 +15,10 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import {
-  DndContext,
   DragOverlay,
   useDraggable,
   useDroppable,
-  PointerSensor,
-  useSensor,
-  useSensors,
+  useDndMonitor,
   type DragStartEvent,
   type DragMoveEvent,
   type DragEndEvent,
@@ -110,6 +107,14 @@ function sprintNumFrom(colId: string): number {
   return parseInt(colId.replace('sprint-col-', ''), 10);
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatSprintRange(startDate: string, endDate: string): string {
+  const fmt = (d: string) =>
+    new Date(d).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+  return `${fmt(startDate)}–${fmt(endDate)}`;
+}
+
 // ── SprintHeaders ─────────────────────────────────────────────────────────────
 
 function SprintHeaders({
@@ -131,7 +136,12 @@ function SprintHeaders({
             dragOverNum === s.number ? 'bg-mileway-blue-10 text-mileway-blue' : '',
           ].join(' ')}
         >
-          {s.name}
+          <span className="block">{s.name}</span>
+          {s.startDate && s.endDate && (
+            <span className="block text-[10px] font-normal text-mileway-grey mt-0.5 truncate">
+              {formatSprintRange(s.startDate, s.endDate)}
+            </span>
+          )}
         </div>
       ))}
     </div>
@@ -525,84 +535,88 @@ export function PlannerTimeline({
     onActiveDragChange?.(null);
   }, [resize, plannerItems, onItemsChange, onActiveDragChange]);
 
-  // ── dnd-kit handlers ────────────────────────────────────────────────────────
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  // ── dnd-kit event handlers (subscribed via useDndMonitor — context lives in ScenarioPlanner) ──
+  const plannerItemsRef = useRef(plannerItems);
+  plannerItemsRef.current = plannerItems;
 
-  function handleDragStart(event: DragStartEvent) {
-    const data = event.active.data.current as { type: string; plannerItem?: PlannerItem } | undefined;
-    if (data?.type === 'timeline-bar' && data.plannerItem) {
-      setActiveItem(data.plannerItem);
-      onActiveDragChange?.({ itemId: data.plannerItem.id, newStartSprint: data.plannerItem.startSprint });
-    }
-  }
-
-  function handleDragMove(event: DragMoveEvent) {
-    const overId = event.over?.id?.toString() ?? '';
-    if (overId.startsWith('sprint-col-')) {
-      const num = sprintNumFrom(overId);
-      setDragOverNum(num);
+  useDndMonitor({
+    onDragStart(event: DragStartEvent) {
       const data = event.active.data.current as { type: string; plannerItem?: PlannerItem } | undefined;
       if (data?.type === 'timeline-bar' && data.plannerItem) {
-        onActiveDragChange?.({ itemId: data.plannerItem.id, newStartSprint: num });
+        setActiveItem(data.plannerItem);
+        onActiveDragChange?.({ itemId: data.plannerItem.id, newStartSprint: data.plannerItem.startSprint });
       }
-    } else {
+    },
+    onDragMove(event: DragMoveEvent) {
+      const overId = event.over?.id?.toString() ?? '';
+      if (overId.startsWith('sprint-col-')) {
+        const num = sprintNumFrom(overId);
+        setDragOverNum(num);
+        const data = event.active.data.current as { type: string; plannerItem?: PlannerItem } | undefined;
+        if (data?.type === 'timeline-bar' && data.plannerItem) {
+          onActiveDragChange?.({ itemId: data.plannerItem.id, newStartSprint: num });
+        }
+      } else {
+        setDragOverNum(null);
+      }
+    },
+    onDragEnd(event: DragEndEvent) {
+      const { active, over } = event;
+      setActiveItem(null);
       setDragOverNum(null);
-    }
-  }
+      onActiveDragChange?.(null);
+      if (!over) return;
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    setActiveItem(null);
-    setDragOverNum(null);
-    onActiveDragChange?.(null);
-    if (!over) return;
+      const aData = active.data.current as { type: string; plannerItem?: PlannerItem; jiraItem?: JiraWorkItem } | undefined;
+      if (!aData) return;
+      const overId = over.id.toString();
+      const items = plannerItemsRef.current;
 
-    const aData = active.data.current as { type: string; plannerItem?: PlannerItem; jiraItem?: JiraWorkItem } | undefined;
-    if (!aData) return;
-    const overId = over.id.toString();
-
-    // Case 1: bar → sprint column (reposition)
-    if (aData.type === 'timeline-bar' && overId.startsWith('sprint-col-')) {
-      const item = aData.plannerItem!;
-      const target = sprintNumFrom(overId);
-      if (target === item.startSprint) return;
-      if (item.type === 'epic' && plannerItems.some(p => p.parentKey === item.jiraKey)) {
-        setEpicMove({ itemId: item.id, newStartSprint: target });
+      // Case 1: bar → sprint column (reposition)
+      if (aData.type === 'timeline-bar' && overId.startsWith('sprint-col-')) {
+        const item = aData.plannerItem!;
+        const target = sprintNumFrom(overId);
+        if (target === item.startSprint) return;
+        if (item.type === 'epic' && items.some(p => p.parentKey === item.jiraKey)) {
+          setEpicMove({ itemId: item.id, newStartSprint: target });
+          return;
+        }
+        commitMove(item.id, target, false);
         return;
       }
-      commitMove(item.id, target, false);
-      return;
-    }
 
-    // Case 2: bar → backlog (unschedule)
-    if (aData.type === 'timeline-bar' && overId === 'backlog') {
-      onItemsChange(plannerItems.filter(p => p.id !== active.id));
-      return;
-    }
+      // Case 2: bar → backlog (unschedule)
+      if (aData.type === 'timeline-bar' && overId === 'backlog') {
+        onItemsChange(items.filter(p => p.id !== active.id));
+        return;
+      }
 
-    // Case 3: backlog item → sprint column (schedule)
-    if (aData.type === 'backlog-item' && overId.startsWith('sprint-col-')) {
-      const ji = aData.jiraItem!;
-      const target = sprintNumFrom(overId);
-      const newItem: PlannerItem = {
-        id: generateId('planner'),
-        sourceId: ji.id,
-        name: ji.summary,
-        type: ji.type as PlannerItemType,
-        jiraKey: ji.jiraKey,
-        parentKey: ji.parentKey,
-        startSprint: target,
-        spanSprints: NEW_ITEM_SPAN,
-        assignees: [],
-        locked: ji.statusCategory === 'in_progress',
-        unlockedInScenario: false,
-      };
-      onItemsChange([...plannerItems, newItem]);
-    }
-  }
+      // Case 3: backlog item → sprint column (schedule)
+      if (aData.type === 'backlog-item' && overId.startsWith('sprint-col-')) {
+        const ji = aData.jiraItem!;
+        const target = sprintNumFrom(overId);
+        const newItem: PlannerItem = {
+          id: generateId('planner'),
+          sourceId: ji.id,
+          name: ji.summary,
+          type: ji.type as PlannerItemType,
+          jiraKey: ji.jiraKey,
+          parentKey: ji.parentKey,
+          startSprint: target,
+          spanSprints: NEW_ITEM_SPAN,
+          assignees: [],
+          locked: ji.statusCategory === 'in_progress',
+          unlockedInScenario: false,
+        };
+        onItemsChange([...items, newItem]);
+      }
+    },
+  });
 
   // ── Toggle expand ───────────────────────────────────────────────────────────
   const toggleExpand = useCallback((id: string) => {
+    // Reset the global expandAll flag so individual row toggles take full control
+    setExpandAll(false);
     setExpandedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -622,7 +636,7 @@ export function PlannerTimeline({
   }
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
+    <>
       <div className="flex flex-col flex-1 overflow-hidden">
 
         {/* Toolbar */}
@@ -734,6 +748,6 @@ export function PlannerTimeline({
           onDismiss={() => setEpicMove(null)}
         />
       )}
-    </DndContext>
+    </>
   );
 }
