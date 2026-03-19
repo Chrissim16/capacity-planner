@@ -735,6 +735,7 @@ export function ScenarioPlanner() {
                 selectedQuarter={selectedQuarter}
                 activeDragPreview={activeDragPreview}
                 isVisible={plannerUI.capacityOpen}
+                labelWidth={260}
               />
             </div>
           )}
@@ -771,6 +772,7 @@ export function ScenarioPlanner() {
                       onAddChild={handleAddChild}
                       onContextMenu={handleContextMenu}
                       focusedMemberId={plannerUI.focusedMemberId}
+                      labelWidth={260}
                     />
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
@@ -787,6 +789,7 @@ export function ScenarioPlanner() {
                     activeDragPreview={activeDragPreview}
                     isVisible={plannerUI.capacityOpen}
                     focusedMemberId={plannerUI.focusedMemberId}
+                    labelWidth={260}
                   />
                 </div>
 

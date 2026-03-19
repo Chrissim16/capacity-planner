@@ -25,7 +25,7 @@ import type { DragPreview } from './PlannerTimeline';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const LABEL_W = 220;
+const LABEL_W = 260;
 const SPRINT_COUNT = 6;
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -38,6 +38,8 @@ export interface PlannerCapacityProps {
   isVisible: boolean;
   /** When set, highlights that person's row with a blue accent */
   focusedMemberId?: string | null;
+  /** Label column width in px — kept in sync with PlannerTimeline. Default: 260. */
+  labelWidth?: number;
 }
 
 // ── Internal types ────────────────────────────────────────────────────────────
@@ -319,7 +321,9 @@ export function PlannerCapacity({
   activeDragPreview,
   isVisible,
   focusedMemberId,
+  labelWidth: labelWidthProp,
 }: PlannerCapacityProps) {
+  const colLabelW = labelWidthProp ?? LABEL_W;
   const state = useCurrentState();
   const [collapsedTeams, setCollapsedTeams] = useState<Set<string>>(new Set());
 
@@ -485,7 +489,7 @@ export function PlannerCapacity({
       >
         <div
           style={{
-            flexShrink: 0, width: LABEL_W,
+            flexShrink: 0, width: colLabelW,
             display: 'flex', alignItems: 'center',
             padding: '6px 12px', borderRight: '1px solid #EBEBEB',
           }}

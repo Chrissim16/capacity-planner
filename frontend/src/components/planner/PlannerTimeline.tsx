@@ -30,22 +30,23 @@ import { generateId } from '../../stores/actions';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const LABEL_W_DEFAULT = 220;
+const LABEL_W_DEFAULT = 260;
 const LABEL_W_MIN = 160;
 const LABEL_W_MAX = 500;
+const SPRINT_HEADER_H = 64;
 const ROW_H = 44;
 const BAR_PAD_Y = 7;
 const SPRINT_COUNT = 6;
 
 const BAR: Record<string, { bg: string; border: string; borderW: number; radius: number }> = {
-  epic:      { bg: 'rgba(0,137,221,0.10)', border: '#0089DD', borderW: 2, radius: 6 },
-  feature:   { bg: '#CCE4F9',              border: '#0089DD', borderW: 1, radius: 5 },
-  story:     { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1, radius: 4 },
-  task:      { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1, radius: 4 },
-  bug:       { bg: '#FEE2E2',              border: '#DC2626', borderW: 1, radius: 4 },
-  uat:       { bg: '#E6F2FC',              border: '#94A3B8', borderW: 1, radius: 4 },
-  hypercare: { bg: '#CCE4F9',              border: '#0089DD', borderW: 1, radius: 4 },
-  custom:    { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1, radius: 4 },
+  epic:      { bg: 'rgba(168,196,245,0.18)', border: '#6090E0', borderW: 2, radius: 6 },
+  feature:   { bg: '#A8C4F5',               border: '#6090E0', borderW: 1, radius: 5 },
+  story:     { bg: '#D0CCC8',               border: '#A09D97', borderW: 1, radius: 4 },
+  task:      { bg: '#D0CCC8',               border: '#A09D97', borderW: 1, radius: 4 },
+  bug:       { bg: '#FEE2E2',               border: '#DC2626', borderW: 1, radius: 4 },
+  uat:       { bg: '#CDB0F5',               border: '#9B6EE2', borderW: 1, radius: 4 },
+  hypercare: { bg: '#90D9B8',               border: '#1A7A52', borderW: 1, radius: 4 },
+  custom:    { bg: '#D0CCC8',               border: '#A09D97', borderW: 1, radius: 4 },
 };
 
 const INDENT: Partial<Record<PlannerItemType, number>> = {
@@ -93,6 +94,8 @@ export interface PlannerTimelineProps {
   onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
   /** When set, bars assigned to this member receive a pulse animation */
   focusedMemberId?: string | null;
+  /** Initial label column width in px — kept in sync with PlannerCapacity. Default: 260. */
+  labelWidth?: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -123,30 +126,51 @@ function formatSprintRange(startDate: string, endDate: string): string {
 function SprintHeaders({
   sprints,
   dragOverNum,
+  currentSprintNum,
 }: {
   sprints: Sprint[];
   dragOverNum: number | null;
+  currentSprintNum: number | null;
 }) {
   return (
-    <div className="flex border-b border-mileway-border bg-white">
-      {sprints.map(s => (
-        <div
-          key={s.id}
-          style={{ width: `${100 / SPRINT_COUNT}%` }}
-          className={[
-            'flex-shrink-0 px-3 py-2 text-xs font-semibold text-mileway-grey',
-            'border-r border-mileway-border last:border-r-0 transition-colors duration-fast',
-            dragOverNum === s.number ? 'bg-mileway-blue-10 text-mileway-blue' : '',
-          ].join(' ')}
-        >
-          <span className="block">{s.name}</span>
-          {s.startDate && s.endDate && (
-            <span className="block text-[10px] font-normal text-mileway-grey mt-0.5 truncate">
-              {formatSprintRange(s.startDate, s.endDate)}
+    <div className="flex border-b border-mileway-border bg-white" style={{ height: SPRINT_HEADER_H }}>
+      {sprints.map(s => {
+        const isCurrent = s.number === currentSprintNum;
+        return (
+          <div
+            key={s.id}
+            style={{ width: `${100 / SPRINT_COUNT}%` }}
+            className={[
+              'flex-shrink-0 relative px-3 border-r border-mileway-border last:border-r-0 transition-colors duration-fast',
+              'flex flex-col justify-center gap-0.5',
+              dragOverNum === s.number ? 'bg-mileway-blue-10' : '',
+            ].join(' ')}
+          >
+            {isCurrent && (
+              <span
+                style={{ fontSize: 9, letterSpacing: '0.06em' }}
+                className="absolute top-1.5 left-2 uppercase font-bold bg-mileway-blue text-white px-1 py-0.5 rounded leading-none"
+              >
+                Current
+              </span>
+            )}
+            <span
+              style={{ fontSize: 12.5, marginTop: isCurrent ? 14 : 0 }}
+              className={['font-bold leading-none', dragOverNum === s.number ? 'text-mileway-blue' : 'text-mileway-text'].join(' ')}
+            >
+              {s.name}
             </span>
-          )}
-        </div>
-      ))}
+            {s.startDate && s.endDate && (
+              <span
+                style={{ fontSize: 10, fontFamily: 'monospace' }}
+                className="text-mileway-grey truncate leading-none"
+              >
+                {formatSprintRange(s.startDate, s.endDate)}
+              </span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -158,16 +182,22 @@ function SprintColumnZone({
   index,
   totalHeight,
   dragOverNum,
+  isCurrentSprint,
 }: {
   sprint: Sprint;
   index: number;
   totalHeight: number;
   dragOverNum: number | null;
+  isCurrentSprint?: boolean;
 }) {
   const { setNodeRef } = useDroppable({
     id: `sprint-col-${sprint.number}`,
     data: { type: 'sprint-column', sprintNumber: sprint.number },
   });
+
+  let bg: string | undefined;
+  if (dragOverNum === sprint.number) bg = undefined; // handled via class
+  else if (isCurrentSprint) bg = 'rgba(37,88,201,0.035)';
 
   return (
     <div
@@ -179,6 +209,7 @@ function SprintColumnZone({
         width: `${(1 / SPRINT_COUNT) * 100}%`,
         height: totalHeight,
         zIndex: 0,
+        backgroundColor: bg,
       }}
       className={[
         'border-r border-mileway-divider last:border-r-0 transition-colors duration-fast',
@@ -294,6 +325,8 @@ interface PlannerBarProps {
   onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
   /** When set and bar has this assignee, a brief pulse animation is applied */
   focusedMemberId?: string | null;
+  /** Fires on mouse enter/leave so the parent can sync the row hover highlight */
+  onRowHover?: (itemId: string | null) => void;
 }
 
 function PlannerBar({
@@ -308,6 +341,7 @@ function PlannerBar({
   onRegisterNode,
   onContextMenu: onCtxMenu,
   focusedMemberId,
+  onRowHover,
 }: PlannerBarProps) {
   const isInteractive = !item.locked || item.unlockedInScenario;
 
@@ -366,6 +400,8 @@ function PlannerBar({
       {...(isInteractive ? { ...attributes, ...listeners } : {})}
       onClick={onBarClick ? e => onBarClick(item, e.currentTarget) : undefined}
       onContextMenu={onCtxMenu ? e => { e.preventDefault(); onCtxMenu(item, e.clientX, e.clientY); } : undefined}
+      onMouseEnter={() => onRowHover?.(item.id)}
+      onMouseLeave={() => onRowHover?.(null)}
       title={
         isInteractive
           ? item.type === 'epic'
@@ -517,10 +553,12 @@ export function PlannerTimeline({
   onAddChild,
   onContextMenu,
   focusedMemberId,
+  labelWidth: labelWidthProp,
 }: PlannerTimelineProps) {
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
-  const [labelWidth, setLabelWidth]           = useState(LABEL_W_DEFAULT);
+  const [labelWidth, setLabelWidth]           = useState(() => labelWidthProp ?? LABEL_W_DEFAULT);
+  const [hoveredRowId, setHoveredRowId]       = useState<string | null>(null);
   const [dragOverNum, setDragOverNum]         = useState<number | null>(null);
   const [activeItem, setActiveItem]           = useState<PlannerItem | null>(null);
   const [activeBacklogItem, setActiveBacklogItem] = useState<JiraWorkItem | null>(null);
@@ -564,6 +602,26 @@ export function PlannerTimeline({
     [sprints, selectedQuarter],
   );
   const firstSprintNum = quarterSprints[0]?.number ?? 1;
+
+  // ── Today line & current sprint ─────────────────────────────────────────────
+  const { currentSprintNum, todayLinePercent } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (let i = 0; i < quarterSprints.length; i++) {
+      const s = quarterSprints[i];
+      if (!s.startDate || !s.endDate) continue;
+      const start = new Date(s.startDate); start.setHours(0, 0, 0, 0);
+      const end   = new Date(s.endDate);   end.setHours(23, 59, 59, 999);
+      if (today >= start && today <= end) {
+        const fraction = (today.getTime() - start.getTime()) / (end.getTime() - start.getTime());
+        return {
+          currentSprintNum: s.number,
+          todayLinePercent: (i + fraction) / SPRINT_COUNT * 100,
+        };
+      }
+    }
+    return { currentSprintNum: null, todayLinePercent: null };
+  }, [quarterSprints]);
 
   // ── Flat visible row list ───────────────────────────────────────────────────
   const visibleItems = useMemo(() => {
@@ -893,23 +951,7 @@ export function PlannerTimeline({
     <>
       <div className="flex flex-col flex-1 overflow-hidden">
 
-        {/* Toolbar */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-mileway-border bg-white flex-shrink-0">
-          <button
-            onClick={() => { setExpandAll(true); setExpandedIds(new Set()); }}
-            className="text-xs font-medium text-mileway-grey hover:text-mileway-text px-2.5 py-1 rounded hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-          >
-            Expand all
-          </button>
-          <button
-            onClick={() => { setExpandAll(false); setExpandedIds(new Set()); }}
-            className="text-xs font-medium text-mileway-grey hover:text-mileway-text px-2.5 py-1 rounded hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-          >
-            Collapse all
-          </button>
-        </div>
-
-        {/* Main body */}
+        {/* Main body — no separate sub-toolbar; Expand/Collapse live in the label header */}
         <div className="flex flex-1 overflow-hidden">
 
           {/* Label column */}
@@ -917,10 +959,35 @@ export function PlannerTimeline({
             className="flex-shrink-0 flex flex-col bg-white border-r border-mileway-border overflow-y-auto"
             style={{ width: labelWidth }}
           >
-            {/* Spacer aligns with sprint header row */}
-            <div className="flex-shrink-0 border-b border-mileway-border bg-mileway-bg" style={{ height: 33 }} />
+            {/* Label header — aligned with sprint header row, hosts Expand/Collapse */}
+            <div
+              className="flex-shrink-0 flex items-end gap-1 px-2 pb-1.5 border-b border-mileway-border bg-mileway-bg"
+              style={{ height: SPRINT_HEADER_H }}
+            >
+              <button
+                onClick={() => { setExpandAll(true); setExpandedIds(new Set()); }}
+                className="text-[11px] font-medium text-mileway-grey hover:text-mileway-text px-2 py-0.5 rounded hover:bg-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+              >
+                Expand all
+              </button>
+              <button
+                onClick={() => { setExpandAll(false); setExpandedIds(new Set()); }}
+                className="text-[11px] font-medium text-mileway-grey hover:text-mileway-text px-2 py-0.5 rounded hover:bg-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+              >
+                Collapse all
+              </button>
+            </div>
             {visibleItems.map(item => (
-              <div key={item.id} style={{ height: ROW_H, flexShrink: 0 }}>
+              <div
+                key={item.id}
+                style={{
+                  height: ROW_H,
+                  flexShrink: 0,
+                  backgroundColor: hoveredRowId === item.id ? 'rgba(37,88,201,0.025)' : undefined,
+                }}
+                onMouseEnter={() => setHoveredRowId(item.id)}
+                onMouseLeave={() => setHoveredRowId(null)}
+              >
                 <LabelCell
                   item={item}
                   hasChildren={hasChildrenSet.has(item.id)}
@@ -943,9 +1010,13 @@ export function PlannerTimeline({
 
           {/* Gantt canvas */}
           <div className="flex-1 overflow-auto">
-            {/* Sprint headers */}
+            {/* Sprint headers — sticky so they stay visible when scrolling */}
             <div className="sticky top-0 z-20">
-              <SprintHeaders sprints={quarterSprints} dragOverNum={dragOverNum} />
+              <SprintHeaders
+                sprints={quarterSprints}
+                dragOverNum={dragOverNum}
+                currentSprintNum={currentSprintNum}
+              />
             </div>
 
             {/* Canvas body — never overflow:hidden */}
@@ -962,6 +1033,7 @@ export function PlannerTimeline({
                   index={i}
                   totalHeight={totalH}
                   dragOverNum={dragOverNum}
+                  isCurrentSprint={s.number === currentSprintNum}
                 />
               ))}
 
@@ -984,14 +1056,54 @@ export function PlannerTimeline({
                 </div>
               )}
 
-              {/* Row dividers (z:5, pointer-events:none so bars stay interactive) */}
+              {/* Row dividers + hover highlights (z:5, pointer-events:none) */}
               {visibleItems.map((item, idx) => (
                 <div
                   key={item.id + '-divider'}
-                  style={{ position: 'absolute', top: idx * ROW_H, height: ROW_H, left: 0, right: 0, zIndex: 5, pointerEvents: 'none' }}
+                  style={{
+                    position: 'absolute', top: idx * ROW_H, height: ROW_H, left: 0, right: 0,
+                    zIndex: 5, pointerEvents: 'none',
+                    backgroundColor: hoveredRowId === item.id ? 'rgba(37,88,201,0.025)' : undefined,
+                  }}
                   className="border-b border-mileway-divider"
                 />
               ))}
+
+              {/* Today line (z:20, pointer-events:none) */}
+              {todayLinePercent !== null && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${todayLinePercent}%`,
+                    top: 0,
+                    bottom: 0,
+                    width: 2,
+                    backgroundColor: '#E63946',
+                    zIndex: 20,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: '#E63946',
+                      color: 'white',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      padding: '2px 4px',
+                      borderRadius: 4,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Today
+                  </div>
+                </div>
+              )}
 
               {/* Bars (z:10) */}
               {visibleItems.map((item, idx) => (
@@ -1008,6 +1120,7 @@ export function PlannerTimeline({
                   onRegisterNode={handleRegisterNode}
                   onContextMenu={onContextMenu}
                   focusedMemberId={focusedMemberId}
+                  onRowHover={setHoveredRowId}
                 />
               ))}
             </div>
