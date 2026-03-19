@@ -5,6 +5,21 @@ Newest entry at the top. Format: `[YYYY-MM-DD] — Short title`.
 
 ---
 
+## [2026-03-19] — feat(planner): Scenario Planner — Board + Timeline modes, full component suite
+
+### Added
+- **`frontend/src/pages/ScenarioPlanner.tsx`** — Page shell that composes all planner components. Hosts a toolbar (ScenarioTabs, Board/Timeline mode toggle, capacity-panel toggle, Save button), renders `PlannerBoard` (lazy-loaded) or the `PlannerBacklog + PlannerTimeline + PlannerCapacity` layout depending on the selected mode. Minimum viewport guard shows a notice below 1200px.
+- **`frontend/src/components/planner/ScenarioTabs.tsx`** — Pill-style scenario tabs (max 5). "+" button disabled with tooltip at limit. Creation modal supports Clone current (deep-copies layout) or Blank canvas (empty plannerLayout, backlog shows all Jira items). Styled with DM Sans, `bg-[#E6F2FC] text-[#0089DD]` active tab.
+- **`frontend/src/components/planner/PlannerBacklog.tsx`** — Collapsible left sidebar (268px). Shows unscheduled Jira items with search, epic filter, and status filter. Draggable cards via `@dnd-kit/core`. Drop zone for "unschedule" gestures.
+- **`frontend/src/components/planner/PlannerTimeline.tsx`** — Gantt canvas across 6 sprint columns per quarter. Epic/Feature/Story hierarchy with expand/collapse. Drag-to-reposition (snap to sprint), resize handles, locked/unlocked item states. Drops from backlog create new PlannerItems. Live drag preview forwarded via `onActiveDragChange` callback.
+- **`frontend/src/components/planner/PlannerBoard.tsx`** (lazy-loaded) — Two-panel quarterly staffing board. Left: Epic cards with fit-colour borders during drag. Right: Team member (draggable) and BIZ contact (read-only v1) cards. Days popover on drop. `SmartAssignmentPanel` inline at bottom when Epic selected. RBAC via `can('edit_assignments')`. Fit scores precomputed on `dragStart`.
+- **`frontend/src/components/planner/PlannerCapacity.tsx`** — Stub shell for the per-member sprint allocation heatmap (Step 5). Correct prop contract (`plannerItems`, `sprints`, `selectedQuarter`, `activeDragPreview`, `isVisible`) established; full implementation deferred.
+- **`frontend/src/components/layout/Sidebar.tsx`** — Added "Scenario Planner" nav item (`/planner`, `Layers` icon) between Planning and Settings.
+- **`frontend/src/App.tsx`** — Added `planner` to `PATH_TO_VIEW`, `VIEW_TO_PATH`, and `pages` map; imported `ScenarioPlanner`.
+- **`frontend/src/types/index.ts`** — Added `'planner'` to `ViewType` union.
+
+---
+
 ## [2026-03-18] — UI fix — scenario banner blue, content area background #FAFAFA
 
 ### Changed

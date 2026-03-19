@@ -12,6 +12,7 @@ import {
   AlertCircle,
   LogOut,
   Map,
+  Layers,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
@@ -30,6 +31,7 @@ const VIEW_TO_PATH: Record<ViewType, string> = {
   jira:      '/epics',
   team:      '/team',
   scenarios: '/scenarios',
+  planner:   '/planner',
   planning:  '/planning',
   settings:  '/settings',
 };
@@ -40,6 +42,7 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
   '/epics':     'projects',
   '/team':      'team',
   '/scenarios': 'scenarios',
+  '/planner':   'planner',
   '/planning':  'planning',
   '/settings':  'settings',
 };
@@ -50,6 +53,7 @@ const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string }[
   { view: 'projects',  icon: FolderKanban,    label: 'Epics' },
   { view: 'team',      icon: Users,           label: 'Team' },
   { view: 'planning',  icon: Map,             label: 'Planning' },
+  { view: 'planner',   icon: Layers,          label: 'Scenario Planner' },
   { view: 'settings',  icon: Settings,        label: 'Settings' },
 ];
 

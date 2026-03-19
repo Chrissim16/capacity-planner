@@ -18,6 +18,8 @@ import type {
   JiraSyncResult,
   Project,
   Assignment,
+  PlannerItem,
+  PlannerAssignment,
 } from '../types';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -863,6 +865,94 @@ export function restoreJiraWorkItemToPlan(item: JiraWorkItem): void {
   if ((cs.jiraWorkItems ?? []).some(w => w.jiraKey === item.jiraKey)) return;
   state.updateData({
     jiraWorkItems: [...(cs.jiraWorkItems ?? []), item],
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCENARIO PLANNER ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Replace the entire plannerLayout for a named scenario.
+ * Used by the Scenario Planner when saving a full layout snapshot.
+ */
+export function updatePlannerLayout(scenarioId: string, items: PlannerItem[]): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    scenarios: state.getCurrentState().scenarios.map(s =>
+      s.id === scenarioId
+        ? { ...s, plannerLayout: items, updatedAt: new Date().toISOString() }
+        : s
+    ),
+  });
+}
+
+/**
+ * Append one PlannerAssignment to a PlannerItem inside the active scenario.
+ * No-op if there is no active scenario or the item is not found.
+ */
+export function addPlannerAssignment(itemId: string, assignment: PlannerAssignment): void {
+  const state = useAppStore.getState();
+  const activeId = state.data.activeScenarioId;
+  if (!activeId) return;
+  state.updateData({
+    scenarios: state.getCurrentState().scenarios.map(s => {
+      if (s.id !== activeId) return s;
+      return {
+        ...s,
+        updatedAt: new Date().toISOString(),
+        plannerLayout: (s.plannerLayout ?? []).map(item =>
+          item.id === itemId
+            ? { ...item, assignees: [...(item.assignees ?? []), assignment] }
+            : item
+        ),
+      };
+    }),
+  });
+}
+
+/**
+ * Remove a PlannerItem from the active scenario's plannerLayout.
+ * No-op if there is no active scenario.
+ */
+export function removePlannerItem(itemId: string): void {
+  const state = useAppStore.getState();
+  const activeId = state.data.activeScenarioId;
+  if (!activeId) return;
+  state.updateData({
+    scenarios: state.getCurrentState().scenarios.map(s => {
+      if (s.id !== activeId) return s;
+      return {
+        ...s,
+        updatedAt: new Date().toISOString(),
+        plannerLayout: (s.plannerLayout ?? []).filter(item => item.id !== itemId),
+      };
+    }),
+  });
+}
+
+/**
+ * Mark a PlannerItem as unlocked in the active scenario.
+ * The item remains locked in all other scenarios (full snapshot isolation).
+ * No-op if there is no active scenario.
+ */
+export function unlockPlannerItem(itemId: string): void {
+  const state = useAppStore.getState();
+  const activeId = state.data.activeScenarioId;
+  if (!activeId) return;
+  state.updateData({
+    scenarios: state.getCurrentState().scenarios.map(s => {
+      if (s.id !== activeId) return s;
+      return {
+        ...s,
+        updatedAt: new Date().toISOString(),
+        plannerLayout: (s.plannerLayout ?? []).map(item =>
+          item.id === itemId
+            ? { ...item, unlockedInScenario: true }
+            : item
+        ),
+      };
+    }),
   });
 }
 

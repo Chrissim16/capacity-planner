@@ -223,7 +223,7 @@ export interface MemberCapacitySummary {
 // UI STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'planning' | 'settings';
+export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'planning' | 'planner' | 'settings';
 export type TeamViewMode = 'current' | 'all';
 export type TimelineViewMode = 'week' | 'month' | 'quarter' | 'year';
 
@@ -465,6 +465,40 @@ export interface Assignment {
 
 export type ScenarioColor = 'purple' | 'blue' | 'green' | 'orange' | 'rose' | 'yellow';
 
+// ─── Scenario Planner types ──────────────────────────────────────────────────
+
+/** All item types that can appear on the planner timeline. Extends JiraItemType with UAT and Hypercare. */
+export type PlannerItemType = JiraItemType | 'uat' | 'hypercare';
+
+/** One person's effort allocation on a single PlannerItem. */
+export interface PlannerAssignment {
+  memberId: string;
+  track: 'IT' | 'BIZ';
+  /** Flat effort per sprint across all sprints the item covers (1–10 days) */
+  daysPerSprint: number;
+}
+
+/** One item placed on the planner timeline — Jira-sourced or manually created. */
+export interface PlannerItem {
+  id: string;
+  /** References JiraWorkItem.id when sourced from Jira */
+  sourceId: string;
+  name: string;
+  type: PlannerItemType;
+  jiraKey?: string;
+  /** Parent's jiraKey — preserves Epic → Feature → Story hierarchy for expand/collapse */
+  parentKey?: string;
+  /** Sprint number (1–24) where this item starts */
+  startSprint: number;
+  /** Duration in sprints (minimum 1) */
+  spanSprints: number;
+  assignees: PlannerAssignment[];
+  /** Committed work — immovable by default; true for in_progress or manually committed items */
+  locked: boolean;
+  /** PM explicitly unlocked this item for exploration in this scenario */
+  unlockedInScenario: boolean;
+}
+
 export interface Scenario {
   id: string;
   name: string;
@@ -484,4 +518,6 @@ export interface Scenario {
   // Scenario-native planning data (not Jira-derived)
   projects: Project[];
   assignments: Assignment[];
+  /** Planner timeline layout — only populated for scenarios created or edited in the Scenario Planner */
+  plannerLayout?: PlannerItem[];
 }

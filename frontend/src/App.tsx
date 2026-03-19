@@ -6,6 +6,7 @@ import { Timeline } from './pages/Timeline';
 import { Projects } from './pages/Projects';
 import { Team } from './pages/Team';
 import { Scenarios } from './pages/Scenarios';
+import { ScenarioPlanner } from './pages/ScenarioPlanner';
 import { Planning } from './pages/Planning';
 import { Settings } from './pages/Settings';
 import { ToastProvider } from './components/ui/Toast';
@@ -26,6 +27,7 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
   '/epics':     'projects',
   '/team':      'team',
   '/scenarios': 'scenarios',
+  '/planner':   'planner',
   '/planning':  'planning',
   '/settings':  'settings',
 };
@@ -38,6 +40,7 @@ const VIEW_TO_PATH: Record<ViewType, string> = {
   jira:      '/epics',
   team:      '/team',
   scenarios: '/scenarios',
+  planner:   '/planner',
   planning:  '/planning',
   settings:  '/settings',
 };
@@ -50,6 +53,7 @@ const pages: Record<ViewType, React.ComponentType> = {
   team: Team,
   jira: Projects,
   scenarios: Scenarios,
+  planner: ScenarioPlanner,
   planning: Planning,
   settings: Settings,
 };
