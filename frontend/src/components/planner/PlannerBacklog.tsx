@@ -26,7 +26,6 @@ import type { JiraWorkItem, JiraItemType, PlannerItem } from '../../types';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const EXPANDED_WIDTH = 268;
 const INDENT_FEATURE = 16;
 const INDENT_STORY   = 28;
 

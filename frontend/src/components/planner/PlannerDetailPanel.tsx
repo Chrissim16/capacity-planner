@@ -14,7 +14,7 @@
  * US-UI-22
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, ChevronDown, ChevronRight, Lock, ArrowLeft, Unlock } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
 import { unlockPlannerItem } from '../../stores/actions';
@@ -142,7 +142,7 @@ export function PlannerDetailPanel({
   const sprintRange = startSp && endSp ? `${startSp.name} – ${endSp.name}` : '—';
   const dateRange   = startSp && endSp
     ? `${formatDate(startSp.startDate)} – ${formatDate(endSp.endDate)}`
-    : (jira?.jiraStartDate && jira?.jiraDueDate ? `${formatDate(jira.jiraStartDate)} – ${formatDate(jira.jiraDueDate)}` : '—');
+    : (jira?.startDate && jira?.dueDate ? `${formatDate(jira.startDate)} – ${formatDate(jira.dueDate)}` : '—');
   const duration = planner ? `${planner.spanSprints} sprint${planner.spanSprints !== 1 ? 's' : ''}` : '—';
 
   // Status

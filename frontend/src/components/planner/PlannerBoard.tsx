@@ -13,7 +13,6 @@
 import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import {
   DndContext,
-  useDraggable,
   useDroppable,
   PointerSensor,
   useSensor,
@@ -30,7 +29,6 @@ import {
   FIT_COLOURS,
   type MemberFit,
 } from '../../utils/staffing';
-import { calculateCapacity } from '../../utils/capacity';
 import { SmartAssignmentPanel } from '../SmartAssignmentPanel';
 import { ProgressBar } from '../ui/ProgressBar';
 import type { TeamMember, JiraWorkItem } from '../../types';
@@ -63,10 +61,6 @@ interface PendingDrop {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function initials(name: string): string {
-  return name.trim().split(/\s+/).map(w => w[0] ?? '').join('').slice(0, 2).toUpperCase();
-}
 
 const PRIORITY_TEXT: Record<string, string> = {
   highest: 'text-util-over',
