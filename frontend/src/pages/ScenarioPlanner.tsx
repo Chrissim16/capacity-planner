@@ -682,11 +682,11 @@ export function ScenarioPlanner() {
         )}
 
         {/* ── Content area ─────────────────────────────────────────────────── */}
-        {/* position:relative is the overlay anchor — all drawers and the detail
-            panel will be absolutely positioned inside this container (Phase 2+) */}
+        {/* position:relative is the overlay anchor — drawers and the detail panel
+            are absolutely positioned inside this container */}
         <div className="flex-1 relative overflow-hidden">
 
-          {/* Board mode — natural scroll; capacity panel docked at the bottom */}
+          {/* Board mode — full-width card grid; capacity panel docked at bottom */}
           {plannerUI.activeMode === 'board' && (
             <div className="flex flex-col h-full">
               <div className="flex-1 overflow-y-auto">
@@ -710,17 +710,24 @@ export function ScenarioPlanner() {
             </div>
           )}
 
-          {/* Timeline mode — DndContext wraps backlog + gantt so they share one drag context */}
+          {/* Board mode backlog overlay — needs its own DndContext for useDroppable;
+              no drag events fire in Board mode so the context is effectively inert */}
+          {plannerUI.activeMode === 'board' && plannerUI.backlogOpen && (
+            <DndContext>
+              <PlannerBacklog
+                jiraItems={jiraItems}
+                plannerItems={plannerItems}
+                onClose={() => toggleUI('backlogOpen')}
+              />
+            </DndContext>
+          )}
+
+          {/* Timeline mode — DndContext wraps gantt + overlay drawers so all
+              useDraggable/useDroppable hooks share a single context */}
           {plannerUI.activeMode === 'timeline' && (
             <DndContext sensors={timelineSensors}>
-              <div className="flex h-full">
-                {/* Backlog sidebar */}
-                <PlannerBacklog
-                  jiraItems={jiraItems}
-                  plannerItems={plannerItems}
-                />
-
-                {/* Gantt canvas — capacity panel is inside this column for column alignment */}
+              {/* Gantt fills full width — backlog is now overlay, not a flex sibling */}
+              <div className="h-full flex overflow-hidden">
                 <div className="flex-1 flex flex-col overflow-hidden min-w-0">
                   {activeScenarioId ? (
                     <PlannerTimeline
@@ -752,12 +759,20 @@ export function ScenarioPlanner() {
                   />
                 </div>
 
-                {/* People drawer — right side, collapsible (SP-10) — replaced by
-                    PlannerTeamDrawer with overlay positioning in Phase 3 */}
+                {/* People drawer — still flex sibling; replaced by PlannerTeamDrawer overlay in Phase 3 */}
                 {plannerUI.teamDrawerOpen && (
                   <PlannerPeopleDrawer selectedQuarter={selectedQuarter} />
                 )}
               </div>
+
+              {/* Backlog overlay — absolute-positioned within the relative canvas anchor */}
+              {plannerUI.backlogOpen && (
+                <PlannerBacklog
+                  jiraItems={jiraItems}
+                  plannerItems={plannerItems}
+                  onClose={() => toggleUI('backlogOpen')}
+                />
+              )}
             </DndContext>
           )}
         </div>

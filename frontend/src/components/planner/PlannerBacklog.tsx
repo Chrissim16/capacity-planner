@@ -12,15 +12,15 @@
  *      header so the PM can still drag those children onto the timeline.
  *   3. "Unlinked items" — Features/Stories with no parent Epic in the Jira data.
  */
-import { useState, useMemo, useCallback } from 'react';
-import { useDroppable, useDraggable } from '@dnd-kit/core';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useDroppable, useDraggable, useDndMonitor } from '@dnd-kit/core';
 import {
   Search,
   GripVertical,
-  ChevronLeft,
   ChevronRight,
   ChevronDown,
   CheckCircle2,
+  X,
 } from 'lucide-react';
 import type { JiraWorkItem, JiraItemType, PlannerItem } from '../../types';
 
@@ -47,6 +47,8 @@ const TYPE_CHIP: Record<JiraItemType, { label: string; className: string }> = {
 export interface PlannerBacklogProps {
   jiraItems: JiraWorkItem[];
   plannerItems: PlannerItem[];
+  /** Called by ✕ button and Escape key — parent unmounts the drawer */
+  onClose: () => void;
   onDropUnschedule?: (plannerItemId: string) => void;
 }
 
@@ -173,12 +175,28 @@ function matchesFilters(
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function PlannerBacklog({ jiraItems, plannerItems, onDropUnschedule: _onDropUnschedule }: PlannerBacklogProps) {
-  const [collapsed, setCollapsed]               = useState(false);
-  const [search, setSearch]                     = useState('');
-  const [epicFilter, setEpicFilter]             = useState<string>('all');
-  const [statusFilter, setStatusFilter]         = useState<StatusFilter>('all');
-  const [expandedIds, setExpandedIds]           = useState<Set<string>>(new Set());
+export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnschedule: _onDropUnschedule }: PlannerBacklogProps) {
+  const [search, setSearch]           = useState('');
+  const [epicFilter, setEpicFilter]   = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // Track whether a drag is in progress so Escape doesn't close mid-drag
+  const [isDragActive, setIsDragActive] = useState(false);
+  useDndMonitor({
+    onDragStart:  () => setIsDragActive(true),
+    onDragEnd:    () => setIsDragActive(false),
+    onDragCancel: () => setIsDragActive(false),
+  });
+
+  // Escape key closes the drawer (only when no drag is active)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !isDragActive) onClose();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose, isDragActive]);
 
   const sections = useMemo(
     () => buildSections(jiraItems, plannerItems),
@@ -189,6 +207,11 @@ export function PlannerBacklog({ jiraItems, plannerItems, onDropUnschedule: _onD
     () => jiraItems.filter(i => i.type === 'epic').map(e => ({ key: e.jiraKey, label: e.summary })),
     [jiraItems],
   );
+
+  const totalUnscheduled =
+    sections.unscheduledEpics.length +
+    sections.scheduledEpicHeaders.reduce((n, s) => n + s.children.length, 0) +
+    sections.orphans.length;
 
   const hasActiveFilters = search !== '' || epicFilter !== 'all' || statusFilter !== 'all';
 
@@ -210,64 +233,36 @@ export function PlannerBacklog({ jiraItems, plannerItems, onDropUnschedule: _onD
 
   const q = search.trim().toLowerCase();
 
-  // ── Collapsed strip ────────────────────────────────────────────────────────
-
-  if (collapsed) {
-    return (
-      <div
-        className="flex-shrink-0 flex flex-col items-center justify-between bg-white border-r border-mileway-border py-4"
-        style={{ width: 40 }}
-      >
-        <button
-          onClick={() => setCollapsed(false)}
-          aria-label="Expand backlog"
-          title="Expand backlog"
-          className="p-1 rounded text-mileway-grey hover:bg-mileway-bg hover:text-mileway-text transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-        >
-          <ChevronRight size={16} />
-        </button>
-        <span
-          className="text-xs font-semibold text-mileway-grey select-none"
-          style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-          title={`${sections.unscheduledEpicCount} epics unscheduled — expand to see features and stories`}
-        >
-          {sections.unscheduledEpicCount} unscheduled
-        </span>
-        <div aria-hidden="true" />
-      </div>
-    );
-  }
-
-  // ── Expanded panel ─────────────────────────────────────────────────────────
-
-  const totalUnscheduled =
-    sections.unscheduledEpics.length +
-    sections.scheduledEpicHeaders.reduce((n, s) => n + s.children.length, 0) +
-    sections.orphans.length;
-
   return (
     <div
       ref={setDropRef}
-      className="flex-shrink-0 flex flex-col bg-white border-r border-mileway-border"
-      style={{ width: EXPANDED_WIDTH }}
+      className={[
+        'absolute top-0 left-0 bottom-0 flex flex-col border-r z-30 animate-slide-in-left transition-colors duration-150',
+        isOver ? 'bg-red-50 border-red-300' : 'bg-white border-mileway-border',
+      ].join(' ')}
+      style={{ width: 280, boxShadow: '4px 0 20px rgba(0,0,0,0.08)' }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-mileway-border flex-shrink-0">
-        <span
-          className="text-sm font-semibold text-mileway-text"
-          title={`${sections.unscheduledEpicCount} epics unscheduled — expand to see features and stories`}
-        >
-          Unscheduled
-          <span className="ml-1.5 text-xs font-medium text-mileway-grey">
-            ({sections.unscheduledEpicCount})
-          </span>
-        </span>
+      <div className="flex items-start justify-between px-4 py-3 border-b border-mileway-border flex-shrink-0">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-mileway-text">Unscheduled</span>
+            {sections.unscheduledEpicCount > 0 && (
+              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-blue text-white leading-none">
+                {sections.unscheduledEpicCount}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-mileway-grey mt-0.5">
+            {totalUnscheduled} item{totalUnscheduled !== 1 ? 's' : ''} · drag to schedule
+          </p>
+        </div>
         <button
-          onClick={() => setCollapsed(true)}
-          aria-label="Collapse backlog"
-          className="p-1 rounded text-mileway-grey hover:bg-mileway-bg hover:text-mileway-text transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+          onClick={onClose}
+          aria-label="Close backlog"
+          className="p-1 rounded text-mileway-grey hover:bg-mileway-bg hover:text-mileway-text transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue flex-shrink-0"
         >
-          <ChevronLeft size={16} />
+          <X size={16} />
         </button>
       </div>
 
@@ -317,6 +312,18 @@ export function PlannerBacklog({ jiraItems, plannerItems, onDropUnschedule: _onD
           ))}
         </div>
       </div>
+
+      {/* Drop-to-unschedule — full drawer overlay, shown when a bar is dragged over */}
+      {isOver && (
+        <div
+          aria-live="polite"
+          className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"
+        >
+          <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-100 border-2 border-dashed border-red-400 text-red-700 text-sm font-semibold shadow-sm">
+            Drop to unschedule
+          </div>
+        </div>
+      )}
 
       {/* Item list */}
       <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1 min-h-0">
@@ -406,16 +413,6 @@ export function PlannerBacklog({ jiraItems, plannerItems, onDropUnschedule: _onD
               .filter(i => matchesFilters(i, q, epicFilter, statusFilter, null))
               .map(i => <BacklogItem key={i.id} item={i} indent={0} />)
             }
-          </div>
-        )}
-
-        {/* Drop-to-unschedule overlay */}
-        {isOver && (
-          <div
-            aria-live="polite"
-            className="flex items-center justify-center rounded-lg border-2 border-dashed border-mileway-blue bg-mileway-blue-10 py-4 text-sm font-medium text-mileway-blue"
-          >
-            Drop to unschedule
           </div>
         )}
 
