@@ -337,6 +337,45 @@ function PlannerBar({
   );
 }
 
+// ── BacklogItemOverlay ────────────────────────────────────────────────────────
+
+function BacklogItemOverlay({ item }: { item: JiraWorkItem }) {
+  return (
+    <div
+      style={{
+        width: 220,
+        background: '#fff',
+        border: '1px solid #0089DD',
+        borderRadius: 8,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
+        padding: '8px 10px',
+        opacity: 0.95,
+        cursor: 'grabbing',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            padding: '2px 5px',
+            borderRadius: 4,
+            background: '#E0F0FB',
+            color: '#0089DD',
+            textTransform: 'uppercase',
+          }}
+        >
+          {item.type}
+        </span>
+        <span style={{ fontSize: 10, color: '#9CA3AF' }}>{item.jiraKey}</span>
+      </div>
+      <p style={{ fontSize: 12, fontWeight: 500, color: '#1E293B', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+        {item.summary}
+      </p>
+    </div>
+  );
+}
+
 // ── BarDragOverlay ────────────────────────────────────────────────────────────
 
 function BarDragOverlay({ item }: { item: PlannerItem }) {
@@ -415,13 +454,14 @@ export function PlannerTimeline({
   onActiveDragChange,
   onItemsChange,
 }: PlannerTimelineProps) {
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [expandAll, setExpandAll]     = useState(false);
-  const [labelWidth, setLabelWidth]   = useState(LABEL_W_DEFAULT);
-  const [dragOverNum, setDragOverNum] = useState<number | null>(null);
-  const [activeItem, setActiveItem]   = useState<PlannerItem | null>(null);
-  const [resize, setResize]           = useState<ResizeState | null>(null);
-  const [epicMove, setEpicMove]       = useState<EpicMoveState | null>(null);
+  const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
+  const [expandAll, setExpandAll]             = useState(false);
+  const [labelWidth, setLabelWidth]           = useState(LABEL_W_DEFAULT);
+  const [dragOverNum, setDragOverNum]         = useState<number | null>(null);
+  const [activeItem, setActiveItem]           = useState<PlannerItem | null>(null);
+  const [activeBacklogItem, setActiveBacklogItem] = useState<JiraWorkItem | null>(null);
+  const [resize, setResize]                   = useState<ResizeState | null>(null);
+  const [epicMove, setEpicMove]               = useState<EpicMoveState | null>(null);
 
   const canvasRef    = useRef<HTMLDivElement>(null);
   const labelDragRef = useRef<{ startX: number; startW: number } | null>(null);
@@ -541,10 +581,13 @@ export function PlannerTimeline({
 
   useDndMonitor({
     onDragStart(event: DragStartEvent) {
-      const data = event.active.data.current as { type: string; plannerItem?: PlannerItem } | undefined;
+      const data = event.active.data.current as { type: string; plannerItem?: PlannerItem; jiraItem?: JiraWorkItem } | undefined;
       if (data?.type === 'timeline-bar' && data.plannerItem) {
         setActiveItem(data.plannerItem);
         onActiveDragChange?.({ itemId: data.plannerItem.id, newStartSprint: data.plannerItem.startSprint });
+      }
+      if (data?.type === 'backlog-item' && data.jiraItem) {
+        setActiveBacklogItem(data.jiraItem);
       }
     },
     onDragMove(event: DragMoveEvent) {
@@ -563,6 +606,7 @@ export function PlannerTimeline({
     onDragEnd(event: DragEndEvent) {
       const { active, over } = event;
       setActiveItem(null);
+      setActiveBacklogItem(null);
       setDragOverNum(null);
       onActiveDragChange?.(null);
       if (!over) return;
@@ -736,9 +780,10 @@ export function PlannerTimeline({
         </div>
       </div>
 
-      {/* Ghost bar following cursor during drag */}
+      {/* Ghost element following cursor during drag */}
       <DragOverlay dropAnimation={null}>
         {activeItem && <BarDragOverlay item={activeItem} />}
+        {activeBacklogItem && <BacklogItemOverlay item={activeBacklogItem} />}
       </DragOverlay>
 
       {/* Epic move confirmation */}

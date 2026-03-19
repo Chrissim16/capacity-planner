@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
 import { Search, GripVertical, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import type { JiraWorkItem, JiraItemType, PlannerItem } from '../../types';
 
@@ -226,7 +225,7 @@ interface BacklogItemProps {
 }
 
 export function BacklogItem({ item }: BacklogItemProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: item.id,
     data: { type: 'backlog-item', jiraItem: item },
   });
@@ -236,7 +235,6 @@ export function BacklogItem({ item }: BacklogItemProps) {
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform) }}
       className={[
         'group relative flex items-start gap-2 p-3 bg-white border border-mileway-border rounded-lg',
         'transition-opacity duration-fast select-none',
