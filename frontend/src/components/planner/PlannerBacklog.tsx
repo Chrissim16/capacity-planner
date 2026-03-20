@@ -23,8 +23,6 @@ import {
   X,
 } from 'lucide-react';
 import type { JiraWorkItem, JiraItemType, PlannerItem } from '../../types';
-import { useToast } from '../ui/Toast';
-
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const INDENT_FEATURE = 16;
@@ -208,7 +206,6 @@ function itemFullyVisible(
 // ── Public component ──────────────────────────────────────────────────────────
 
 export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, onCollapse, onDropUnschedule: _onDropUnschedule, onBulkSchedule }: PlannerBacklogProps) {
-  const { showToast } = useToast();
   const [search, setSearch]           = useState('');
   const [epicFilter, setEpicFilter]   = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
