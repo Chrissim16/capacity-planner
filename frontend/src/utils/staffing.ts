@@ -51,9 +51,9 @@ export interface BizFit {
 // Import from here in components — never inline these mappings.
 
 export const FIT_COLOURS: Record<FitLevel, { badge: string; border: string; text: string }> = {
-  good:    { badge: 'bg-green-100 text-[#16A34A]',  border: 'border-green-500', text: 'text-[#16A34A]'  },
-  partial: { badge: 'bg-amber-100 text-amber-700',  border: 'border-amber-500', text: 'text-amber-700'  },
-  over:    { badge: 'bg-red-100 text-red-700',      border: 'border-red-500',   text: 'text-red-700'    },
+  good:    { badge: 'bg-[var(--success-light)] text-[var(--success)]', border: 'border-emerald-500', text: 'text-[var(--success)]' },
+  partial: { badge: 'bg-[var(--warning-light)] text-amber-900',         border: 'border-amber-500',   text: 'text-amber-900' },
+  over:    { badge: 'bg-mileway-bg text-mileway-grey',                 border: 'border-mileway-border', text: 'text-mileway-grey' },
 };
 
 // ─── Glow classes for drag interaction ───────────────────────────────────────
@@ -135,8 +135,6 @@ export function scoreMember(
     } else {
       fitLevel = 'partial';
     }
-
-    console.debug('[staffing] scoreMember', { memberId: member.id, quarter, fitLevel, availableDays: adjustedAvailableDays });
 
     return { member, fitLevel, availableDays: adjustedAvailableDays, usedPercent, skillMatch, skillGap, atMaxProjects, existingDays };
   } catch (error) {

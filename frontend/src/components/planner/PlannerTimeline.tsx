@@ -85,8 +85,12 @@ export interface PlannerTimelineProps {
   onActiveDragChange?: (preview: DragPreview | null) => void;
   /** All mutations flow through here — parent calls updatePlannerLayout(). */
   onItemsChange: (items: PlannerItem[]) => void;
-  /** Fires when a bar is clicked (not dragged) OR a person is dropped on it. Optional preSelectedMemberId for people-drawer drops. */
-  onBarClick?: (item: PlannerItem, anchorEl: HTMLElement, preSelectedMemberId?: string) => void;
+  /** Bar click (not drag) — opens AssignPanel in Timeline mode. */
+  onBarClick?: (item: PlannerItem) => void;
+  /** Row label (item name) click — same as bar; detail panel uses onLabelClick on → only. */
+  onOpenAssignFromLabel?: (item: PlannerItem) => void;
+  /** Item id when AssignPanel is open — highlights bar + label row. */
+  assignPanelItemId?: string | null;
   /** SP-18: "+" button on a label row — open the create-child modal with the parent pre-filled. */
   onAddChild?: (parentItem: PlannerItem) => void;
   /** SP-19: right-click context menu on a timeline row. */
@@ -246,6 +250,7 @@ function LabelCell({
   onAddChild,
   onContextMenu,
   onLabelClick,
+  onOpenAssignFromLabel,
 }: {
   item: PlannerItem;
   hasChildren: boolean;
@@ -257,6 +262,8 @@ function LabelCell({
   onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
   /** US-UI-22: opens detail panel for this item */
   onLabelClick?: (item: PlannerItem) => void;
+  /** Opens AssignPanel when clicking the row title. */
+  onOpenAssignFromLabel?: (item: PlannerItem) => void;
 }) {
   const indent = (INDENT[item.type] ?? 0) + 12;
   const canAddChild = onAddChild && (item.type === 'epic' || item.type === 'feature');
@@ -292,13 +299,24 @@ function LabelCell({
         </span>
       )}
 
-      {/* Name */}
-      <span
-        className="flex-1 min-w-0 text-sm text-mileway-text truncate"
-        style={{ fontWeight: item.type === 'epic' ? 600 : 400 }}
-      >
-        {item.name}
-      </span>
+      {/* Name — opens AssignPanel (Timeline); → button opens detail only */}
+      {onOpenAssignFromLabel ? (
+        <button
+          type="button"
+          onClick={() => onOpenAssignFromLabel(item)}
+          className="flex-1 min-w-0 text-sm text-mileway-text truncate text-left hover:text-mileway-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded"
+          style={{ fontWeight: item.type === 'epic' ? 600 : 400 }}
+        >
+          {item.name}
+        </button>
+      ) : (
+        <span
+          className="flex-1 min-w-0 text-sm text-mileway-text truncate"
+          style={{ fontWeight: item.type === 'epic' ? 600 : 400 }}
+        >
+          {item.name}
+        </span>
+      )}
 
       {/* US-UI-22: detail panel button (visible on hover) */}
       {onLabelClick && (
@@ -352,9 +370,9 @@ interface PlannerBarProps {
   onResizeStart: (e: ReactPointerEvent<HTMLDivElement>, itemId: string, edge: 'left' | 'right') => void;
   onResizeMove: (e: ReactPointerEvent<HTMLDivElement>) => void;
   onResizeEnd: () => void;
-  onBarClick?: (item: PlannerItem, anchorEl: HTMLElement) => void;
-  /** Registry setter so people-drag drops can find the DOM node. */
-  onRegisterNode?: (id: string, el: HTMLElement | null) => void;
+  onBarClick?: (item: PlannerItem) => void;
+  /** When AssignPanel is open for this item — primary outline on bar (spec v2). */
+  assignPanelItemId?: string | null;
   /** SP-19: right-click context menu. */
   onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
   /** Person filter — dims non-matching bars when set */
@@ -373,7 +391,7 @@ function PlannerBar({
   onResizeMove,
   onResizeEnd,
   onBarClick,
-  onRegisterNode,
+  assignPanelItemId,
   onContextMenu: onCtxMenu,
   focusedMemberId,
   onRowHover,
@@ -385,25 +403,13 @@ function PlannerBar({
   const frac = barFracs(displayStart, displaySpan, firstSprintNum, sprintCount);
   if (!frac.visible) return null;
 
-  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: item.id,
     disabled: !isInteractive,
     data: { type: 'timeline-bar', plannerItem: item },
   });
 
-  // Also act as a drop target for people-drag (SP-10)
-  const { isOver: isPersonOver, setNodeRef: setDropRef } = useDroppable({
-    id: `bar-${item.id}`,
-    data: { type: 'bar-drop', plannerItem: item },
-    disabled: !isInteractive,
-  });
-
-  // Merge drag + drop refs and register for people-drag lookup
-  const setNodeRef = useCallback((node: HTMLDivElement | null) => {
-    setDragRef(node);
-    setDropRef(node);
-    onRegisterNode?.(item.id, node);
-  }, [setDragRef, setDropRef, onRegisterNode, item.id]);
+  const assignOpen = assignPanelItemId === item.id;
 
   const s = BAR[item.type] ?? BAR.custom;
   const borderStyle = item.unlockedInScenario ? 'dashed' : 'solid';
@@ -439,20 +445,19 @@ function PlannerBar({
         opacity: barOpacity,
         transition: 'opacity 200ms ease',
         cursor: isInteractive ? 'grab' : 'not-allowed',
-        // SP-10: blue glow when a person card is dragged over this bar
-        boxShadow: isPersonOver && isInteractive ? '0 0 0 2px rgba(0,137,221,0.5), 0 0 8px rgba(0,137,221,0.25)' : undefined,
-        outline: isPersonOver && isInteractive ? '2px solid #0089DD' : undefined,
+        outline: assignOpen && isInteractive ? '2px solid var(--assign-active-outline, var(--color-primary))' : undefined,
+        outlineOffset: assignOpen && isInteractive ? 2 : undefined,
       }}
       {...(isInteractive ? { ...attributes, ...listeners } : {})}
-      onClick={onBarClick ? e => onBarClick(item, e.currentTarget) : undefined}
+      onClick={onBarClick && isInteractive ? () => onBarClick(item) : undefined}
       onContextMenu={onCtxMenu ? e => { e.preventDefault(); onCtxMenu(item, e.clientX, e.clientY); } : undefined}
       onMouseEnter={() => onRowHover?.(item.id)}
       onMouseLeave={() => onRowHover?.(null)}
       title={
         isInteractive
           ? item.type === 'epic'
-            ? 'Click to assign · Drag to move all · Shift+drag to move Epic only'
-            : 'Click to assign · Drag to reposition'
+            ? 'Click to open assignment panel · Drag to move all · Shift+drag to move Epic only'
+            : 'Click to open assignment panel · Drag to reposition'
           : undefined
       }
     >
@@ -595,6 +600,8 @@ export function PlannerTimeline({
   onActiveDragChange,
   onItemsChange,
   onBarClick,
+  onOpenAssignFromLabel,
+  assignPanelItemId,
   onAddChild,
   onContextMenu,
   focusedMemberId,
@@ -622,12 +629,6 @@ export function PlannerTimeline({
 
   const canvasRef    = useRef<HTMLDivElement>(null);
   const labelDragRef = useRef<{ startX: number; startW: number } | null>(null);
-  // SP-10: registry of bar DOM nodes, keyed by item.id — used for people-drag anchor
-  const barNodeRegistry = useRef<Map<string, HTMLElement>>(new Map());
-  const handleRegisterNode = useCallback((id: string, el: HTMLElement | null) => {
-    if (el) barNodeRegistry.current.set(id, el);
-    else barNodeRegistry.current.delete(id);
-  }, []);
   // SP-09: track Shift key state for Epic-only move
   const shiftHeldRef = useRef(false);
   const activeItemRef = useRef<PlannerItem | null>(null);
@@ -898,20 +899,6 @@ export function PlannerTimeline({
         return;
       }
 
-      // Case 4: person-drag → bar (SP-10 drag-to-assign)
-      if (aData.type === 'people-drag' && overId.startsWith('bar-')) {
-        const barItemId = overId.replace(/^bar-/, '');
-        const targetItem = items.find(p => p.id === barItemId);
-        if (targetItem && onBarClick) {
-          // Look up the bar's DOM node from the registry
-          const barEl = barNodeRegistry.current.get(barItemId);
-          if (barEl) {
-            onBarClick(targetItem, barEl, aData.memberId as string);
-          }
-        }
-        return;
-      }
-
       // Case 2: bar → backlog (unschedule)
       if (aData.type === 'timeline-bar' && overId === 'backlog') {
         onItemsChange(items.filter(p => p.id !== active.id));
@@ -1085,7 +1072,12 @@ export function PlannerTimeline({
                 style={{
                   height: ROW_H,
                   flexShrink: 0,
-                  backgroundColor: hoveredRowId === item.id ? 'rgba(37,88,201,0.025)' : undefined,
+                  backgroundColor:
+                    assignPanelItemId === item.id
+                      ? 'var(--assign-active-row-bg, var(--primary-subtle))'
+                      : hoveredRowId === item.id
+                        ? 'rgba(37,88,201,0.025)'
+                        : undefined,
                 }}
                 onMouseEnter={() => setHoveredRowId(item.id)}
                 onMouseLeave={() => setHoveredRowId(null)}
@@ -1098,6 +1090,7 @@ export function PlannerTimeline({
                   onAddChild={onAddChild}
                   onContextMenu={onContextMenu}
                   onLabelClick={onLabelClick}
+                  onOpenAssignFromLabel={onOpenAssignFromLabel}
                 />
               </div>
             ))}
@@ -1184,7 +1177,12 @@ export function PlannerTimeline({
                   style={{
                     position: 'absolute', top: idx * ROW_H, height: ROW_H, left: 0, right: 0,
                     zIndex: 5, pointerEvents: 'none',
-                    backgroundColor: hoveredRowId === item.id ? 'rgba(37,88,201,0.025)' : undefined,
+                    backgroundColor:
+                      assignPanelItemId === item.id
+                        ? 'var(--assign-active-row-bg, var(--primary-subtle))'
+                        : hoveredRowId === item.id
+                          ? 'rgba(37,88,201,0.025)'
+                          : undefined,
                   }}
                   className="border-b border-mileway-divider"
                 />
@@ -1239,7 +1237,7 @@ export function PlannerTimeline({
                   onResizeMove={handleResizeMove}
                   onResizeEnd={handleResizeEnd}
                   onBarClick={onBarClick}
-                  onRegisterNode={handleRegisterNode}
+                  assignPanelItemId={assignPanelItemId}
                   onContextMenu={onContextMenu}
                   focusedMemberId={focusedMemberId}
                   onRowHover={setHoveredRowId}

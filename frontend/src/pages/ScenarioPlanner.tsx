@@ -49,7 +49,7 @@ import { ScenarioTabs, ScenarioCreateModal } from '../components/planner/Scenari
 import { PlannerBacklog } from '../components/planner/PlannerBacklog';
 import { PlannerTimeline, type DragPreview } from '../components/planner/PlannerTimeline';
 import { PlannerCapacity, type PlannerCapacityHandle } from '../components/planner/PlannerCapacity';
-import { AssignPopover } from '../components/planner/AssignPopover';
+import { AssignPanel } from '../components/planner/AssignPanel';
 import { PlannerTeamDrawer } from '../components/planner/PlannerTeamDrawer';
 import { BoardToolbar } from '../components/planner/BoardToolbar';
 import { PlannerDetailPanel } from '../components/planner/PlannerDetailPanel';
@@ -381,6 +381,8 @@ function EpicsFilterPill({
 
 export function ScenarioPlanner() {
   const [plannerUI, setPlannerUI] = useState<PlannerUIState>(INITIAL_PLANNER_UI);
+  /** Timeline — slide-out AssignPanel target item id */
+  const [assignPanelItemId, setAssignPanelItemId] = useState<string | null>(null);
   const [boardSort, setBoardSort] = useState<BoardSort>('priority');
 
   const capacityPanelRef = useRef<PlannerCapacityHandle>(null);
@@ -444,6 +446,7 @@ export function ScenarioPlanner() {
 
   // Switch mode and clear selection state that belongs to the previous mode
   const handleModeChange = useCallback((m: PlannerMode) => {
+    setAssignPanelItemId(null);
     setPlannerUI(prev => ({
       ...prev,
       activeMode: m,
@@ -459,7 +462,6 @@ export function ScenarioPlanner() {
   // Quarter navigation — 8 quarters forward from today, current quarter at index 0
   const quarters = useMemo(() => generateQuarters(8), []);
   const selectedQuarter = quarters[plannerUI.currentQuarterIndex] ?? getCurrentQuarter();
-  const [assignTarget, setAssignTarget] = useState<{ item: PlannerItem; anchorEl: HTMLElement; preSelectedMemberId?: string } | null>(null);
 
   // SP-17/18/19: Create/edit modal and context menu
   const [createModal, setCreateModal] = useState<{
@@ -485,11 +487,20 @@ export function ScenarioPlanner() {
 
   const activeScenarioId = useActiveScenarioId();
 
+  useEffect(() => {
+    setAssignPanelItemId(null);
+  }, [activeScenarioId]);
+
   // Read raw store data — useCurrentState returns a stable ref via useShallow
   // so it only triggers a re-render when the underlying arrays change, not on
   // every store write.  Derived arrays are computed in useMemo below (never
   // inside the selector) to keep the selector result reference-stable.
   const allState = useCurrentState();
+
+  const jiraBaseUrl = useMemo(() => {
+    const c = allState.jiraConnections?.find(x => x.isActive);
+    return c?.jiraBaseUrl?.replace(/\/+$/, '') ?? '';
+  }, [allState.jiraConnections]);
 
   const scenarios = useMemo(
     () => allState.scenarios.filter(sc => !sc.isBaseline),
@@ -577,6 +588,11 @@ export function ScenarioPlanner() {
     updatePlannerLayout(activeScenarioId, [...untouched, ...inFilteredView, ...trulyNew]);
   }, [activeScenarioId, plannerItems]);
 
+  const handleAssignPanelPersist = useCallback((draft: PlannerItem) => {
+    if (!activeScenarioId) return;
+    updatePlannerLayout(activeScenarioId, plannerItems.map(p => p.id === draft.id ? draft : p));
+  }, [activeScenarioId, plannerItems]);
+
   const handleActiveDragChange = useCallback((preview: DragPreview | null) => {
     setActiveDragPreview(preview);
   }, []);
@@ -657,26 +673,25 @@ export function ScenarioPlanner() {
     collapseBacklog();
   }, [activeScenarioId, sprints, plannerItems, jiraItems, handleItemsChange, collapseBacklog]);
 
-  const handleBarClick = useCallback((item: PlannerItem, anchorEl: HTMLElement, preSelectedMemberId?: string) => {
-    if (preSelectedMemberId) {
-      // People-drag drop → open assign popover
-      setAssignTarget({ item, anchorEl, preSelectedMemberId });
-    } else {
-      // Direct bar click → open detail panel (US-UI-22)
-      setPlannerUI(prev => ({ ...prev, detailItemId: item.jiraKey ?? item.id }));
-    }
+  const handleOpenAssignPanel = useCallback((item: PlannerItem) => {
+    setAssignPanelItemId(item.id);
+    setPlannerUI(prev => ({ ...prev, detailItemId: null }));
   }, []);
 
-  const handleLabelClick = useCallback((item: PlannerItem) => {
+  const handleLabelDetailClick = useCallback((item: PlannerItem) => {
     setPlannerUI(prev => ({ ...prev, detailItemId: item.jiraKey ?? item.id }));
   }, []);
 
-  // Keep the popover's item in sync with live plannerItems (so assignments reflect immediately)
-  const liveAssignTarget = useMemo(() => {
-    if (!assignTarget) return null;
-    const live = plannerItems.find(p => p.id === assignTarget.item.id);
-    return { ...assignTarget, item: live ?? assignTarget.item };
-  }, [assignTarget, plannerItems]);
+  const liveAssignPanelItem = useMemo(() => {
+    if (!assignPanelItemId) return null;
+    return plannerItems.find(p => p.id === assignPanelItemId) ?? null;
+  }, [assignPanelItemId, plannerItems]);
+
+  useEffect(() => {
+    if (assignPanelItemId && !plannerItems.some(p => p.id === assignPanelItemId)) {
+      setAssignPanelItemId(null);
+    }
+  }, [assignPanelItemId, plannerItems]);
 
   // ── SP-17/18: Manual item creation ──────────────────────────────────────────
 
@@ -1398,7 +1413,12 @@ export function ScenarioPlanner() {
                     onBulkSchedule={handleBulkSchedule}
                   />
                 ) : null}
-                <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0">
+                <div
+                  className={[
+                    'flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 transition-[padding-right] duration-300',
+                    assignPanelItemId ? 'ease-[cubic-bezier(0.16,1,0.3,1)] pr-[var(--assign-panel-width,440px)]' : '',
+                  ].join(' ')}
+                >
                   {activeScenarioId ? (
                     <PlannerTimeline
                       plannerItems={filteredPlannerItems}
@@ -1408,8 +1428,10 @@ export function ScenarioPlanner() {
                       scenarioId={activeScenarioId}
                       onItemsChange={handleItemsChange}
                       onActiveDragChange={handleActiveDragChange}
-                      onBarClick={handleBarClick}
-                      onLabelClick={handleLabelClick}
+                      onBarClick={handleOpenAssignPanel}
+                      onOpenAssignFromLabel={handleOpenAssignPanel}
+                      onLabelClick={handleLabelDetailClick}
+                      assignPanelItemId={assignPanelItemId}
                       onAddChild={handleAddChild}
                       onContextMenu={handleContextMenu}
                       focusedMemberId={plannerUI.focusedMemberId}
@@ -1508,16 +1530,14 @@ export function ScenarioPlanner() {
         </p>
       </Modal>
 
-      {/* AssignPopover — portaled to document.body, opened on bar click or people-drawer drop */}
-      {liveAssignTarget && (
-        <AssignPopover
-          item={liveAssignTarget.item}
-          anchorEl={liveAssignTarget.anchorEl}
-          plannerItems={plannerItems}
+      {plannerUI.activeMode === 'timeline' && activeScenarioId && liveAssignPanelItem && (
+        <AssignPanel
+          item={liveAssignPanelItem}
           selectedQuarter={selectedQuarter}
-          onItemsChange={handleItemsChange}
-          onClose={() => setAssignTarget(null)}
-          preSelectedMemberId={liveAssignTarget.preSelectedMemberId}
+          jiraBaseUrl={jiraBaseUrl}
+          jiraItems={jiraItems}
+          onClose={() => setAssignPanelItemId(null)}
+          onPersistDraft={handleAssignPanelPersist}
         />
       )}
 

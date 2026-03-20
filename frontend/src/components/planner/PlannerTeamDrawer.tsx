@@ -90,6 +90,7 @@ function TeamMemberCard({
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `people-${card.id}`,
     data: { type: 'people-drag', memberId: card.id, memberName: card.name, track: card.track },
+    disabled: activeMode === 'timeline',
   });
 
   const usedPct = Math.min(card.usedPercent, 100);
@@ -102,31 +103,27 @@ function TeamMemberCard({
         isFocused    ? 'border-mileway-blue bg-mileway-blue-10' : 'border-mileway-border bg-white hover:border-mileway-blue/40 hover:shadow-sm',
       ].join(' ')}
     >
-      {/* ── Grip column ─────────────────────────────────────────────────────── */}
-      {/* Board mode: always visible. Timeline mode: hover-only (120ms transition) */}
-      <div
-        ref={activeMode === 'timeline' ? setNodeRef : undefined}
-        {...(activeMode === 'timeline' ? { ...attributes, ...listeners } : {})}
-        className={[
-          'flex items-center justify-center w-4 flex-shrink-0 rounded-l-lg transition-opacity duration-[120ms]',
-          activeMode === 'board'
-            ? 'opacity-100 cursor-grab'
-            : 'opacity-0 group-hover:opacity-100 cursor-grab',
-          isDragging ? 'cursor-grabbing' : '',
-        ].join(' ')}
-        title={`Drag to assign ${card.name}`}
-        aria-label={`Drag handle for ${card.name}`}
-      >
-        <GripVertical size={13} className="text-mileway-grey" aria-hidden="true" />
-      </div>
+      {/* ── Grip column — visual hint on Board only (drag handle is whole card body) */}
+      {activeMode === 'board' && (
+        <div
+          className={[
+            'flex items-center justify-center w-4 flex-shrink-0 rounded-l-lg',
+            'opacity-100 cursor-grab',
+            isDragging ? 'cursor-grabbing' : '',
+          ].join(' ')}
+          aria-hidden
+        >
+          <GripVertical size={13} className="text-mileway-grey" />
+        </div>
+      )}
 
       {/* ── Card body ───────────────────────────────────────────────────────── */}
       <div
         ref={activeMode === 'board' ? setNodeRef : undefined}
         {...(activeMode === 'board' ? { ...attributes, ...listeners } : {})}
         className={[
-          'flex-1 min-w-0 flex items-center gap-2.5 px-2 py-2.5 pr-2.5',
-          activeMode === 'board'    ? 'cursor-grab'    : 'cursor-default',
+          'flex-1 min-w-0 flex items-center gap-2.5 px-2 py-2.5 pr-2.5 rounded-lg',
+          activeMode === 'board' ? 'cursor-grab' : 'cursor-default',
           isDragging && activeMode === 'board' ? 'cursor-grabbing' : '',
         ].join(' ')}
         onClick={activeMode === 'timeline' ? onBodyClick : undefined}

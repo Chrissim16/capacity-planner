@@ -132,6 +132,106 @@
   --duration-slow:     400ms;
   --blue:              #0089DD;
   --blue-light:        #E6F2FC;
+
+  /* Mileway semantic (Assign Panel + status badges) */
+  --primary-light:     #e6f4fc;
+  --primary-subtle:    #f3f9fd;
+  --primary-hover:     #006BB5;
+  --success:           #1b8f5a;
+  --success-light:     #d8f2e7;
+  --warning:           #ff8a00;
+  --danger:            #d92d20;
+
+  /* Assignment Panel (Timeline) — assign-panel-spec-v2 */
+  --assign-panel-width: 440px;
+  --assign-panel-border: var(--color-border);
+  --assign-panel-shadow: -12px 0 40px rgba(0, 0, 0, 0.09);
+  --assign-active-outline: var(--color-primary);
+  --assign-active-row-bg: var(--primary-subtle);
+  --jira-badge-bg: var(--primary-light);
+  --jira-badge-border: #b3dcf5;
+  --jira-badge-text: var(--color-primary);
+  --alloc-border-near: #fde68a;
+  --alloc-border-warn: #fcd34d;
+  --alloc-border-over: #fca5a5;
+  --whatif-bg: #fffbeb;
+  --warning-light: #fff4e5;
+  --danger-light: #fee4e2;
+}
+
+/* Assign Panel — range slider track fill via --pct */
+.assign-panel input[type='range'].assign-days-slider {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  background: linear-gradient(
+    to right,
+    var(--color-primary) var(--pct, 11%),
+    var(--color-border) var(--pct, 11%)
+  );
+}
+.assign-panel input[type='range'].assign-days-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 137, 221, 0.35);
+  cursor: pointer;
+  transition: transform 100ms;
+}
+.assign-panel input[type='range'].assign-days-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.assign-panel input[type='range'].assign-days-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--color-primary) var(--pct, 11%),
+    var(--color-border) var(--pct, 11%)
+  );
+}
+.assign-panel input[type='range'].assign-days-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 137, 221, 0.35);
+  cursor: pointer;
+}
+
+/* Inline person picker expand */
+.assign-inline-picker {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 250ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease;
+}
+.assign-inline-picker.open {
+  max-height: 260px;
+  opacity: 1;
+}
+
+@keyframes assignee-row-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.assignee-row-enter {
+  animation: assignee-row-enter 160ms ease-out forwards;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
