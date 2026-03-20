@@ -12,7 +12,7 @@
  * drag-to-unschedule gesture works natively.
  */
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
-import { Loader2, Users, Plus, Filter, X, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { Loader2, Users, Plus, Filter, X, Inbox, Check } from 'lucide-react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus } from '../stores/appStore';
 import {
@@ -862,23 +862,9 @@ export function ScenarioPlanner() {
           {/* Mode toggle — follows the left divider */}
           <ModeToggle mode={plannerUI.activeMode} onChange={handleModeChange} />
 
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* Right group — Timeline-only controls */}
+          {/* Timeline-only filters — middle section */}
           {plannerUI.activeMode === 'timeline' && (
             <>
-              {/* SP-17: Add Epic */}
-              {activeScenarioId && (
-                <button
-                  onClick={() => setCreateModal({ defaultType: 'epic' })}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-mileway-blue bg-mileway-blue-10 hover:bg-mileway-blue hover:text-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-                >
-                  <Plus size={14} aria-hidden="true" />
-                  Add Epic
-                </button>
-              )}
-
               {activeScenarioId && (
                 <PlannerPersonFilterPill
                   selectedMemberId={plannerUI.focusedMemberId}
@@ -931,75 +917,55 @@ export function ScenarioPlanner() {
                   </button>
                 )}
               </div>
-
-              {/* Quarter navigator — ‹ Q1 2026 › */}
-              <div className="flex items-center gap-0.5">
-                <button
-                  onClick={() => setPlannerUI(prev => ({ ...prev, currentQuarterIndex: prev.currentQuarterIndex - 1 }))}
-                  disabled={plannerUI.currentQuarterIndex === 0}
-                  aria-label="Previous quarter"
-                  className="flex items-center justify-center w-6 h-7 rounded text-mileway-grey hover:bg-mileway-bg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft size={14} aria-hidden="true" />
-                </button>
-                <span className="text-xs font-semibold text-mileway-text px-1 min-w-[60px] text-center select-none">
-                  {selectedQuarter}
-                </span>
-                <button
-                  onClick={() => setPlannerUI(prev => ({ ...prev, currentQuarterIndex: prev.currentQuarterIndex + 1 }))}
-                  disabled={plannerUI.currentQuarterIndex >= quarters.length - 1}
-                  aria-label="Next quarter"
-                  className="flex items-center justify-center w-6 h-7 rounded text-mileway-grey hover:bg-mileway-bg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight size={14} aria-hidden="true" />
-                </button>
-              </div>
             </>
           )}
 
-          {/* Backlog toggle (all modes) — keyboard shortcut: B */}
-          <button
-            onClick={toggleBacklog}
-            title={`${plannerUI.backlogOpen ? 'Collapse' : 'Expand'} backlog (B)`}
-            className={[
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-              plannerUI.backlogOpen
-                ? 'bg-mileway-blue-10 text-mileway-blue'
-                : 'text-mileway-grey hover:bg-mileway-bg',
-            ].join(' ')}
-          >
-            Backlog
-            {backlogBadgeCount > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-blue text-white leading-none">
-                {backlogBadgeCount}
-              </span>
-            )}
-          </button>
+          {/* Right-side actions — always visible, never pushed off-screen */}
+          <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+            {/* Backlog toggle — icon only (keyboard shortcut: B) */}
+            <button
+              onClick={toggleBacklog}
+              title={`${plannerUI.backlogOpen ? 'Collapse' : 'Expand'} backlog (B)`}
+              className={[
+                'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                plannerUI.backlogOpen
+                  ? 'bg-mileway-blue-10 text-mileway-blue'
+                  : 'text-mileway-grey hover:bg-mileway-bg',
+              ].join(' ')}
+            >
+              <Inbox size={14} aria-hidden="true" />
+              {backlogBadgeCount > 0 && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-blue text-white leading-none">
+                  {backlogBadgeCount}
+                </span>
+              )}
+            </button>
 
-          {/* Team toggle (all modes) — keyboard shortcut: T */}
-          <button
-            onClick={toggleTeamDrawer}
-            title={`${plannerUI.teamDrawerOpen ? 'Hide' : 'Show'} team drawer (T)`}
-            className={[
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-              plannerUI.teamDrawerOpen
-                ? 'bg-mileway-blue-10 text-mileway-blue'
-                : 'text-mileway-grey hover:bg-mileway-bg',
-            ].join(' ')}
-          >
-            <Users size={14} aria-hidden="true" />
-            Team
-            {teamBadgeCount > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-grey/30 text-mileway-text leading-none">
-                {teamBadgeCount}
-              </span>
-            )}
-          </button>
+            {/* Team toggle (keyboard shortcut: T) */}
+            <button
+              onClick={toggleTeamDrawer}
+              title={`${plannerUI.teamDrawerOpen ? 'Hide' : 'Show'} team drawer (T)`}
+              className={[
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                plannerUI.teamDrawerOpen
+                  ? 'bg-mileway-blue-10 text-mileway-blue'
+                  : 'text-mileway-grey hover:bg-mileway-bg',
+              ].join(' ')}
+            >
+              <Users size={14} aria-hidden="true" />
+              Team
+              {teamBadgeCount > 0 && (
+                <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-grey/30 text-mileway-text leading-none">
+                  {teamBadgeCount}
+                </span>
+              )}
+            </button>
 
-          {/* Save */}
-          <SaveButton />
+            {/* Save */}
+            <SaveButton />
+          </div>
         </div>
 
         {/* ── Baseline banner (SP-05) ──────────────────────────────────────── */}
@@ -1109,7 +1075,7 @@ export function ScenarioPlanner() {
                       plannerItems={filteredPlannerItems}
                       jiraItems={jiraItems}
                       sprints={sprints}
-                      selectedQuarter={selectedQuarter}
+                      onAddEpic={() => setCreateModal({ defaultType: 'epic' })}
                       scenarioId={activeScenarioId}
                       onItemsChange={handleItemsChange}
                       onActiveDragChange={handleActiveDragChange}

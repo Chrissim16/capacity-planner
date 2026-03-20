@@ -8,7 +8,7 @@
  * dropdown to switch between scenarios. The creation modal is kept intact.
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, ChevronDown, Zap, Check } from 'lucide-react';
+import { Plus, ChevronDown, Check } from 'lucide-react';
 import type { Scenario } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
@@ -53,15 +53,6 @@ export function ScenarioTabs({ scenarios, activeScenarioId, onSelect, onCreate }
 
   return (
     <>
-      {/* ── Scenario mode chip — display only ──────────────────────── */}
-      <div
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-mileway-bg text-mileway-grey text-xs font-medium select-none flex-shrink-0"
-        aria-label="Scenario mode"
-      >
-        <Zap size={12} aria-hidden="true" />
-        Scenario mode
-      </div>
-
       {/* ── Active scenario pill + dropdown ────────────────────────── */}
       <div className="relative flex-shrink-0" ref={dropdownRef}>
         <button

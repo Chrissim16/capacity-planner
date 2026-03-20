@@ -37,7 +37,7 @@ const LABEL_W_MAX = 500;
 const SPRINT_HEADER_H = 64;
 const ROW_H = 44;
 const BAR_PAD_Y = 7;
-const SPRINT_COUNT = 6;
+const MIN_SPRINT_W = 100;
 
 const BAR: Record<string, { bg: string; border: string; borderW: number; radius: number }> = {
   epic:      { bg: 'rgba(168,196,245,0.18)', border: '#6090E0', borderW: 2, radius: 6 },
@@ -78,10 +78,8 @@ export interface DragPreview {
 export interface PlannerTimelineProps {
   plannerItems: PlannerItem[];
   jiraItems: JiraWorkItem[];
-  /** Sprints for the current year — used to derive the 6 visible columns. */
+  /** All available sprints — visible window is derived automatically (1 past + current + future). */
   sprints: Sprint[];
-  /** e.g. "Q2 2026" */
-  selectedQuarter: string;
   scenarioId: string;
   /** Fires during any drag/resize so PlannerCapacity can show a live preview. */
   onActiveDragChange?: (preview: DragPreview | null) => void;
@@ -109,16 +107,18 @@ export interface PlannerTimelineProps {
   onBacklogItemScheduled?: () => void;
   /** Backlog drawer — expand after a timeline bar is dropped on the backlog (unschedule). */
   onBarUnscheduledToBacklog?: () => void;
+  /** Inline "+ Add Epic" button in the Gantt header. Only shown when truthy. */
+  onAddEpic?: () => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function barFracs(startSprint: number, spanSprints: number, firstSprintNum: number): BarFracs {
+function barFracs(startSprint: number, spanSprints: number, firstSprintNum: number, sprintCount: number): BarFracs {
   const lo = startSprint - firstSprintNum;
   const hi = lo + spanSprints;
-  if (lo >= SPRINT_COUNT || hi <= 0) return { left: 0, width: 0, visible: false };
-  const cl = Math.max(0, lo) / SPRINT_COUNT;
-  const cr = Math.min(SPRINT_COUNT, hi) / SPRINT_COUNT;
+  if (lo >= sprintCount || hi <= 0) return { left: 0, width: 0, visible: false };
+  const cl = Math.max(0, lo) / sprintCount;
+  const cr = Math.min(sprintCount, hi) / sprintCount;
   return { left: cl, width: cr - cl, visible: true };
 }
 
@@ -138,10 +138,12 @@ function formatSprintRange(startDate: string, endDate: string): string {
 
 function SprintHeaders({
   sprints,
+  sprintCount,
   dragOverNum,
   currentSprintNum,
 }: {
   sprints: Sprint[];
+  sprintCount: number;
   dragOverNum: number | null;
   currentSprintNum: number | null;
 }) {
@@ -152,7 +154,7 @@ function SprintHeaders({
         return (
           <div
             key={s.id}
-            style={{ width: `${100 / SPRINT_COUNT}%` }}
+            style={{ width: `${100 / sprintCount}%` }}
             className={[
               'flex-shrink-0 relative px-3 border-r border-mileway-border last:border-r-0 transition-colors duration-fast',
               'flex flex-col justify-center gap-0.5',
@@ -193,12 +195,14 @@ function SprintHeaders({
 function SprintColumnZone({
   sprint,
   index,
+  sprintCount,
   totalHeight,
   dragOverNum,
   isCurrentSprint,
 }: {
   sprint: Sprint;
   index: number;
+  sprintCount: number;
   totalHeight: number;
   dragOverNum: number | null;
   isCurrentSprint?: boolean;
@@ -218,8 +222,8 @@ function SprintColumnZone({
       style={{
         position: 'absolute',
         top: 0,
-        left: `${(index / SPRINT_COUNT) * 100}%`,
-        width: `${(1 / SPRINT_COUNT) * 100}%`,
+        left: `${(index / sprintCount) * 100}%`,
+        width: `${(1 / sprintCount) * 100}%`,
         height: totalHeight,
         zIndex: 0,
         backgroundColor: bg,
@@ -343,6 +347,7 @@ interface PlannerBarProps {
   item: PlannerItem;
   rowTop: number;
   firstSprintNum: number;
+  sprintCount: number;
   resizePreview: { start: number; span: number } | null;
   onResizeStart: (e: ReactPointerEvent<HTMLDivElement>, itemId: string, edge: 'left' | 'right') => void;
   onResizeMove: (e: ReactPointerEvent<HTMLDivElement>) => void;
@@ -362,6 +367,7 @@ function PlannerBar({
   item,
   rowTop,
   firstSprintNum,
+  sprintCount,
   resizePreview,
   onResizeStart,
   onResizeMove,
@@ -376,7 +382,7 @@ function PlannerBar({
 
   const displayStart = resizePreview?.start ?? item.startSprint;
   const displaySpan  = resizePreview?.span  ?? item.spanSprints;
-  const frac = barFracs(displayStart, displaySpan, firstSprintNum);
+  const frac = barFracs(displayStart, displaySpan, firstSprintNum, sprintCount);
   if (!frac.visible) return null;
 
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
@@ -586,7 +592,6 @@ export function PlannerTimeline({
   plannerItems,
   jiraItems,
   sprints,
-  selectedQuarter,
   onActiveDragChange,
   onItemsChange,
   onBarClick,
@@ -601,6 +606,7 @@ export function PlannerTimeline({
   onOverloadedTickerClick,
   onBacklogItemScheduled,
   onBarUnscheduledToBacklog,
+  onAddEpic,
 }: PlannerTimelineProps) {
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
@@ -643,12 +649,25 @@ export function PlannerTimeline({
     return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp); };
   }, []);
 
-  // ── Quarter sprints ─────────────────────────────────────────────────────────
-  const quarterSprints = useMemo(
-    () => sprints.filter(s => s.quarter === selectedQuarter).slice(0, SPRINT_COUNT),
-    [sprints, selectedQuarter],
-  );
-  const firstSprintNum = quarterSprints[0]?.number ?? 1;
+  // ── Visible sprint window: 1 past + current + all future ────────────────────
+  const visibleSprints = useMemo(() => {
+    if (!sprints.length) return sprints;
+    const now = new Date();
+    const currentIdx = sprints.findIndex(
+      s => s.startDate && s.endDate &&
+           new Date(s.startDate) <= now && now <= new Date(s.endDate),
+    );
+    // Fall back to first future sprint if no active sprint found
+    const anchorIdx = currentIdx >= 0
+      ? currentIdx
+      : sprints.findIndex(s => s.startDate && new Date(s.startDate) > now);
+    const safeAnchor = anchorIdx >= 0 ? anchorIdx : 0;
+    const startIdx = Math.max(0, safeAnchor - 1);
+    return sprints.slice(startIdx);
+  }, [sprints]);
+
+  const visibleSprintCount = Math.max(visibleSprints.length, 1);
+  const firstSprintNum = visibleSprints[0]?.number ?? 1;
 
   const activeDragLayout = useMemo((): PlannerItem[] | undefined => {
     if (resize) {
@@ -669,8 +688,7 @@ export function PlannerTimeline({
   const ticker = usePlannerCapacityTicker({
     plannerItems,
     activeDragLayout,
-    sprints,
-    selectedQuarter,
+    visibleSprints,
     labelWidth,
     isPanelOpen: capacityPanelOpen,
     onTogglePanel: onCapacityPanelToggle,
@@ -682,8 +700,8 @@ export function PlannerTimeline({
   const { currentSprintNum, todayLinePercent } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    for (let i = 0; i < quarterSprints.length; i++) {
-      const s = quarterSprints[i];
+    for (let i = 0; i < visibleSprints.length; i++) {
+      const s = visibleSprints[i];
       if (!s.startDate || !s.endDate) continue;
       const start = new Date(s.startDate); start.setHours(0, 0, 0, 0);
       const end   = new Date(s.endDate);   end.setHours(23, 59, 59, 999);
@@ -691,12 +709,12 @@ export function PlannerTimeline({
         const fraction = (today.getTime() - start.getTime()) / (end.getTime() - start.getTime());
         return {
           currentSprintNum: s.number,
-          todayLinePercent: (i + fraction) / SPRINT_COUNT * 100,
+          todayLinePercent: (i + fraction) / visibleSprintCount * 100,
         };
       }
     }
     return { currentSprintNum: null, todayLinePercent: null };
-  }, [quarterSprints]);
+  }, [visibleSprints, visibleSprintCount]);
 
   // ── Flat visible row list ───────────────────────────────────────────────────
   const visibleItems = useMemo(() => {
@@ -778,7 +796,7 @@ export function PlannerTimeline({
 
   const handleResizeMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     if (!resize || !canvasRef.current) return;
-    const sprintW = canvasRef.current.getBoundingClientRect().width / SPRINT_COUNT;
+    const sprintW = canvasRef.current.getBoundingClientRect().width / visibleSprintCount;
     const delta = Math.round((e.clientX - resize.startX) / sprintW);
     const newStart = resize.edge === 'left' ? Math.max(1, resize.origStart + delta) : resize.origStart;
     const newSpan  = resize.edge === 'right'
@@ -1022,10 +1040,10 @@ export function PlannerTimeline({
   // onto an empty timeline still registers. 240px covers ~5 rows of visual space.
   const totalH = Math.max(contentH, 240);
 
-  if (quarterSprints.length === 0) {
+  if (visibleSprints.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-mileway-grey text-sm">
-        No sprint data available for {selectedQuarter}.
+        No sprint data available.
       </div>
     );
   }
@@ -1095,13 +1113,29 @@ export function PlannerTimeline({
 
           {/* Gantt canvas */}
           <div className="flex-1 overflow-auto">
+            {/* Inner wrapper enforces minimum column width so columns never crush below 100px */}
+            <div style={{ minWidth: visibleSprintCount * MIN_SPRINT_W }}>
             {/* Sprint headers — sticky so they stay visible when scrolling */}
             <div className="sticky top-0 z-20 bg-white">
-              <SprintHeaders
-                sprints={quarterSprints}
-                dragOverNum={dragOverNum}
-                currentSprintNum={currentSprintNum}
-              />
+              <div className="relative">
+                <SprintHeaders
+                  sprints={visibleSprints}
+                  sprintCount={visibleSprintCount}
+                  dragOverNum={dragOverNum}
+                  currentSprintNum={currentSprintNum}
+                />
+                {onAddEpic && (
+                  <button
+                    onClick={onAddEpic}
+                    title="Add Epic"
+                    aria-label="Add Epic"
+                    className="absolute top-1.5 right-2 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-mileway-blue bg-mileway-blue-10 hover:bg-mileway-blue hover:text-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                  >
+                    <Plus size={12} aria-hidden="true" />
+                    Add Epic
+                  </button>
+                )}
+              </div>
               {ticker.sprintRow}
             </div>
 
@@ -1112,11 +1146,12 @@ export function PlannerTimeline({
               style={{ height: totalH }}
             >
               {/* Full-height sprint column drop zones (z:0) */}
-              {quarterSprints.map((s, i) => (
+              {visibleSprints.map((s, i) => (
                 <SprintColumnZone
                   key={s.id}
                   sprint={s}
                   index={i}
+                  sprintCount={visibleSprintCount}
                   totalHeight={totalH}
                   dragOverNum={dragOverNum}
                   isCurrentSprint={s.number === currentSprintNum}
@@ -1198,6 +1233,7 @@ export function PlannerTimeline({
                   item={item}
                   rowTop={idx * ROW_H}
                   firstSprintNum={firstSprintNum}
+                  sprintCount={visibleSprintCount}
                   resizePreview={resize?.itemId === item.id ? { start: resize.previewStart, span: resize.previewSpan } : null}
                   onResizeStart={handleResizeStart}
                   onResizeMove={handleResizeMove}
@@ -1210,6 +1246,7 @@ export function PlannerTimeline({
                 />
               ))}
             </div>
+            </div>{/* end minWidth wrapper */}
           </div>
         </div>
       </div>

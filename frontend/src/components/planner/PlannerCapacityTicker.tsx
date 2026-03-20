@@ -22,7 +22,6 @@ import { calculateCapacity } from '../../utils/capacity';
 import type { PlannerItem, Sprint } from '../../types';
 
 const TICKER_H = 28;
-const SPRINT_COUNT = 6;
 
 interface CellData {
   load: number;
@@ -152,12 +151,14 @@ function CrossfadePct({
 function SprintTickerCell({
   sprint,
   cell,
+  sprintCount,
   peopleLines,
   filterAssignmentLines,
   onOverloadedClick,
 }: {
   sprint: Sprint;
   cell: CellData;
+  sprintCount: number;
   peopleLines: PersonSprintLine[];
   /** When set, tooltip shows this person's sprint assignments instead of the team breakdown */
   filterAssignmentLines?: FilterAssignmentLine[] | null;
@@ -213,7 +214,7 @@ function SprintTickerCell({
           overloaded ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue' : 'cursor-default',
         ].join(' ')}
         style={{
-          width: `${100 / SPRINT_COUNT}%`,
+          width: `${100 / sprintCount}%`,
           height: TICKER_H,
           backgroundColor: bg,
           color,
@@ -265,8 +266,8 @@ function SprintTickerCell({
 export interface PlannerCapacityTickerProps {
   plannerItems: PlannerItem[];
   activeDragLayout?: PlannerItem[] | undefined;
-  sprints: Sprint[];
-  selectedQuarter: string;
+  /** Pre-filtered sprint window from PlannerTimeline (1 past + current + future). */
+  visibleSprints: Sprint[];
   labelWidth: number;
   isPanelOpen: boolean;
   onTogglePanel: () => void;
@@ -278,8 +279,7 @@ export interface PlannerCapacityTickerProps {
 export function usePlannerCapacityTicker({
   plannerItems,
   activeDragLayout,
-  sprints,
-  selectedQuarter,
+  visibleSprints,
   labelWidth,
   isPanelOpen,
   onTogglePanel,
@@ -289,32 +289,33 @@ export function usePlannerCapacityTicker({
   const state = useCurrentState();
   const itemsForCalc = activeDragLayout ?? plannerItems;
 
-  const quarterSprints = useMemo(
-    () => sprints.filter(s => s.quarter === selectedQuarter).slice(0, SPRINT_COUNT),
-    [sprints, selectedQuarter],
-  );
+  const quarterSprints = visibleSprints;
 
   const { teamTotals, peopleBySprintIndex, filterMemberName, assignmentLinesBySprintIndex } = useMemo(() => {
-    const n = quarterSprints.length || 1;
+    // Pre-compute per-quarter sprint counts so we can allocate capacity proportionally
+    const sprintCountByQuarter = new Map<string, number>();
+    for (const s of quarterSprints) {
+      if (s.quarter) sprintCountByQuarter.set(s.quarter, (sprintCountByQuarter.get(s.quarter) ?? 0) + 1);
+    }
 
     const memberRows = (state.teamMembers ?? [])
       .filter(m => !m.excludedFromCapacity)
       .map(m => {
-        let quarterAvail = 0;
-        try {
-          const cap = calculateCapacity(m.id, selectedQuarter, state);
-          const fixedUsed = cap.breakdown
-            .filter(b => b.type === 'bau' || b.type === 'timeoff')
-            .reduce((sum, b) => sum + b.days, 0);
-          quarterAvail = Math.max(0, cap.totalWorkdays - fixedUsed);
-        } catch {
-          quarterAvail = 0;
-        }
-        const perSprintAvail = Math.round(quarterAvail / n);
-        const cells = quarterSprints.map(s => ({
-          load: computeLoadDays(m.id, s.number, itemsForCalc),
-          avail: perSprintAvail,
-        }));
+        const cells = quarterSprints.map(s => {
+          let perSprintAvail = 0;
+          try {
+            const q = s.quarter ?? '';
+            const cap = calculateCapacity(m.id, q, state);
+            const fixedUsed = cap.breakdown
+              .filter(b => b.type === 'bau' || b.type === 'timeoff')
+              .reduce((sum, b) => sum + b.days, 0);
+            const quarterAvail = Math.max(0, cap.totalWorkdays - fixedUsed);
+            perSprintAvail = Math.round(quarterAvail / (sprintCountByQuarter.get(q) || 1));
+          } catch {
+            perSprintAvail = 0;
+          }
+          return { load: computeLoadDays(m.id, s.number, itemsForCalc), avail: perSprintAvail };
+        });
         return { id: m.id, name: m.name, cells };
       });
 
@@ -387,7 +388,7 @@ export function usePlannerCapacityTicker({
       filterMemberName: fname,
       assignmentLinesBySprintIndex: assignByIdx,
     };
-  }, [state, quarterSprints, selectedQuarter, itemsForCalc, selectedFilterMemberId]);
+  }, [state, quarterSprints, itemsForCalc, selectedFilterMemberId]);
 
   const labelCell =
     quarterSprints.length === 0 ? null : (
@@ -409,6 +410,8 @@ export function usePlannerCapacityTicker({
       </button>
     );
 
+  const sprintCount = Math.max(quarterSprints.length, 1);
+
   const sprintRow =
     quarterSprints.length === 0 ? null : (
       <div className="flex w-full min-w-0 border-b border-mileway-border">
@@ -417,6 +420,7 @@ export function usePlannerCapacityTicker({
             key={s.id}
             sprint={s}
             cell={teamTotals[i] ?? { load: 0, avail: 0 }}
+            sprintCount={sprintCount}
             peopleLines={peopleBySprintIndex[i] ?? []}
             filterAssignmentLines={assignmentLinesBySprintIndex?.[i] ?? null}
             onOverloadedClick={onOverloadedSprintClick}
