@@ -12,7 +12,7 @@
  *   - No overflow:hidden on any gantt row
  *   - Bars are percentage-positioned, never grid-based
  */
-import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect, type CSSProperties } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import {
   DragOverlay,
@@ -25,8 +25,17 @@ import {
 } from '@dnd-kit/core';
 import { ChevronRight, ChevronDown, Lock, Plus, Pencil } from 'lucide-react';
 import { useToast } from '../ui/Toast';
-import type { PlannerItem, PlannerItemType, JiraWorkItem, Sprint } from '../../types';
+import type {
+  PlannerItem,
+  PlannerItemType,
+  PlannerAssignment,
+  JiraWorkItem,
+  Sprint,
+  TeamMember,
+  BusinessContact,
+} from '../../types';
 import { generateId } from '../../stores/actions';
+import { useCurrentState } from '../../stores/appStore';
 import { usePlannerCapacityTicker } from './PlannerCapacityTicker';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -53,6 +62,152 @@ const BAR: Record<string, { bg: string; border: string; borderW: number; radius:
 const INDENT: Partial<Record<PlannerItemType, number>> = {
   epic: 0, feature: 16, story: 32, task: 32, bug: 32, uat: 32, hypercare: 32,
 };
+
+/** Stable saturated backgrounds for bar avatars (no per-member colour on types yet). */
+const PLANNER_BAR_AVATAR_BGS = [
+  '#0089DD', '#7C3AED', '#16A34A', '#D97706', '#DC2626',
+  '#0891B2', '#DB2777', '#4F46E5', '#CA8A04', '#0D9488',
+  '#2563EB', '#EA580C', '#9333EA',
+] as const;
+
+function plannerBarAvatarBackground(memberId: string): string {
+  let h = 0;
+  for (let i = 0; i < memberId.length; i++) {
+    h = Math.imul(31, h) + memberId.charCodeAt(i) | 0;
+  }
+  return PLANNER_BAR_AVATAR_BGS[Math.abs(h) % PLANNER_BAR_AVATAR_BGS.length];
+}
+
+function plannerBarInitials(name: string): string {
+  return name
+    .split(' ')
+    .map(p => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+interface PlannerBarAvatarSlot {
+  key: string;
+  name: string;
+  initials: string;
+  background: string;
+}
+
+function buildPlannerBarAvatarSlots(
+  assignees: PlannerAssignment[],
+  teamMembers: TeamMember[],
+  businessContacts: BusinessContact[],
+): PlannerBarAvatarSlot[] {
+  return assignees.map(a => {
+    if (a.track === 'IT') {
+      const m = teamMembers.find(tm => tm.id === a.memberId);
+      const name = m?.name ?? a.memberId;
+      return {
+        key: `IT:${a.memberId}`,
+        name,
+        initials: plannerBarInitials(name),
+        background: plannerBarAvatarBackground(a.memberId),
+      };
+    }
+    const c = businessContacts.find(b => b.id === a.memberId);
+    const name = c?.name ?? a.memberId;
+    return {
+      key: `BIZ:${a.memberId}`,
+      name,
+      initials: plannerBarInitials(name),
+      background: plannerBarAvatarBackground(a.memberId),
+    };
+  });
+}
+
+const barAvatarChipStyle: CSSProperties = {
+  width: 16,
+  height: 16,
+  borderRadius: '50%',
+  border: '1.5px solid rgba(255,255,255,0.7)',
+  color: '#fff',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+  boxSizing: 'border-box',
+};
+
+/** Overlapping assignee chips (max 3 visible slots → 2 avatars + +N). */
+function PlannerBarAvatarStack({
+  slots,
+  variant = 'inBar',
+}: {
+  slots: PlannerBarAvatarSlot[];
+  /** `inBar`: absolute layer inside the bar. `inline`: flex row segment (e.g. drag ghost). */
+  variant?: 'inBar' | 'inline';
+}) {
+  if (slots.length === 0) return null;
+
+  const useOverflow = slots.length > 3;
+  const visible = useOverflow ? slots.slice(0, 2) : slots;
+  const overflowN = useOverflow ? slots.length - 2 : 0;
+  const overflowTitle = useOverflow ? slots.slice(2).map(s => s.name).join(', ') : '';
+
+  const wrapperStyle: CSSProperties =
+    variant === 'inBar'
+      ? {
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 8px',
+          pointerEvents: 'none',
+          zIndex: 0,
+          maxWidth: '100%',
+          overflow: 'hidden',
+        }
+      : {
+          display: 'flex',
+          alignItems: 'center',
+          flexShrink: 0,
+          overflow: 'hidden',
+        };
+
+  return (
+    <div className="planner-bar-avatars" style={wrapperStyle}>
+      {visible.map((s, i) => (
+        <div
+          key={s.key}
+          className="planner-bar-avatar"
+          title={s.name}
+          style={{
+            ...barAvatarChipStyle,
+            marginLeft: i === 0 ? 0 : -4,
+            background: s.background,
+            fontSize: 8,
+            fontWeight: 700,
+          }}
+        >
+          {s.initials}
+        </div>
+      ))}
+      {overflowN > 0 && (
+        <div
+          className="planner-bar-avatar planner-bar-avatar-overflow"
+          title={overflowTitle}
+          style={{
+            ...barAvatarChipStyle,
+            marginLeft: -4,
+            background: 'rgba(0,0,0,0.18)',
+            fontSize: 7,
+            fontWeight: 800,
+          }}
+        >
+          +{overflowN}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Internal types ────────────────────────────────────────────────────────────
 
@@ -396,6 +551,17 @@ function PlannerBar({
   focusedMemberId,
   onRowHover,
 }: PlannerBarProps) {
+  const appState = useCurrentState();
+  const barAvatarSlots = useMemo(
+    () =>
+      buildPlannerBarAvatarSlots(
+        item.assignees,
+        appState.teamMembers,
+        appState.businessContacts ?? [],
+      ),
+    [item.assignees, appState.teamMembers, appState.businessContacts],
+  );
+
   const isInteractive = !item.locked || item.unlockedInScenario;
 
   const displayStart = resizePreview?.start ?? item.startSprint;
@@ -461,6 +627,8 @@ function PlannerBar({
           : undefined
       }
     >
+      <PlannerBarAvatarStack slots={barAvatarSlots} />
+
       {/* Left resize handle */}
       {isInteractive && (
         <div
@@ -541,6 +709,17 @@ function BacklogItemOverlay({ item }: { item: JiraWorkItem }) {
 
 function BarDragOverlay({ item, shiftHeld }: { item: PlannerItem; shiftHeld?: boolean }) {
   const s = BAR[item.type] ?? BAR.custom;
+  const appState = useCurrentState();
+  const barAvatarSlots = useMemo(
+    () =>
+      buildPlannerBarAvatarSlots(
+        item.assignees,
+        appState.teamMembers,
+        appState.businessContacts ?? [],
+      ),
+    [item.assignees, appState.teamMembers, appState.businessContacts],
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div
@@ -554,11 +733,24 @@ function BarDragOverlay({ item, shiftHeld }: { item: PlannerItem; shiftHeld?: bo
           boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
           display: 'flex',
           alignItems: 'center',
-          paddingLeft: 10,
+          padding: '0 8px',
+          gap: 6,
           overflow: 'hidden',
         }}
       >
-        <span style={{ fontSize: 12, fontWeight: 500, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <PlannerBarAvatarStack slots={barAvatarSlots} variant="inline" />
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 500,
+            color: '#1E293B',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            minWidth: 0,
+            flex: 1,
+          }}
+        >
           {item.name}
         </span>
       </div>
