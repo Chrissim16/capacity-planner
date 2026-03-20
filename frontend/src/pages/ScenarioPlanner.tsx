@@ -559,10 +559,24 @@ export function ScenarioPlanner() {
 
   // ── Layout mutations (forwarded from PlannerTimeline) ─────────────────────
 
+  // Ref keeps the latest filteredPlannerItems accessible inside handleItemsChange
+  // without creating a forward-reference (filteredPlannerItems is defined later).
+  const filteredPlannerItemsRef = useRef<PlannerItem[]>([]);
+
   const handleItemsChange = useCallback((items: PlannerItem[]) => {
     if (!activeScenarioId) return;
-    updatePlannerLayout(activeScenarioId, items);
-  }, [activeScenarioId]);
+    // PlannerTimeline only receives filteredPlannerItems, so `items` may be a
+    // filtered subset. We merge to preserve items outside the current filter:
+    //   - untouched: existing items NOT in the filtered view (unchanged)
+    //   - inFilteredView: incoming items that were in the filtered view (updated/removed)
+    //   - trulyNew: incoming items not previously in plannerItems at all (additions)
+    const visibleIds = new Set(filteredPlannerItemsRef.current.map(p => p.id));
+    const existingIds = new Set(plannerItems.map(p => p.id));
+    const untouched       = plannerItems.filter(p => !visibleIds.has(p.id));
+    const inFilteredView  = items.filter(p => visibleIds.has(p.id));
+    const trulyNew        = items.filter(p => !visibleIds.has(p.id) && !existingIds.has(p.id));
+    updatePlannerLayout(activeScenarioId, [...untouched, ...inFilteredView, ...trulyNew]);
+  }, [activeScenarioId, plannerItems]);
 
   const handleActiveDragChange = useCallback((preview: DragPreview | null) => {
     setActiveDragPreview(preview);
@@ -867,6 +881,9 @@ export function ScenarioPlanner() {
 
     return items.filter(p => matchingIds.has(p.id));
   }, [plannerItems, filterLabels, filterEpics, hasFilters, membersInFocusedTeam]);
+
+  // Keep ref in sync so handleItemsChange can merge filtered vs. full item lists
+  filteredPlannerItemsRef.current = filteredPlannerItems;
 
   // Unique labels and epics for filter dropdowns
   const allUniqueLabels = useMemo(() => {
