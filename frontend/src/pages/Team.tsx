@@ -319,50 +319,49 @@ export function Team() {
  </div>
 
  {/* ── Unified filter bar ─────────────────────────────────────────────── */}
- <div className="flex flex-wrap gap-3 items-center">
- <div className="flex-1 min-w-[200px]">
+ <div className="flex flex-wrap gap-2 items-center">
  <div className="relative">
- <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+ <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#94A3B8]" />
  <input
  type="text"
  placeholder={activeTab === 'biz' ? 'Search contacts…' : 'Search members…'}
  value={search}
  onChange={e => setSearch(e.target.value)}
- className="w-full pl-10 pr-4 py-2 rounded-lg border border-[#94A3B8] bg-white text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0089DD]"
+ className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-mileway-border bg-white text-mileway-text placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0089DD] w-48"
  />
  </div>
- </div>
  {(activeTab === 'it' || activeTab === 'all') && (
- <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} options={roleOptions} />
+ <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} options={roleOptions} className="py-1.5 px-2 text-sm w-auto" />
  )}
- <Select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} options={countryOptions} />
+ <Select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} options={countryOptions} className="py-1.5 px-2 text-sm w-auto" />
  {activeTab === 'it' && squads.length > 0 && (
- <Select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} options={squadFilterOptions} />
+ <Select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} options={squadFilterOptions} className="py-1.5 px-2 text-sm w-auto" />
  )}
  {processTeams.length > 0 && (
- <Select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} options={processTeamFilterOptions} />
+ <Select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} options={processTeamFilterOptions} className="py-1.5 px-2 text-sm w-auto" />
  )}
  {/* Group-by */}
  <Select
  value={groupBy}
  onChange={e => setGroupBy(e.target.value as GroupBy)}
  options={groupByOptions}
+ className="py-1.5 px-2 text-sm w-auto"
  />
  {/* View mode toggle */}
- <div className="flex items-center rounded-lg border border-[#DEDFE3] overflow-hidden shrink-0">
+ <div className="flex items-center rounded-lg border border-mileway-border overflow-hidden shrink-0">
  <button
  onClick={() => setViewMode('card')}
- className={`p-2 transition-colors ${viewMode === 'card' ? 'bg-[#0089DD] text-white' : 'bg-white text-[#94A3B8] hover:text-[#94A3B8] '}`}
+ className={`p-1.5 transition-colors ${viewMode === 'card' ? 'bg-[#0089DD] text-white' : 'bg-white text-[#94A3B8] hover:text-[#94A3B8]'}`}
  title="Card view"
  >
- <LayoutGrid size={16} />
+ <LayoutGrid size={14} />
  </button>
  <button
  onClick={() => setViewMode('list')}
- className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-[#0089DD] text-white' : 'bg-white text-[#94A3B8] hover:text-[#94A3B8] '}`}
+ className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-[#0089DD] text-white' : 'bg-white text-[#94A3B8] hover:text-[#94A3B8]'}`}
  title="List view"
  >
- <List size={16} />
+ <List size={14} />
  </button>
  </div>
  </div>
