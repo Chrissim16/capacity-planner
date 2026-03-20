@@ -4,7 +4,7 @@
  * Ranks all active team members by fit (capacity + skills) for a given project/quarter
  * and allows one-click assignment. Available in two variants:
  *   - slideOut: right-side overlay panel with header and close button (used on Projects page)
- *   - inline:   embedded in a parent (used in ScenarioWizard Step 3 and PlanningBoard sidebar)
+ *   - inline:   embedded in a parent (used in ScenarioWizard Step 3)
  */
 
 import { useState, useMemo, useCallback } from 'react';

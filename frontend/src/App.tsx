@@ -7,7 +7,6 @@ import { Projects } from './pages/Projects';
 import { Team } from './pages/Team';
 import { Scenarios } from './pages/Scenarios';
 import { ScenarioPlanner } from './pages/ScenarioPlanner';
-import { Planning } from './pages/Planning';
 import { Settings } from './pages/Settings';
 import { ToastProvider } from './components/ui/Toast';
 import { LoadingScreen } from './components/ui/LoadingScreen';
@@ -28,7 +27,7 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
   '/team':      'team',
   '/scenarios': 'scenarios',
   '/planner':   'planner',
-  '/planning':  'planning',
+  '/planning':  'planner',
   '/settings':  'settings',
 };
 
@@ -41,7 +40,6 @@ const VIEW_TO_PATH: Record<ViewType, string> = {
   team:      '/team',
   scenarios: '/scenarios',
   planner:   '/planner',
-  planning:  '/planning',
   settings:  '/settings',
 };
 
@@ -54,7 +52,6 @@ const pages: Record<ViewType, React.ComponentType> = {
   jira: Projects,
   scenarios: Scenarios,
   planner: ScenarioPlanner,
-  planning: Planning,
   settings: Settings,
 };
 
@@ -117,7 +114,7 @@ function App() {
 
       // Number keys 1-6: navigate views (Settings gated to manage_settings)
       if (e.key >= '1' && e.key <= '6' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping) {
-        const views: ViewType[] = ['dashboard', 'timeline', 'projects', 'team', 'planning', 'settings'];
+        const views: ViewType[] = ['dashboard', 'timeline', 'projects', 'team', 'planner', 'settings'];
         const index = parseInt(e.key) - 1;
         const target = views[index];
         if (target && (target !== 'settings' || can('manage_settings'))) {

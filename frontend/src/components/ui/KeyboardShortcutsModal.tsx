@@ -10,7 +10,7 @@ const SHORTCUTS = [
   { keys: ['?'], description: 'Show this keyboard shortcuts reference' },
   { keys: ['Esc'], description: 'Close modal or panel' },
   { keys: ['Ctrl', 'K'], description: 'Global search — epics, members, Jira items' },
-  { keys: ['1–6'], description: 'Navigate to view (Dashboard, Timeline, Epics, Team, Planning, Settings)' },
+  { keys: ['1–6'], description: 'Navigate to view (Dashboard, Timeline, Epics, Team, Scenario Planner, Settings)' },
 ];
 
 function Key({ label }: { label: string }) {

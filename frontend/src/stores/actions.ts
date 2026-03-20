@@ -635,26 +635,6 @@ export function switchScenario(scenarioId: string | null): void {
 }
 
 /**
- * Open a plan in the Planning Board view.
- * Sets the scenario as active and switches the planning sub-view to 'board'.
- */
-export function openPlan(scenarioId: string): void {
-  const store = useAppStore.getState();
-  store.updateData({ activeScenarioId: scenarioId });
-  store.setPlanningSubView('board');
-}
-
-/**
- * Close the active plan and return to the Planning Hub.
- * Clears the active scenario and switches the planning sub-view to 'hub'.
- */
-export function closePlan(): void {
-  const store = useAppStore.getState();
-  store.updateData({ activeScenarioId: null });
-  store.setPlanningSubView('hub');
-}
-
-/**
  * Promote a scenario's data back to the baseline.
  * Overwrites baseline jiraWorkItems, jiraItemBizAssignments, teamMembers, and timeOff,
  * then switches the view back to baseline.

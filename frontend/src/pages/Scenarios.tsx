@@ -1,12 +1,9 @@
-import { useState, useMemo, Suspense, lazy } from 'react';
+import { useState, useMemo } from 'react';
 import {
  Plus, Database, GitBranch, Layers, Check, Copy, Trash2, Pencil,
  Users, FolderKanban, CalendarOff, Link2, Info, ArrowRight, Sparkles,
 } from 'lucide-react';
 import { ScenarioWizard } from '../components/ScenarioWizard';
-
-// Lazy-load PlanningBoard so @dnd-kit/core stays out of the main bundle (D6)
-const PlanningBoard = lazy(() => import('../components/PlanningBoard'));
 import { clsx } from 'clsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -200,7 +197,6 @@ export function Scenarios() {
 
  const [showCreate, setShowCreate] = useState(false);
  const [showWizard, setShowWizard] = useState(false);
- const [activeTab, setActiveTab] = useState<'scenarios' | 'board'>('scenarios');
  const [duplicateSource, setDuplicateSource] = useState<Scenario | null>(null);
  const [deleteConfirm, setDeleteConfirm] = useState<Scenario | null>(null);
  const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -230,37 +226,6 @@ export function Scenarios() {
 
  return (
  <div className="flex flex-col h-full">
- {/* Tab bar — Board tab hidden when no active scenario */}
- <div className="flex border-b border-[#DEDFE3] bg-white px-6">
-   {([
-     ['scenarios', 'Scenarios'] as const,
-     ...(activeScenarioId ? [['board', 'Board'] as const] : []),
-   ]).map(([tab, label]) => (
-     <button
-       key={tab}
-       onClick={() => setActiveTab(tab)}
-       className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-         activeTab === tab
-           ? 'border-[#0089DD] text-[#1E293B]'
-           : 'border-transparent text-[#94A3B8] hover:text-[#94A3B8]'
-       }`}
-     >
-       {label}
-     </button>
-   ))}
- </div>
-
- {/* Board view */}
- {activeTab === 'board' && activeScenarioId && (
-   <div className="flex-1 overflow-hidden">
-     <Suspense fallback={<div className="flex items-center justify-center h-64 text-[#94A3B8] text-sm">Loading board…</div>}>
-       <PlanningBoard />
-     </Suspense>
-   </div>
- )}
-
- {/* Scenarios list view */}
- {activeTab === 'scenarios' && (
  <div className="flex-1 overflow-y-auto">
  <div className="max-w-4xl mx-auto space-y-6 p-6">
  <PageHeader
@@ -514,7 +479,6 @@ export function Scenarios() {
  )}
  </div>
  </div>
- )}
  </div>
  );
 }

@@ -1,5 +1,5 @@
 /**
- * Fit scoring engine — shared by SmartAssignmentPanel, ScenarioWizard, and PlanningBoard.
+ * Fit scoring engine — shared by SmartAssignmentPanel and ScenarioWizard.
  *
  * All functions are pure given a fully resolved AppState.
  * IMPORTANT: callers must pass `getCurrentState()` output, not `store.data` directly,
@@ -56,7 +56,7 @@ export const FIT_COLOURS: Record<FitLevel, { badge: string; border: string; text
   over:    { badge: 'bg-red-100 text-red-700',      border: 'border-red-500',   text: 'text-red-700'    },
 };
 
-// ─── Glow classes for PlanningBoard drag interaction ─────────────────────────
+// ─── Glow classes for drag interaction ───────────────────────────────────────
 
 export const FIT_GLOW: Record<FitLevel, string> = {
   good:    'ring-2 ring-[#0089DD]/20 shadow-[0_0_0_3px_rgba(14,211,207,0.2)]',
