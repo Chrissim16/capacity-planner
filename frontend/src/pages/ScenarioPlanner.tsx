@@ -12,7 +12,7 @@
  * drag-to-unschedule gesture works natively.
  */
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
-import { Loader2, Users, Filter, X, Inbox, Check, ChevronDown } from 'lucide-react';
+import { Loader2, Users, Filter, X, Inbox, Check, ChevronDown, RefreshCw } from 'lucide-react';
 import {
   useFloating, autoUpdate, offset, flip, shift,
   useClick, useDismiss, useRole, useInteractions,
@@ -25,6 +25,7 @@ import {
   switchScenario,
   updatePlannerLayout,
   initBaselineScenario,
+  refreshScenarioFromJira,
   generateId,
   deleteScenario,
   updateScenario,
@@ -1294,6 +1295,19 @@ export function ScenarioPlanner() {
                 </span>
               )}
             </button>
+
+            {/* Refresh from Jira — only for non-baseline scenarios */}
+            {activeScenarioId && scenarios.some(s => s.id === activeScenarioId) && (
+              <button
+                type="button"
+                onClick={() => refreshScenarioFromJira(activeScenarioId)}
+                title="Refresh Jira data into this scenario"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+              >
+                <RefreshCw size={14} aria-hidden="true" />
+                Refresh
+              </button>
+            )}
 
             {/* Save */}
             <SaveButton />
