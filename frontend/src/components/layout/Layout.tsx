@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
-import { NotificationBanners } from './NotificationBanners';
 
 interface LayoutProps {
   children: ReactNode;
@@ -28,7 +27,6 @@ export function Layout({ children, variant = 'default' }: LayoutProps) {
     <div className="flex h-screen overflow-hidden bg-[#F5F8FC]">
       <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-[#FAFAFA]">
-        <NotificationBanners />
         <main className={
           variant === 'fullbleed'
             ? 'flex-1 overflow-hidden flex flex-col min-h-0'

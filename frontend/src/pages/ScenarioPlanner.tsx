@@ -454,7 +454,6 @@ export function ScenarioPlanner() {
   }, []);
 
   const [activeDragPreview, setActiveDragPreview] = useState<DragPreview | null>(null);
-  const [baselineBanner, setBaselineBanner] = useState<{ placed: number; unscheduled: number } | null>(null);
 
   // Quarter navigation — 8 quarters forward from today, current quarter at index 0
   const quarters = useMemo(() => generateQuarters(8), []);
@@ -546,8 +545,7 @@ export function ScenarioPlanner() {
       // from Jira sprint / date data.
       const newScenario = createScenario(name);
       switchScenario(newScenario.id);
-      const { placedCount, unscheduledCount } = initBaselineScenario(newScenario.id);
-      setBaselineBanner({ placed: placedCount, unscheduled: unscheduledCount });
+      initBaselineScenario(newScenario.id);
       setPlannerUI(prev => ({ ...prev, backlogOpen: false }));
     } else {
       // SP-04: Blank canvas — plannerLayout stays undefined; backlog shows all items.
@@ -1301,25 +1299,6 @@ export function ScenarioPlanner() {
             <SaveButton />
           </div>
         </div>
-
-        {/* ── Baseline banner (SP-05) ──────────────────────────────────────── */}
-        {baselineBanner && (
-          <div className="flex-shrink-0 flex items-center justify-between gap-4 px-6 py-2 bg-mileway-blue-10 border-b border-mileway-blue/20 text-sm text-mileway-blue">
-            <span>
-              Loaded from Jira — <strong>{baselineBanner.placed}</strong> items placed
-              {baselineBanner.unscheduled > 0 && (
-                <>, <strong>{baselineBanner.unscheduled}</strong> unscheduled in backlog</>
-              )}
-            </span>
-            <button
-              onClick={() => setBaselineBanner(null)}
-              aria-label="Dismiss"
-              className="text-mileway-blue hover:text-mileway-text transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded px-2 py-0.5 text-xs font-medium"
-            >
-              ✕
-            </button>
-          </div>
-        )}
 
         {/* ── Content area ─────────────────────────────────────────────────── */}
         {/* position:relative is the overlay anchor — drawers and the detail panel
