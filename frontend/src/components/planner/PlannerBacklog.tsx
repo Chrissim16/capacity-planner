@@ -62,6 +62,8 @@ export interface PlannerBacklogProps {
   /** ✕ button and Escape — parent sets expanded false (collapse to pill) */
   onCollapse: () => void;
   onDropUnschedule?: (plannerItemId: string) => void;
+  /** Bulk schedule: called with all items tagged 'this-quarter' when the Schedule button is clicked. */
+  onBulkSchedule?: (items: JiraWorkItem[]) => void;
 }
 
 // ── Internal tree types ───────────────────────────────────────────────────────
@@ -205,7 +207,7 @@ function itemFullyVisible(
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, onCollapse, onDropUnschedule: _onDropUnschedule }: PlannerBacklogProps) {
+export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, onCollapse, onDropUnschedule: _onDropUnschedule, onBulkSchedule }: PlannerBacklogProps) {
   const { showToast } = useToast();
   const [search, setSearch]           = useState('');
   const [epicFilter, setEpicFilter]   = useState<string>('all');
@@ -390,7 +392,13 @@ export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, on
         {triageCounts.thisQuarter >= 1 && (
           <button
             type="button"
-            onClick={() => showToast('Bulk schedule: coming in next step', 'info')}
+            onClick={() => {
+              const scheduledSourceIds = new Set(plannerItems.map(p => p.sourceId));
+              const itemsToSchedule = jiraItems.filter(
+                ji => triageMap[ji.id] === 'this-quarter' && !scheduledSourceIds.has(ji.id),
+              );
+              onBulkSchedule?.(itemsToSchedule);
+            }}
             className="w-full h-9 rounded-lg text-sm font-semibold text-white bg-[#2563EB] hover:bg-[#1D4ED8] transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue focus-visible:ring-offset-2"
           >
             Schedule {triageCounts.thisQuarter} item{triageCounts.thisQuarter !== 1 ? 's' : ''} →

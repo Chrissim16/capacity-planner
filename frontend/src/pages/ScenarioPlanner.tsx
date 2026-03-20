@@ -55,7 +55,7 @@ import { PlannerDetailPanel } from '../components/planner/PlannerDetailPanel';
 import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
 import { PlannerContextMenu, type ContextMenuTarget } from '../components/planner/PlannerContextMenu';
 import { PlannerPersonFilterPill } from '../components/planner/PlannerPersonFilterPill';
-import type { PlannerItem, PlannerItemType, Scenario } from '../types';
+import type { PlannerItem, PlannerItemType, Scenario, JiraWorkItem } from '../types';
 import type { BoardSort } from '../components/planner/PlannerBoard';
 
 // PlannerBoard is lazy so @dnd-kit/core stays out of the initial bundle
@@ -567,6 +567,82 @@ export function ScenarioPlanner() {
   const handleActiveDragChange = useCallback((preview: DragPreview | null) => {
     setActiveDragPreview(preview);
   }, []);
+
+  const handleBulkSchedule = useCallback((itemsToSchedule: JiraWorkItem[]) => {
+    if (!activeScenarioId || !itemsToSchedule.length) return;
+
+    // Find the current sprint number — fall back to first future sprint
+    const now = new Date();
+    const currentSprint = sprints.find(
+      s => s.startDate && s.endDate &&
+           new Date(s.startDate) <= now && now <= new Date(s.endDate),
+    ) ?? sprints.find(s => s.startDate && new Date(s.startDate) > now);
+    const startSprint = currentSprint?.number ?? 1;
+
+    const scheduledSourceIds = new Set(plannerItems.map(p => p.sourceId));
+
+    function makeItem(source: JiraWorkItem, sprint: number): PlannerItem {
+      const defaultSpan: Partial<Record<string, number>> = { epic: 6, feature: 2 };
+      return {
+        id: generateId('planner'),
+        sourceId: source.id,
+        name: source.summary,
+        type: source.type as PlannerItem['type'],
+        jiraKey: source.jiraKey,
+        parentKey: source.parentKey,
+        startSprint: sprint,
+        spanSprints: defaultSpan[source.type] ?? 1,
+        assignees: [],
+        locked: source.statusCategory === 'in_progress',
+        unlockedInScenario: false,
+        isManual: false,
+        labels: source.labels ?? [],
+        jiraAssignees: source.assigneeName ? [source.assigneeName] : [],
+        jiraStartDate: source.startDate,
+        jiraEndDate: source.dueDate,
+      };
+    }
+
+    const added: PlannerItem[] = [];
+
+    for (const ji of itemsToSchedule) {
+      if (scheduledSourceIds.has(ji.id)) continue;
+
+      if (ji.type === 'epic') {
+        added.push(makeItem(ji, startSprint));
+        scheduledSourceIds.add(ji.id);
+
+        const features = jiraItems.filter(f => f.parentKey === ji.jiraKey && f.type === 'feature');
+        for (const feat of features) {
+          if (scheduledSourceIds.has(feat.id)) continue;
+          added.push(makeItem(feat, startSprint));
+          scheduledSourceIds.add(feat.id);
+          jiraItems
+            .filter(s => s.parentKey === feat.jiraKey)
+            .forEach(s => {
+              if (scheduledSourceIds.has(s.id)) return;
+              added.push(makeItem(s, startSprint));
+              scheduledSourceIds.add(s.id);
+            });
+        }
+        // Direct non-feature children of the epic
+        jiraItems
+          .filter(c => c.parentKey === ji.jiraKey && c.type !== 'feature')
+          .forEach(c => {
+            if (scheduledSourceIds.has(c.id)) return;
+            added.push(makeItem(c, startSprint));
+            scheduledSourceIds.add(c.id);
+          });
+      } else {
+        added.push(makeItem(ji, startSprint));
+        scheduledSourceIds.add(ji.id);
+      }
+    }
+
+    if (!added.length) return;
+    handleItemsChange([...plannerItems, ...added]);
+    collapseBacklog();
+  }, [activeScenarioId, sprints, plannerItems, jiraItems, handleItemsChange, collapseBacklog]);
 
   const handleBarClick = useCallback((item: PlannerItem, anchorEl: HTMLElement, preSelectedMemberId?: string) => {
     if (preSelectedMemberId) {
@@ -1256,6 +1332,7 @@ export function ScenarioPlanner() {
                       expanded={plannerUI.backlogOpen}
                       onExpand={expandBacklog}
                       onCollapse={collapseBacklog}
+                      onBulkSchedule={handleBulkSchedule}
                     />
                     <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
                     <Suspense
@@ -1308,6 +1385,7 @@ export function ScenarioPlanner() {
                     expanded={plannerUI.backlogOpen}
                     onExpand={expandBacklog}
                     onCollapse={collapseBacklog}
+                    onBulkSchedule={handleBulkSchedule}
                   />
                 ) : null}
                 <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0">
