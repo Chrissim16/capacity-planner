@@ -12,7 +12,12 @@
  * drag-to-unschedule gesture works natively.
  */
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
-import { Loader2, Users, Filter, X, Inbox, Check } from 'lucide-react';
+import { Loader2, Users, Filter, X, Inbox, Check, ChevronDown } from 'lucide-react';
+import {
+  useFloating, autoUpdate, offset, flip, shift,
+  useClick, useDismiss, useRole, useInteractions,
+  FloatingFocusManager, FloatingPortal,
+} from '@floating-ui/react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus } from '../stores/appStore';
 import {
@@ -176,6 +181,103 @@ function SaveButton() {
       {isSaved  && <Check   size={14} />}
       {isSaving ? 'Saving…' : isError ? 'Retry' : isSaved ? 'Saved' : 'Save'}
     </button>
+  );
+}
+
+// ── EpicsFilterPill ───────────────────────────────────────────────────────────
+
+function EpicsFilterPill({
+  options,
+  selected,
+  onChange,
+}: {
+  options: { key: string; name: string }[];
+  selected: string[];
+  onChange: (keys: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const { refs, floatingStyles, context } = useFloating({
+    open,
+    onOpenChange: setOpen,
+    placement: 'bottom-start',
+    middleware: [offset(6), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const click = useClick(context);
+  const dismiss = useDismiss(context);
+  const role = useRole(context, { role: 'listbox' });
+  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss, role]);
+
+  const toggle = useCallback((key: string) => {
+    onChange(
+      selected.includes(key) ? selected.filter(k => k !== key) : [...selected, key],
+    );
+  }, [selected, onChange]);
+
+  const label = selected.length > 0 ? `Epics (${selected.length})` : 'Epics';
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={refs.setReference}
+        {...getReferenceProps()}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={[
+          'inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors duration-fast',
+          'border focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+          selected.length > 0
+            ? 'border-mileway-blue bg-mileway-blue-10 text-mileway-blue'
+            : 'border-mileway-border bg-white text-mileway-text hover:bg-mileway-bg',
+        ].join(' ')}
+      >
+        <span>{label}</span>
+        <ChevronDown size={12} className="flex-shrink-0 text-current opacity-60" aria-hidden />
+      </button>
+
+      {open && (
+        <FloatingPortal>
+          <FloatingFocusManager context={context} modal={false} initialFocus={-1} returnFocus>
+            <div
+              ref={refs.setFloating}
+              style={floatingStyles}
+              {...getFloatingProps()}
+              className="z-[120] min-w-[220px] max-w-[320px] max-h-[min(320px,70vh)] overflow-y-auto rounded-lg border border-mileway-border bg-white py-1 shadow-lg"
+              role="listbox"
+              aria-multiselectable="true"
+              aria-label="Filter by epic"
+            >
+              {options.length === 0 && (
+                <p className="px-3 py-2 text-xs text-mileway-grey italic">No epics available</p>
+              )}
+              {options.map(opt => {
+                const isSelected = selected.includes(opt.key);
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => toggle(opt.key)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-mileway-bg focus:outline-none focus-visible:bg-mileway-blue-10 transition-colors duration-fast"
+                  >
+                    <span className="flex-1 truncate text-mileway-text">
+                      {opt.name.length > 40 ? opt.name.slice(0, 40) + '…' : opt.name}
+                    </span>
+                    {isSelected && (
+                      <Check size={13} className="flex-shrink-0 text-mileway-blue" aria-hidden />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </FloatingFocusManager>
+        </FloatingPortal>
+      )}
+    </>
   );
 }
 
@@ -890,21 +992,11 @@ export function ScenarioPlanner() {
                   {allUniqueLabels.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
 
-                <select
-                  value=""
-                  onChange={e => {
-                    const v = e.target.value;
-                    if (v && !filterEpics.includes(v)) setFilterEpics(prev => [...prev, v]);
-                    e.target.value = '';
-                  }}
-                  className="text-xs border border-mileway-border rounded-lg px-2 py-1.5 text-mileway-text bg-white focus:outline-none focus:border-mileway-blue transition-colors max-w-[120px]"
-                  title="Filter by epic"
-                >
-                  <option value="">Epics{filterEpics.length > 0 ? ` (${filterEpics.length})` : ''}</option>
-                  {allEpicOptions.map(e => (
-                    <option key={e.key} value={e.key}>{e.name.length > 25 ? e.name.slice(0, 25) + '…' : e.name}</option>
-                  ))}
-                </select>
+                <EpicsFilterPill
+                  options={allEpicOptions}
+                  selected={filterEpics}
+                  onChange={setFilterEpics}
+                />
 
                 {hasFilters && (
                   <button

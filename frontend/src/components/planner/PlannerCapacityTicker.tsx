@@ -128,10 +128,10 @@ function CrossfadePct({
   const fw = bold ? 700 : 500;
 
   return (
-    <span className={`relative inline-flex items-center justify-center min-w-[2.5rem] ${className ?? ''}`}>
+    <span className={`relative inline-flex items-center justify-center min-w-[2rem] text-[11px] ${className ?? ''}`}>
       {outgoing !== null && (
         <span
-          className="font-mono tabular-nums absolute inset-0 flex items-center justify-center transition-opacity ease-out"
+          className="tabular-nums absolute inset-0 flex items-center justify-center transition-opacity ease-out"
           style={{ opacity: outOp, transitionDuration: '150ms', fontWeight: fw }}
           aria-hidden
         >
@@ -139,7 +139,7 @@ function CrossfadePct({
         </span>
       )}
       <span
-        className="font-mono tabular-nums transition-opacity ease-out"
+        className="tabular-nums transition-opacity ease-out"
         style={{ opacity: inOp, transitionDuration: '150ms', fontWeight: fw }}
       >
         {value}%

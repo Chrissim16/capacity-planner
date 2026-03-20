@@ -86,13 +86,13 @@ export function PlannerPersonFilterPill({ selectedMemberId, onSelectMemberId }: 
         aria-haspopup="listbox"
         aria-expanded={open}
         className={[
-          'inline-flex items-center gap-1.5 max-w-[200px] px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+          'inline-flex items-center gap-1 max-w-[160px] px-2 py-1.5 rounded-lg text-xs font-medium transition-colors duration-fast',
           'border border-mileway-border bg-white text-mileway-text hover:bg-mileway-bg',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
         ].join(' ')}
       >
         <span className="truncate">{selectedLabel}</span>
-        <ChevronDown size={14} className="flex-shrink-0 text-mileway-grey" aria-hidden />
+        <ChevronDown size={12} className="flex-shrink-0 text-mileway-grey" aria-hidden />
       </button>
 
       {open && (
