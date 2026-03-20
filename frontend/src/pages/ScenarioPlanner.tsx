@@ -86,17 +86,20 @@ interface PlannerUIState {
   detailItemId: string | null;
   /** Timeline — person filter (toolbar pill + team drawer); dims bars + individual ticker */
   focusedMemberId: string | null;
+  /** Timeline — process team filter; hard-filters items to those assigned to team members */
+  focusedProcessTeamId: string | null;
 }
 
 const INITIAL_PLANNER_UI: PlannerUIState = {
   backlogOpen: false,
   teamDrawerOpen: false,
   capacityOpen: false,
-  activeMode: 'board',
+  activeMode: 'timeline',
   currentQuarterIndex: 0,
   selectedProjectId: null,
   detailItemId: null,
   focusedMemberId: null,
+  focusedProcessTeamId: null,
 };
 
 // ── ViewportNotice ────────────────────────────────────────────────────────────
@@ -181,6 +184,98 @@ function SaveButton() {
       {isSaved  && <Check   size={14} />}
       {isSaving ? 'Saving…' : isError ? 'Retry' : isSaved ? 'Saved' : 'Save'}
     </button>
+  );
+}
+
+// ── ProcessTeamFilterPill ─────────────────────────────────────────────────────
+
+function ProcessTeamFilterPill({
+  options,
+  selected,
+  onChange,
+}: {
+  options: { id: string; name: string }[];
+  selected: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const { refs, floatingStyles, context } = useFloating({
+    open,
+    onOpenChange: setOpen,
+    placement: 'bottom-start',
+    middleware: [offset(6), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const click = useClick(context);
+  const dismiss = useDismiss(context);
+  const role = useRole(context, { role: 'listbox' });
+  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss, role]);
+
+  const selectedName = selected ? (options.find(o => o.id === selected)?.name ?? null) : null;
+  const label = selectedName ?? 'All Teams';
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={refs.setReference}
+        {...getReferenceProps()}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={[
+          'inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors duration-fast',
+          'border focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+          selected
+            ? 'border-mileway-blue bg-mileway-blue-10 text-mileway-blue'
+            : 'border-mileway-border bg-white text-mileway-text hover:bg-mileway-bg',
+        ].join(' ')}
+      >
+        <span className="max-w-[120px] truncate">{label}</span>
+        <ChevronDown size={12} className="flex-shrink-0 text-current opacity-60" aria-hidden />
+      </button>
+
+      {open && (
+        <FloatingPortal>
+          <FloatingFocusManager context={context} modal={false} initialFocus={-1} returnFocus>
+            <div
+              ref={refs.setFloating}
+              style={floatingStyles}
+              {...getFloatingProps()}
+              className="z-[120] min-w-[180px] max-w-[260px] max-h-[min(320px,70vh)] overflow-y-auto rounded-lg border border-mileway-border bg-white py-1 shadow-lg"
+              role="listbox"
+              aria-label="Filter by process team"
+            >
+              <button
+                type="button"
+                role="option"
+                aria-selected={selected === null}
+                onClick={() => { onChange(null); setOpen(false); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-mileway-bg focus:outline-none focus-visible:bg-mileway-blue-10 transition-colors duration-fast"
+              >
+                <span className="flex-1 font-medium text-mileway-text">All Teams</span>
+                {selected === null && <Check size={13} className="flex-shrink-0 text-mileway-blue" aria-hidden />}
+              </button>
+              {options.length > 0 && <div className="my-1 h-px bg-mileway-divider" role="presentation" />}
+              {options.map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="option"
+                  aria-selected={selected === opt.id}
+                  onClick={() => { onChange(opt.id); setOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-mileway-bg focus:outline-none focus-visible:bg-mileway-blue-10 transition-colors duration-fast"
+                >
+                  <span className="flex-1 truncate text-mileway-text">{opt.name}</span>
+                  {selected === opt.id && <Check size={13} className="flex-shrink-0 text-mileway-blue" aria-hidden />}
+                </button>
+              ))}
+            </div>
+          </FloatingFocusManager>
+        </FloatingPortal>
+      )}
+    </>
   );
 }
 
@@ -354,6 +449,7 @@ export function ScenarioPlanner() {
       selectedProjectId: null,
       detailItemId: null,
       focusedMemberId: null,
+      focusedProcessTeamId: null,
     }));
   }, []);
 
@@ -600,8 +696,50 @@ export function ScenarioPlanner() {
 
   const hasFilters = filterLabels.length > 0 || filterEpics.length > 0;
 
+  // Resolve which member IDs belong to the focused process team
+  const membersInFocusedTeam = useMemo((): Set<string> | null => {
+    if (!plannerUI.focusedProcessTeamId) return null;
+    const id = plannerUI.focusedProcessTeamId;
+    const itIds = (allState.teamMembers ?? [])
+      .filter(m => m.processTeamIds?.includes(id))
+      .map(m => m.id);
+    const bizIds = (allState.businessContacts ?? [])
+      .filter(c => c.processTeamIds?.includes(id))
+      .map(c => c.id);
+    return new Set([...itIds, ...bizIds]);
+  }, [plannerUI.focusedProcessTeamId, allState.teamMembers, allState.businessContacts]);
+
   const filteredPlannerItems = useMemo(() => {
-    if (!hasFilters) return plannerItems;
+    let items = plannerItems;
+
+    // Process team filter — keep items where at least one assignee is in the team
+    if (membersInFocusedTeam !== null) {
+      const teamSet = membersInFocusedTeam;
+      const teamMatchIds = new Set<string>();
+      for (const item of items) {
+        if (item.assignees.some(a => teamSet.has(a.memberId))) {
+          teamMatchIds.add(item.id);
+          // Include ancestors
+          let cur = item;
+          while (cur.parentKey) {
+            const parent = items.find(p => p.jiraKey === cur.parentKey);
+            if (parent) { teamMatchIds.add(parent.id); cur = parent; } else break;
+          }
+        }
+      }
+      // Also include epics that have at least one child matching
+      for (const item of items) {
+        if (item.type === 'epic' && !teamMatchIds.has(item.id)) {
+          const anyChildMatches = items.some(
+            c => c.parentKey === item.jiraKey && teamMatchIds.has(c.id),
+          );
+          if (anyChildMatches) teamMatchIds.add(item.id);
+        }
+      }
+      items = items.filter(p => teamMatchIds.has(p.id));
+    }
+
+    if (!hasFilters) return items;
 
     const matchingIds = new Set<string>();
 
@@ -651,8 +789,8 @@ export function ScenarioPlanner() {
       }
     }
 
-    return plannerItems.filter(p => matchingIds.has(p.id));
-  }, [plannerItems, filterLabels, filterEpics, hasFilters]);
+    return items.filter(p => matchingIds.has(p.id));
+  }, [plannerItems, filterLabels, filterEpics, hasFilters, membersInFocusedTeam]);
 
   // Unique labels and epics for filter dropdowns
   const allUniqueLabels = useMemo(() => {
@@ -672,7 +810,8 @@ export function ScenarioPlanner() {
     const map = new Map<string, string>();
     for (const e of jiraEpics) map.set(e.jiraKey, e.summary);
     for (const e of epics) if (e.jiraKey) map.set(e.jiraKey, e.name);
-    return Array.from(map, ([key, name]) => ({ key, name }));
+    return Array.from(map, ([key, name]) => ({ key, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   }, [plannerItems, jiraItems]);
 
   // ── Toolbar badge counts ───────────────────────────────────────────────────
@@ -967,6 +1106,16 @@ export function ScenarioPlanner() {
           {/* Timeline-only filters — middle section */}
           {plannerUI.activeMode === 'timeline' && (
             <>
+              {/* Process Team filter */}
+              {activeScenarioId && allState.processTeams.length > 0 && (
+                <ProcessTeamFilterPill
+                  options={allState.processTeams}
+                  selected={plannerUI.focusedProcessTeamId}
+                  onChange={id => setPlannerUI(prev => ({ ...prev, focusedProcessTeamId: id }))}
+                />
+              )}
+
+              {/* People filter */}
               {activeScenarioId && (
                 <PlannerPersonFilterPill
                   selectedMemberId={plannerUI.focusedMemberId}
