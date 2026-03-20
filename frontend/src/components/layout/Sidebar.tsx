@@ -16,7 +16,6 @@ import {
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ScenarioSelector } from '../ScenarioSelector';
 import { useAppStore, useSyncStatus } from '../../stores/appStore';
 import type { ViewType } from '../../types';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -40,6 +39,7 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
   '/team':      'team',
   '/scenarios': 'scenarios',
   '/planner':   'planner',
+  '/planning':  'planner',
   '/settings':  'settings',
 };
 
@@ -168,7 +168,6 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
             Context
           </div>
         )}
-        {!collapsed && <ScenarioSelector />}
         <SyncIndicator collapsed={collapsed} />
 
         {isSupabaseConfigured() && user && (

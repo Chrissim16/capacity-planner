@@ -4,6 +4,7 @@
 
 import { useAppStore } from './appStore';
 import { buildBaselineLayout } from '../utils/plannerInit';
+import { writePlannerSession, clearPlannerSession } from '../utils/plannerSessionStorage';
 import type {
   TeamMember,
   TimeOff,
@@ -570,6 +571,10 @@ export function createPlan(
 export function createScenario(name: string, description?: string): Scenario {
   const state = useAppStore.getState();
   const currentState = state.getCurrentState();
+  const sourceScenario =
+    currentState.activeScenarioId != null
+      ? currentState.scenarios.find(s => s.id === currentState.activeScenarioId)
+      : undefined;
   const now = new Date().toISOString();
 
   const newScenario: Scenario = {
@@ -580,15 +585,18 @@ export function createScenario(name: string, description?: string): Scenario {
     updatedAt: now,
     basedOnSyncAt: currentState.jiraConnections.find(c => c.lastSyncAt)?.lastSyncAt,
     isBaseline: false,
+    archived: false,
     jiraWorkItems: JSON.parse(JSON.stringify(currentState.jiraWorkItems)),
     jiraItemBizAssignments: JSON.parse(JSON.stringify(currentState.jiraItemBizAssignments)),
     teamMembers: JSON.parse(JSON.stringify(currentState.teamMembers)),
     timeOff: JSON.parse(JSON.stringify(currentState.timeOff)),
+    plannerLayout: JSON.parse(JSON.stringify(sourceScenario?.plannerLayout ?? [])),
     projects: [],
     assignments: [],
   };
 
   const scenarios = [...currentState.scenarios, newScenario];
+  writePlannerSession(newScenario.id);
   state.updateData({ scenarios, activeScenarioId: newScenario.id });
   return newScenario;
 }
@@ -613,7 +621,10 @@ export function duplicateScenario(scenarioId: string, newName: string): Scenario
   return newScenario;
 }
 
-export function updateScenario(scenarioId: string, updates: Partial<Pick<Scenario, 'name' | 'description' | 'color' | 'lastEditedBy'>>): void {
+export function updateScenario(
+  scenarioId: string,
+  updates: Partial<Pick<Scenario, 'name' | 'description' | 'color' | 'lastEditedBy' | 'archived'>>,
+): void {
   const state = useAppStore.getState();
   state.updateData({
     scenarios: state.getCurrentState().scenarios.map(s =>
@@ -627,10 +638,13 @@ export function deleteScenario(scenarioId: string): void {
   const currentState = state.getCurrentState();
   const scenarios = currentState.scenarios.filter(s => s.id !== scenarioId);
   const activeScenarioId = currentState.activeScenarioId === scenarioId ? null : currentState.activeScenarioId;
+  if (activeScenarioId === null) clearPlannerSession();
   state.updateData({ scenarios, activeScenarioId });
 }
 
 export function switchScenario(scenarioId: string | null): void {
+  if (scenarioId === null) clearPlannerSession();
+  else writePlannerSession(scenarioId);
   useAppStore.getState().updateData({ activeScenarioId: scenarioId });
 }
 
@@ -644,6 +658,7 @@ export function promoteScenarioToBaseline(scenarioId: string): void {
   const scenario = state.data.scenarios.find(s => s.id === scenarioId);
   if (!scenario) return;
 
+  clearPlannerSession();
   state.updateData({
     jiraWorkItems: JSON.parse(JSON.stringify(scenario.jiraWorkItems)),
     jiraItemBizAssignments: JSON.parse(JSON.stringify(scenario.jiraItemBizAssignments)),

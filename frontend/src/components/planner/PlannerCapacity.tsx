@@ -16,7 +16,7 @@
  *   81–100%  → #FFF7ED / #EA580C
  *   >100%    → #FEF2F2 / #DC2626
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { ChevronRight, ChevronDown, AlertTriangle } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
 import { calculateCapacity } from '../../utils/capacity';
@@ -41,6 +41,11 @@ export interface PlannerCapacityProps {
   /** Label column width in px — kept in sync with PlannerTimeline. Default: 260. */
   labelWidth?: number;
 }
+
+export type PlannerCapacityHandle = {
+  /** Scroll the capacity panel to the first overloaded person row (process-team member rows only). */
+  scrollToFirstOverloaded: () => void;
+};
 
 // ── Internal types ────────────────────────────────────────────────────────────
 
@@ -207,6 +212,9 @@ function PersonLabel({ row }: { row: PersonRow }) {
 function PersonRowView({ row, isFocused }: { row: PersonRow; isFocused?: boolean }) {
   return (
     <div
+      data-planner-cap-member="true"
+      data-member-id={row.id}
+      data-overloaded={row.isOverloaded ? 'true' : 'false'}
       style={{
         display: 'flex',
         borderBottom: '1px solid #F1F5F9',
@@ -314,17 +322,30 @@ function TeamGroupView({
 
 // ── PlannerCapacity ──────────────────────────────────────────────────────────
 
-export function PlannerCapacity({
-  plannerItems,
-  sprints,
-  selectedQuarter,
-  activeDragPreview,
-  isVisible,
-  focusedMemberId,
-  labelWidth: labelWidthProp,
-}: PlannerCapacityProps) {
+export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacityProps>(function PlannerCapacity(
+  {
+    plannerItems,
+    sprints,
+    selectedQuarter,
+    activeDragPreview,
+    isVisible,
+    focusedMemberId,
+    labelWidth: labelWidthProp,
+  },
+  ref,
+) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const colLabelW = labelWidthProp ?? LABEL_W;
   const state = useCurrentState();
+
+  useImperativeHandle(ref, () => ({
+    scrollToFirstOverloaded() {
+      const root = scrollRef.current;
+      if (!root) return;
+      const el = root.querySelector('[data-planner-cap-member="true"][data-overloaded="true"]');
+      el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    },
+  }));
   const [collapsedTeams, setCollapsedTeams] = useState<Set<string>>(new Set());
 
   const quarterSprints = useMemo(
@@ -473,6 +494,7 @@ export function PlannerCapacity({
 
   return (
     <div
+      ref={scrollRef}
       className="flex-shrink-0 border-t border-mileway-border bg-white"
       style={{ maxHeight: 300, overflowY: 'auto' }}
     >
@@ -550,4 +572,6 @@ export function PlannerCapacity({
       )}
     </div>
   );
-}
+});
+
+PlannerCapacity.displayName = 'PlannerCapacity';

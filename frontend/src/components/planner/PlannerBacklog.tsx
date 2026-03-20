@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import type { JiraWorkItem, JiraItemType, PlannerItem } from '../../types';
+import { useToast } from '../ui/Toast';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,11 @@ const INDENT_FEATURE = 16;
 const INDENT_STORY   = 28;
 
 type StatusFilter = 'all' | 'todo' | 'in_progress';
+
+/** Backlog triage tag; map keys use JiraWorkItem.id (same as PlannerItem.sourceId once scheduled). */
+export type TriageTag = 'this-quarter' | 'next-quarter' | 'icebox';
+
+type TriageFilter = 'all' | TriageTag;
 
 // ── Type chip config ──────────────────────────────────────────────────────────
 
@@ -43,11 +49,18 @@ const TYPE_CHIP: Record<JiraItemType, { label: string; className: string }> = {
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
+const BACKLOG_EXPANDED_W = 280;
+const BACKLOG_COLLAPSED_W = 32;
+
 export interface PlannerBacklogProps {
   jiraItems: JiraWorkItem[];
   plannerItems: PlannerItem[];
-  /** Called by ✕ button and Escape key — parent unmounts the drawer */
-  onClose: () => void;
+  /** When false, only the 32px left-edge pill is visible (drawer stays mounted). */
+  expanded: boolean;
+  /** Clicking the collapsed pill — parent sets expanded true */
+  onExpand: () => void;
+  /** ✕ button and Escape — parent sets expanded false (collapse to pill) */
+  onCollapse: () => void;
   onDropUnschedule?: (plannerItemId: string) => void;
 }
 
@@ -172,12 +185,34 @@ function matchesFilters(
   return true;
 }
 
+function visibleForTriage(item: JiraWorkItem, triageFilter: TriageFilter, triageMap: Record<string, TriageTag | null | undefined>): boolean {
+  if (triageFilter === 'all') return true;
+  return (triageMap[item.id] ?? null) === triageFilter;
+}
+
+function itemFullyVisible(
+  item: JiraWorkItem,
+  epicAncestorKey: string | null,
+  q: string,
+  epicFilter: string,
+  statusFilter: StatusFilter,
+  triageFilter: TriageFilter,
+  triageMap: Record<string, TriageTag | null | undefined>,
+): boolean {
+  return matchesFilters(item, q, epicFilter, statusFilter, epicAncestorKey)
+    && visibleForTriage(item, triageFilter, triageMap);
+}
+
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnschedule: _onDropUnschedule }: PlannerBacklogProps) {
+export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, onCollapse, onDropUnschedule: _onDropUnschedule }: PlannerBacklogProps) {
+  const { showToast } = useToast();
   const [search, setSearch]           = useState('');
   const [epicFilter, setEpicFilter]   = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [triageFilter, setTriageFilter] = useState<TriageFilter>('all');
+  /** Per-item triage; keys = JiraWorkItem.id (aligns with PlannerItem.sourceId). */
+  const [triageMap, setTriageMap] = useState<Record<string, TriageTag | null>>({});
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   // Track whether a drag is in progress so Escape doesn't close mid-drag
@@ -188,14 +223,14 @@ export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnsched
     onDragCancel: () => setIsDragActive(false),
   });
 
-  // Escape key closes the drawer (only when no drag is active)
+  // Escape collapses the drawer (only when expanded and no drag is active)
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !isDragActive) onClose();
+      if (e.key === 'Escape' && expanded && !isDragActive) onCollapse();
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose, isDragActive]);
+  }, [expanded, onCollapse, isDragActive]);
 
   const sections = useMemo(
     () => buildSections(jiraItems, plannerItems),
@@ -212,12 +247,47 @@ export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnsched
     sections.scheduledEpicHeaders.reduce((n, s) => n + s.children.length, 0) +
     sections.orphans.length;
 
-  const hasActiveFilters = search !== '' || epicFilter !== 'all' || statusFilter !== 'all';
+  const unscheduledFeatureCount = useMemo(() => {
+    let n = 0;
+    for (const node of sections.unscheduledEpics) n += node.children.length;
+    for (const node of sections.scheduledEpicHeaders) n += node.children.length;
+    for (const o of sections.orphans) {
+      if (o.type === 'feature') n++;
+    }
+    return n;
+  }, [sections]);
+
+  const pillCountLine = `${sections.unscheduledEpicCount} epic${sections.unscheduledEpicCount !== 1 ? 's' : ''} · ${unscheduledFeatureCount} feature${unscheduledFeatureCount !== 1 ? 's' : ''}`;
+
+  const triageCounts = useMemo(() => {
+    let thisQ = 0;
+    let nextQ = 0;
+    let ice = 0;
+    for (const v of Object.values(triageMap)) {
+      if (v === 'this-quarter') thisQ++;
+      else if (v === 'next-quarter') nextQ++;
+      else if (v === 'icebox') ice++;
+    }
+    return { thisQuarter: thisQ, nextQuarter: nextQ, icebox: ice };
+  }, [triageMap]);
+
+  const anyTriageTagged = triageCounts.thisQuarter + triageCounts.nextQuarter + triageCounts.icebox > 0;
+
+  const hasActiveFilters = search !== '' || epicFilter !== 'all' || statusFilter !== 'all' || triageFilter !== 'all';
 
   const clearFilters = useCallback(() => {
     setSearch('');
     setEpicFilter('all');
     setStatusFilter('all');
+    setTriageFilter('all');
+  }, []);
+
+  const setItemTriage = useCallback((itemId: string, tag: TriageTag) => {
+    setTriageMap(prev => {
+      const cur = prev[itemId] ?? null;
+      const nextVal: TriageTag | null = cur === tag ? null : tag;
+      return { ...prev, [itemId]: nextVal };
+    });
   }, []);
 
   const toggleExpand = useCallback((key: string) => {
@@ -236,33 +306,96 @@ export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnsched
     <div
       ref={setDropRef}
       className={[
-        'absolute top-0 left-0 bottom-0 flex flex-col border-r z-30 animate-slide-in-left transition-colors duration-150',
+        'relative flex-shrink-0 flex flex-col h-full border-r z-30 overflow-hidden',
         isOver ? 'bg-red-50 border-red-300' : 'bg-white border-mileway-border',
       ].join(' ')}
-      style={{ width: 280, boxShadow: '4px 0 20px rgba(0,0,0,0.08)' }}
+      style={{
+        width: expanded ? BACKLOG_EXPANDED_W : BACKLOG_COLLAPSED_W,
+        transition: 'width 150ms ease, background-color 150ms ease, border-color 150ms ease',
+        boxShadow: expanded ? '4px 0 20px rgba(0,0,0,0.08)' : undefined,
+      }}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between px-4 py-3 border-b border-mileway-border flex-shrink-0">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-mileway-text">Unscheduled</span>
-            {sections.unscheduledEpicCount > 0 && (
-              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-blue text-white leading-none">
-                {sections.unscheduledEpicCount}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-mileway-grey mt-0.5">
-            {totalUnscheduled} item{totalUnscheduled !== 1 ? 's' : ''} · drag to schedule
-          </p>
-        </div>
+      {/* Collapsed pill — flush left, full height */}
+      {!expanded && (
         <button
-          onClick={onClose}
-          aria-label="Close backlog"
-          className="p-1 rounded text-mileway-grey hover:bg-mileway-bg hover:text-mileway-text transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue flex-shrink-0"
+          type="button"
+          onClick={onExpand}
+          aria-label={`Expand backlog, ${pillCountLine}`}
+          className="absolute inset-0 flex flex-col items-center justify-start gap-1 pt-3 px-0.5 text-mileway-text hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue focus-visible:ring-inset z-20"
         >
-          <X size={16} />
+          <ChevronRight size={16} className="text-mileway-grey flex-shrink-0" aria-hidden />
+          <span
+            className="text-[10px] font-semibold text-mileway-grey leading-tight tracking-wide"
+            style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+          >
+            {pillCountLine}
+          </span>
         </button>
+      )}
+
+      {/* Drop-to-unschedule — visible in both collapsed pill and expanded drawer */}
+      {isOver && (
+        <div
+          aria-live="polite"
+          className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
+        >
+          {expanded ? (
+            <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-100 border-2 border-dashed border-red-400 text-red-700 text-sm font-semibold shadow-sm">
+              Drop to unschedule
+            </div>
+          ) : (
+            <span
+              className="text-[9px] font-bold text-red-700 tracking-wide px-0.5"
+              style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+            >
+              Drop to unschedule
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Expanded panel — clipped while width animates */}
+      <div
+        className={[
+          'relative flex flex-col flex-1 min-h-0 min-w-0 h-full overflow-hidden',
+          expanded ? 'opacity-100' : 'opacity-0 pointer-events-none',
+        ].join(' ')}
+        style={{ width: BACKLOG_EXPANDED_W }}
+        aria-hidden={!expanded}
+      >
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-mileway-border flex-shrink-0 flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-mileway-text">Unscheduled</span>
+              {sections.unscheduledEpicCount > 0 && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-blue text-white leading-none">
+                  {sections.unscheduledEpicCount}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-mileway-grey mt-0.5">
+              {totalUnscheduled} item{totalUnscheduled !== 1 ? 's' : ''} · drag to schedule
+            </p>
+          </div>
+          <button
+            onClick={onCollapse}
+            aria-label="Collapse backlog"
+            className="p-1 rounded text-mileway-grey hover:bg-mileway-bg hover:text-mileway-text transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue flex-shrink-0"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        {triageCounts.thisQuarter >= 1 && (
+          <button
+            type="button"
+            onClick={() => showToast('Bulk schedule: coming in next step', 'info')}
+            className="w-full h-9 rounded-lg text-sm font-semibold text-white bg-[#2563EB] hover:bg-[#1D4ED8] transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue focus-visible:ring-offset-2"
+          >
+            Schedule {triageCounts.thisQuarter} item{triageCounts.thisQuarter !== 1 ? 's' : ''} →
+          </button>
+        )}
       </div>
 
       {/* Search */}
@@ -312,30 +445,65 @@ export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnsched
         </div>
       </div>
 
-      {/* Drop-to-unschedule — full drawer overlay, shown when a bar is dragged over */}
-      {isOver && (
-        <div
-          aria-live="polite"
-          className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"
-        >
-          <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-100 border-2 border-dashed border-red-400 text-red-700 text-sm font-semibold shadow-sm">
-            Drop to unschedule
-          </div>
-        </div>
-      )}
-
       {/* Item list */}
       <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1 min-h-0">
+        {anyTriageTagged && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-mileway-grey px-1 pt-1 pb-2 border-b border-mileway-border/60 mb-1">
+            <button
+              type="button"
+              onClick={() => setTriageFilter('all')}
+              className={[
+                'font-medium rounded px-1 py-0.5 transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                triageFilter === 'all' ? 'text-mileway-text bg-mileway-bg' : 'hover:text-mileway-text hover:bg-mileway-bg/80',
+              ].join(' ')}
+            >
+              All
+            </button>
+            <span className="text-mileway-border" aria-hidden>|</span>
+            <button
+              type="button"
+              onClick={() => setTriageFilter('this-quarter')}
+              className={[
+                'font-medium rounded px-1 py-0.5 transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                triageFilter === 'this-quarter' ? 'text-[#2563EB] bg-[#EFF6FF]' : 'hover:text-mileway-text',
+              ].join(' ')}
+            >
+              {triageCounts.thisQuarter} this quarter
+            </button>
+            <span className="text-mileway-grey/50">·</span>
+            <button
+              type="button"
+              onClick={() => setTriageFilter('next-quarter')}
+              className={[
+                'font-medium rounded px-1 py-0.5 transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                triageFilter === 'next-quarter' ? 'text-[#D97706] bg-[#FFFBEB]' : 'hover:text-mileway-text',
+              ].join(' ')}
+            >
+              {triageCounts.nextQuarter} next quarter
+            </button>
+            <span className="text-mileway-grey/50">·</span>
+            <button
+              type="button"
+              onClick={() => setTriageFilter('icebox')}
+              className={[
+                'font-medium rounded px-1 py-0.5 transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                triageFilter === 'icebox' ? 'text-[#6B7280] bg-[#F3F4F6]' : 'hover:text-mileway-text',
+              ].join(' ')}
+            >
+              {triageCounts.icebox} icebox
+            </button>
+          </div>
+        )}
 
         {/* Unscheduled Epics */}
         {sections.unscheduledEpics.map(node => {
           const epicKey = node.item.jiraKey;
-          const expanded = expandedIds.has(epicKey);
-          if (!matchesFilters(node.item, q, epicFilter, statusFilter, null)) {
+          const epicExpanded = expandedIds.has(epicKey);
+          if (!itemFullyVisible(node.item, null, q, epicFilter, statusFilter, triageFilter, triageMap)) {
             // If epic itself doesn't match, check if any child matches
             const anyChild = node.children.some(fn =>
-              matchesFilters(fn.item, q, epicFilter, statusFilter, epicKey) ||
-              fn.children.some(sn => matchesFilters(sn.item, q, epicFilter, statusFilter, epicKey))
+              itemFullyVisible(fn.item, epicKey, q, epicFilter, statusFilter, triageFilter, triageMap) ||
+              fn.children.some(sn => itemFullyVisible(sn.item, epicKey, q, epicFilter, statusFilter, triageFilter, triageMap))
             );
             if (!anyChild) return null;
           }
@@ -344,16 +512,18 @@ export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnsched
               <BacklogItem
                 item={node.item}
                 hasChildren={node.children.length > 0}
-                isExpanded={expanded}
+                isExpanded={epicExpanded}
                 onToggle={() => toggleExpand(epicKey)}
                 indent={0}
+                triageTag={triageMap[node.item.id] ?? null}
+                onTriage={setItemTriage}
               />
-              {expanded && node.children.map(fn => {
+              {epicExpanded && node.children.map(fn => {
                 const featKey = fn.item.jiraKey;
                 const featExpanded = expandedIds.has(featKey);
-                if (!matchesFilters(fn.item, q, epicFilter, statusFilter, epicKey)) {
+                if (!itemFullyVisible(fn.item, epicKey, q, epicFilter, statusFilter, triageFilter, triageMap)) {
                   const anyStory = fn.children.some(sn =>
-                    matchesFilters(sn.item, q, epicFilter, statusFilter, epicKey)
+                    itemFullyVisible(sn.item, epicKey, q, epicFilter, statusFilter, triageFilter, triageMap)
                   );
                   if (!anyStory) return null;
                 }
@@ -365,11 +535,19 @@ export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnsched
                       isExpanded={featExpanded}
                       onToggle={() => toggleExpand(featKey)}
                       indent={INDENT_FEATURE}
+                      triageTag={triageMap[fn.item.id] ?? null}
+                      onTriage={setItemTriage}
                     />
                     {featExpanded && fn.children.map(sn => {
-                      if (!matchesFilters(sn.item, q, epicFilter, statusFilter, epicKey)) return null;
+                      if (!itemFullyVisible(sn.item, epicKey, q, epicFilter, statusFilter, triageFilter, triageMap)) return null;
                       return (
-                        <BacklogItem key={sn.item.id} item={sn.item} indent={INDENT_STORY} />
+                        <BacklogItem
+                          key={sn.item.id}
+                          item={sn.item}
+                          indent={INDENT_STORY}
+                          triageTag={triageMap[sn.item.id] ?? null}
+                          onTriage={setItemTriage}
+                        />
                       );
                     })}
                   </div>
@@ -382,21 +560,28 @@ export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnsched
         {/* Scheduled Epics with unscheduled children */}
         {sections.scheduledEpicHeaders.map(node => {
           const epicKey = node.item.jiraKey;
-          const expanded = expandedIds.has(epicKey);
+          const epicExpanded = expandedIds.has(epicKey);
           const visibleChildren = node.children.filter(fn =>
-            matchesFilters(fn.item, q, epicFilter, statusFilter, epicKey)
+            itemFullyVisible(fn.item, epicKey, q, epicFilter, statusFilter, triageFilter, triageMap)
           );
-          if (visibleChildren.length === 0 && !(!q && epicFilter === 'all' && statusFilter === 'all')) return null;
+          const filtersAll = !q && epicFilter === 'all' && statusFilter === 'all' && triageFilter === 'all';
+          if (visibleChildren.length === 0 && !filtersAll) return null;
           return (
             <div key={epicKey}>
               <ScheduledEpicHeader
                 item={node.item}
                 childCount={node.children.length}
-                isExpanded={expanded}
+                isExpanded={epicExpanded}
                 onToggle={() => toggleExpand(epicKey)}
               />
-              {expanded && visibleChildren.map(fn => (
-                <BacklogItem key={fn.item.id} item={fn.item} indent={INDENT_FEATURE} />
+              {epicExpanded && visibleChildren.map(fn => (
+                <BacklogItem
+                  key={fn.item.id}
+                  item={fn.item}
+                  indent={INDENT_FEATURE}
+                  triageTag={triageMap[fn.item.id] ?? null}
+                  onTriage={setItemTriage}
+                />
               ))}
             </div>
           );
@@ -409,8 +594,16 @@ export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnsched
               Unlinked items
             </p>
             {sections.orphans
-              .filter(i => matchesFilters(i, q, epicFilter, statusFilter, null))
-              .map(i => <BacklogItem key={i.id} item={i} indent={0} />)
+              .filter(i => itemFullyVisible(i, null, q, epicFilter, statusFilter, triageFilter, triageMap))
+              .map(i => (
+                <BacklogItem
+                  key={i.id}
+                  item={i}
+                  indent={0}
+                  triageTag={triageMap[i.id] ?? null}
+                  onTriage={setItemTriage}
+                />
+              ))
             }
           </div>
         )}
@@ -426,9 +619,12 @@ export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnsched
 
         {totalUnscheduled > 0 && hasActiveFilters && (
           sections.unscheduledEpics.every(n =>
-            !matchesFilters(n.item, q, epicFilter, statusFilter, null) &&
-            !n.children.some(fn => matchesFilters(fn.item, q, epicFilter, statusFilter, n.item.jiraKey))
-          ) && sections.orphans.every(i => !matchesFilters(i, q, epicFilter, statusFilter, null))
+            !itemFullyVisible(n.item, null, q, epicFilter, statusFilter, triageFilter, triageMap) &&
+            !n.children.some(fn =>
+              itemFullyVisible(fn.item, n.item.jiraKey, q, epicFilter, statusFilter, triageFilter, triageMap) ||
+              fn.children.some(sn => itemFullyVisible(sn.item, n.item.jiraKey, q, epicFilter, statusFilter, triageFilter, triageMap))
+            )
+          ) && sections.orphans.every(i => !itemFullyVisible(i, null, q, epicFilter, statusFilter, triageFilter, triageMap))
         ) && (
           <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
             <p className="text-sm font-medium text-mileway-text">No items match your filters</p>
@@ -440,6 +636,7 @@ export function PlannerBacklog({ jiraItems, plannerItems, onClose, onDropUnsched
             </button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
@@ -484,9 +681,17 @@ interface BacklogItemProps {
   hasChildren?: boolean;
   isExpanded?: boolean;
   onToggle?: () => void;
+  triageTag?: TriageTag | null;
+  onTriage?: (itemId: string, tag: TriageTag) => void;
 }
 
-export function BacklogItem({ item, indent = 0, hasChildren = false, isExpanded = false, onToggle }: BacklogItemProps) {
+const TRIAGE_SEGMENTS: { tag: TriageTag; label: string; selectedClass: string; ghostClass: string }[] = [
+  { tag: 'this-quarter', label: 'This quarter', selectedClass: 'bg-[#EFF6FF] text-[#2563EB]', ghostClass: 'text-mileway-grey hover:bg-mileway-bg' },
+  { tag: 'next-quarter', label: 'Next quarter', selectedClass: 'bg-[#FFFBEB] text-[#D97706]', ghostClass: 'text-mileway-grey hover:bg-mileway-bg' },
+  { tag: 'icebox', label: 'Icebox', selectedClass: 'bg-[#F3F4F6] text-[#6B7280]', ghostClass: 'text-mileway-grey hover:bg-mileway-bg' },
+];
+
+export function BacklogItem({ item, indent = 0, hasChildren = false, isExpanded = false, onToggle, triageTag = null, onTriage }: BacklogItemProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: item.id,
     data: { type: 'backlog-item', jiraItem: item },
@@ -545,9 +750,42 @@ export function BacklogItem({ item, indent = 0, hasChildren = false, isExpanded 
           </div>
 
           {/* Row 2: Summary */}
-          <p className="text-sm font-medium text-mileway-text leading-snug line-clamp-2 mb-1.5">
+          <p className="text-sm font-medium text-mileway-text leading-snug line-clamp-2 mb-1">
             {item.summary}
           </p>
+
+          {/* Triage (redesign §5) — below title; isolate pointer so drag handle still works */}
+          {onTriage && (
+            <div
+              className="mb-1.5 max-h-6"
+              onPointerDown={e => e.stopPropagation()}
+              role="group"
+              aria-label="Quarter triage"
+            >
+              <div className="flex h-6 max-h-6 rounded-md border border-mileway-border overflow-hidden bg-white">
+                {TRIAGE_SEGMENTS.map(({ tag, label, selectedClass, ghostClass }, idx) => {
+                  const selected = triageTag === tag;
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      title={label}
+                      onClick={e => { e.stopPropagation(); onTriage(item.id, tag); }}
+                      className={[
+                        'flex-1 min-w-0 px-0.5 text-[9px] font-semibold leading-none transition-colors duration-fast',
+                        'flex items-center justify-center text-center',
+                        'focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-mileway-blue focus-visible:ring-inset',
+                        idx > 0 ? 'border-l border-mileway-border' : '',
+                        selected ? selectedClass : ghostClass,
+                      ].join(' ')}
+                    >
+                      <span className="block w-full truncate">{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Row 3: Active-in-Jira chip (SP-04) */}
           {isActive && (

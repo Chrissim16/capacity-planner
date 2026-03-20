@@ -10,6 +10,7 @@ export default {
       fontFamily: {
         sans:    ['DM Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         heading: ['DM Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        planner: ['Plus Jakarta Sans', 'DM Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
         // ── Mileway brand tokens ──────────────────────────────────────────────

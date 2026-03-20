@@ -520,6 +520,8 @@ export interface Scenario {
   lastEditedBy?: string;
   basedOnSyncAt?: string;
   isBaseline: boolean;
+  /** When true, scenario is hidden from the default home list until "Show archived" is on */
+  archived?: boolean;
   // Scenario-specific data (copied from baseline, then editable)
   jiraWorkItems: JiraWorkItem[];
   jiraItemBizAssignments: JiraItemBizAssignment[];

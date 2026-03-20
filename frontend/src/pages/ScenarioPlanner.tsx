@@ -11,8 +11,8 @@
  * useDroppable({ id: 'backlog' }) participates in the same context and the
  * drag-to-unschedule gesture works natively.
  */
-import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
-import { Loader2, BarChart2, Users, Plus, Filter, X, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
+import { Loader2, Users, Plus, Filter, X, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus } from '../stores/appStore';
 import {
@@ -21,21 +21,36 @@ import {
   updatePlannerLayout,
   initBaselineScenario,
   generateId,
+  deleteScenario,
+  updateScenario,
 } from '../stores/actions';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 import { migratePlannerLayout } from '../utils/plannerMigration';
+import {
+  appStateForScenario,
+  countOverloadedTeamSprints,
+  countUnscheduledJiraItems,
+} from '../utils/plannerScenarioHealth';
+import {
+  readPlannerSession,
+  persistPlannerSession,
+  clearPlannerSession,
+} from '../utils/plannerSessionStorage';
 import { useToast } from '../components/ui/Toast';
-import { ScenarioTabs } from '../components/planner/ScenarioTabs';
+import { Modal } from '../components/ui/Modal';
+import { Button } from '../components/ui/Button';
+import { ScenarioTabs, ScenarioCreateModal } from '../components/planner/ScenarioTabs';
 import { PlannerBacklog } from '../components/planner/PlannerBacklog';
 import { PlannerTimeline, type DragPreview } from '../components/planner/PlannerTimeline';
-import { PlannerCapacity } from '../components/planner/PlannerCapacity';
+import { PlannerCapacity, type PlannerCapacityHandle } from '../components/planner/PlannerCapacity';
 import { AssignPopover } from '../components/planner/AssignPopover';
 import { PlannerTeamDrawer } from '../components/planner/PlannerTeamDrawer';
 import { BoardToolbar } from '../components/planner/BoardToolbar';
 import { PlannerDetailPanel } from '../components/planner/PlannerDetailPanel';
 import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
 import { PlannerContextMenu, type ContextMenuTarget } from '../components/planner/PlannerContextMenu';
-import type { PlannerItem, PlannerItemType } from '../types';
+import { PlannerPersonFilterPill } from '../components/planner/PlannerPersonFilterPill';
+import type { PlannerItem, PlannerItemType, Scenario } from '../types';
 import type { BoardSort } from '../components/planner/PlannerBoard';
 
 // PlannerBoard is lazy so @dnd-kit/core stays out of the initial bundle
@@ -64,7 +79,7 @@ interface PlannerUIState {
   selectedProjectId: string | null;
   /** Any mode — which item is open in the Slide-out Detail Panel */
   detailItemId: string | null;
-  /** Timeline mode — which team member is focused (highlights bars + capacity row) */
+  /** Timeline — person filter (toolbar pill + team drawer); dims bars + individual ticker */
   focusedMemberId: string | null;
 }
 
@@ -170,9 +185,17 @@ export function ScenarioPlanner() {
   const [plannerUI, setPlannerUI] = useState<PlannerUIState>(INITIAL_PLANNER_UI);
   const [boardSort, setBoardSort] = useState<BoardSort>('priority');
 
-  // Convenience: toggle capacity panel (no coexistence rules apply)
-  const toggleUI = useCallback((key: 'capacityOpen') => {
-    setPlannerUI(prev => ({ ...prev, [key]: !prev[key] }));
+  const capacityPanelRef = useRef<PlannerCapacityHandle>(null);
+
+  const handleCapacityPanelToggle = useCallback(() => {
+    setPlannerUI(prev => ({ ...prev, capacityOpen: !prev.capacityOpen }));
+  }, []);
+
+  const handleOverloadedTickerClick = useCallback(() => {
+    setPlannerUI(prev => ({ ...prev, capacityOpen: true }));
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => capacityPanelRef.current?.scrollToFirstOverloaded());
+    });
   }, []);
 
   // ── Soft-responsive drawer coexistence (US-UI-20) ───────────────────────────
@@ -192,6 +215,7 @@ export function ScenarioPlanner() {
   }, []);
 
   // Smart toggle for Backlog: auto-closes Team drawer at < 1440px
+  /** Backlog drawer: toggles expanded (280px) vs collapsed (32px pill). */
   const toggleBacklog = useCallback(() => {
     setPlannerUI(prev => {
       if (prev.backlogOpen) return { ...prev, backlogOpen: false };
@@ -199,6 +223,17 @@ export function ScenarioPlanner() {
       return { ...prev, backlogOpen: true, ...(autoClose ? { teamDrawerOpen: false } : {}) };
     });
   }, [containerWidth]);
+
+  const expandBacklog = useCallback(() => {
+    setPlannerUI(prev => {
+      const autoClose = prev.teamDrawerOpen && containerWidth < 1440;
+      return { ...prev, backlogOpen: true, ...(autoClose ? { teamDrawerOpen: false } : {}) };
+    });
+  }, [containerWidth]);
+
+  const collapseBacklog = useCallback(() => {
+    setPlannerUI(prev => ({ ...prev, backlogOpen: false }));
+  }, []);
 
   // Smart toggle for Team drawer: auto-closes Backlog at < 1440px
   const toggleTeamDrawer = useCallback(() => {
@@ -216,6 +251,7 @@ export function ScenarioPlanner() {
       activeMode: m,
       selectedProjectId: null,
       detailItemId: null,
+      focusedMemberId: null,
     }));
   }, []);
 
@@ -239,6 +275,11 @@ export function ScenarioPlanner() {
   const [filterLabels, setFilterLabels] = useState<string[]>([]);
   const [filterEpics, setFilterEpics]   = useState<string[]>([]);
 
+  // Home screen (no scenario open)
+  const [showArchived, setShowArchived] = useState(false);
+  const [homeCreateOpen, setHomeCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Scenario | null>(null);
+
   const { showToast } = useToast();
 
   // Shared sensors for Timeline mode DndContext
@@ -256,6 +297,35 @@ export function ScenarioPlanner() {
     () => allState.scenarios.filter(sc => !sc.isBaseline),
     [allState.scenarios],
   );
+
+  const appData = useAppStore(s => s.data);
+
+  const scenarioHealthById = useMemo(() => {
+    const map = new Map<string, { overloaded: number; unscheduled: number }>();
+    for (const sc of scenarios) {
+      const merged = appStateForScenario(appData, sc);
+      const layout = migratePlannerLayout(sc.plannerLayout ?? []);
+      map.set(sc.id, {
+        overloaded: countOverloadedTeamSprints(layout, merged, appData.sprints),
+        unscheduled: countUnscheduledJiraItems(layout, merged),
+      });
+    }
+    return map;
+  }, [appData, scenarios]);
+
+  const listScenarios = useMemo(() => {
+    const filtered = scenarios.filter(s => showArchived || !s.archived);
+    return [...filtered].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }, [scenarios, showArchived]);
+
+  const activeScenarioCount = useMemo(
+    () => scenarios.filter(s => !s.archived).length,
+    [scenarios],
+  );
+
+  const homeCreateDisabled = activeScenarioCount >= 5;
 
   const plannerItems = useMemo((): PlannerItem[] => {
     const active = allState.scenarios.find(sc => sc.id === activeScenarioId);
@@ -280,10 +350,12 @@ export function ScenarioPlanner() {
       switchScenario(newScenario.id);
       const { placedCount, unscheduledCount } = initBaselineScenario(newScenario.id);
       setBaselineBanner({ placed: placedCount, unscheduled: unscheduledCount });
+      setPlannerUI(prev => ({ ...prev, backlogOpen: false }));
     } else {
       // SP-04: Blank canvas — plannerLayout stays undefined; backlog shows all items.
       const newScenario = createScenario(name);
       switchScenario(newScenario.id);
+      setPlannerUI(prev => ({ ...prev, backlogOpen: true }));
     }
   }, []);
 
@@ -547,6 +619,58 @@ export function ScenarioPlanner() {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // Active scenario was removed (e.g. sync) — return to home
+  useEffect(() => {
+    if (!activeScenarioId) return;
+    const exists = allState.scenarios.some(s => s.id === activeScenarioId && !s.isBaseline);
+    if (!exists) switchScenario(null);
+  }, [activeScenarioId, allState.scenarios]);
+
+  // Local planner session: restore open scenario + UI, or home (redesign §2 / §4).
+  // TODO: Cross-device restore deferred — state is browser-local only
+  useLayoutEffect(() => {
+    const session = readPlannerSession();
+    if (!session) {
+      switchScenario(null);
+      return;
+    }
+    const scenarios = useAppStore.getState().data.scenarios;
+    const sc = scenarios.find(s => s.id === session.activeScenarioId);
+    const canOpen = Boolean(sc && !sc.isBaseline && !sc.archived);
+    if (!canOpen) {
+      clearPlannerSession();
+      switchScenario(null);
+      return;
+    }
+    switchScenario(session.activeScenarioId);
+    setPlannerUI({
+      ...INITIAL_PLANNER_UI,
+      activeMode: session.lastActiveMode,
+      currentQuarterIndex: session.lastActiveQuarter,
+      backlogOpen: session.backlogDrawerOpen,
+    });
+  }, []);
+
+  // Debounced persist of mode / quarter / backlog (same key as activeScenarioId).
+  useEffect(() => {
+    if (!activeScenarioId) return;
+    const t = window.setTimeout(() => {
+      persistPlannerSession({
+        activeScenarioId,
+        lastActiveMode: plannerUI.activeMode,
+        lastActiveQuarter: plannerUI.currentQuarterIndex,
+        backlogDrawerOpen: plannerUI.backlogOpen,
+      });
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [activeScenarioId, plannerUI.activeMode, plannerUI.currentQuarterIndex, plannerUI.backlogOpen]);
+
+  const formatScenarioDate = useCallback((iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }, []);
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -555,16 +679,177 @@ export function ScenarioPlanner() {
       <ViewportNotice />
 
       {/* Main page — hidden below 1200px */}
-      <div className="hidden min-[1200px]:flex flex-col h-full bg-mileway-bg">
+      <div className="hidden min-[1200px]:flex flex-col h-full bg-mileway-bg font-planner">
+        {!activeScenarioId ? (
+          <div className="flex flex-col flex-1 min-h-0 overflow-auto px-8 py-8">
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm text-mileway-text cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showArchived}
+                    onChange={e => setShowArchived(e.target.checked)}
+                    className="rounded border-mileway-border text-mileway-blue focus:ring-mileway-blue"
+                  />
+                  Show archived
+                </label>
+              </div>
+              <button
+                type="button"
+                disabled={homeCreateDisabled}
+                title={
+                  homeCreateDisabled
+                    ? 'Maximum 5 active scenarios. Archive or delete one to create a new scenario.'
+                    : undefined
+                }
+                onClick={() => !homeCreateDisabled && setHomeCreateOpen(true)}
+                className={[
+                  'px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-fast',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                  homeCreateDisabled
+                    ? 'bg-mileway-bg text-mileway-grey cursor-not-allowed opacity-60'
+                    : 'bg-mileway-blue text-white hover:bg-[#0077C2]',
+                ].join(' ')}
+              >
+                Create Scenario
+              </button>
+            </div>
 
+            {scenarios.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16">
+                <h1 className="text-2xl font-semibold text-mileway-text mb-2">No scenarios yet</h1>
+                <p className="text-sm text-mileway-grey max-w-md mb-8 leading-relaxed">
+                  Create a scenario to start planning without affecting your actuals.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setHomeCreateOpen(true)}
+                  className="px-6 py-3 rounded-xl text-sm font-semibold bg-mileway-blue text-white hover:bg-[#0077C2] transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                >
+                  Create Scenario
+                </button>
+              </div>
+            ) : listScenarios.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center text-sm text-mileway-grey px-6">
+                No active scenarios. Turn on &quot;Show archived&quot; to see archived plans.
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-3 max-w-5xl">
+                {listScenarios.map(sc => {
+                  const layout = migratePlannerLayout(sc.plannerLayout ?? []);
+                  const nFeat = layout.filter(p => p.type === 'feature').length;
+                  const nEpic = layout.filter(p => p.type === 'epic').length;
+                  const itemLine =
+                    layout.length === 0
+                      ? 'No items yet'
+                      : `${nFeat} feature${nFeat !== 1 ? 's' : ''} · ${nEpic} epic${nEpic !== 1 ? 's' : ''}`;
+                  const health = scenarioHealthById.get(sc.id) ?? { overloaded: 0, unscheduled: 0 };
+                  const ol = health.overloaded;
+                  const un = health.unscheduled;
+                  const healthStr = `${ol} overloaded sprint${ol !== 1 ? 's' : ''} · ${un} unscheduled`;
+                  const isArchived = Boolean(sc.archived);
+                  const restoreBlocked = activeScenarioCount >= 5;
+
+                  return (
+                    <li
+                      key={sc.id}
+                      className="bg-white border border-[#EBEBEB] rounded-xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shadow-sm"
+                    >
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-mileway-text truncate">{sc.name}</span>
+                          <span
+                            className={[
+                              'text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md',
+                              isArchived ? 'bg-mileway-bg text-[#6B7280]' : 'bg-green-50 text-green-700',
+                            ].join(' ')}
+                          >
+                            {isArchived ? 'Archived' : 'Active'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-mileway-grey">
+                          Created {formatScenarioDate(sc.createdAt)} · Last modified{' '}
+                          {formatScenarioDate(sc.updatedAt)}
+                        </p>
+                        <p className="text-xs text-mileway-text">{itemLine}</p>
+                        <p className="text-xs text-mileway-text">
+                          {ol > 0 && (
+                            <span className="text-[#D97706] font-medium" aria-hidden="true">
+                              ⚠{' '}
+                            </span>
+                          )}
+                          {healthStr}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => switchScenario(sc.id)}
+                          className="text-sm font-medium text-mileway-blue hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded px-1"
+                        >
+                          Open
+                        </button>
+                        {isArchived ? (
+                          <button
+                            type="button"
+                            disabled={restoreBlocked}
+                            title={
+                              restoreBlocked
+                                ? 'Maximum 5 active scenarios. Archive or delete one to restore.'
+                                : 'Restore to active'
+                            }
+                            onClick={() => !restoreBlocked && updateScenario(sc.id, { archived: false })}
+                            className="text-sm font-medium text-mileway-text hover:text-mileway-blue disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded px-1"
+                          >
+                            Restore
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => updateScenario(sc.id, { archived: true })}
+                            className="text-sm font-medium text-mileway-grey hover:text-mileway-text focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded px-1"
+                          >
+                            Archive
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(sc)}
+                          className="text-sm font-medium text-red-600 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded px-1"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <ScenarioCreateModal
+              isOpen={homeCreateOpen}
+              onClose={() => setHomeCreateOpen(false)}
+              onCreate={handleCreateScenario}
+            />
+          </div>
+        ) : (
+          <>
         {/* ── Toolbar ──────────────────────────────────────────────────────── */}
         {/*
           Layout: [Scenario chip] [Scenario pill ▾] [+] [|] [Board|Timeline]
                   [flex-1 spacer]
                   [(timeline) Add Epic] [(timeline) Filters] [(timeline) ‹ Q ›]
-                  [Backlog (N)] [Team (N)] [(timeline) Capacity] [Save]
+                  [Backlog (N)] [Team (N)] [Save]
         */}
         <div className="flex-shrink-0 bg-white border-b border-mileway-border px-6 py-3 flex items-center gap-3">
+
+          <button
+            type="button"
+            onClick={() => switchScenario(null)}
+            className="text-sm font-medium text-mileway-grey hover:text-mileway-text focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded-lg px-2 py-1 -ml-1 flex-shrink-0"
+          >
+            ← Back to overview
+          </button>
 
           {/* Left group: scenario controls + mode toggle (ScenarioTabs renders chip, pill, +, divider) */}
           <ScenarioTabs
@@ -592,6 +877,15 @@ export function ScenarioPlanner() {
                   <Plus size={14} aria-hidden="true" />
                   Add Epic
                 </button>
+              )}
+
+              {activeScenarioId && (
+                <PlannerPersonFilterPill
+                  selectedMemberId={plannerUI.focusedMemberId}
+                  onSelectMemberId={id =>
+                    setPlannerUI(prev => ({ ...prev, focusedMemberId: id }))
+                  }
+                />
               )}
 
               {/* SP-20/21: Label + Epic filters */}
@@ -666,7 +960,7 @@ export function ScenarioPlanner() {
           {/* Backlog toggle (all modes) — keyboard shortcut: B */}
           <button
             onClick={toggleBacklog}
-            title={`${plannerUI.backlogOpen ? 'Hide' : 'Show'} backlog (B)`}
+            title={`${plannerUI.backlogOpen ? 'Collapse' : 'Expand'} backlog (B)`}
             className={[
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
@@ -704,24 +998,6 @@ export function ScenarioPlanner() {
             )}
           </button>
 
-          {/* Capacity — Timeline mode only */}
-          {plannerUI.activeMode === 'timeline' && (
-            <button
-              onClick={() => toggleUI('capacityOpen')}
-              title={plannerUI.capacityOpen ? 'Hide capacity panel' : 'Show capacity panel'}
-              className={[
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                plannerUI.capacityOpen
-                  ? 'bg-mileway-blue-10 text-mileway-blue'
-                  : 'text-mileway-grey hover:bg-mileway-bg',
-              ].join(' ')}
-            >
-              <BarChart2 size={14} aria-hidden="true" />
-              Capacity
-            </button>
-          )}
-
           {/* Save */}
           <SaveButton />
         </div>
@@ -753,7 +1029,7 @@ export function ScenarioPlanner() {
 
           {/* Board mode — full-width card grid with BoardToolbar; capacity panel docked at bottom */}
           {plannerUI.activeMode === 'board' && (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full min-h-0">
               <BoardToolbar
                 selectedQuarter={selectedQuarter}
                 onQuarterChange={q => {
@@ -763,30 +1039,44 @@ export function ScenarioPlanner() {
                 sort={boardSort}
                 onSortChange={setBoardSort}
               />
-              <div className="flex-1 overflow-hidden flex flex-col">
-                <Suspense
-                  fallback={
-                    <div className="flex-1 flex items-center justify-center h-full">
-                      <Loader2 size={20} className="animate-spin text-mileway-grey" />
-                    </div>
-                  }
-                >
-                  <PlannerBoard
-                    scenarioId={activeScenarioId ?? ''}
-                    selectedQuarter={selectedQuarter}
-                    sort={boardSort}
-                    onOpenDetail={jiraKey => setPlannerUI(prev => ({ ...prev, detailItemId: jiraKey }))}
-                    overlays={plannerUI.teamDrawerOpen ? (
-                      <PlannerTeamDrawer
+              <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
+                {/* Board mode: separate DndContext — backlog droppable inert here; matches prior pattern */}
+                <DndContext>
+                  <div className="flex flex-row flex-1 min-h-0 min-w-0 w-full h-full overflow-hidden">
+                    <PlannerBacklog
+                      jiraItems={jiraItems}
+                      plannerItems={plannerItems}
+                      expanded={plannerUI.backlogOpen}
+                      onExpand={expandBacklog}
+                      onCollapse={collapseBacklog}
+                    />
+                    <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+                    <Suspense
+                      fallback={
+                        <div className="flex-1 flex items-center justify-center h-full">
+                          <Loader2 size={20} className="animate-spin text-mileway-grey" />
+                        </div>
+                      }
+                    >
+                      <PlannerBoard
+                        scenarioId={activeScenarioId ?? ''}
                         selectedQuarter={selectedQuarter}
-                        activeMode="board"
-                        onClose={() => setPlannerUI(prev => ({ ...prev, teamDrawerOpen: false }))}
-                        onMemberFocus={() => {}}
-                        focusedMemberId={null}
+                        sort={boardSort}
+                        onOpenDetail={jiraKey => setPlannerUI(prev => ({ ...prev, detailItemId: jiraKey }))}
+                        overlays={plannerUI.teamDrawerOpen ? (
+                          <PlannerTeamDrawer
+                            selectedQuarter={selectedQuarter}
+                            activeMode="board"
+                            onClose={() => setPlannerUI(prev => ({ ...prev, teamDrawerOpen: false }))}
+                            onMemberFocus={() => {}}
+                            focusedMemberId={null}
+                          />
+                        ) : undefined}
                       />
-                    ) : undefined}
-                  />
-                </Suspense>
+                    </Suspense>
+                    </div>
+                  </div>
+                </DndContext>
               </div>
               <PlannerCapacity
                 plannerItems={plannerItems}
@@ -799,25 +1089,21 @@ export function ScenarioPlanner() {
             </div>
           )}
 
-          {/* Board mode backlog overlay — needs its own DndContext for useDroppable;
-              no drag events fire in Board mode so the context is effectively inert */}
-          {plannerUI.activeMode === 'board' && plannerUI.backlogOpen && (
-            <DndContext>
-              <PlannerBacklog
-                jiraItems={jiraItems}
-                plannerItems={plannerItems}
-                onClose={() => setPlannerUI(prev => ({ ...prev, backlogOpen: false }))}
-              />
-            </DndContext>
-          )}
-
           {/* Timeline mode — DndContext wraps gantt + overlay drawers so all
               useDraggable/useDroppable hooks share a single context */}
           {plannerUI.activeMode === 'timeline' && (
             <DndContext sensors={timelineSensors}>
-              {/* Gantt fills full width — backlog is now overlay, not a flex sibling */}
-              <div className="h-full flex overflow-hidden">
-                <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+              <div className="h-full flex flex-row overflow-hidden min-h-0">
+                {activeScenarioId ? (
+                  <PlannerBacklog
+                    jiraItems={jiraItems}
+                    plannerItems={plannerItems}
+                    expanded={plannerUI.backlogOpen}
+                    onExpand={expandBacklog}
+                    onCollapse={collapseBacklog}
+                  />
+                ) : null}
+                <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0">
                   {activeScenarioId ? (
                     <PlannerTimeline
                       plannerItems={filteredPlannerItems}
@@ -833,6 +1119,12 @@ export function ScenarioPlanner() {
                       onContextMenu={handleContextMenu}
                       focusedMemberId={plannerUI.focusedMemberId}
                       labelWidth={260}
+                      dragPreview={activeDragPreview}
+                      capacityPanelOpen={plannerUI.capacityOpen}
+                      onCapacityPanelToggle={handleCapacityPanelToggle}
+                      onOverloadedTickerClick={handleOverloadedTickerClick}
+                      onBacklogItemScheduled={collapseBacklog}
+                      onBarUnscheduledToBacklog={expandBacklog}
                     />
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
@@ -842,17 +1134,25 @@ export function ScenarioPlanner() {
                       </p>
                     </div>
                   )}
-                  <PlannerCapacity
-                    plannerItems={plannerItems}
-                    sprints={sprints}
-                    selectedQuarter={selectedQuarter}
-                    activeDragPreview={activeDragPreview}
-                    isVisible={plannerUI.capacityOpen}
-                    focusedMemberId={plannerUI.focusedMemberId}
-                    labelWidth={260}
-                  />
+                  <div
+                    className="flex-shrink-0 overflow-hidden transition-[max-height,opacity] duration-150 ease-out"
+                    style={{
+                      maxHeight: plannerUI.capacityOpen ? 300 : 0,
+                      opacity: plannerUI.capacityOpen ? 1 : 0,
+                    }}
+                  >
+                    <PlannerCapacity
+                      ref={capacityPanelRef}
+                      plannerItems={plannerItems}
+                      sprints={sprints}
+                      selectedQuarter={selectedQuarter}
+                      activeDragPreview={activeDragPreview}
+                      isVisible
+                      focusedMemberId={plannerUI.focusedMemberId}
+                      labelWidth={260}
+                    />
+                  </div>
                 </div>
-
               </div>
 
               {/* Team drawer — absolute overlay on right edge of canvas */}
@@ -863,15 +1163,6 @@ export function ScenarioPlanner() {
                   onClose={() => setPlannerUI(prev => ({ ...prev, teamDrawerOpen: false }))}
                   onMemberFocus={id => setPlannerUI(prev => ({ ...prev, focusedMemberId: id }))}
                   focusedMemberId={plannerUI.focusedMemberId}
-                />
-              )}
-
-              {/* Backlog overlay — absolute-positioned within the relative canvas anchor */}
-              {plannerUI.backlogOpen && (
-                <PlannerBacklog
-                  jiraItems={jiraItems}
-                  plannerItems={plannerItems}
-                  onClose={() => setPlannerUI(prev => ({ ...prev, backlogOpen: false }))}
                 />
               )}
             </DndContext>
@@ -888,7 +1179,39 @@ export function ScenarioPlanner() {
             />
           )}
         </div>
+          </>
+        )}
       </div>
+
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete scenario"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => {
+                if (deleteTarget) {
+                  deleteScenario(deleteTarget.id);
+                  setDeleteTarget(null);
+                }
+              }}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-mileway-text leading-relaxed">
+          Delete <span className="font-semibold">{deleteTarget?.name}</span>? This cannot be undone.
+        </p>
+      </Modal>
 
       {/* AssignPopover — portaled to document.body, opened on bar click or people-drawer drop */}
       {liveAssignTarget && (
@@ -925,7 +1248,7 @@ export function ScenarioPlanner() {
       )}
 
       {/* SP-20/21: Active filter chips (shown below toolbar when filters are active) */}
-      {hasFilters && plannerUI.activeMode === 'timeline' && (
+      {activeScenarioId && hasFilters && plannerUI.activeMode === 'timeline' && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-white rounded-full shadow-lg border border-mileway-border px-4 py-2">
           <Filter size={12} className="text-mileway-grey" />
           {filterLabels.map(l => (

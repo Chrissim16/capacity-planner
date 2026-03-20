@@ -39,6 +39,7 @@ import type {
   JiraItemBizAssignment,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
+import { migratePlannerLayout } from '../utils/plannerMigration';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEFAULT VALUES — must stay in sync with appStore.ts
@@ -259,14 +260,19 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       color: s.color ?? undefined,
       createdAt: s.created_at,
       updatedAt: s.updated_at,
+      lastEditedBy: s.last_edited_by ?? undefined,
       basedOnSyncAt: s.based_on_sync_at ?? undefined,
       isBaseline: s.is_baseline ?? false,
+      archived: s.archived ?? false,
       jiraWorkItems: Array.isArray(s.jira_work_items) ? s.jira_work_items : [],
       jiraItemBizAssignments: Array.isArray(s.jira_item_biz_assignments) ? s.jira_item_biz_assignments : [],
       teamMembers: Array.isArray(s.team_members) ? s.team_members : [],
       timeOff: Array.isArray(s.time_off) ? s.time_off : [],
       projects: Array.isArray(s.projects) ? s.projects : [],
       assignments: Array.isArray(s.assignments) ? s.assignments : [],
+      plannerLayout: migratePlannerLayout(
+        Array.isArray(s.planner_layout) ? s.planner_layout : []
+      ),
     }));
 
     // Settings key-value pairs
@@ -618,10 +624,13 @@ async function syncScenarios(scenarios: Scenario[]): Promise<void> {
     updated_at: s.updatedAt,
     based_on_sync_at: s.basedOnSyncAt ?? null,
     is_baseline: s.isBaseline,
+    archived: s.archived ?? false,
     jira_work_items: s.jiraWorkItems,
     jira_item_biz_assignments: s.jiraItemBizAssignments,
     team_members: s.teamMembers,
     time_off: s.timeOff,
+    planner_layout: s.plannerLayout != null ? s.plannerLayout : null,
+    last_edited_by: s.lastEditedBy ?? null,
   }));
 }
 

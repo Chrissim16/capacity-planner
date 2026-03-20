@@ -16,6 +16,7 @@ import type {
   Settings,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
+import { hasPlannerSession } from '../utils/plannerSessionStorage';
 import { loadFromSupabase, saveToSupabase, scheduleSyncToSupabase } from '../services/supabaseSync';
 import { isSupabaseConfigured } from '../services/supabase';
 
@@ -334,7 +335,9 @@ export const useAppStore = create<AppStore>()(
               jiraConnections: cloudData.jiraConnections || [],
               jiraWorkItems: cloudData.jiraWorkItems || [],
               scenarios: cloudData.scenarios || [],
-              activeScenarioId: cloudData.activeScenarioId ?? null,
+              activeScenarioId: hasPlannerSession()
+                ? (cloudData.activeScenarioId ?? null)
+                : null,
             };
             set({ data: hydratedData });
             localStorage.setItem(STORAGE_KEY, JSON.stringify(hydratedData));
@@ -502,6 +505,8 @@ export const useAppStore = create<AppStore>()(
     }
   )
 );
+
+if (import.meta.env.DEV) (window as any).__store = useAppStore;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SELECTORS

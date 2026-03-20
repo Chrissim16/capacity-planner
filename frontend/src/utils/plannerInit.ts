@@ -5,9 +5,10 @@
  * each item's Jira sprint / start date to the app's known sprint list.
  *
  * Positioning priority (per SP-05 AC #1):
- *   1. sprintName  →  find matching Sprint in sprints[], use sprint.number
- *   2. startDate + dueDate  →  map startDate to nearest sprint boundary
- *   3. Neither  →  return null (item stays in backlog)
+ *   1. sprintName  →  normalized match to Sprint.name, use sprint.number
+ *   2. sprintStartDate  →  Jira sprint window contained in app Sprint dates
+ *   3. startDate (+ dueDate)  →  map issue startDate to sprint window / nearest
+ *   4. Neither  →  return null (item stays in backlog)
  *
  * Default spans when explicit end data is absent:
  *   Epic → 6 sprints (1 quarter), Feature → 2 sprints, Story/other → 1 sprint
@@ -32,12 +33,13 @@ export function baselinePositionForItem(
   sprints: Sprint[],
 ): { startSprint: number; spanSprints: number } | null {
   const sortedSprints = [...sprints].sort((a, b) => a.number - b.number);
+  const normalizeSprintName = (n: string) =>
+    n.trim().toLowerCase().replace(/\s+/g, '');
 
   // ── Path 1: sprint name match ────────────────────────────────────────────
   if (item.sprintName) {
-    const found = sortedSprints.find(
-      s => s.name === item.sprintName || s.name.replace(/\s+/g, '') === item.sprintName?.replace(/\s+/g, '')
-    );
+    const target = normalizeSprintName(item.sprintName);
+    const found = sortedSprints.find(s => normalizeSprintName(s.name) === target);
     if (found) {
       let spanSprints = defaultSpan(item.type);
       // If the item also has a dueDate, try to extend the span
@@ -51,7 +53,30 @@ export function baselinePositionForItem(
     }
   }
 
-  // ── Path 2: date range mapping ───────────────────────────────────────────
+  // ── Path 2: Jira sprint start date falls inside an app Sprint window ─────
+  if (item.sprintStartDate) {
+    const jiraSprintStart = new Date(item.sprintStartDate).getTime();
+    if (!Number.isNaN(jiraSprintStart)) {
+      for (const s of sortedSprints) {
+        if (!s.startDate || !s.endDate) continue;
+        const sStart = new Date(s.startDate).getTime();
+        const sEnd   = new Date(s.endDate).getTime();
+        if (Number.isNaN(sStart) || Number.isNaN(sEnd)) continue;
+        if (jiraSprintStart >= sStart && jiraSprintStart <= sEnd) {
+          let spanSprints = defaultSpan(item.type);
+          if (item.startDate && item.dueDate) {
+            const start = new Date(item.startDate).getTime();
+            const end   = new Date(item.dueDate).getTime();
+            const days  = (end - start) / (1000 * 60 * 60 * 24);
+            spanSprints = Math.max(1, Math.ceil(days / 14));
+          }
+          return { startSprint: s.number, spanSprints };
+        }
+      }
+    }
+  }
+
+  // ── Path 3: issue startDate → sprint window / nearest ────────────────────
   if (item.startDate) {
     const itemStart = new Date(item.startDate).getTime();
     // Find the sprint whose window contains the start date, or the nearest one after it

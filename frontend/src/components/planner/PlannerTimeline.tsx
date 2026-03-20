@@ -27,6 +27,7 @@ import { ChevronRight, ChevronDown, Lock, Plus, Pencil } from 'lucide-react';
 import { useToast } from '../ui/Toast';
 import type { PlannerItem, PlannerItemType, JiraWorkItem, Sprint } from '../../types';
 import { generateId } from '../../stores/actions';
+import { usePlannerCapacityTicker } from './PlannerCapacityTicker';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -92,12 +93,22 @@ export interface PlannerTimelineProps {
   onAddChild?: (parentItem: PlannerItem) => void;
   /** SP-19: right-click context menu on a timeline row. */
   onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
-  /** When set, bars assigned to this member receive a pulse animation */
+  /** Person filter (redesign §7): assigned bars stay full opacity; others dim to 20%. Also drives ticker individual view. */
   focusedMemberId?: string | null;
   /** Initial label column width in px — kept in sync with PlannerCapacity. Default: 260. */
   labelWidth?: number;
   /** US-UI-22: fires when the detail (→) button is clicked on a label row */
   onLabelClick?: (item: PlannerItem) => void;
+  /** Live bar-drag preview from parent — merged with local resize preview for the capacity ticker. */
+  dragPreview?: DragPreview | null;
+  capacityPanelOpen: boolean;
+  onCapacityPanelToggle: () => void;
+  /** Red §8: overloaded sprint cell opens panel and scrolls to first overloaded member row. */
+  onOverloadedTickerClick: () => void;
+  /** Backlog drawer — collapse after a backlog item is dropped on a sprint column (not on backlog). */
+  onBacklogItemScheduled?: () => void;
+  /** Backlog drawer — expand after a timeline bar is dropped on the backlog (unschedule). */
+  onBarUnscheduledToBacklog?: () => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -341,7 +352,7 @@ interface PlannerBarProps {
   onRegisterNode?: (id: string, el: HTMLElement | null) => void;
   /** SP-19: right-click context menu. */
   onContextMenu?: (item: PlannerItem, x: number, y: number) => void;
-  /** When set and bar has this assignee, a brief pulse animation is applied */
+  /** Person filter — dims non-matching bars when set */
   focusedMemberId?: string | null;
   /** Fires on mouse enter/leave so the parent can sync the row hover highlight */
   onRowHover?: (itemId: string | null) => void;
@@ -390,13 +401,23 @@ function PlannerBar({
 
   const s = BAR[item.type] ?? BAR.custom;
   const borderStyle = item.unlockedInScenario ? 'dashed' : 'solid';
-  const isFocusedBar = focusedMemberId != null &&
-    item.assignees.some(a => a.memberId === focusedMemberId);
+  const assignedToFilter =
+    focusedMemberId != null && item.assignees.some(a => a.memberId === focusedMemberId);
+
+  let barOpacity: number;
+  if (focusedMemberId != null && !isDragging) {
+    if (assignedToFilter) {
+      barOpacity = item.locked && !item.unlockedInScenario ? 0.6 : 1;
+    } else {
+      barOpacity = 0.2;
+    }
+  } else {
+    barOpacity = isDragging ? 0.35 : item.locked && !item.unlockedInScenario ? 0.6 : 1;
+  }
 
   return (
     <div
       ref={setNodeRef}
-      className={isFocusedBar ? 'animate-bar-pulse' : undefined}
       style={{
         position: 'absolute',
         top: rowTop + BAR_PAD_Y,
@@ -409,7 +430,8 @@ function PlannerBar({
         borderRadius: s.radius,
         boxSizing: 'border-box',
         zIndex: 10,
-        opacity: isDragging ? 0.35 : (item.locked && !item.unlockedInScenario ? 0.6 : 1),
+        opacity: barOpacity,
+        transition: 'opacity 200ms ease',
         cursor: isInteractive ? 'grab' : 'not-allowed',
         // SP-10: blue glow when a person card is dragged over this bar
         boxShadow: isPersonOver && isInteractive ? '0 0 0 2px rgba(0,137,221,0.5), 0 0 8px rgba(0,137,221,0.25)' : undefined,
@@ -573,6 +595,12 @@ export function PlannerTimeline({
   focusedMemberId,
   labelWidth: labelWidthProp,
   onLabelClick,
+  dragPreview,
+  capacityPanelOpen,
+  onCapacityPanelToggle,
+  onOverloadedTickerClick,
+  onBacklogItemScheduled,
+  onBarUnscheduledToBacklog,
 }: PlannerTimelineProps) {
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
@@ -621,6 +649,34 @@ export function PlannerTimeline({
     [sprints, selectedQuarter],
   );
   const firstSprintNum = quarterSprints[0]?.number ?? 1;
+
+  const activeDragLayout = useMemo((): PlannerItem[] | undefined => {
+    if (resize) {
+      return plannerItems.map(p =>
+        p.id === resize.itemId
+          ? { ...p, startSprint: resize.previewStart, spanSprints: resize.previewSpan }
+          : p,
+      );
+    }
+    if (dragPreview) {
+      return plannerItems.map(p =>
+        p.id === dragPreview.itemId ? { ...p, startSprint: dragPreview.newStartSprint } : p,
+      );
+    }
+    return undefined;
+  }, [plannerItems, resize, dragPreview]);
+
+  const ticker = usePlannerCapacityTicker({
+    plannerItems,
+    activeDragLayout,
+    sprints,
+    selectedQuarter,
+    labelWidth,
+    isPanelOpen: capacityPanelOpen,
+    onTogglePanel: onCapacityPanelToggle,
+    onOverloadedSprintClick: onOverloadedTickerClick,
+    selectedFilterMemberId: focusedMemberId ?? null,
+  });
 
   // ── Today line & current sprint ─────────────────────────────────────────────
   const { currentSprintNum, todayLinePercent } = useMemo(() => {
@@ -747,6 +803,11 @@ export function PlannerTimeline({
   const plannerItemsRef = useRef(plannerItems);
   plannerItemsRef.current = plannerItems;
 
+  const onBacklogItemScheduledRef = useRef(onBacklogItemScheduled);
+  onBacklogItemScheduledRef.current = onBacklogItemScheduled;
+  const onBarUnscheduledToBacklogRef = useRef(onBarUnscheduledToBacklog);
+  onBarUnscheduledToBacklogRef.current = onBarUnscheduledToBacklog;
+
   useDndMonitor({
     onDragStart(event: DragStartEvent) {
       const data = event.active.data.current as { type: string; plannerItem?: PlannerItem; jiraItem?: JiraWorkItem } | undefined;
@@ -836,6 +897,7 @@ export function PlannerTimeline({
       // Case 2: bar → backlog (unschedule)
       if (aData.type === 'timeline-bar' && overId === 'backlog') {
         onItemsChange(items.filter(p => p.id !== active.id));
+        onBarUnscheduledToBacklogRef.current?.();
         return;
       }
 
@@ -918,6 +980,7 @@ export function PlannerTimeline({
             duration: 5000,
             action: { label: 'Undo', onClick: () => onItemsChange(snapshot) },
           });
+          onBacklogItemScheduledRef.current?.();
           return;
         }
 
@@ -925,6 +988,7 @@ export function PlannerTimeline({
         const newItem = makeItem(ji, target);
         const snapshot = items;
         onItemsChange([...items, newItem]);
+        onBacklogItemScheduledRef.current?.();
 
         // SP-08: parent-not-scheduled warning
         if (ji.parentKey) {
@@ -996,6 +1060,7 @@ export function PlannerTimeline({
                 Collapse all
               </button>
             </div>
+            {ticker.labelCell}
             {visibleItems.map(item => (
               <div
                 key={item.id}
@@ -1031,12 +1096,13 @@ export function PlannerTimeline({
           {/* Gantt canvas */}
           <div className="flex-1 overflow-auto">
             {/* Sprint headers — sticky so they stay visible when scrolling */}
-            <div className="sticky top-0 z-20">
+            <div className="sticky top-0 z-20 bg-white">
               <SprintHeaders
                 sprints={quarterSprints}
                 dragOverNum={dragOverNum}
                 currentSprintNum={currentSprintNum}
               />
+              {ticker.sprintRow}
             </div>
 
             {/* Canvas body — never overflow:hidden */}

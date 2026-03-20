@@ -3,12 +3,14 @@
  *
  * SP-19:
  *   Manual items  → Edit, Delete (with undo toast)
- *   Jira-sourced  → View in Jira (opens Jira URL)
+ *   Jira-sourced  → Unlock (when locked), View in Jira (opens Jira URL)
  */
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { Pencil, Trash2, ExternalLink, Unlock } from 'lucide-react';
+import { useCurrentState } from '../../stores/appStore';
+import { unlockPlannerItem } from '../../stores/actions';
 import type { PlannerItem } from '../../types';
 
 export interface ContextMenuTarget {
@@ -27,21 +29,38 @@ export interface PlannerContextMenuProps {
 export function PlannerContextMenu({ target, onEdit, onDelete, onClose }: PlannerContextMenuProps) {
   const { item, x, y } = target;
   const isManual = item.isManual;
+  const { jiraConnections } = useCurrentState();
+  const jiraBaseUrl = useMemo(
+    () => jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? '',
+    [jiraConnections]
+  );
+
+  const showUnlock = !isManual && item.locked && !item.unlockedInScenario;
+  const showUnlockedInfo = !isManual && item.unlockedInScenario;
+  const showJiraLink = !isManual && !!item.jiraKey && !!jiraBaseUrl;
+
+  const rowCount = isManual
+    ? 2
+    : [showUnlock, showUnlockedInfo, showJiraLink].filter(Boolean).length;
 
   useEffect(() => {
     const close = () => onClose();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
     window.addEventListener('click', close);
     window.addEventListener('scroll', close, true);
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('click', close);
       window.removeEventListener('scroll', close, true);
+      window.removeEventListener('keydown', onKeyDown);
     };
   }, [onClose]);
 
   // Keep menu within viewport
   const menuW = 200;
-  const menuH = isManual ? 88 : 40;
+  const menuH = rowCount * 40 + 8;
   const posX = Math.min(x, window.innerWidth - menuW - 8);
   const posY = Math.min(y, window.innerHeight - menuH - 8);
 
@@ -73,11 +92,34 @@ export function PlannerContextMenu({ target, onEdit, onDelete, onClose }: Planne
         </>
       ) : (
         <>
-          {item.jiraKey && (
+          {showUnlock && (
             <button
               role="menuitem"
               onClick={() => {
-                window.open(`https://jira.atlassian.net/browse/${item.jiraKey}`, '_blank');
+                unlockPlannerItem(item.id);
+                onClose();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-mileway-text hover:bg-mileway-bg transition-colors focus:outline-none focus:bg-mileway-bg"
+            >
+              <Unlock size={13} className="text-mileway-grey" />
+              Unlock in this scenario
+            </button>
+          )}
+          {showUnlockedInfo && (
+            <div
+              role="menuitem"
+              aria-disabled="true"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-mileway-grey cursor-default select-none"
+            >
+              <Unlock size={13} className="opacity-50" />
+              Unlocked in this scenario
+            </div>
+          )}
+          {showJiraLink && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                window.open(`${jiraBaseUrl}/browse/${item.jiraKey}`, '_blank');
                 onClose();
               }}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-mileway-text hover:bg-mileway-bg transition-colors focus:outline-none focus:bg-mileway-bg"

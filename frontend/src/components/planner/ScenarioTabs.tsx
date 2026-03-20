@@ -26,16 +26,14 @@ export interface ScenarioTabsProps {
 type StartMode = 'clone' | 'blank';
 
 export function ScenarioTabs({ scenarios, activeScenarioId, onSelect, onCreate }: ScenarioTabsProps) {
-  const [dropdownOpen, setDropdownOpen]   = useState(false);
-  const [modalOpen, setModalOpen]         = useState(false);
-  const [name, setName]                   = useState('');
-  const [startMode, setStartMode]         = useState<StartMode>('clone');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
-  const dropdownRef   = useRef<HTMLDivElement>(null);
-  const nameInputRef  = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const activeScenario = scenarios.find(s => s.id === activeScenarioId);
-  const atLimit = scenarios.length >= MAX_SCENARIOS;
+  const activeCount = scenarios.filter(s => !s.archived).length;
+  const atLimit = activeCount >= MAX_SCENARIOS;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -49,26 +47,9 @@ export function ScenarioTabs({ scenarios, activeScenarioId, onSelect, onCreate }
     return () => document.removeEventListener('mousedown', onOutside);
   }, [dropdownOpen]);
 
-  // Auto-focus name field when modal opens
-  useEffect(() => {
-    if (modalOpen) {
-      const id = requestAnimationFrame(() => nameInputRef.current?.focus());
-      return () => cancelAnimationFrame(id);
-    }
-  }, [modalOpen]);
-
   const openCreateModal = useCallback(() => {
-    setName('');
-    setStartMode('clone');
     setModalOpen(true);
   }, []);
-
-  const handleCreate = useCallback(() => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    onCreate(trimmed, startMode);
-    setModalOpen(false);
-  }, [name, startMode, onCreate]);
 
   return (
     <>
@@ -141,7 +122,11 @@ export function ScenarioTabs({ scenarios, activeScenarioId, onSelect, onCreate }
         onClick={atLimit ? undefined : openCreateModal}
         disabled={atLimit}
         aria-label={atLimit ? 'Maximum 5 scenarios' : 'New scenario'}
-        title={atLimit ? 'Maximum 5 scenarios' : 'New scenario'}
+        title={
+          atLimit
+            ? 'Maximum 5 active scenarios. Archive or delete one to create a new scenario.'
+            : 'New scenario'
+        }
         className="flex items-center justify-center w-7 h-7 rounded-lg text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
       >
         <Plus size={15} strokeWidth={2.5} aria-hidden="true" />
@@ -150,71 +135,102 @@ export function ScenarioTabs({ scenarios, activeScenarioId, onSelect, onCreate }
       {/* ── Toolbar divider ─────────────────────────────────────────── */}
       <div className="h-6 w-px bg-mileway-border flex-shrink-0" aria-hidden="true" />
 
-      {/* ── Creation modal ──────────────────────────────────────────── */}
-      <Modal
+      <ScenarioCreateModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="New Scenario"
-        size="sm"
-        footer={
-          <>
-            <Button variant="secondary" size="sm" onClick={() => setModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleCreate}
-              disabled={!name.trim()}
-            >
-              Create
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-5">
-          <div>
-            <label
-              htmlFor="scenario-name"
-              className="block text-xs font-medium text-mileway-grey mb-1.5"
-            >
-              Scenario name
-            </label>
-            <input
-              ref={nameInputRef}
-              id="scenario-name"
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && name.trim()) handleCreate(); }}
-              placeholder="e.g. Q2 Optimistic"
-              maxLength={60}
-              className="w-full border border-mileway-border rounded-lg px-3 py-2.5 text-sm text-mileway-text placeholder:text-mileway-grey focus:outline-none focus:border-mileway-blue transition-colors duration-fast"
+        onCreate={onCreate}
+      />
+    </>
+  );
+}
+
+// ── ScenarioCreateModal (shared with ScenarioPlanner home screen) ─────────────
+
+export interface ScenarioCreateModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: (name: string, startMode: 'clone' | 'blank') => void;
+}
+
+export function ScenarioCreateModal({ isOpen, onClose, onCreate }: ScenarioCreateModalProps) {
+  const [name, setName] = useState('');
+  const [startMode, setStartMode] = useState<StartMode>('clone');
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName('');
+      setStartMode('clone');
+      const id = requestAnimationFrame(() => nameInputRef.current?.focus());
+      return () => cancelAnimationFrame(id);
+    }
+  }, [isOpen]);
+
+  const handleCreate = useCallback(() => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onCreate(trimmed, startMode);
+    onClose();
+  }, [name, startMode, onCreate, onClose]);
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="New Scenario"
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="sm" onClick={handleCreate} disabled={!name.trim()}>
+            Create
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <div>
+          <label htmlFor="scenario-name-modal" className="block text-xs font-medium text-mileway-grey mb-1.5">
+            Scenario name
+          </label>
+          <input
+            ref={nameInputRef}
+            id="scenario-name-modal"
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && name.trim()) handleCreate();
+            }}
+            placeholder="e.g. Q2 Optimistic"
+            maxLength={60}
+            className="w-full border border-mileway-border rounded-lg px-3 py-2.5 text-sm text-mileway-text placeholder:text-mileway-grey focus:outline-none focus:border-mileway-blue transition-colors duration-fast"
+          />
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-mileway-grey mb-2">Starting point</p>
+          <div className="space-y-2" role="radiogroup" aria-label="Starting point">
+            <RadioCard
+              id="clone"
+              selected={startMode === 'clone'}
+              onSelect={() => setStartMode('clone')}
+              title="Clone current plan"
+              description="Pre-places all active Jira items on the timeline using their current Jira sprint and date positions. In-progress items are locked."
+            />
+            <RadioCard
+              id="blank"
+              selected={startMode === 'blank'}
+              onSelect={() => setStartMode('blank')}
+              title="Blank canvas"
+              description="Starts empty — all active Jira items are pre-loaded in the backlog, ready to place."
             />
           </div>
-
-          <div>
-            <p className="text-xs font-medium text-mileway-grey mb-2">Starting point</p>
-            <div className="space-y-2" role="radiogroup" aria-label="Starting point">
-              <RadioCard
-                id="clone"
-                selected={startMode === 'clone'}
-                onSelect={() => setStartMode('clone')}
-                title="Clone current plan"
-                description="Pre-places all active Jira items on the timeline using their current Jira sprint and date positions. In-progress items are locked."
-              />
-              <RadioCard
-                id="blank"
-                selected={startMode === 'blank'}
-                onSelect={() => setStartMode('blank')}
-                title="Blank canvas"
-                description="Starts empty — all active Jira items are pre-loaded in the backlog, ready to place."
-              />
-            </div>
-          </div>
         </div>
-      </Modal>
-    </>
+      </div>
+    </Modal>
   );
 }
 
