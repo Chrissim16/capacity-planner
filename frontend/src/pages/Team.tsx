@@ -3,7 +3,6 @@ import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, F
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
 import { TeamMemberForm } from '../components/forms/TeamMemberForm';
 import { TimeOffForm } from '../components/forms/TimeOffForm';
@@ -319,7 +318,7 @@ export function Team() {
  </div>
 
  {/* ── Unified filter bar ─────────────────────────────────────────────── */}
- <div className="flex flex-wrap gap-2 items-center">
+ <div className="flex flex-wrap gap-2 items-center py-1">
  <div className="relative">
  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#94A3B8]" />
  <input
@@ -327,28 +326,32 @@ export function Team() {
  placeholder={activeTab === 'biz' ? 'Search contacts…' : 'Search members…'}
  value={search}
  onChange={e => setSearch(e.target.value)}
- className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-mileway-border bg-white text-mileway-text placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0089DD] w-48"
+ className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-[#DEDFE3] bg-white text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0089DD]/40 focus:border-[#0089DD] w-48"
  />
  </div>
  {(activeTab === 'it' || activeTab === 'all') && (
- <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} options={roleOptions} className="py-1.5 px-2 text-sm w-auto" />
+ <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-[#1E293B] focus:outline-none focus:border-[#0089DD] cursor-pointer">
+ {roleOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+ </select>
  )}
- <Select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} options={countryOptions} className="py-1.5 px-2 text-sm w-auto" />
+ <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-[#1E293B] focus:outline-none focus:border-[#0089DD] cursor-pointer">
+ {countryOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+ </select>
  {activeTab === 'it' && squads.length > 0 && (
- <Select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} options={squadFilterOptions} className="py-1.5 px-2 text-sm w-auto" />
+ <select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-[#1E293B] focus:outline-none focus:border-[#0089DD] cursor-pointer">
+ {squadFilterOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+ </select>
  )}
  {processTeams.length > 0 && (
- <Select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} options={processTeamFilterOptions} className="py-1.5 px-2 text-sm w-auto" />
+ <select value={processTeamFilter} onChange={e => setProcessTeamFilter(e.target.value)} className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-[#1E293B] focus:outline-none focus:border-[#0089DD] cursor-pointer">
+ {processTeamFilterOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+ </select>
  )}
- {/* Group-by */}
- <Select
- value={groupBy}
- onChange={e => setGroupBy(e.target.value as GroupBy)}
- options={groupByOptions}
- className="py-1.5 px-2 text-sm w-auto"
- />
+ <select value={groupBy} onChange={e => setGroupBy(e.target.value as GroupBy)} className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-[#1E293B] focus:outline-none focus:border-[#0089DD] cursor-pointer">
+ {groupByOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+ </select>
  {/* View mode toggle */}
- <div className="flex items-center rounded-lg border border-mileway-border overflow-hidden shrink-0">
+ <div className="flex items-center rounded-lg border border-[#DEDFE3] overflow-hidden shrink-0">
  <button
  onClick={() => setViewMode('card')}
  className={`p-1.5 transition-colors ${viewMode === 'card' ? 'bg-[#0089DD] text-white' : 'bg-white text-[#94A3B8] hover:text-[#94A3B8]'}`}
