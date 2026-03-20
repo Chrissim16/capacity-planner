@@ -73,6 +73,95 @@ function sliderPct(days: number): string {
   return `${pct}%`;
 }
 
+/** Normalise days for slider / totals when persisted data is incomplete (IT and BIZ treated the same). */
+function clampAssigneeDays(d: number | undefined): number {
+  if (d == null || !Number.isFinite(d)) return 2;
+  return Math.min(10, Math.max(1, Math.round(d)));
+}
+
+function assigneeRowKey(memberId: string, track: 'IT' | 'BIZ'): string {
+  return `${track}:${memberId}`;
+}
+
+// ── Assignee row (single component for IT and BIZ — same markup, slider, remove) ─
+
+interface AssigneeRowPanelProps {
+  memberId: string;
+  name: string;
+  role: string;
+  track: 'IT' | 'BIZ';
+  daysPerSprint: number;
+  removing: boolean;
+  entering: boolean;
+  onDaysChange: (memberId: string, track: 'IT' | 'BIZ', days: number) => void;
+  onRemove: (memberId: string, track: 'IT' | 'BIZ') => void;
+}
+
+function AssigneeRowPanel({
+  memberId,
+  name,
+  role,
+  track,
+  daysPerSprint,
+  removing,
+  entering,
+  onDaysChange,
+  onRemove,
+}: AssigneeRowPanelProps) {
+  const days = clampAssigneeDays(daysPerSprint);
+  const pct = sliderPct(days);
+
+  return (
+    <div
+      className={[
+        'flex items-center gap-2.5 py-2 px-2.5 rounded-lg border transition-all duration-[180ms] bg-mileway-bg',
+        'border-biz-light hover:border-mileway-border',
+        removing ? 'opacity-0 translate-x-2' : 'opacity-100',
+        entering ? 'assignee-row-enter' : '',
+      ].join(' ')}
+    >
+      <div
+        className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px] bg-mileway-blue"
+        style={{ width: 28, height: 28 }}
+      >
+        {initials(name)}
+      </div>
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="text-[12.5px] font-semibold text-mileway-text truncate whitespace-nowrap">{name}</div>
+        <div className="text-[10.5px] text-mileway-grey mt-px truncate">{role || '—'}</div>
+      </div>
+      <div className="w-[130px] flex-shrink-0 flex flex-col gap-1">
+        <div className="flex justify-between items-baseline">
+          <span className="text-[10.5px] text-mileway-grey">Days / sprint</span>
+          <span className="text-xs font-bold text-mileway-text tabular-nums">
+            {days}
+            <span className="text-mileway-grey font-normal">d</span>
+          </span>
+        </div>
+        <input
+          type="range"
+          min={1}
+          max={10}
+          step={1}
+          value={days}
+          aria-label={`Days per sprint for ${name}`}
+          className="assign-days-slider w-full"
+          style={{ ['--pct' as string]: pct }}
+          onChange={e => onDaysChange(memberId, track, Number(e.target.value))}
+        />
+      </div>
+      <button
+        type="button"
+        aria-label={`Remove ${name}`}
+        className="flex-shrink-0 w-[22px] h-[22px] rounded-[5px] border-0 bg-transparent text-mileway-border text-xs cursor-pointer hover:bg-[var(--danger-light)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+        onClick={() => onRemove(memberId, track)}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface AssignPanelProps {
@@ -108,7 +197,7 @@ function useSprintCells(
       if (s.quarter) sprintCountByQuarter.set(s.quarter, (sprintCountByQuarter.get(s.quarter) ?? 0) + 1);
     }
 
-    const dayTotal = draft.assignees.reduce((sum, a) => sum + a.daysPerSprint, 0);
+    const dayTotal = draft.assignees.reduce((sum, a) => sum + clampAssigneeDays(a.daysPerSprint), 0);
 
     const cells: SprintCellModel[] = [];
     for (let s = draft.startSprint; s < draft.startSprint + draft.spanSprints; s++) {
@@ -256,7 +345,7 @@ export function AssignPanel({
   }, [jiraRow]);
 
   const effortSum = useMemo(
-    () => draft.assignees.reduce((s, a) => s + a.daysPerSprint, 0),
+    () => draft.assignees.reduce((s, a) => s + clampAssigneeDays(a.daysPerSprint), 0),
     [draft.assignees],
   );
 
@@ -291,8 +380,6 @@ export function AssignPanel({
   const assignedIt = draft.assignees.filter(a => a.track === 'IT');
   const assignedBiz = draft.assignees.filter(a => a.track === 'BIZ');
 
-  const assigneeKey = (memberId: string, track: 'IT' | 'BIZ') => `${track}:${memberId}`;
-
   const updateAssignmentDays = (memberId: string, track: 'IT' | 'BIZ', days: number) => {
     const d = Math.min(10, Math.max(1, Math.round(days)));
     setDraft(prev => ({
@@ -305,7 +392,7 @@ export function AssignPanel({
   };
 
   const removeAssignee = (memberId: string, track: 'IT' | 'BIZ') => {
-    const key = assigneeKey(memberId, track);
+    const key = assigneeRowKey(memberId, track);
     setRemovingKeys(prev => new Set(prev).add(key));
     window.setTimeout(() => {
       setDraft(prev => ({
@@ -323,7 +410,7 @@ export function AssignPanel({
 
   const addPerson = (memberId: string, track: 'IT' | 'BIZ') => {
     if (draft.assignees.some(a => a.memberId === memberId && a.track === track)) return;
-    const key = assigneeKey(memberId, track);
+    const key = assigneeRowKey(memberId, track);
     setDraft(prev => ({
       ...prev,
       assignees: [...prev.assignees, { memberId, track, daysPerSprint: 2 }],
@@ -429,73 +516,6 @@ export function AssignPanel({
         </span>
         <span className={`text-[10.5px] font-semibold flex-shrink-0 tabular-nums ${freeCls}`}>{freeLabel}</span>
       </button>
-    );
-  }
-
-  function renderAssigneeRow(
-    memberId: string,
-    name: string,
-    role: string,
-    track: 'IT' | 'BIZ',
-    days: number,
-  ) {
-    const key = assigneeKey(memberId, track);
-    const removing = removingKeys.has(key);
-    const entering = enteringKeys.has(key);
-    const pct = sliderPct(days);
-
-    return (
-      <div
-        key={key}
-        className={[
-          'flex items-center gap-2.5 py-2 px-2.5 rounded-lg border transition-all duration-[180ms] bg-mileway-bg',
-          'border-biz-light hover:border-mileway-border',
-          removing ? 'opacity-0 translate-x-2' : 'opacity-100',
-          entering ? 'assignee-row-enter' : '',
-        ].join(' ')}
-      >
-        <div
-          className={[
-            'flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px]',
-            track === 'IT' ? 'bg-mileway-blue' : 'bg-purple-500',
-          ].join(' ')}
-          style={{ width: 28, height: 28 }}
-        >
-          {initials(name)}
-        </div>
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <div className="text-[12.5px] font-semibold text-mileway-text truncate whitespace-nowrap">{name}</div>
-          <div className="text-[10.5px] text-mileway-grey mt-px truncate">{role || '—'}</div>
-        </div>
-        <div className="w-[130px] flex-shrink-0 flex flex-col gap-1">
-          <div className="flex justify-between items-baseline">
-            <span className="text-[10.5px] text-mileway-grey">Days / sprint</span>
-            <span className="text-xs font-bold text-mileway-text tabular-nums">
-              {days}
-              <span className="text-mileway-grey font-normal">d</span>
-            </span>
-          </div>
-          <input
-            type="range"
-            min={1}
-            max={10}
-            step={1}
-            value={days}
-            aria-label={`Days per sprint for ${name}`}
-            className="assign-days-slider w-full"
-            style={{ ['--pct' as string]: pct }}
-            onChange={e => updateAssignmentDays(memberId, track, Number(e.target.value))}
-          />
-        </div>
-        <button
-          type="button"
-          aria-label={`Remove ${name}`}
-          className="flex-shrink-0 w-[22px] h-[22px] rounded-[5px] border-0 bg-transparent text-mileway-border text-xs cursor-pointer hover:bg-[var(--danger-light)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-          onClick={() => removeAssignee(memberId, track)}
-        >
-          ✕
-        </button>
-      </div>
     );
   }
 
@@ -647,7 +667,21 @@ export function AssignPanel({
           <div className="mt-2 space-y-1.5">
             {assignedIt.map(a => {
               const m = state.teamMembers.find(tm => tm.id === a.memberId);
-              return renderAssigneeRow(a.memberId, m?.name ?? a.memberId, m?.role ?? '', 'IT', a.daysPerSprint);
+              const rk = assigneeRowKey(a.memberId, 'IT');
+              return (
+                <AssigneeRowPanel
+                  key={rk}
+                  memberId={a.memberId}
+                  name={m?.name ?? a.memberId}
+                  role={m?.role ?? ''}
+                  track="IT"
+                  daysPerSprint={a.daysPerSprint}
+                  removing={removingKeys.has(rk)}
+                  entering={enteringKeys.has(rk)}
+                  onDaysChange={updateAssignmentDays}
+                  onRemove={removeAssignee}
+                />
+              );
             })}
           </div>
           <button
@@ -702,12 +736,20 @@ export function AssignPanel({
           <div className="mt-2 space-y-1.5">
             {assignedBiz.map(a => {
               const c = state.businessContacts?.find(b => b.id === a.memberId);
-              return renderAssigneeRow(
-                a.memberId,
-                c?.name ?? a.memberId,
-                c?.title ?? c?.department ?? '',
-                'BIZ',
-                a.daysPerSprint,
+              const rk = assigneeRowKey(a.memberId, 'BIZ');
+              return (
+                <AssigneeRowPanel
+                  key={rk}
+                  memberId={a.memberId}
+                  name={c?.name ?? a.memberId}
+                  role={c?.title ?? c?.department ?? ''}
+                  track="BIZ"
+                  daysPerSprint={a.daysPerSprint}
+                  removing={removingKeys.has(rk)}
+                  entering={enteringKeys.has(rk)}
+                  onDaysChange={updateAssignmentDays}
+                  onRemove={removeAssignee}
+                />
               );
             })}
           </div>
