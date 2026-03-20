@@ -5,9 +5,10 @@ import { NotificationBanners } from './NotificationBanners';
 
 interface LayoutProps {
   children: ReactNode;
+  variant?: 'default' | 'fullbleed';
 }
 
-export function Layout({ children }: LayoutProps) {
+export function Layout({ children, variant = 'default' }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -28,7 +29,11 @@ export function Layout({ children }: LayoutProps) {
       <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-[#FAFAFA]">
         <NotificationBanners />
-        <main className="flex-1 overflow-auto px-10 py-8 max-w-[1440px] w-full mx-auto">
+        <main className={
+          variant === 'fullbleed'
+            ? 'flex-1 overflow-hidden flex flex-col min-h-0'
+            : 'flex-1 overflow-auto px-10 py-8 max-w-[1440px] w-full mx-auto'
+        }>
           {children}
         </main>
       </div>

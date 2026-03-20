@@ -162,7 +162,7 @@ function App() {
 
   return (
     <ToastProvider>
-      <Layout>
+      <Layout variant={currentView === 'planner' ? 'fullbleed' : 'default'}>
         <CurrentPage />
       </Layout>
       <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
