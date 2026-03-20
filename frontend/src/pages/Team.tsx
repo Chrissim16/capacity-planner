@@ -67,7 +67,7 @@ export function Team() {
  const [squadFilter, setSquadFilter] = useState('');
  // Shared group-by and view mode
  const [groupBy, setGroupBy] = useState<GroupBy>('role');
- const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+ const [viewMode, setViewMode] = useState<'card' | 'list'>('list');
  // Tab
  const [activeTab, setActiveTab] = useState<TabType>('it');
  // Multi-select
