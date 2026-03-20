@@ -12,7 +12,7 @@
  * drag-to-unschedule gesture works natively.
  */
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
-import { Loader2, Users, Plus, Filter, X, Inbox, Check } from 'lucide-react';
+import { Loader2, Users, Filter, X, Inbox, Check } from 'lucide-react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus } from '../stores/appStore';
 import {
