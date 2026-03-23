@@ -7,6 +7,7 @@ import { Projects } from './pages/Projects';
 import { Team } from './pages/Team';
 import { Scenarios } from './pages/Scenarios';
 import { ScenarioPlanner } from './pages/ScenarioPlanner';
+import { Report } from './pages/Report';
 import { Settings } from './pages/Settings';
 import { ToastProvider } from './components/ui/Toast';
 import { LoadingScreen } from './components/ui/LoadingScreen';
@@ -28,6 +29,7 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
   '/scenarios': 'scenarios',
   '/planner':   'planner',
   '/planning':  'planner',
+  '/report':    'report',
   '/settings':  'settings',
 };
 
@@ -40,6 +42,7 @@ const VIEW_TO_PATH: Record<ViewType, string> = {
   team:      '/team',
   scenarios: '/scenarios',
   planner:   '/planner',
+  report:    '/report',
   settings:  '/settings',
 };
 
@@ -52,6 +55,7 @@ const pages: Record<ViewType, React.ComponentType> = {
   jira: Projects,
   scenarios: Scenarios,
   planner: ScenarioPlanner,
+  report: Report,
   settings: Settings,
 };
 
@@ -162,7 +166,7 @@ function App() {
 
   return (
     <ToastProvider>
-      <Layout variant={currentView === 'planner' ? 'fullbleed' : 'default'}>
+      <Layout variant={currentView === 'planner' || currentView === 'report' ? 'fullbleed' : 'default'}>
         <CurrentPage />
       </Layout>
       <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />

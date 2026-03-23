@@ -287,8 +287,6 @@ export interface PlannerTimelineProps {
   onBacklogItemScheduled?: () => void;
   /** Backlog drawer — expand after a timeline bar is dropped on the backlog (unschedule). */
   onBarUnscheduledToBacklog?: () => void;
-  /** Inline "+ Add Epic" button in the Gantt header. Only shown when truthy. */
-  onAddEpic?: () => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -802,7 +800,6 @@ export function PlannerTimeline({
   onOverloadedTickerClick,
   onBacklogItemScheduled,
   onBarUnscheduledToBacklog,
-  onAddEpic,
 }: PlannerTimelineProps) {
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
@@ -817,7 +814,10 @@ export function PlannerTimeline({
   const { showToast } = useToast();
   const timelineState = useCurrentState();
 
-  const canvasRef    = useRef<HTMLDivElement>(null);
+  const canvasRef       = useRef<HTMLDivElement>(null);
+  const canvasScrollRef = useRef<HTMLDivElement>(null);
+  const labelRowsRef    = useRef<HTMLDivElement>(null);
+  const scrollSyncRef   = useRef(false);
   const labelDragRef = useRef<{ startX: number; startW: number } | null>(null);
   // SP-09: track Shift key state for Epic-only move
   const shiftHeldRef = useRef(false);
@@ -995,6 +995,20 @@ export function PlannerTimeline({
       return p;
     }));
   }, [plannerItems, onItemsChange]);
+
+  // ── Canvas → label scroll synchronisation ───────────────────────────────────
+  // The label rows div has overflow-y:hidden (no user-scrollable scrollbar).
+  // When the canvas scrolls vertically, we mirror its scrollTop to the label rows
+  // so both columns stay in sync. requestAnimationFrame guards against double-fire.
+  const onCanvasScroll = useCallback(() => {
+    if (scrollSyncRef.current) return;
+    const labelRows = labelRowsRef.current;
+    const canvas    = canvasScrollRef.current;
+    if (!labelRows || !canvas) return;
+    scrollSyncRef.current = true;
+    labelRows.scrollTop = canvas.scrollTop;
+    requestAnimationFrame(() => { scrollSyncRef.current = false; });
+  }, []);
 
   // ── Label column resize ─────────────────────────────────────────────────────
   function onLabelHandleDown(e: ReactPointerEvent<HTMLDivElement>) {
@@ -1268,12 +1282,12 @@ export function PlannerTimeline({
         {/* Main body — no separate sub-toolbar; Expand/Collapse live in the label header */}
         <div className="flex flex-1 overflow-hidden">
 
-          {/* Label column */}
+          {/* Label column — outer div has no own scroll; rows are synced to canvas */}
           <div
-            className="flex-shrink-0 flex flex-col bg-white border-r border-mileway-border overflow-y-auto"
+            className="flex-shrink-0 flex flex-col bg-white border-r border-mileway-border"
             style={{ width: labelWidth }}
           >
-            {/* Label header — aligned with sprint header row, hosts Expand/Collapse */}
+            {/* Label header — fixed, mirrors the sticky sprint-header height in the canvas */}
             <div
               className="flex-shrink-0 flex items-end gap-1 px-2 pb-1.5 border-b border-mileway-border bg-mileway-bg"
               style={{ height: SPRINT_HEADER_H }}
@@ -1291,58 +1305,62 @@ export function PlannerTimeline({
                 Collapse all
               </button>
             </div>
+            {/* Ticker label — fixed, mirrors the sticky ticker-sprint-row height in the canvas */}
             {ticker.labelCell}
-            {visibleRows.map((row) => {
-              if (row.kind === 'section') {
+            {/* Rows — overflow-y:hidden (no visible scrollbar); scrollTop driven by canvas onScroll */}
+            <div ref={labelRowsRef} className="flex-1 overflow-y-hidden flex flex-col">
+              {visibleRows.map((row) => {
+                if (row.kind === 'section') {
+                  return (
+                    <div
+                      key={row.id}
+                      style={{
+                        height: ROW_H,
+                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        paddingLeft: 12,
+                        borderTop: '1px solid #E2E8F0',
+                        backgroundColor: '#F8FAFC',
+                      }}
+                    >
+                      <span style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        {row.label}
+                      </span>
+                    </div>
+                  );
+                }
+                const { item } = row;
                 return (
                   <div
-                    key={row.id}
+                    key={item.id}
                     style={{
                       height: ROW_H,
                       flexShrink: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      paddingLeft: 12,
-                      borderTop: '1px solid #E2E8F0',
-                      backgroundColor: '#F8FAFC',
+                      backgroundColor:
+                        assignPanelItemId === item.id
+                          ? 'var(--assign-active-row-bg, var(--primary-subtle))'
+                          : hoveredRowId === item.id
+                            ? 'rgba(37,88,201,0.025)'
+                            : undefined,
                     }}
+                    onMouseEnter={() => setHoveredRowId(item.id)}
+                    onMouseLeave={() => setHoveredRowId(null)}
                   >
-                    <span style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      {row.label}
-                    </span>
+                    <LabelCell
+                      item={item}
+                      hasChildren={hasChildrenSet.has(item.id)}
+                      isExpanded={expandAll || expandedIds.has(item.id)}
+                      onToggle={toggleExpand}
+                      onAddChild={onAddChild}
+                      onContextMenu={onContextMenu}
+                      onLabelClick={onLabelClick}
+                      onOpenAssignFromLabel={onOpenAssignFromLabel}
+                    />
                   </div>
                 );
-              }
-              const { item } = row;
-              return (
-                <div
-                  key={item.id}
-                  style={{
-                    height: ROW_H,
-                    flexShrink: 0,
-                    backgroundColor:
-                      assignPanelItemId === item.id
-                        ? 'var(--assign-active-row-bg, var(--primary-subtle))'
-                        : hoveredRowId === item.id
-                          ? 'rgba(37,88,201,0.025)'
-                          : undefined,
-                  }}
-                  onMouseEnter={() => setHoveredRowId(item.id)}
-                  onMouseLeave={() => setHoveredRowId(null)}
-                >
-                  <LabelCell
-                    item={item}
-                    hasChildren={hasChildrenSet.has(item.id)}
-                    isExpanded={expandAll || expandedIds.has(item.id)}
-                    onToggle={toggleExpand}
-                    onAddChild={onAddChild}
-                    onContextMenu={onContextMenu}
-                    onLabelClick={onLabelClick}
-                    onOpenAssignFromLabel={onOpenAssignFromLabel}
-                  />
-                </div>
-              );
-            })}
+              })}
+            </div>
           </div>
 
           {/* Label resize handle */}
@@ -1353,8 +1371,8 @@ export function PlannerTimeline({
             onPointerUp={onLabelHandleUp}
           />
 
-          {/* Gantt canvas */}
-          <div className="flex-1 overflow-auto">
+          {/* Gantt canvas — onScroll drives the label rows sync */}
+          <div ref={canvasScrollRef} className="flex-1 overflow-auto" onScroll={onCanvasScroll}>
             {/* Inner wrapper enforces minimum column width so columns never crush below 100px */}
             <div style={{ minWidth: visibleSprintCount * MIN_SPRINT_W }}>
             {/* Sprint headers — sticky so they stay visible when scrolling */}
@@ -1366,17 +1384,6 @@ export function PlannerTimeline({
                   dragOverNum={dragOverNum}
                   currentSprintNum={currentSprintNum}
                 />
-                {onAddEpic && (
-                  <button
-                    onClick={onAddEpic}
-                    title="Add Epic"
-                    aria-label="Add Epic"
-                    className="absolute top-1.5 right-2 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-mileway-blue bg-mileway-blue-10 hover:bg-mileway-blue hover:text-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-                  >
-                    <Plus size={12} aria-hidden="true" />
-                    Add Epic
-                  </button>
-                )}
               </div>
               {ticker.sprintRow}
             </div>

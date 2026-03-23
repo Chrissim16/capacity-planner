@@ -78,8 +78,11 @@ function createAuthHeader(email: string, apiToken: string): string {
   return 'Basic ' + btoa(email + ':' + apiToken);
 }
 
-// Use proxy in production (Vercel), direct calls in development
-const USE_PROXY = import.meta.env.PROD;
+// Always use the proxy:
+//   - Development: handled by the Vite dev-server middleware in vite.config.ts
+//   - Production:  handled by the Vercel serverless function at api/jira.js
+// Direct browser→Jira calls are blocked by CORS on all Jira Cloud instances.
+const USE_PROXY = true;
 
 function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 15_000): Promise<Response> {
   const controller = new AbortController();

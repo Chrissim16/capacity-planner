@@ -3,8 +3,9 @@ import {
   calculateCapacity,
   calculateBusinessCapacity,
   sprintNameToQuarter,
+  getWarnings,
 } from './capacity';
-import type { AppState, Assignment, BusinessContact, JiraItemBizAssignment, JiraWorkItem } from '../types';
+import type { AppState, Assignment, BusinessContact, JiraItemBizAssignment, JiraWorkItem, Sprint } from '../types';
 
 // ── Minimal AppState fixture ──────────────────────────────────────────────────
 
@@ -260,6 +261,44 @@ describe('calculateBusinessCapacity', () => {
       [assignment], [], [], [jiraItem]
     );
     expect(result.allocatedDays).toBeGreaterThan(0);
+  });
+});
+
+// ── getWarnings — quarter param ───────────────────────────────────────────────
+
+describe('getWarnings', () => {
+  const q1Sprint: Sprint = {
+    id: 's1', name: 'Sprint 1', number: 1, year: 2026,
+    startDate: '2026-01-05', endDate: '2026-01-23', quarter: 'Q1 2026',
+  };
+  const q3Sprint: Sprint = {
+    id: 's5', name: 'Sprint 5', number: 5, year: 2026,
+    startDate: '2026-07-06', endDate: '2026-07-24', quarter: 'Q3 2026',
+  };
+
+  it('returns overallocated warning for the explicitly supplied quarter', () => {
+    const jiraItem: JiraWorkItem = {
+      id: 'wi1', connectionId: 'c1', jiraKey: 'P-1', jiraId: '1',
+      summary: 'Big Task', type: 'story', typeName: 'Story',
+      status: 'In Progress', statusCategory: 'in_progress',
+      storyPoints: 999,
+      assigneeEmail: 'alice@example.com',
+      sprintId: 's5', sprintName: 'Sprint 5',
+      labels: [], components: [],
+      created: '2026-01-01', updated: '2026-01-01',
+    };
+    const state = makeState({
+      teamMembers: [{ id: 'm1', name: 'Alice', role: 'Dev', countryId: 'country-nl', email: 'alice@example.com', skillIds: [], maxConcurrentProjects: 3 }],
+      sprints: [q1Sprint, q3Sprint],
+      jiraWorkItems: [jiraItem],
+    });
+
+    const q1Warnings = getWarnings(state, 'Q1 2026');
+    expect(q1Warnings.overallocated).toHaveLength(0);
+
+    const q3Warnings = getWarnings(state, 'Q3 2026');
+    expect(q3Warnings.overallocated).toHaveLength(1);
+    expect(q3Warnings.overallocated[0].quarter).toBe('Q3 2026');
   });
 });
 

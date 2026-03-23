@@ -330,10 +330,10 @@ export function getMemberEpicCount(
 }
 
 /**
- * Get all capacity warnings for the current state.
+ * Get all capacity warnings for the given quarter (defaults to the real-world
+ * current quarter so existing callers require no change).
  */
-export function getWarnings(state: AppState): Warnings {
-  const currentQ = getCurrentQuarter();
+export function getWarnings(state: AppState, quarter: string = getCurrentQuarter()): Warnings {
   const warnings: Warnings = {
     overallocated: [],
     highUtilization: [],
@@ -341,17 +341,17 @@ export function getWarnings(state: AppState): Warnings {
   };
 
   for (const member of state.teamMembers) {
-    const cap = calculateCapacity(member.id, currentQ, state);
+    const cap = calculateCapacity(member.id, quarter, state);
 
     if (cap.status === 'overallocated') {
-      warnings.overallocated.push({ member, usedDays: cap.usedDays, totalDays: cap.totalWorkdays, quarter: currentQ });
+      warnings.overallocated.push({ member, usedDays: cap.usedDays, totalDays: cap.totalWorkdays, quarter });
     } else if (cap.status === 'warning') {
       warnings.highUtilization.push({
-        member, usedDays: cap.usedDays, totalDays: cap.totalWorkdays, usedPercent: cap.usedPercent, quarter: currentQ,
+        member, usedDays: cap.usedDays, totalDays: cap.totalWorkdays, usedPercent: cap.usedPercent, quarter,
       });
     }
 
-    const epicCount = getMemberEpicCount(member.id, currentQ, state);
+    const epicCount = getMemberEpicCount(member.id, quarter, state);
     if (epicCount > member.maxConcurrentProjects) {
       warnings.tooManyProjects.push({ member, count: epicCount, max: member.maxConcurrentProjects });
     }

@@ -12,7 +12,7 @@
  * drag-to-unschedule gesture works natively.
  */
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
-import { Loader2, Users, Filter, X, Inbox, Check, ChevronDown, RefreshCw } from 'lucide-react';
+import { Loader2, Users, Filter, X, Inbox, Check, ChevronDown, RefreshCw, Plus } from 'lucide-react';
 import {
   useFloating, autoUpdate, offset, flip, shift,
   useClick, useDismiss, useRole, useInteractions,
@@ -1281,6 +1281,20 @@ export function ScenarioPlanner() {
 
           {/* Right-side actions — always visible, never pushed off-screen */}
           <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+            {/* Add Epic — timeline only */}
+            {plannerUI.activeMode === 'timeline' && activeScenarioId && (
+              <button
+                type="button"
+                onClick={() => setCreateModal({ defaultType: 'epic' })}
+                title="Add Epic"
+                aria-label="Add Epic"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-mileway-blue bg-mileway-blue-10 hover:bg-mileway-blue hover:text-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+              >
+                <Plus size={14} aria-hidden="true" />
+                Add Epic
+              </button>
+            )}
+
             {/* Backlog toggle — icon only (keyboard shortcut: B) */}
             <button
               onClick={toggleBacklog}
@@ -1433,7 +1447,6 @@ export function ScenarioPlanner() {
                       plannerItems={filteredPlannerItems}
                       jiraItems={jiraItems}
                       sprints={sprints}
-                      onAddEpic={() => setCreateModal({ defaultType: 'epic' })}
                       scenarioId={activeScenarioId}
                       onItemsChange={handleItemsChange}
                       onActiveDragChange={handleActiveDragChange}

@@ -12,6 +12,7 @@ import {
   AlertCircle,
   LogOut,
   Layers,
+  FileBarChart,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
@@ -29,6 +30,7 @@ const VIEW_TO_PATH: Record<ViewType, string> = {
   team:      '/team',
   scenarios: '/scenarios',
   planner:   '/planner',
+  report:    '/report',
   settings:  '/settings',
 };
 
@@ -40,6 +42,7 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
   '/scenarios': 'scenarios',
   '/planner':   'planner',
   '/planning':  'planner',
+  '/report':    'report',
   '/settings':  'settings',
 };
 
@@ -49,6 +52,7 @@ const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string }[
   { view: 'projects',  icon: FolderKanban,    label: 'Epics' },
   { view: 'team',      icon: Users,           label: 'Team' },
   { view: 'planner',   icon: Layers,          label: 'Scenario Planner' },
+  { view: 'report',    icon: FileBarChart,    label: 'Report' },
   { view: 'settings',  icon: Settings,        label: 'Settings' },
 ];
 
