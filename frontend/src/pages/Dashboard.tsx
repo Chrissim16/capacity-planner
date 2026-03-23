@@ -15,7 +15,6 @@ import {
  calculateCapacity, getWarnings, getTeamUtilizationSummary,
  calculateBusinessCapacityForQuarter,
 } from '../utils/capacity';
-import type { GroupCapacitySummary } from '../utils/capacity';
 import { getCurrentQuarter, getWorkdaysInQuarter } from '../utils/calendar';
 import type { CapacityResult, CapacityBreakdownItem } from '../types';
 import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
@@ -878,51 +877,6 @@ export function Dashboard() {
  {/* Scenario Wizard triggered by nudge banner CTA */}
  {showWizard && <ScenarioWizard onClose={() => setShowWizard(false)} />}
 
- </div>
- );
-}
-
-/* ─── By Squad / Team tab — @deprecated: tab removed in US-SP-04; functions kept for reference ── */
-
-function getBarColor(utilization: number): string {
- const pct = utilization * 100;
- if (pct <= 0) return '#E2ECF5';
- if (pct <= 30) return 'rgba(74,181,100,0.30)';
- if (pct <= 50) return 'rgba(74,181,100,0.55)';
- if (pct <= 70) return 'rgba(255,210,60,0.60)';
- if (pct <= 80) return 'rgba(255,175,40,0.70)';
- if (pct <= 100) return 'rgba(255,130,50,0.70)';
- return 'rgba(220,53,69,0.50)';
-}
-
-function GroupBar({ name, data }: { name: string; data: GroupCapacitySummary }) {
- const pct = Math.round(data.utilization * 100);
- const isOverloaded = data.utilization > 1;
- const barFill = getBarColor(data.utilization);
- const barWidth = `${Math.min(100, pct)}%`;
-
- return (
- <div
- className="py-3 border-b border-[#DEDFE3] last:border-0"
- style={isOverloaded ? { borderLeft: '2px solid #DC3545', paddingLeft: '8px' } : undefined}
- >
- <div className="flex items-center gap-3 mb-1.5">
- <span className="text-sm font-medium text-[#1E293B] w-28 shrink-0 truncate">{name}</span>
- <div className="flex-1 h-2 rounded-full bg-[#F0F2F5] overflow-hidden">
- <div className="h-full rounded-full transition-all" style={{ width: barWidth, backgroundColor: barFill }} />
- </div>
- <span className={`text-xs font-semibold tabular-nums w-10 text-right ${isOverloaded ? 'text-red-600' : 'text-[#1E293B] '}`}>
- {data.totalDays === 0 ? '—' : `${pct}%`}
- </span>
- </div>
- {data.totalDays > 0 && (
- <div className="text-xs text-[#94A3B8] pl-[112px]">
- {data.usedDays}d used · {data.availableDays}d free
- </div>
- )}
- {data.totalDays === 0 && (
- <div className="text-xs text-[#94A3B8] pl-[112px]">No members assigned</div>
- )}
  </div>
  );
 }
