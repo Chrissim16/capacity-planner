@@ -453,15 +453,16 @@ export function Timeline() {
  />
  ) : (
  filteredTeamMembers.map(member => (
- <TeamMemberRow
- key={member.id}
- member={member}
- quarters={visibleQuarters}
- sprints={allSprints}
- granularity={granularity as 'quarter' | 'sprint'}
- currentQuarter={currentQuarter}
- state={state}
- />
+          <TeamMemberRow
+            key={member.id}
+            member={member}
+            quarters={visibleQuarters}
+            sprints={allSprints}
+            granularity={granularity as 'quarter' | 'sprint'}
+            currentQuarter={currentQuarter}
+            state={state}
+            jiraWorkItems={jiraWorkItems}
+          />
  ))
  )}
  </div>
@@ -492,15 +493,16 @@ export function Timeline() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface TeamMemberRowProps {
- member: TeamMember;
- quarters: string[];
- sprints: Sprint[];
- granularity: 'quarter' | 'sprint';
- currentQuarter: string;
- state: ReturnType<typeof useAppStore.getState>['data'];
+  member: TeamMember;
+  quarters: string[];
+  sprints: Sprint[];
+  granularity: 'quarter' | 'sprint';
+  currentQuarter: string;
+  state: ReturnType<typeof useAppStore.getState>['data'];
+  jiraWorkItems: JiraWorkItem[];
 }
 
-function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter, state }: TeamMemberRowProps) {
+function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter, state, jiraWorkItems }: TeamMemberRowProps) {
  if (granularity === 'quarter') {
  return (
  <div className="flex hover:bg-[#F0F2F5] /30 transition-colors">

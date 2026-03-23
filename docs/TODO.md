@@ -30,8 +30,9 @@
   → `features/improvements-v3/spec.md` · Phase 5 · Size: L · Split into 3 sub-tasks before sprint planning
 
 - [ ] **Executive Report / PDF export**  
-  → `features/executive-report/spec.md` · Size: M · No deps · **Recommended starting point.**  
-  Scoped 2026-03-23. `/report` page: read-only Gantt (`ReportGantt`), capacity risks (`getEpicStaffingRisks` + `getWarnings`), process team table (reuse `ProcessTeamCapacityTable`). PDF via `@react-pdf/renderer`. AI narrative out of scope for this release.
+  → `features/executive-report/spec.md` · `features/executive-report/implementation-plan.md`  
+  Size: M · Est. 10–16 h · No deps · 4 phases · No DB changes  
+  Phase 1: routing + shell · Phase 2: data layer (`getEpicStaffingRisks`) · Phase 3: on-screen UI · Phase 4: PDF (`@react-pdf/renderer`)
 
 - [ ] **AI narrative report generation** · No spec yet  
   Scoped 2026-03-23. AI-written 2–3 paragraph capacity narrative injected at the top of the Executive Report. Structured capacity JSON → Supabase Edge Function → Claude/OpenAI. Regenerate button, result in component state only. Size: M · **Requires Executive Report page first.**

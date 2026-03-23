@@ -927,69 +927,6 @@ function GroupBar({ name, data }: { name: string; data: GroupCapacitySummary }) 
  );
 }
 
-function SquadTeamTab({
- yearQuarters,
- selectedQuarter,
- onSelectQuarter,
- squadSummaries,
- processTeamSummaries,
-}: {
- yearQuarters: string[];
- selectedQuarter: string;
- onSelectQuarter: (q: string) => void;
- squadSummaries: { id: string; name: string; data: GroupCapacitySummary }[];
- processTeamSummaries: { id: string; name: string; data: GroupCapacitySummary }[];
-}) {
- return (
- <div className="space-y-4">
- {/* Quarter pills */}
- <div className="flex items-center gap-2">
- {yearQuarters.map(q => (
- <button
- key={q}
- onClick={() => onSelectQuarter(q)}
- className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
- selectedQuarter === q
-        ? 'bg-[#0089DD] text-white'
-        : 'bg-white border border-[#DEDFE3] text-[#94A3B8] hover:border-[#0089DD] hover:text-[#0089DD]'
- }`}
- >
- {q.split(' ')[0]}
- </button>
- ))}
- <span className="text-xs text-[#94A3B8] ml-1">{selectedQuarter}</span>
- </div>
-
- {/* Two-column grid */}
- <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
- {/* By Squad */}
- <Card>
- <CardContent className="pt-4">
- <p className="text-xs font-semibold uppercase tracking-widest text-[#94A3B8] mb-3">By Squad</p>
- {squadSummaries.length === 0 ? (
- <p className="text-sm text-[#94A3B8] italic">No squads configured.</p>
- ) : (
- squadSummaries.map(s => <GroupBar key={s.id} name={s.name} data={s.data} />)
- )}
- </CardContent>
- </Card>
-
- {/* By Process Team */}
- <Card>
- <CardContent className="pt-4">
- <p className="text-xs font-semibold uppercase tracking-widest text-[#94A3B8] mb-3">By Process Team</p>
- {processTeamSummaries.length === 0 ? (
- <p className="text-sm text-[#94A3B8] italic">No process teams configured.</p>
- ) : (
- processTeamSummaries.map(pt => <GroupBar key={pt.id} name={pt.name} data={pt.data} />)
- )}
- </CardContent>
- </Card>
- </div>
- </div>
- );
-}
-
 /* ─── Section 2: Alerts grid ──────────────────────────────────────────────── */
 
 function AlertsGrid({ warnings }: {
@@ -1118,10 +1055,11 @@ function Stat({ icon: Icon, label, value, color }: {
 // ─── Onboarding Checklist ────────────────────────────────────────────────────
 
 function OnboardingChecklist({ state, navigate }: {
- state: ReturnType<typeof useCurrentState>;
- navigate: (view: 'team' | 'projects' | 'settings') => void;
+  state: ReturnType<typeof useCurrentState>;
+  navigate: (view: 'team' | 'projects' | 'settings') => void;
 }) {
- const steps = [
+  const jiraWorkItems = globalJiraWorkItems(state.jiraWorkItems ?? [], state.jiraConnections ?? []);
+  const steps = [
  {
  done: state.teamMembers.length > 0,
  label: 'Add team members',
