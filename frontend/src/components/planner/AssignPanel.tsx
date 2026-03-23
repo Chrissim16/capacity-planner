@@ -170,8 +170,8 @@ export interface AssignPanelProps {
   jiraBaseUrl: string;
   jiraItems: JiraWorkItem[];
   onClose: () => void;
-  /** Persist draft assignees to scenario (parent merges filtered layout). */
-  onPersistDraft: (draft: PlannerItem) => void;
+  /** Called when the user confirms changes — writes to scenario or baseline depending on caller. */
+  onSave: (itemId: string, assignees: PlannerAssignment[]) => void;
 }
 
 type PickerTrack = 'IT' | 'BIZ' | null;
@@ -259,7 +259,7 @@ export function AssignPanel({
   jiraBaseUrl,
   jiraItems,
   onClose,
-  onPersistDraft,
+  onSave,
 }: AssignPanelProps) {
   const state = useCurrentState();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -427,7 +427,7 @@ export function AssignPanel({
   };
 
   const handleSave = () => {
-    onPersistDraft(draft);
+    onSave(draft.id, draft.assignees);
     setSavedFlash(true);
     window.setTimeout(() => setSavedFlash(false), 1200);
   };

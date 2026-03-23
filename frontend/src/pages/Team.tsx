@@ -14,6 +14,7 @@ import { useToast } from '../components/ui/Toast';
 import { calculateBusinessCapacityForQuarter } from '../utils/capacity';
 import { getCurrentQuarter } from '../utils/calendar';
 import type { TeamMember, BusinessContact, ProcessTeam } from '../types';
+import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
 
 type GroupBy = 'role' | 'country' | 'squad' | 'processTeam' | 'dept' | 'none';
 type TabType = 'it' | 'biz' | 'all';
@@ -36,6 +37,9 @@ function groupItems<T>(
 export function Team() {
  const state = useCurrentState();
  const teamMembers = state.teamMembers;
+ const jiraWorkItems = globalJiraWorkItems(state.jiraWorkItems ?? [], state.jiraConnections ?? []);
+ // Patched state for sub-components that receive the full state object; excludes Scenario Planner-only items.
+ const filteredState = useMemo(() => ({ ...state, jiraWorkItems }), [state, jiraWorkItems]);
  const roles = state.roles;
  const countries = state.countries;
  const skills = state.skills;
@@ -778,7 +782,7 @@ className="hover:border-blue-300 transition-colors"
  key={contact.id}
  contact={contact}
  currentQuarter={currentQuarter}
- state={state}
+ state={filteredState}
  countries={countries}
  processTeams={processTeams}
  onEdit={() => { setEditingContact(contact); setBizFormOpen(true); }}
@@ -799,7 +803,7 @@ Archived ({filteredContacts.filter(c => c.archived).length})
  {filteredContacts.filter(c => c.archived).map(contact => (
  <BizContactCard
  key={contact.id} contact={contact} currentQuarter={currentQuarter}
- state={state} countries={countries} processTeams={processTeams}
+ state={filteredState} countries={countries} processTeams={processTeams}
  onEdit={() => { setEditingContact(contact); setBizFormOpen(true); }}
  onArchive={() => updateBusinessContact(contact.id, { archived: false })}
  onDelete={() => setBizDeleteConfirm(contact)}
@@ -981,7 +985,7 @@ return (
  {contacts.map(contact => (
  <BizContactCard
  key={contact.id} contact={contact} currentQuarter={currentQuarter}
- state={state} countries={countries} processTeams={processTeams}
+ state={filteredState} countries={countries} processTeams={processTeams}
  onEdit={() => { setEditingContact(contact); setBizFormOpen(true); }}
  onArchive={() => updateBusinessContact(contact.id, { archived: true })}
  onDelete={() => setBizDeleteConfirm(contact)}
@@ -1146,7 +1150,7 @@ return (
  member={convertMember}
  countries={countries}
  processTeams={processTeams}
- jiraWorkItems={state.jiraWorkItems}
+ jiraWorkItems={jiraWorkItems}
  onConfirm={(contactData, migrateKeys) => {
  const snapshotMembers = JSON.parse(JSON.stringify(state.teamMembers));
  const snapshotContacts = JSON.parse(JSON.stringify(state.businessContacts));

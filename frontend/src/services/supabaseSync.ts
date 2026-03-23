@@ -214,6 +214,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       updatedAt: c.updated_at,
       defaultDaysPerItem: c.default_days_per_item ?? 1,
       jqlFilter: c.jql_filter ?? undefined,
+      scenarioPlannerOnly: c.scenario_planner_only ?? false,
       customFieldIds: c.custom_field_ids ?? undefined,
     }));
 
@@ -570,6 +571,7 @@ async function syncJiraConnections(connections: JiraConnection[]): Promise<void>
     sync_history: c.syncHistory ?? [],
     default_days_per_item: c.defaultDaysPerItem ?? 1,
     jql_filter: c.jqlFilter ?? null,
+    scenario_planner_only: c.scenarioPlannerOnly ?? false,
     custom_field_ids: c.customFieldIds ?? null,
     created_at: c.createdAt,
     updated_at: c.updatedAt,

@@ -18,6 +18,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, ChevronDown, ChevronRight, Lock, ArrowLeft, Unlock } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
 import { unlockPlannerItem } from '../../stores/actions';
+import { stripJiraMarkup } from '../../utils/markup';
 import type { PlannerItem, PlannerItemType, JiraWorkItem, Sprint } from '../../types';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -108,6 +109,10 @@ export function PlannerDetailPanel({
 
   // Features section collapse state
   const [featuresOpen, setFeaturesOpen] = useState(true);
+
+  // US-SPT-06: Summary section expand/collapse state — resets on item navigation
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  useEffect(() => { setSummaryExpanded(false); }, [currentId]);
 
   // Keyboard close
   useEffect(() => {
@@ -244,6 +249,39 @@ export function PlannerDetailPanel({
 
         {/* ── Scrollable body ──────────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto">
+
+          {/* US-SPT-06: Summary section */}
+          {(() => {
+            const rawDescription = jira?.description ?? '';
+            const description = rawDescription ? stripJiraMarkup(rawDescription) : '';
+            const TRUNCATE_AT = 200;
+            const isTruncatable = description.length > TRUNCATE_AT;
+            const displayText = isTruncatable && !summaryExpanded
+              ? description.slice(0, TRUNCATE_AT) + '…'
+              : description;
+
+            return (
+              <div className="px-5 py-4 border-b border-mileway-border">
+                <p className="text-xs font-semibold uppercase tracking-wider text-mileway-grey mb-2">Summary</p>
+                {description ? (
+                  <>
+                    <p className="text-sm text-mileway-text leading-relaxed whitespace-pre-line">{displayText}</p>
+                    {isTruncatable && (
+                      <button
+                        type="button"
+                        onClick={() => setSummaryExpanded(e => !e)}
+                        className="mt-1.5 text-xs text-mileway-blue hover:text-[#0077C2] focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded"
+                      >
+                        {summaryExpanded ? 'Show less' : 'Show more'}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-mileway-grey italic">No summary available.</p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Assignees section */}
           <div className="px-5 py-4 border-b border-mileway-border">

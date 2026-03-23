@@ -14,11 +14,12 @@ import { PageHeader } from '../components/layout/PageHeader';
 import {
  calculateCapacity, getWarnings, getTeamUtilizationSummary,
  calculateBusinessCapacityForQuarter,
- calculateCapacityBySquad, calculateCapacityByProcessTeam,
 } from '../utils/capacity';
 import type { GroupCapacitySummary } from '../utils/capacity';
 import { getCurrentQuarter, getWorkdaysInQuarter } from '../utils/calendar';
 import type { CapacityResult, CapacityBreakdownItem } from '../types';
+import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
+import { useProcessTeamCapacitySummaries } from '../hooks/useProcessTeamCapacitySummaries';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -31,13 +32,6 @@ function getInitials(name: string): string {
 function getCurrentYearQuarters(): string[] {
  const year = new Date().getFullYear();
  return [`Q1 ${year}`, `Q2 ${year}`, `Q3 ${year}`, `Q4 ${year}`];
-}
-
-function isPastQuarter(q: string, current: string): boolean {
- const [ql, qy] = q.split(' ');
- const [cl, cy] = current.split(' ');
- if (qy !== cy) return Number(qy) < Number(cy);
- return Number(ql.slice(1)) < Number(cl.slice(1));
 }
 
 // ── Heatmap color scale (8-tier: green → amber → orange → red) ───────────────
@@ -79,14 +73,14 @@ export function Dashboard() {
  const currentQuarter = getCurrentQuarter();
  const yearQuarters = useMemo(() => getCurrentYearQuarters(), []);
 
- const [selectedCell, setSelectedCell] = useState<{ memberId: string; quarter: string } | null>(null);
- const [selectedBizCell, setSelectedBizCell] = useState<{ contactId: string; quarter: string } | null>(null);
- const [timelineView, setTimelineView] = useState<'heatmap' | 'bars'>('heatmap');
- const [activeTab, setActiveTab] = useState<'overview' | 'squad'>('overview');
- const [selectedGroupQuarter, setSelectedGroupQuarter] = useState(currentQuarter);
- const [showWizard, setShowWizard] = useState(false);
+  const [selectedCell, setSelectedCell] = useState<{ memberId: string; quarter: string } | null>(null);
+  const [selectedBizCell, setSelectedBizCell] = useState<{ contactId: string; quarter: string } | null>(null);
+  const [timelineView, setTimelineView] = useState<'heatmap' | 'bars'>('heatmap');
+  const [showWizard, setShowWizard] = useState(false);
+  const [capacityBankQuarter, setCapacityBankQuarter] = useState(getCurrentQuarter);
  const isInitializing = useIsInitializing();
  const { can } = useCurrentUser();
+ const jiraWorkItems = globalJiraWorkItems(state.jiraWorkItems ?? [], state.jiraConnections ?? []);
 
  const warnings = useMemo(() => getWarnings(state), [state]);
 
@@ -131,7 +125,7 @@ export function Dashboard() {
  [state.teamMembers]
  );
 
- const activeProjects = state.jiraWorkItems.filter(
+ const activeProjects = jiraWorkItems.filter(
  w => w.type === 'epic' && w.statusCategory !== 'done'
  ).length;
 
@@ -140,41 +134,8 @@ export function Dashboard() {
  [currentQuarter, state]
  );
 
- // Capacity Bank: team-wide totals per quarter
- const capacityBank = useMemo(() =>
- yearQuarters.map(q => {
- let totalWorkdays = 0;
- let totalUsed = 0;
- let totalBau = 0;
- let totalProject = 0;
- let totalTimeOff = 0;
-
- for (const m of state.teamMembers) {
- if (m.excludedFromCapacity) continue;
- const cap = calculateCapacity(m.id, q, state);
- totalWorkdays += cap.totalWorkdays;
- totalUsed += cap.usedDays;
- totalBau += cap.breakdown.find(b => b.type === 'bau')?.days ?? 0;
- totalTimeOff += cap.breakdown.find(b => b.type === 'timeoff')?.days ?? 0;
-  totalProject += cap.breakdown
-    .filter(b => b.type === 'jira')
-    .reduce((s, b) => s + b.days, 0);
- }
-
- const remainingDays = Math.round(totalWorkdays - totalUsed);
- const bauPct = totalWorkdays > 0 ? Math.min(100, (totalBau / totalWorkdays) * 100) : 0;
- const timeOffPct = totalWorkdays > 0 ? Math.min(100, (totalTimeOff / totalWorkdays) * 100) : 0;
- const projectPct = totalWorkdays > 0 ? Math.min(100, (totalProject / totalWorkdays) * 100) : 0;
-
- const isPast = isPastQuarter(q, currentQuarter);
- const isCurrent = q === currentQuarter;
- const isTight = !isPast && remainingDays < 15;
- const isOpen = !isPast && remainingDays > 80;
-
- return { quarter: q, totalWorkdays, remainingDays, bauPct, timeOffPct, projectPct, isPast, isCurrent, isTight, isOpen };
- }),
- [yearQuarters, currentQuarter, state]
- );
+ // Capacity Bank: process team breakdown for selected quarter
+ const processTeamSummaries = useProcessTeamCapacitySummaries(capacityBankQuarter);
 
  // Timeline preview data — excluded members are hidden from the heatmap entirely
  const timelineData = useMemo(() =>
@@ -204,31 +165,13 @@ export function Dashboard() {
      const cell = calculateBusinessCapacityForQuarter(
      contact, q,
      state.jiraItemBizAssignments, state.businessTimeOff,
-     state.publicHolidays, state.jiraWorkItems
+     state.publicHolidays, jiraWorkItems
      );
  return { quarter: q, cell };
  }),
  }));
  }, [peopleFilter, state, yearQuarters]);
 
- // Group capacity — By Squad / By Process Team tab
- const squadSummaries = useMemo(() =>
- state.squads.map(sq => ({
- id: sq.id,
- name: sq.name,
- data: calculateCapacityBySquad(sq.id, selectedGroupQuarter, state),
- })),
- [state, selectedGroupQuarter]
- );
-
- const processTeamSummaries = useMemo(() =>
- state.processTeams.map(pt => ({
- id: pt.id,
- name: pt.name,
- data: calculateCapacityByProcessTeam(pt.id, selectedGroupQuarter, state),
- })),
- [state, selectedGroupQuarter]
- );
 
  const drillDown = useMemo<{ member: typeof state.teamMembers[0]; quarter: string; capacity: CapacityResult } | null>(() => {
  if (!selectedCell) return null;
@@ -243,7 +186,7 @@ export function Dashboard() {
  );
  }, []);
 
- const isEmpty = state.teamMembers.length === 0 && state.jiraWorkItems.length === 0;
+ const isEmpty = state.teamMembers.length === 0 && jiraWorkItems.length === 0;
 
  if (isLoading && isEmpty) {
  return (
@@ -270,33 +213,12 @@ export function Dashboard() {
  subtitle={`VS Finance · ${currentQuarter} · Mileway BV`}
  />
 
- {/* Tab bar */}
- {!isEmpty && (
- <div className="flex border-b border-[#DEDFE3] -mt-2">
- {([
- { id: 'overview', label: 'Overview' },
- { id: 'squad', label: 'By Squad / Team' },
- ] as const).map(tab => (
- <button
- key={tab.id}
- onClick={() => setActiveTab(tab.id)}
- className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
- activeTab === tab.id
- ? 'border-[#0089DD] text-[#1E293B]'
- : 'border-transparent text-[#94A3B8] hover:text-[#1E293B] '
- }`}
- >
- {tab.label}
- </button>
- ))}
- </div>
- )}
 
  {/* Onboarding */}
  {isEmpty && <OnboardingChecklist state={state} navigate={setCurrentView} />}
 
  {/* Utilisation nudge banner (D5 + D13) */}
- {showNudge && activeTab === 'overview' && (
+ {showNudge && (
    <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
      <div className="flex items-center gap-2.5">
        <AlertTriangle size={16} className="text-amber-600 shrink-0" />
@@ -327,7 +249,7 @@ export function Dashboard() {
  )}
 
  {/* Stats strip */}
- {!isEmpty && activeTab === 'overview' && (
+ {!isEmpty && (
  <div className="flex items-center gap-6 px-1">
  <Stat icon={Users} label="Team" value={activeMembers.length} color="blue" />
  <Stat icon={FolderKanban} label="Active Epics" value={activeProjects} color="slate" />
@@ -346,22 +268,87 @@ export function Dashboard() {
  )}
 
  {/* ── Section 1: Capacity Bank ──────────────────────────────────────────── */}
- {!isEmpty && activeTab === 'overview' && (
+ {!isEmpty && (
  <section>
- <SectionLabel title="Capacity Bank" subtitle="Team-wide remaining days per quarter" />
- <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
- {capacityBank.map(q => (
- <CapacityBankCard key={q.quarter} {...q} />
- ))}
- </div>
+   <div className="flex items-center justify-between mb-4">
+     <SectionLabel title="Capacity Bank" subtitle="Team capacity breakdown by process team" inline />
+     <div className="flex items-center gap-1">
+       {yearQuarters.map(q => (
+         <button
+           key={q}
+           onClick={() => setCapacityBankQuarter(q)}
+           className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+             capacityBankQuarter === q
+               ? 'bg-[#0089DD] text-white'
+               : 'bg-white border border-[#DEDFE3] text-[#94A3B8] hover:border-[#0089DD] hover:text-[#0089DD]'
+           }`}
+         >
+           {q.split(' ')[0]}
+         </button>
+       ))}
+     </div>
+   </div>
+   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+     {processTeamSummaries.map(pt => {
+       const { totalDays, usedDays, availableDays, utilization } = pt.data;
+       const isNA = totalDays === 0;
+       const pct = Math.round(utilization * 100);
+       const barWidth = `${Math.min(utilization * 100, 100)}%`;
+
+       const textCls = isNA || pct === 0
+         ? 'text-slate-300'
+         : pct <= 50
+         ? 'text-green-600'
+         : pct <= 80
+         ? 'text-yellow-600'
+         : pct <= 100
+         ? 'text-orange-600'
+         : 'text-red-600';
+
+       const barFill = isNA || pct === 0
+         ? 'bg-slate-200'
+         : pct <= 50
+         ? 'bg-green-500'
+         : pct <= 80
+         ? 'bg-yellow-500'
+         : pct <= 100
+         ? 'bg-orange-500'
+         : 'bg-red-500';
+
+       return (
+         <div key={pt.id} className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-3">
+           <p className="text-[13px] font-semibold text-slate-800 leading-tight">{pt.name}</p>
+           <div>
+             <p className={`text-[28px] font-bold leading-none ${textCls}`}>
+               {isNA ? 'N/A' : `${pct}%`}
+             </p>
+             <p className="text-[11px] text-slate-400 mt-0.5">utilisation</p>
+           </div>
+           <div className="h-1 rounded-full bg-slate-200 overflow-hidden">
+             <div className={`h-full rounded-full ${barFill}`} style={{ width: barWidth }} />
+           </div>
+           <div className="grid grid-cols-2">
+             <div>
+               <p className="text-[13px] font-semibold text-slate-700">{isNA ? '—' : `${Math.round(availableDays)}d`}</p>
+               <p className="text-[10px] text-slate-400">available</p>
+             </div>
+             <div>
+               <p className="text-[13px] font-semibold text-slate-700">{isNA ? '—' : `${Math.round(usedDays)}d`}</p>
+               <p className="text-[10px] text-slate-400">allocated</p>
+             </div>
+           </div>
+         </div>
+       );
+     })}
+   </div>
  </section>
  )}
 
  {/* ── Section 2: Alerts ────────────────────────────────────────────────── */}
- {!isEmpty && activeTab === 'overview' && <AlertsGrid warnings={warnings} />}
+ {!isEmpty && <AlertsGrid warnings={warnings} />}
 
  {/* ── Section 3: Timeline Preview ──────────────────────────────────────── */}
- {!isEmpty && activeTab === 'overview' && activeMembers.length > 0 && (
+ {!isEmpty && activeMembers.length > 0 && (
  <section>
  <div className="flex items-end justify-between mb-6">
  <SectionLabel
@@ -533,7 +520,7 @@ export function Dashboard() {
  );
 
  // Build Epic › Feature breadcrumb for Jira items
- const jiraMap = new Map(state.jiraWorkItems.map(i => [i.jiraKey, i]));
+ const jiraMap = new Map(jiraWorkItems.map(i => [i.jiraKey, i]));
  const getBreadcrumb = (jiraKey: string): string => {
  const item = jiraMap.get(jiraKey);
  if (!item) return '';
@@ -887,16 +874,6 @@ export function Dashboard() {
  </section>
  )}
 
- {/* ── By Squad / Team tab ──────────────────────────────────────────────── */}
- {!isEmpty && activeTab === 'squad' && (
- <SquadTeamTab
- yearQuarters={yearQuarters}
- selectedQuarter={selectedGroupQuarter}
- onSelectQuarter={setSelectedGroupQuarter}
- squadSummaries={squadSummaries}
- processTeamSummaries={processTeamSummaries}
- />
- )}
 
  {/* Scenario Wizard triggered by nudge banner CTA */}
  {showWizard && <ScenarioWizard onClose={() => setShowWizard(false)} />}
@@ -905,7 +882,7 @@ export function Dashboard() {
  );
 }
 
-/* ─── By Squad / Team tab ────────────────────────────────────────────────────── */
+/* ─── By Squad / Team tab — @deprecated: tab removed in US-SP-04; functions kept for reference ── */
 
 function getBarColor(utilization: number): string {
  const pct = utilization * 100;
@@ -1008,73 +985,6 @@ function SquadTeamTab({
  )}
  </CardContent>
  </Card>
- </div>
- </div>
- );
-}
-
-/* ─── Section 1: Capacity Bank card ─────────────────────────────────────────── */
-
-function CapacityBankCard({ quarter, remainingDays, bauPct, timeOffPct, projectPct, isPast, isCurrent, isTight, isOpen }: {
- quarter: string;
- remainingDays: number;
- bauPct: number;
- timeOffPct: number;
- projectPct: number;
- isPast: boolean;
- isCurrent: boolean;
- isTight: boolean;
- isOpen: boolean;
-}) {
- const badgeLabel = isPast ? 'Closed' : isCurrent ? 'Current' : isTight ? 'Tight' : isOpen ? 'Open' : 'Planned';
- const badgeCls = isPast
- ? 'bg-[#F0F2F5] text-[#94A3B8] '
- : isCurrent
- ? 'bg-blue-100 text-blue-700'
- : isTight
- ? 'bg-amber-100 text-amber-700'
- : isOpen
- ? 'bg-green-100 text-[#16A34A]'
- : 'bg-[#F0F2F5] text-[#94A3B8] ';
-
- const daysCls = isPast
- ? 'text-[#94A3B8]'
- : isTight
- ? 'text-amber-600'
- : isOpen
- ? 'text-[#16A34A]'
- : 'text-[#0089DD]';
-
- return (
- <div className={`bg-white rounded-xl border border-[#DEDFE3] shadow-sm p-5 ${isCurrent ? 'border-t-2 border-t-blue-500' : ''}`}>
- {/* Quarter + badge */}
- <div className="flex items-center justify-between mb-3">
- <span className="text-xs font-bold tracking-wide uppercase text-[#94A3B8] ">{quarter}</span>
- <span className={`text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-full ${badgeCls}`}>
- {badgeLabel}
- </span>
- </div>
-
- {/* Big number */}
- <div className={`text-3xl font-bold leading-none tracking-tight ${daysCls}`}>
- {remainingDays < 0 ? `−${Math.abs(remainingDays)}` : remainingDays}
- </div>
- <div className="text-xs text-[#94A3B8] mt-1">
- {remainingDays < 0 ? 'days over capacity' : 'days remaining'}
- </div>
-
- {/* Stacked bar */}
- <div className="mt-4 h-1.5 rounded-full bg-[#F0F2F5] overflow-hidden flex">
- <div className="h-full bg-[#DEDFE3]" style={{ width: `${bauPct}%` }} />
- <div className="h-full bg-amber-300" style={{ width: `${timeOffPct}%` }} />
- <div className="h-full bg-[#0089DD]" style={{ width: `${projectPct}%` }} />
- </div>
-
- {/* Legend */}
- <div className="flex items-center gap-3 mt-2.5">
- <LegendDot color="bg-[#DEDFE3]" label="BAU" />
- <LegendDot color="bg-amber-300" label="Leave" />
- <LegendDot color="bg-[#0089DD]" label="Epics" />
  </div>
  </div>
  );
@@ -1222,10 +1132,10 @@ function OnboardingChecklist({ state, navigate }: {
  onClick: () => navigate('team'),
  },
  {
-     done: state.jiraWorkItems.some(w => w.type === 'epic'),
+     done: jiraWorkItems.some(w => w.type === 'epic'),
      label: 'Sync your first epic',
-     detail: state.jiraWorkItems.some(w => w.type === 'epic')
-     ? `${state.jiraWorkItems.filter(w => w.type === 'epic').length} epic${state.jiraWorkItems.filter(w => w.type === 'epic').length !== 1 ? 's' : ''} synced`
+     detail: jiraWorkItems.some(w => w.type === 'epic')
+     ? `${jiraWorkItems.filter(w => w.type === 'epic').length} epic${jiraWorkItems.filter(w => w.type === 'epic').length !== 1 ? 's' : ''} synced`
      : 'Connect Jira and run a sync to import epics',
  icon: FolderKanban,
  onClick: () => navigate('projects'),

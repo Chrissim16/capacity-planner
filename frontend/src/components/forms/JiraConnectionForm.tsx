@@ -43,6 +43,7 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
 
  const [defaultDaysPerItem, setDefaultDaysPerItem] = useState(connection?.defaultDaysPerItem ?? 1);
  const [jqlFilter, setJqlFilter] = useState(connection?.jqlFilter || '');
+ const [scenarioPlannerOnly, setScenarioPlannerOnly] = useState(connection?.scenarioPlannerOnly ?? false);
  const [importBehaviourOpen, setImportBehaviourOpen] = useState(false);
  const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
  const [cfEpicLink, setCfEpicLink] = useState(connection?.customFieldIds?.epicLink ?? '');
@@ -110,6 +111,7 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  syncHistory: connection?.syncHistory,
  defaultDaysPerItem,
  jqlFilter: jqlFilter.trim() || undefined,
+ scenarioPlannerOnly,
  customFieldIds: (cfEpicLink || cfEpicLinkAlt || cfStartDate || cfSprint) ? {
  epicLink: cfEpicLink.trim() || undefined,
  epicLinkAlt: cfEpicLinkAlt.trim() || undefined,
@@ -215,13 +217,30 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  placeholder='e.g. sprint in openSprints() OR updatedDate >= -90d'
  className="w-full px-3 py-2 text-sm border border-[#94A3B8] rounded-lg bg-white text-[#1E293B] placeholder-[#94A3B8] font-mono"
  />
- <p className="text-xs text-[#94A3B8] mt-1">
- Appended to every sync query with AND. Use this to narrow scope and avoid Jira's 5,000-item limit — e.g. limit to recent updates or open sprints.
- </p>
- </div>
- </div>
- )}
- </div>
+             <p className="text-xs text-[#94A3B8] mt-1">
+               Appended to every sync query with AND. Use this to narrow scope and avoid Jira's 5,000-item limit — e.g. limit to recent updates or open sprints.
+             </p>
+           </div>
+
+           {/* Scenario Planner only */}
+           <label className="flex items-start gap-3 cursor-pointer">
+             <input
+               type="checkbox"
+               checked={scenarioPlannerOnly}
+               onChange={e => setScenarioPlannerOnly(e.target.checked)}
+               className="mt-0.5 h-4 w-4 rounded border-[#94A3B8] text-sana-teal accent-sana-teal"
+             />
+             <span>
+               <span className="block text-sm font-medium text-[#1E293B]">Scenario Planner only</span>
+               <span className="block text-xs text-[#94A3B8] mt-0.5">
+                 Items from this connection will only appear in the Scenario Planner backlog.
+                 They are hidden from Dashboard, Timeline, Team, Projects, and Command Palette.
+               </span>
+             </span>
+           </label>
+         </div>
+       )}
+     </div>
 
  {/* Custom Field IDs — collapsible */}
  <div className="border border-[#DEDFE3] rounded-lg overflow-hidden">

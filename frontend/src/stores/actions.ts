@@ -678,7 +678,9 @@ export function refreshScenarioFromJira(scenarioId: string): void {
     ...scenario,
     updatedAt: new Date().toISOString(),
     basedOnSyncAt: currentState.jiraConnections.find(c => c.lastSyncAt)?.lastSyncAt,
-    jiraWorkItems: JSON.parse(JSON.stringify(currentState.jiraWorkItems)),
+    // Always read from the baseline catalog so newly synced items (including from
+    // Scenario Planner-only connections) are picked up when the user hits Refresh.
+    jiraWorkItems: JSON.parse(JSON.stringify(state.data.jiraWorkItems)),
   };
 
   state.updateData({
@@ -1060,4 +1062,42 @@ export function createScenarioWithPlan(plan: ScenarioPlan): { scenarioId: string
     console.error('[wizard] scenario creation failed', { error: message });
     return { error: 'Failed to create scenario. Please try again.' };
   }
+}
+
+/**
+ * Update (or upsert) assignees on an item in the BASELINE scenario's plannerLayout.
+ * Used by the actuals Timeline's AssignPanel to persist assignments without activating
+ * a scenario. If the item does not yet exist in the baseline layout, it is added.
+ *
+ * US-TL-01
+ */
+export function updateBaselineAssignment(
+  itemId: string,
+  assignees: PlannerAssignment[],
+  fallbackItem?: PlannerItem,
+): void {
+  const state = useAppStore.getState();
+  const baseline = state.data.scenarios.find(s => s.isBaseline);
+  if (!baseline) return;
+
+  const layout = baseline.plannerLayout ?? [];
+  const existingIdx = layout.findIndex(p => p.id === itemId);
+
+  let newLayout: PlannerItem[];
+  if (existingIdx >= 0) {
+    newLayout = layout.map((p, i) => i === existingIdx ? { ...p, assignees } : p);
+  } else if (fallbackItem) {
+    // Item not yet in baseline layout — add it with the provided assignees
+    newLayout = [...layout, { ...fallbackItem, id: itemId, assignees }];
+  } else {
+    return;
+  }
+
+  state.updateData({
+    scenarios: state.data.scenarios.map(s =>
+      s.isBaseline
+        ? { ...s, updatedAt: new Date().toISOString(), plannerLayout: newLayout }
+        : s,
+    ),
+  });
 }

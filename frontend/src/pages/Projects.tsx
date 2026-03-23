@@ -20,6 +20,7 @@ import { fetchSyncPreview, applySync } from '../application/jiraSync';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useToast } from '../components/ui/Toast';
 import { computeRollup } from '../utils/confidence';
+import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
 import type {
   JiraWorkItem,
   JiraItemBizAssignment,
@@ -166,8 +167,8 @@ function BizPopover({ jiraKey, existingAssignments, contacts, onClose }: BizPopo
 
 export function Projects() {
   const state = useCurrentState();
-  const jiraWorkItems = state.jiraWorkItems ?? [];
   const jiraConnections = state.jiraConnections ?? [];
+  const jiraWorkItems = globalJiraWorkItems(state.jiraWorkItems ?? [], jiraConnections);
   const jiraSettings = state.jiraSettings;
   const jiraItemBizAssignments = state.jiraItemBizAssignments ?? [];
   const businessContacts = state.businessContacts ?? [];

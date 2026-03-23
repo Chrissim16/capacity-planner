@@ -327,6 +327,7 @@ export interface JiraConnection {
   updatedAt: string;
   defaultDaysPerItem: number;
   jqlFilter?: string;
+  scenarioPlannerOnly?: boolean;
   customFieldIds?: {
     epicLink?:    string;
     epicLinkAlt?: string;

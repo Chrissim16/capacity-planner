@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, FolderKanban, Users, ExternalLink, ArrowRight } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
 import type { ViewType } from '../../types';
+import { globalJiraWorkItems } from '../../utils/jiraWorkItemScope';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -37,24 +38,29 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
     }
   }, [isOpen]);
 
+  const jiraItems = useMemo(
+    () => globalJiraWorkItems(state.jiraWorkItems ?? [], state.jiraConnections ?? []),
+    [state.jiraWorkItems, state.jiraConnections],
+  );
+
   const results = useMemo((): SearchResult[] => {
     const q = query.toLowerCase().trim();
     if (!q) return [];
 
     const out: SearchResult[] = [];
 
-   // Epics
- state.jiraWorkItems
- .filter(w => w.type === 'epic' && w.statusCategory !== 'done' && w.summary.toLowerCase().includes(q))
- .slice(0, 5)
- .forEach(w => out.push({
- id: `epic-${w.id}`,
- type: 'epic',
- label: w.summary,
- sublabel: `${w.jiraKey} · ${w.status}`,
- view: 'projects',
- payload: { highlightId: w.id },
- }));
+    // Epics
+    jiraItems
+      .filter(w => w.type === 'epic' && w.statusCategory !== 'done' && w.summary.toLowerCase().includes(q))
+      .slice(0, 5)
+      .forEach(w => out.push({
+        id: `epic-${w.id}`,
+        type: 'epic',
+        label: w.summary,
+        sublabel: `${w.jiraKey} · ${w.status}`,
+        view: 'projects',
+        payload: { highlightId: w.id },
+      }));
 
     // Team members
     state.teamMembers
@@ -74,7 +80,6 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
       }));
 
     // Jira work items
-    const jiraItems = state.jiraWorkItems ?? [];
     jiraItems
       .filter(w =>
         w.summary.toLowerCase().includes(q) ||
@@ -91,7 +96,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
       }));
 
     return out;
-  }, [query, state.jiraWorkItems, state.teamMembers]);
+  }, [query, jiraItems, state.teamMembers]);
 
   // Keyboard navigation
   useEffect(() => {

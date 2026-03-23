@@ -59,6 +59,12 @@ export interface JiraGanttProps {
  savedSprints?: Sprint[];
  quarters: string[];
  jiraBaseUrl: string;
+ /**
+  * Optional callback invoked when the user clicks a Gantt bar (not the row label).
+  * When provided, bar clicks call this instead of opening the internal BIZ panel.
+  * US-TL-01
+  */
+ onBarClick?: (item: JiraWorkItem) => void;
 }
 
 // ── Helper functions ─────────────────────────────────────────────────────────
@@ -353,7 +359,7 @@ function SlidePanel({
 // ── Main component ───────────────────────────────────────────────────────────
 
 export function JiraGantt({
-  items, bizAssignments, businessContacts, settings, savedSprints = [], quarters, jiraBaseUrl,
+  items, bizAssignments, businessContacts, settings, savedSprints = [], quarters, jiraBaseUrl, onBarClick,
 }: JiraGanttProps) {
  // Merge generated + saved sprints so sprint-name lookups can match both sources
  const allSprints = useMemo(() => {
@@ -839,8 +845,13 @@ export function JiraGantt({
  overflow: 'visible',
  minWidth: 4,
  }}
- onClick={() => setPanelItem(item)}
- onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPanelItem(item); } }}
+ onClick={() => onBarClick ? onBarClick(item) : setPanelItem(item)}
+ onKeyDown={e => {
+   if (e.key === 'Enter' || e.key === ' ') {
+     e.preventDefault();
+     if (onBarClick) onBarClick(item); else setPanelItem(item);
+   }
+ }}
  />
  )}
  {/* Ghost row for items with no dates */}

@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { User, BarChart2, Calendar, Zap, CalendarOff, GripVertical } from 'lucide-react';
 import { JiraGantt } from '../components/JiraGantt';
+import { AssignPanel } from '../components/planner/AssignPanel';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Select } from '../components/ui/Select';
@@ -8,6 +9,7 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { SkeletonGantt } from '../components/ui/Skeleton';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useAppStore, useCurrentState, useIsLoading } from '../stores/appStore';
+import { updateBaselineAssignment } from '../stores/actions';
 import { getForecastedDays } from '../utils/confidence';
 import { calculateCapacity } from '../utils/capacity';
 import {
@@ -16,7 +18,8 @@ import {
 import {
  generateSprints, getSprintsForQuarter, formatDateRange, getWorkdaysInSprint,
 } from '../utils/sprints';
-import type { TeamMember, Sprint } from '../types';
+import type { TeamMember, Sprint, JiraWorkItem, PlannerItem } from '../types';
+import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
 
 type TimelineView = 'gantt' | 'team';
 type TimelineGranularity = 'quarter' | 'sprint' | 'dates';
@@ -26,10 +29,50 @@ export function Timeline() {
  const setCurrentView = useAppStore(s => s.setCurrentView);
  const isLoading = useIsLoading();
  const { teamMembers, quarters, settings, publicHolidays } = state;
+ const jiraWorkItems = globalJiraWorkItems(state.jiraWorkItems ?? [], state.jiraConnections ?? []);
 
  const [viewMode, setViewMode] = useState<TimelineView>('gantt');
  const [granularity, setGranularity] = useState<TimelineGranularity>('quarter');
  const [labelWidth, setLabelWidth] = useState(256);
+
+ // US-TL-01: AssignPanel for IT-track assignments on Gantt bars
+ const [assignPanelJiraItem, setAssignPanelJiraItem] = useState<JiraWorkItem | null>(null);
+
+ const baselineScenario = useMemo(
+   () => state.scenarios?.find(s => s.isBaseline) ?? null,
+   [state.scenarios],
+ );
+
+ const assignPanelPlannerItem = useMemo((): PlannerItem | null => {
+   if (!assignPanelJiraItem) return null;
+   const existing = (baselineScenario?.plannerLayout ?? []).find(
+     p => p.jiraKey === assignPanelJiraItem.jiraKey,
+   );
+   if (existing) return existing;
+   // Build a transient PlannerItem from the JiraWorkItem so AssignPanel can render
+   return {
+     id: `tl-${assignPanelJiraItem.id}`,
+     sourceId: assignPanelJiraItem.id,
+     name: assignPanelJiraItem.summary,
+     type: assignPanelJiraItem.type as PlannerItem['type'],
+     jiraKey: assignPanelJiraItem.jiraKey,
+     parentKey: assignPanelJiraItem.parentKey,
+     startSprint: 1,
+     spanSprints: 1,
+     assignees: [],
+     locked: false,
+     unlockedInScenario: false,
+     isManual: false,
+     labels: assignPanelJiraItem.labels ?? [],
+     jiraAssignees: assignPanelJiraItem.assigneeName ? [assignPanelJiraItem.assigneeName] : [],
+     jiraStartDate: assignPanelJiraItem.startDate,
+     jiraEndDate: assignPanelJiraItem.dueDate,
+   };
+ }, [assignPanelJiraItem, baselineScenario]);
+
+ const handleBarClick = useCallback((item: JiraWorkItem) => {
+   setAssignPanelJiraItem(item);
+ }, []);
 
  // Person filters
  const [squadFilter, setSquadFilter] = useState('');
@@ -97,11 +140,11 @@ export function Timeline() {
 
  const allLabels = useMemo(() => {
    const s = new Set<string>();
-   for (const item of state.jiraWorkItems ?? []) {
+   for (const item of jiraWorkItems) {
      item.labels?.forEach(l => s.add(l));
    }
    return [...s].sort();
- }, [state.jiraWorkItems]);
+ }, [jiraWorkItems]);
 
  // Pre-filter team members for Team view
  const filteredTeamMembers = useMemo(() => {
@@ -117,7 +160,7 @@ export function Timeline() {
 
  // Pre-filter Jira items for Gantt view
  const filteredJiraItems = useMemo(() => {
- const items = state.jiraWorkItems ?? [];
+ const items = jiraWorkItems;
 
  const bizAssignmentsByKey = new Map<string, string[]>();
  for (const a of state.jiraItemBizAssignments ?? []) {
@@ -164,7 +207,7 @@ export function Timeline() {
    }
    return true;
  });
- }, [state.jiraWorkItems, state.jiraItemBizAssignments, state.businessContacts, teamMembers, showCompleted, squadFilter, processTeamFilter, memberSearch, bizSearch, filterLabel]);
+ }, [jiraWorkItems, state.jiraItemBizAssignments, state.businessContacts, teamMembers, showCompleted, squadFilter, processTeamFilter, memberSearch, bizSearch, filterLabel]);
 
  return (
  <div className="space-y-6">
@@ -294,7 +337,7 @@ export function Timeline() {
  filteredJiraItems.length === 0 ? (
  <Card>
  <CardContent>
- {(state.jiraWorkItems ?? []).length === 0 ? (
+ {jiraWorkItems.length === 0 ? (
  <EmptyState
  icon={BarChart2}
  title="No Jira items yet"
@@ -318,6 +361,7 @@ export function Timeline() {
   settings={settings}
   quarters={quarters}
   jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}
+  onBarClick={handleBarClick}
 />
  )
  )}
@@ -424,6 +468,21 @@ export function Timeline() {
  </CardContent>
  </Card>
  )}
+
+ {/* US-TL-01: AssignPanel for IT-track assignments — opens on Gantt bar click */}
+ {assignPanelPlannerItem && (
+   <AssignPanel
+     item={assignPanelPlannerItem}
+     selectedQuarter={currentQuarter}
+     jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}
+     jiraItems={jiraWorkItems}
+     onClose={() => setAssignPanelJiraItem(null)}
+     onSave={(itemId, assignees) => {
+       updateBaselineAssignment(itemId, assignees, assignPanelPlannerItem);
+       setAssignPanelJiraItem(null);
+     }}
+   />
+ )}
  </div>
  );
 }
@@ -496,7 +555,7 @@ function TeamMemberRow({ member, quarters, sprints, granularity, currentQuarter,
  if (member.email && !sprint.isByeWeek) {
  const memberEmail = member.email.toLowerCase();
  const defaultConfidence = state.jiraSettings?.defaultConfidenceLevel ?? 'medium';
- for (const item of state.jiraWorkItems) {
+ for (const item of jiraWorkItems) {
  if (item.statusCategory === 'done') continue;
  if (item.storyPoints == null) continue;
  if (item.type === 'epic' || item.type === 'feature') continue;

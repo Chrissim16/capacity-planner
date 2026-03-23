@@ -56,7 +56,7 @@ import { PlannerDetailPanel } from '../components/planner/PlannerDetailPanel';
 import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
 import { PlannerContextMenu, type ContextMenuTarget } from '../components/planner/PlannerContextMenu';
 import { PlannerPersonFilterPill } from '../components/planner/PlannerPersonFilterPill';
-import type { PlannerItem, PlannerItemType, Scenario, JiraWorkItem } from '../types';
+import type { PlannerItem, PlannerItemType, PlannerAssignment, Scenario, JiraWorkItem } from '../types';
 import type { BoardSort } from '../components/planner/PlannerBoard';
 
 // PlannerBoard is lazy so @dnd-kit/core stays out of the initial bundle
@@ -595,9 +595,12 @@ export function ScenarioPlanner() {
     updatePlannerLayout(activeScenarioId, [...untouched, ...inFilteredView, ...trulyNew]);
   }, [activeScenarioId, plannerItems]);
 
-  const handleAssignPanelPersist = useCallback((draft: PlannerItem) => {
+  const handleAssignPanelPersist = useCallback((itemId: string, assignees: PlannerAssignment[]) => {
     if (!activeScenarioId) return;
-    updatePlannerLayout(activeScenarioId, plannerItems.map(p => p.id === draft.id ? draft : p));
+    updatePlannerLayout(
+      activeScenarioId,
+      plannerItems.map(p => p.id === itemId ? { ...p, assignees } : p),
+    );
   }, [activeScenarioId, plannerItems]);
 
   const handleActiveDragChange = useCallback((preview: DragPreview | null) => {
@@ -1544,7 +1547,7 @@ export function ScenarioPlanner() {
           jiraBaseUrl={jiraBaseUrl}
           jiraItems={jiraItems}
           onClose={() => setAssignPanelItemId(null)}
-          onPersistDraft={handleAssignPanelPersist}
+          onSave={handleAssignPanelPersist}
         />
       )}
 

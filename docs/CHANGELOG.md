@@ -5,6 +5,41 @@ Newest entry at the top. Format: `[YYYY-MM-DD] — Short title`.
 
 ---
 
+## [2026-03-23] — feat: Phase 3 + Phase 4 — Capacity Bank, item summaries, squad tab removal, Timeline assignment
+
+### Added
+- **`frontend/src/hooks/useProcessTeamCapacitySummaries.ts`** (new) — Reusable hook that maps `state.processTeams` through `calculateCapacityByProcessTeam` for a given quarter. Extracted from Dashboard's local `useMemo` so it can be consumed without duplication (US-SP-03 / SHARED-A).
+- **`frontend/src/utils/allocationTier.ts`** (new) — Pure `allocationTierClass(utilization)` function returning green/yellow/orange/red Tailwind class pairs based on 70 / 90 / 100% thresholds (SHARED-B).
+- **`frontend/src/utils/markup.ts`** (new) — Pure `stripJiraMarkup(text)` that removes Jira wiki markup (headings, bold, italic, code blocks, macros, colour macros, named links) using regex only — no browser API, safe as `textContent` (SHARED-C).
+- **`frontend/src/components/planner/ProcessTeamCapacityTable.tsx`** (new) — Table showing Available / Allocated / Utilisation per process team for the selected quarter, colour-coded by `allocationTierClass`. Empty state for zero-configured teams (US-SP-03).
+- **`frontend/src/stores/actions.ts`** — `updateBaselineAssignment(itemId, assignees, fallbackItem?)`: writes to the baseline scenario's `plannerLayout`. Upserts if item not found and `fallbackItem` is provided. Used by the actuals Timeline's `AssignPanel` (US-TL-01).
+
+### Changed
+- **`frontend/src/pages/ScenarioPlanner.tsx`** — Imports `ProcessTeamCapacityTable` and `useProcessTeamCapacitySummaries`; calls hook with `selectedQuarter`; renders the process team table in a new "By Process Team" section above `PlannerCapacity` inside the capacity panel (maxHeight raised from 300 → 500). `handleAssignPanelPersist` signature updated to `(itemId, assignees)` to match `AssignPanel.onSave`. `PlannerAssignment` added to type imports (US-SP-03, SHARED-D).
+- **`frontend/src/components/planner/PlannerDetailPanel.tsx`** — Added `stripJiraMarkup` import and a **Summary** section between the Header and Assignees sections. Shows `jira.description` stripped of markup, truncated at 200 chars with "Show more/less" toggle, empty-state italic when no description. `summaryExpanded` state resets on `currentId` change (US-SPT-06 / SHARED-C).
+- **`frontend/src/pages/Dashboard.tsx`** — Removed "By Squad / Team" tab bar, its content block, `activeTab` state, `selectedGroupQuarter` state, `squadSummaries` useMemo, `processTeamSummaries` useMemo, and the `calculateCapacityBySquad`/`calculateCapacityByProcessTeam` imports. All `activeTab === 'overview'` guards simplified. `SquadTeamTab` and `GroupBar` marked `@deprecated` (US-SP-04).
+- **`frontend/src/components/planner/AssignPanel.tsx`** — `onPersistDraft: (draft: PlannerItem) => void` renamed to `onSave: (itemId: string, assignees: PlannerAssignment[]) => void`. `handleSave` updated accordingly (SHARED-D).
+- **`frontend/src/components/JiraGantt.tsx`** — Added `onBarClick?: (item: JiraWorkItem) => void` prop. Bar click calls `onBarClick(item)` when provided; falls back to `setPanelItem(item)` (internal BIZ panel) when not. Row-label click unchanged (US-TL-01).
+- **`frontend/src/pages/Timeline.tsx`** — Added `AssignPanel` import and `updateBaselineAssignment` import. Wires `onBarClick={handleBarClick}` into `JiraGantt`. On bar click, derives `PlannerItem` from baseline scenario plannerLayout (or builds transient from `JiraWorkItem`). Renders `<AssignPanel>` portal when item is selected; `onSave` calls `updateBaselineAssignment` and closes panel (US-TL-01).
+
+---
+
+## [2026-03-23] — fix(planner): Phase 2 improvements — hierarchy, clone assignments, avatar fallback
+
+### Fixed
+- **`frontend/src/components/planner/PlannerTimeline.tsx`** — Refactored `visibleItems` to `visibleRows` (`TimelineRow` union type). Orphaned items (features/stories whose parent Epic is not placed on the timeline) now appear under a visible **"Unlinked items"** section header instead of silently appending to the bottom (US-SPT-01). Guarded `parentKey === epic.jiraKey` and `hasChildrenSet` matching against `undefined === undefined` false positives. Section rows render a styled label in the label column and an empty divider in the canvas, keeping bar/row alignment intact.
+- **`frontend/src/components/planner/PlannerTimeline.tsx`** (`buildPlannerBarAvatarSlots`) — Missing IT members and BIZ contacts (deleted from team after assignment was made) now render a neutral grey **"?"** avatar with "Removed member" / "Removed contact" title tooltip, instead of displaying the raw `memberId` UUID as initials (BUG-001).
+- **`frontend/src/pages/ScenarioPlanner.tsx`** — "Clone current plan" no longer overwrites the copied layout with an empty-assignee baseline. `createScenario()` deep-copies `plannerLayout` (including all `PlannerAssignment` records) from the active scenario; the redundant `initBaselineScenario()` call that replaced it with `assignees: []` has been removed (US-SPT-03). Unused `initBaselineScenario` import also removed.
+
+---
+
+## [2026-03-23] — feat(planner): Scenario Planner home layout + toolbar badge cleanup
+
+### Changed
+- **`frontend/src/pages/ScenarioPlanner.tsx`** — Scenario list / landing content wrapped in `max-w-5xl mx-auto w-full` for alignment with other pages (Improvements v3 · US-SP-01). Removed numeric badge pills from Backlog and Team toolbar buttons (US-SP-02); same counts appear on hover via `title` tooltips.
+
+---
+
 ## [2026-03-19] — feat(planner): Scenario Planner — Board + Timeline modes, full component suite
 
 ### Added
