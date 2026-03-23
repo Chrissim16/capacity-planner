@@ -19,8 +19,6 @@ export function migratePlannerItem(raw: Partial<PlannerItem>): PlannerItem {
     startSprint:       raw.startSprint       ?? 1,
     spanSprints:       raw.spanSprints       ?? 1,
     assignees:         raw.assignees         ?? [],
-    locked:            raw.locked            ?? false,
-    unlockedInScenario: raw.unlockedInScenario ?? false,
     isManual:          raw.isManual          ?? false,
     labels:            raw.labels            ?? [],
     jiraAssignees:     raw.jiraAssignees     ?? [],

@@ -32,6 +32,7 @@ import {
 } from '../stores/actions';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 import { migratePlannerLayout } from '../utils/plannerMigration';
+import { resolveItemAssignees } from '../utils/plannerInit';
 import {
   appStateForScenario,
   countOverloadedTeamSprints,
@@ -631,9 +632,7 @@ export function ScenarioPlanner() {
         parentKey: source.parentKey,
         startSprint: sprint,
         spanSprints: defaultSpan[source.type] ?? 1,
-        assignees: [],
-        locked: source.statusCategory === 'in_progress',
-        unlockedInScenario: false,
+        assignees: resolveItemAssignees(source, allState.teamMembers ?? [], allState.jiraItemBizAssignments ?? []),
         isManual: false,
         labels: source.labels ?? [],
         jiraAssignees: source.assigneeName ? [source.assigneeName] : [],

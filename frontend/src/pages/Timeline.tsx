@@ -60,8 +60,6 @@ export function Timeline() {
      startSprint: 1,
      spanSprints: 1,
      assignees: [],
-     locked: false,
-     unlockedInScenario: false,
      isManual: false,
      labels: assignPanelJiraItem.labels ?? [],
      jiraAssignees: assignPanelJiraItem.assigneeName ? [assignPanelJiraItem.assigneeName] : [],

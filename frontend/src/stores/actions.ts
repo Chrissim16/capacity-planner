@@ -902,6 +902,8 @@ export function initBaselineScenario(
   const { items, placedCount, unscheduledCount } = buildBaselineLayout(
     scenario.jiraWorkItems,
     current.sprints,
+    current.teamMembers ?? [],
+    current.jiraItemBizAssignments ?? [],
   );
 
   updatePlannerLayout(scenarioId, items);
@@ -952,30 +954,6 @@ export function removePlannerItem(itemId: string): void {
   });
 }
 
-/**
- * Mark a PlannerItem as unlocked in the active scenario.
- * The item remains locked in all other scenarios (full snapshot isolation).
- * No-op if there is no active scenario.
- */
-export function unlockPlannerItem(itemId: string): void {
-  const state = useAppStore.getState();
-  const activeId = state.data.activeScenarioId;
-  if (!activeId) return;
-  state.updateData({
-    scenarios: state.getCurrentState().scenarios.map(s => {
-      if (s.id !== activeId) return s;
-      return {
-        ...s,
-        updatedAt: new Date().toISOString(),
-        plannerLayout: (s.plannerLayout ?? []).map(item =>
-          item.id === itemId
-            ? { ...item, unlockedInScenario: true }
-            : item
-        ),
-      };
-    }),
-  });
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SCENARIO WIZARD HELPER (Decision D12)

@@ -8,16 +8,15 @@
  * Sections:
  *   Header    — type pill · Jira key · item name · close button
  *   Assignees — IT track (blue tint) | BIZ track (purple tint), avatar + name + role
- *   Details   — status, sprint range, date range, duration, Jira ID, lock status
+ *   Details   — status, sprint range, date range, duration, Jira ID
  *   Features  — (epics only) collapsible child-feature list with in-panel navigation
  *
  * US-UI-22
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { X, ChevronDown, ChevronRight, Lock, ArrowLeft, Unlock } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
-import { unlockPlannerItem } from '../../stores/actions';
 import { stripJiraMarkup } from '../../utils/markup';
 import type { PlannerItem, PlannerItemType, JiraWorkItem, Sprint } from '../../types';
 
@@ -169,10 +168,6 @@ export function PlannerDetailPanel({
       .filter(j => !childFeatures.some(f => f.jiraKey === j.jiraKey))
       .map(j => ({ id: j.jiraKey, name: j.summary, status: j.status, statusCategory: j.statusCategory, jiraKey: j.jiraKey })),
   ];
-
-  const handleUnlock = useCallback(() => {
-    if (planner) unlockPlannerItem(planner.id);
-  }, [planner]);
 
   const navigateTo = useCallback((id: string) => {
     setIdStack(prev => [...prev, id]);
@@ -375,31 +370,6 @@ export function PlannerDetailPanel({
                 </MetaRow>
               )}
 
-              {planner && (
-                <div className="col-span-2">
-                  <MetaRow label="Lock status">
-                    {planner.locked && !planner.unlockedInScenario ? (
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Lock size={13} className="text-mileway-grey flex-shrink-0" />
-                        <span className="text-sm text-mileway-grey">Committed</span>
-                        <button
-                          onClick={handleUnlock}
-                          className="text-xs text-mileway-blue hover:text-[#0077C2] underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded"
-                        >
-                          Unlock in this scenario
-                        </button>
-                      </div>
-                    ) : planner.unlockedInScenario ? (
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <Unlock size={13} className="text-mileway-blue flex-shrink-0" />
-                        <span className="text-sm text-mileway-blue font-medium">Unlocked in this scenario</span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-mileway-grey">Unlocked</span>
-                    )}
-                  </MetaRow>
-                </div>
-              )}
             </div>
           </div>
 

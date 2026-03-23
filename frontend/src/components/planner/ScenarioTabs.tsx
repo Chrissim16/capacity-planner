@@ -209,7 +209,7 @@ export function ScenarioCreateModal({ isOpen, onClose, onCreate }: ScenarioCreat
               selected={startMode === 'clone'}
               onSelect={() => setStartMode('clone')}
               title="Clone current plan"
-              description="Pre-places all active Jira items on the timeline using their current Jira sprint and date positions. In-progress items are locked."
+              description="Pre-places all active Jira items on the timeline using their current Jira sprint and date positions."
             />
             <RadioCard
               id="blank"

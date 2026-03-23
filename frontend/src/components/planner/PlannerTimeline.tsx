@@ -23,7 +23,7 @@ import {
   type DragMoveEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { ChevronRight, ChevronDown, Lock, Plus, Pencil } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Pencil } from 'lucide-react';
 import { useToast } from '../ui/Toast';
 import type {
   PlannerItem,
@@ -36,6 +36,7 @@ import type {
 } from '../../types';
 import { generateId } from '../../stores/actions';
 import { useCurrentState } from '../../stores/appStore';
+import { resolveItemAssignees } from '../../utils/plannerInit';
 import { usePlannerCapacityTicker } from './PlannerCapacityTicker';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -519,17 +520,6 @@ function LabelCell({
         </button>
       )}
 
-      {/* Locked badge */}
-      {item.locked && !item.unlockedInScenario && (
-        <Lock size={11} className="flex-shrink-0 text-mileway-grey" aria-label="Locked" />
-      )}
-
-      {/* Unlocked-in-scenario badge */}
-      {item.unlockedInScenario && (
-        <span className="flex-shrink-0 text-[9px] font-bold tracking-wider text-mileway-blue bg-mileway-blue-10 px-1 py-0.5 rounded">
-          UNLOCKED
-        </span>
-      )}
     </div>
   );
 }
@@ -582,8 +572,6 @@ function PlannerBar({
     [item.assignees, appState.teamMembers, appState.businessContacts],
   );
 
-  const isInteractive = !item.locked || item.unlockedInScenario;
-
   const displayStart = resizePreview?.start ?? item.startSprint;
   const displaySpan  = resizePreview?.span  ?? item.spanSprints;
   const frac = barFracs(displayStart, displaySpan, firstSprintNum, sprintCount);
@@ -591,26 +579,20 @@ function PlannerBar({
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: item.id,
-    disabled: !isInteractive,
     data: { type: 'timeline-bar', plannerItem: item },
   });
 
   const assignOpen = assignPanelItemId === item.id;
 
   const s = BAR[item.type] ?? BAR.custom;
-  const borderStyle = item.unlockedInScenario ? 'dashed' : 'solid';
   const assignedToFilter =
     focusedMemberId != null && item.assignees.some(a => a.memberId === focusedMemberId);
 
   let barOpacity: number;
   if (focusedMemberId != null && !isDragging) {
-    if (assignedToFilter) {
-      barOpacity = item.locked && !item.unlockedInScenario ? 0.6 : 1;
-    } else {
-      barOpacity = 0.2;
-    }
+    barOpacity = assignedToFilter ? 1 : 0.2;
   } else {
-    barOpacity = isDragging ? 0.35 : item.locked && !item.unlockedInScenario ? 0.6 : 1;
+    barOpacity = isDragging ? 0.35 : 1;
   }
 
   return (
@@ -624,64 +606,59 @@ function PlannerBar({
         width: `${frac.width * 100}%`,
         minWidth: 6,
         background: s.bg,
-        border: `${s.borderW}px ${borderStyle} ${s.border}`,
+        border: `${s.borderW}px solid ${s.border}`,
         borderRadius: s.radius,
         boxSizing: 'border-box',
         zIndex: 10,
         opacity: barOpacity,
         transition: 'opacity 200ms ease',
-        cursor: isInteractive ? 'grab' : 'not-allowed',
-        outline: assignOpen && isInteractive ? '2px solid var(--assign-active-outline, var(--color-primary))' : undefined,
-        outlineOffset: assignOpen && isInteractive ? 2 : undefined,
+        cursor: 'grab',
+        outline: assignOpen ? '2px solid var(--assign-active-outline, var(--color-primary))' : undefined,
+        outlineOffset: assignOpen ? 2 : undefined,
       }}
-      {...(isInteractive ? { ...attributes, ...listeners } : {})}
-      onClick={onBarClick && isInteractive ? () => onBarClick(item) : undefined}
+      {...attributes}
+      {...listeners}
+      onClick={onBarClick ? () => onBarClick(item) : undefined}
       onContextMenu={onCtxMenu ? e => { e.preventDefault(); onCtxMenu(item, e.clientX, e.clientY); } : undefined}
       onMouseEnter={() => onRowHover?.(item.id)}
       onMouseLeave={() => onRowHover?.(null)}
       title={
-        isInteractive
-          ? item.type === 'epic'
-            ? 'Click to open assignment panel · Drag to move all · Shift+drag to move Epic only'
-            : 'Click to open assignment panel · Drag to reposition'
-          : undefined
+        item.type === 'epic'
+          ? 'Click to open assignment panel · Drag to move all · Shift+drag to move Epic only'
+          : 'Click to open assignment panel · Drag to reposition'
       }
     >
       <PlannerBarAvatarStack slots={barAvatarSlots} />
 
       {/* Left resize handle */}
-      {isInteractive && (
-        <div
-          style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize', zIndex: 1 }}
-          onPointerDown={e => {
-            e.stopPropagation();
-            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-            onResizeStart(e, item.id, 'left');
-          }}
-          onPointerMove={onResizeMove}
-          onPointerUp={onResizeEnd}
-          aria-hidden="true"
-        >
-          <div className="absolute left-1 top-1/2 -translate-y-1/2 w-0.5 h-3 rounded-full bg-white opacity-50" />
-        </div>
-      )}
+      <div
+        style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize', zIndex: 1 }}
+        onPointerDown={e => {
+          e.stopPropagation();
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          onResizeStart(e, item.id, 'left');
+        }}
+        onPointerMove={onResizeMove}
+        onPointerUp={onResizeEnd}
+        aria-hidden="true"
+      >
+        <div className="absolute left-1 top-1/2 -translate-y-1/2 w-0.5 h-3 rounded-full bg-white opacity-50" />
+      </div>
 
       {/* Right resize handle */}
-      {isInteractive && (
-        <div
-          style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize', zIndex: 1 }}
-          onPointerDown={e => {
-            e.stopPropagation();
-            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-            onResizeStart(e, item.id, 'right');
-          }}
-          onPointerMove={onResizeMove}
-          onPointerUp={onResizeEnd}
-          aria-hidden="true"
-        >
-          <div className="absolute right-1 top-1/2 -translate-y-1/2 w-0.5 h-3 rounded-full bg-white opacity-50" />
-        </div>
-      )}
+      <div
+        style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize', zIndex: 1 }}
+        onPointerDown={e => {
+          e.stopPropagation();
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          onResizeStart(e, item.id, 'right');
+        }}
+        onPointerMove={onResizeMove}
+        onPointerUp={onResizeEnd}
+        aria-hidden="true"
+      >
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 w-0.5 h-3 rounded-full bg-white opacity-50" />
+      </div>
     </div>
   );
 }
@@ -838,6 +815,7 @@ export function PlannerTimeline({
   const [shiftDuringDrag, setShiftDuringDrag] = useState(false);
 
   const { showToast } = useToast();
+  const timelineState = useCurrentState();
 
   const canvasRef    = useRef<HTMLDivElement>(null);
   const labelDragRef = useRef<{ startX: number; startW: number } | null>(null);
@@ -1171,9 +1149,7 @@ export function PlannerTimeline({
             parentKey: source.parentKey,
             startSprint,
             spanSprints: defaultSpan(source.type as PlannerItemType),
-            assignees: [],
-            locked: source.statusCategory === 'in_progress',
-            unlockedInScenario: false,
+            assignees: resolveItemAssignees(source, timelineState.teamMembers ?? [], timelineState.jiraItemBizAssignments ?? []),
             isManual: false,
             labels: source.labels ?? [],
             jiraAssignees: source.assigneeName ? [source.assigneeName] : [],

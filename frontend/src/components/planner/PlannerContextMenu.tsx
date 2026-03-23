@@ -3,14 +3,13 @@
  *
  * SP-19:
  *   Manual items  → Edit, Delete (with undo toast)
- *   Jira-sourced  → Unlock (when locked), View in Jira (opens Jira URL)
+ *   Jira-sourced  → View in Jira (opens Jira URL)
  */
 
 import { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Pencil, Trash2, ExternalLink, Unlock } from 'lucide-react';
+import { Pencil, Trash2, ExternalLink } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
-import { unlockPlannerItem } from '../../stores/actions';
 import type { PlannerItem } from '../../types';
 
 export interface ContextMenuTarget {
@@ -35,13 +34,11 @@ export function PlannerContextMenu({ target, onEdit, onDelete, onClose }: Planne
     [jiraConnections]
   );
 
-  const showUnlock = !isManual && item.locked && !item.unlockedInScenario;
-  const showUnlockedInfo = !isManual && item.unlockedInScenario;
   const showJiraLink = !isManual && !!item.jiraKey && !!jiraBaseUrl;
 
   const rowCount = isManual
     ? 2
-    : [showUnlock, showUnlockedInfo, showJiraLink].filter(Boolean).length;
+    : [showJiraLink].filter(Boolean).length;
 
   useEffect(() => {
     const close = () => onClose();
@@ -92,29 +89,6 @@ export function PlannerContextMenu({ target, onEdit, onDelete, onClose }: Planne
         </>
       ) : (
         <>
-          {showUnlock && (
-            <button
-              role="menuitem"
-              onClick={() => {
-                unlockPlannerItem(item.id);
-                onClose();
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-mileway-text hover:bg-mileway-bg transition-colors focus:outline-none focus:bg-mileway-bg"
-            >
-              <Unlock size={13} className="text-mileway-grey" />
-              Unlock in this scenario
-            </button>
-          )}
-          {showUnlockedInfo && (
-            <div
-              role="menuitem"
-              aria-disabled="true"
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-mileway-grey cursor-default select-none"
-            >
-              <Unlock size={13} className="opacity-50" />
-              Unlocked in this scenario
-            </div>
-          )}
           {showJiraLink && (
             <button
               role="menuitem"

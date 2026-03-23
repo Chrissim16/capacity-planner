@@ -13,8 +13,51 @@
  * Default spans when explicit end data is absent:
  *   Epic → 6 sprints (1 quarter), Feature → 2 sprints, Story/other → 1 sprint
  */
-import type { JiraWorkItem, PlannerItem, PlannerItemType, Sprint } from '../types';
+import type {
+  JiraWorkItem,
+  PlannerItem,
+  PlannerItemType,
+  PlannerAssignment,
+  Sprint,
+  TeamMember,
+  JiraItemBizAssignment,
+} from '../types';
 import { generateId } from '../stores/actions';
+
+/**
+ * Derives the initial PlannerAssignment list for a new PlannerItem by
+ * consulting two existing data sources:
+ *   • IT track  — matches the Jira assigneeName against teamMembers by name
+ *   • BIZ track — finds every jiraItemBizAssignment whose jiraKey matches
+ *
+ * daysPerSprint defaults to 2 for every resolved assignment (same default
+ * used by AssignPanel when a person is first added manually).
+ */
+export function resolveItemAssignees(
+  ji: Pick<JiraWorkItem, 'assigneeName' | 'jiraKey'>,
+  teamMembers: TeamMember[],
+  jiraItemBizAssignments: JiraItemBizAssignment[],
+): PlannerAssignment[] {
+  const assignees: PlannerAssignment[] = [];
+
+  if (ji.assigneeName) {
+    const needle = ji.assigneeName.trim().toLowerCase();
+    const member = teamMembers.find(m => m.name.trim().toLowerCase() === needle);
+    if (member) {
+      assignees.push({ memberId: member.id, track: 'IT', daysPerSprint: 2 });
+    }
+  }
+
+  if (ji.jiraKey) {
+    for (const biz of jiraItemBizAssignments) {
+      if (biz.jiraKey === ji.jiraKey) {
+        assignees.push({ memberId: biz.contactId, track: 'BIZ', daysPerSprint: 2 });
+      }
+    }
+  }
+
+  return assignees;
+}
 
 const DEFAULT_SPANS: Record<string, number> = {
   epic:    6,
@@ -117,10 +160,16 @@ export function baselinePositionForItem(
  * ancestor chain and auto-places any missing parents at the child's sprint
  * position. This prevents stories (or features) whose parent was not assigned
  * a sprint in Jira from appearing as "Unlinked items" on the timeline.
+ *
+ * When teamMembers and jiraItemBizAssignments are supplied, each PlannerItem's
+ * assignees field is pre-populated from existing Jira/BIZ assignments so the
+ * timeline immediately reflects assignments already visible in the Epics view.
  */
 export function buildBaselineLayout(
   jiraItems: JiraWorkItem[],
   sprints: Sprint[],
+  teamMembers: TeamMember[] = [],
+  jiraItemBizAssignments: JiraItemBizAssignment[] = [],
 ): { items: PlannerItem[]; placedCount: number; unscheduledCount: number } {
   // Lookup map for fast parent resolution (all items, not just active)
   const jiraByKey = new Map(jiraItems.map(i => [i.jiraKey, i]));
@@ -145,9 +194,7 @@ export function buildBaselineLayout(
       parentKey:         ji.parentKey,
       startSprint:       pos.startSprint,
       spanSprints:       pos.spanSprints,
-      assignees:         [],
-      locked:            ji.statusCategory === 'in_progress',
-      unlockedInScenario: false,
+      assignees:         resolveItemAssignees(ji, teamMembers, jiraItemBizAssignments),
       isManual:          false,
       labels:            ji.labels ?? [],
       jiraAssignees:     ji.assigneeName ? [ji.assigneeName] : [],
@@ -177,9 +224,7 @@ export function buildBaselineLayout(
         parentKey:         parent.parentKey,
         startSprint:       item.startSprint,
         spanSprints:       defaultSpan(parent.type),
-        assignees:         [],
-        locked:            parent.statusCategory === 'in_progress',
-        unlockedInScenario: false,
+        assignees:         resolveItemAssignees(parent, teamMembers, jiraItemBizAssignments),
         isManual:          false,
         labels:            parent.labels ?? [],
         jiraAssignees:     parent.assigneeName ? [parent.assigneeName] : [],

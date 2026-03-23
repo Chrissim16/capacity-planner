@@ -223,7 +223,7 @@ export interface MemberCapacitySummary {
 // UI STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'planner' | 'settings';
+export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'planner' | 'report' | 'settings';
 export type TeamViewMode = 'current' | 'all';
 export type TimelineViewMode = 'week' | 'month' | 'quarter' | 'year';
 
@@ -494,10 +494,6 @@ export interface PlannerItem {
   /** Duration in sprints (minimum 1) */
   spanSprints: number;
   assignees: PlannerAssignment[];
-  /** Committed work — immovable by default; true for in_progress or manually committed items */
-  locked: boolean;
-  /** PM explicitly unlocked this item for exploration in this scenario */
-  unlockedInScenario: boolean;
   /** True for items created directly in the planner, not sourced from Jira */
   isManual: boolean;
   /** Jira labels copied on import; editable for manually created items */
