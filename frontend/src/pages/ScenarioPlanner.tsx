@@ -24,11 +24,11 @@ import {
   createScenario,
   switchScenario,
   updatePlannerLayout,
-  initBaselineScenario,
   refreshScenarioFromJira,
   generateId,
   deleteScenario,
   updateScenario,
+  initBaselineScenario,
 } from '../stores/actions';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 import { migratePlannerLayout } from '../utils/plannerMigration';
@@ -553,19 +553,26 @@ export function ScenarioPlanner() {
 
   const handleCreateScenario = useCallback((name: string, startMode: 'clone' | 'blank') => {
     if (startMode === 'clone') {
-      // SP-05: Baseline — create a fresh scenario then populate plannerLayout
-      // from Jira sprint / date data.
+      // US-SPT-03: True clone — createScenario deep-copies plannerLayout from the
+      // active scenario when one is open. When called from the home screen (no
+      // active scenario), fall back to initBaselineScenario which populates the
+      // layout from each Jira item's sprint/date fields.
+      // Do NOT call initBaselineScenario when an active scenario exists — it would
+      // overwrite the cloned layout and strip all existing assignees.
+      const hadActiveScenario = activeScenarioId !== null;
       const newScenario = createScenario(name);
       switchScenario(newScenario.id);
-      initBaselineScenario(newScenario.id);
+      if (!hadActiveScenario) {
+        initBaselineScenario(newScenario.id);
+      }
       setPlannerUI(prev => ({ ...prev, backlogOpen: false }));
     } else {
-      // SP-04: Blank canvas — plannerLayout stays undefined; backlog shows all items.
+      // Blank canvas — plannerLayout stays empty; backlog shows all items.
       const newScenario = createScenario(name);
       switchScenario(newScenario.id);
       setPlannerUI(prev => ({ ...prev, backlogOpen: true }));
     }
-  }, []);
+  }, [activeScenarioId]);
 
   // ── Layout mutations (forwarded from PlannerTimeline) ─────────────────────
 
@@ -1030,6 +1037,7 @@ export function ScenarioPlanner() {
       <div className="hidden min-[1200px]:flex flex-col h-full bg-mileway-bg font-planner">
         {!activeScenarioId ? (
           <div className="flex flex-col flex-1 min-h-0 overflow-auto px-8 py-8">
+            <div className="max-w-5xl mx-auto w-full flex flex-col flex-1 min-h-0">
             <div className="flex items-start justify-between gap-4 mb-6">
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 text-sm text-mileway-text cursor-pointer select-none">
@@ -1082,7 +1090,7 @@ export function ScenarioPlanner() {
                 No active scenarios. Turn on &quot;Show archived&quot; to see archived plans.
               </div>
             ) : (
-              <ul className="flex flex-col gap-3 max-w-5xl">
+              <ul className="flex flex-col gap-3">
                 {listScenarios.map(sc => {
                   const layout = migratePlannerLayout(sc.plannerLayout ?? []);
                   const nFeat = layout.filter(p => p.type === 'feature').length;
@@ -1179,6 +1187,7 @@ export function ScenarioPlanner() {
               onClose={() => setHomeCreateOpen(false)}
               onCreate={handleCreateScenario}
             />
+            </div>
           </div>
         ) : (
           <>
@@ -1187,7 +1196,7 @@ export function ScenarioPlanner() {
           Layout: [Scenario chip] [Scenario pill ▾] [+] [|] [Board|Timeline]
                   [flex-1 spacer]
                   [(timeline) Add Epic] [(timeline) Filters] [(timeline) ‹ Q ›]
-                  [Backlog (N)] [Team (N)] [Save]
+                  [Backlog] [Team] [Save]
         */}
         <div className="flex-shrink-0 bg-white border-b border-mileway-border px-6 py-3 flex items-center gap-3">
 
@@ -1273,7 +1282,12 @@ export function ScenarioPlanner() {
             {/* Backlog toggle — icon only (keyboard shortcut: B) */}
             <button
               onClick={toggleBacklog}
-              title={`${plannerUI.backlogOpen ? 'Collapse' : 'Expand'} backlog (B)`}
+              title={
+                `${plannerUI.backlogOpen ? 'Collapse' : 'Expand'} backlog (B)` +
+                (backlogBadgeCount > 0
+                  ? ` · ${backlogBadgeCount} unscheduled epic${backlogBadgeCount !== 1 ? 's' : ''}`
+                  : '')
+              }
               className={[
                 'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
@@ -1283,17 +1297,15 @@ export function ScenarioPlanner() {
               ].join(' ')}
             >
               <Inbox size={14} aria-hidden="true" />
-              {backlogBadgeCount > 0 && (
-                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-blue text-white leading-none">
-                  {backlogBadgeCount}
-                </span>
-              )}
             </button>
 
             {/* Team toggle (keyboard shortcut: T) */}
             <button
               onClick={toggleTeamDrawer}
-              title={`${plannerUI.teamDrawerOpen ? 'Hide' : 'Show'} team drawer (T)`}
+              title={
+                `${plannerUI.teamDrawerOpen ? 'Hide' : 'Show'} team drawer (T)` +
+                (teamBadgeCount > 0 ? ` · ${teamBadgeCount} people` : '')
+              }
               className={[
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
@@ -1304,11 +1316,6 @@ export function ScenarioPlanner() {
             >
               <Users size={14} aria-hidden="true" />
               Team
-              {teamBadgeCount > 0 && (
-                <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-grey/30 text-mileway-text leading-none">
-                  {teamBadgeCount}
-                </span>
-              )}
             </button>
 
             {/* Refresh from Jira — only for non-baseline scenarios */}

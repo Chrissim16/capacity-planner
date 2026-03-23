@@ -112,21 +112,30 @@ export function baselinePositionForItem(
  * Builds a full PlannerItem[] baseline from a set of Jira work items.
  * Items that cannot be positioned are omitted (they remain in the backlog).
  * Returns both the placed items and the count of items left unpositioned.
+ *
+ * After the initial sprint-data pass, a second pass walks each placed item's
+ * ancestor chain and auto-places any missing parents at the child's sprint
+ * position. This prevents stories (or features) whose parent was not assigned
+ * a sprint in Jira from appearing as "Unlinked items" on the timeline.
  */
 export function buildBaselineLayout(
   jiraItems: JiraWorkItem[],
   sprints: Sprint[],
 ): { items: PlannerItem[]; placedCount: number; unscheduledCount: number } {
+  // Lookup map for fast parent resolution (all items, not just active)
+  const jiraByKey = new Map(jiraItems.map(i => [i.jiraKey, i]));
+
   const active = jiraItems.filter(i => i.statusCategory !== 'done');
   const items: PlannerItem[] = [];
-  let unscheduledCount = 0;
 
+  // Track which jiraKeys are already on the timeline (by key, not internal id)
+  const positionedKeys = new Set<string>();
+
+  // ── Pass 1: place items that have their own sprint / date data ─────────────
   for (const ji of active) {
     const pos = baselinePositionForItem(ji, sprints);
-    if (!pos) {
-      unscheduledCount++;
-      continue;
-    }
+    if (!pos) continue;
+    positionedKeys.add(ji.jiraKey);
     items.push({
       id:                generateId('planner'),
       sourceId:          ji.id,
@@ -146,6 +155,43 @@ export function buildBaselineLayout(
       jiraEndDate:       ji.dueDate,
     });
   }
+
+  // ── Pass 2: auto-place missing ancestors ───────────────────────────────────
+  // Iterate until stable: each round may expose a grandparent that was not yet
+  // visible (e.g. story placed → feature added → epic still missing).
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const item of [...items]) {
+      if (!item.parentKey || positionedKeys.has(item.parentKey)) continue;
+      const parent = jiraByKey.get(item.parentKey);
+      if (!parent) continue;
+      // Auto-place the ancestor at the earliest child sprint it is needed for
+      positionedKeys.add(parent.jiraKey);
+      items.push({
+        id:                generateId('planner'),
+        sourceId:          parent.id,
+        name:              parent.summary,
+        type:              parent.type as PlannerItemType,
+        jiraKey:           parent.jiraKey,
+        parentKey:         parent.parentKey,
+        startSprint:       item.startSprint,
+        spanSprints:       defaultSpan(parent.type),
+        assignees:         [],
+        locked:            parent.statusCategory === 'in_progress',
+        unlockedInScenario: false,
+        isManual:          false,
+        labels:            parent.labels ?? [],
+        jiraAssignees:     parent.assigneeName ? [parent.assigneeName] : [],
+        jiraStartDate:     parent.startDate,
+        jiraEndDate:       parent.dueDate,
+      });
+      changed = true;
+    }
+  }
+
+  // Items not placed by either pass remain in the backlog
+  const unscheduledCount = active.filter(ji => !positionedKeys.has(ji.jiraKey)).length;
 
   return { items, placedCount: items.length, unscheduledCount };
 }

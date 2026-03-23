@@ -102,20 +102,35 @@ function buildPlannerBarAvatarSlots(
   return assignees.map(a => {
     if (a.track === 'IT') {
       const m = teamMembers.find(tm => tm.id === a.memberId);
-      const name = m?.name ?? a.memberId;
+      if (!m) {
+        // BUG-001: member was removed — show a neutral placeholder
+        return {
+          key: `IT:${a.memberId}`,
+          name: 'Removed member',
+          initials: '?',
+          background: '#94A3B8',
+        };
+      }
       return {
         key: `IT:${a.memberId}`,
-        name,
-        initials: plannerBarInitials(name),
+        name: m.name,
+        initials: plannerBarInitials(m.name),
         background: plannerBarAvatarBackground(a.memberId),
       };
     }
     const c = businessContacts.find(b => b.id === a.memberId);
-    const name = c?.name ?? a.memberId;
+    if (!c) {
+      return {
+        key: `BIZ:${a.memberId}`,
+        name: 'Removed contact',
+        initials: '?',
+        background: '#94A3B8',
+      };
+    }
     return {
       key: `BIZ:${a.memberId}`,
-      name,
-      initials: plannerBarInitials(name),
+      name: c.name,
+      initials: plannerBarInitials(c.name),
       background: plannerBarAvatarBackground(a.memberId),
     };
   });
@@ -208,6 +223,11 @@ function PlannerBarAvatarStack({
     </div>
   );
 }
+
+// ── Timeline row union (item row vs section header row) ───────────────────────
+type TimelineRow =
+  | { kind: 'item'; item: PlannerItem }
+  | { kind: 'section'; id: string; label: string };
 
 // ── Internal types ────────────────────────────────────────────────────────────
 
@@ -909,30 +929,64 @@ export function PlannerTimeline({
     return { currentSprintNum: null, todayLinePercent: null };
   }, [visibleSprints, visibleSprintCount]);
 
-  // ── Flat visible row list ───────────────────────────────────────────────────
-  const visibleItems = useMemo(() => {
-    const result: PlannerItem[] = [];
+  // ── Flat visible row list (TimelineRow union — item rows + orphan section header) ─────
+  const visibleRows = useMemo((): TimelineRow[] => {
+    const result: TimelineRow[] = [];
     const seen = new Set<string>();
-    const add = (item: PlannerItem) => { if (!seen.has(item.id)) { seen.add(item.id); result.push(item); } };
+
+    // addVisible: adds to seen AND to the visible row list.
+    const addVisible = (item: PlannerItem) => {
+      if (!seen.has(item.id)) { seen.add(item.id); result.push({ kind: 'item', item }); }
+    };
+    // markOwned: adds to seen WITHOUT adding to visible rows.
+    // Used for children of collapsed parents so they are not mistaken for orphans.
+    const markOwned = (item: PlannerItem) => { seen.add(item.id); };
+
     const expanded = (id: string) => expandAll || expandedIds.has(id);
 
     const epics = plannerItems.filter(p => p.type === 'epic');
     for (const epic of epics) {
-      add(epic);
+      addVisible(epic);
+
+      // Guard: only match children when jiraKey is defined to avoid undefined===undefined false matches
+      const features = epic.jiraKey !== undefined && epic.jiraKey !== ''
+        ? plannerItems.filter(p => p.parentKey === epic.jiraKey && p.type === 'feature')
+        : [];
+      const directChildren = epic.jiraKey !== undefined && epic.jiraKey !== ''
+        ? plannerItems.filter(p => p.parentKey === epic.jiraKey && p.type !== 'feature')
+        : [];
+
       if (expanded(epic.id)) {
-        const features = plannerItems.filter(p => p.parentKey === epic.jiraKey && p.type === 'feature');
         for (const feat of features) {
-          add(feat);
+          addVisible(feat);
+          const stories = feat.jiraKey !== undefined && feat.jiraKey !== ''
+            ? plannerItems.filter(p => p.parentKey === feat.jiraKey)
+            : [];
           if (expanded(feat.id)) {
-            plannerItems.filter(p => p.parentKey === feat.jiraKey).forEach(add);
+            stories.forEach(addVisible);
+          } else {
+            // Feature collapsed — mark stories as owned so they don't become orphans
+            stories.forEach(markOwned);
           }
         }
-        // Non-feature direct children of the epic
-        plannerItems.filter(p => p.parentKey === epic.jiraKey && p.type !== 'feature').forEach(add);
+        directChildren.forEach(addVisible);
+      } else {
+        // Epic collapsed — mark all descendants as owned without showing them
+        for (const feat of features) {
+          markOwned(feat);
+          if (feat.jiraKey !== undefined && feat.jiraKey !== '') {
+            plannerItems.filter(p => p.parentKey === feat.jiraKey).forEach(markOwned);
+          }
+        }
+        directChildren.forEach(markOwned);
       }
     }
-    // Items not under any epic
-    plannerItems.filter(p => !seen.has(p.id)).forEach(add);
+    // Items not under any placed epic → "Unlinked items" section
+    const orphans = plannerItems.filter(p => !seen.has(p.id));
+    if (orphans.length > 0) {
+      result.push({ kind: 'section', id: '__unlinked__', label: 'Unlinked items' });
+      orphans.forEach(addVisible);
+    }
     return result;
   }, [plannerItems, expandedIds, expandAll]);
 
@@ -941,7 +995,11 @@ export function PlannerTimeline({
     const s = new Set<string>();
     for (const item of plannerItems) {
       if (item.parentKey) {
-        const parent = plannerItems.find(p => p.jiraKey === item.parentKey);
+        // Guard: only resolve parent when both keys are defined strings to avoid
+        // undefined===undefined false matches
+        const parent = plannerItems.find(
+          p => p.jiraKey !== undefined && p.jiraKey !== '' && p.jiraKey === item.parentKey,
+        );
         if (parent) s.add(parent.id);
       }
     }
@@ -1214,7 +1272,7 @@ export function PlannerTimeline({
   }, []);
 
   // ── Render ──────────────────────────────────────────────────────────────────
-  const contentH = visibleItems.length * ROW_H;
+  const contentH = visibleRows.length * ROW_H;
   // Drop zones must always be hittable — enforce a minimum height so dragging
   // onto an empty timeline still registers. 240px covers ~5 rows of visual space.
   const totalH = Math.max(contentH, 240);
@@ -1258,34 +1316,57 @@ export function PlannerTimeline({
               </button>
             </div>
             {ticker.labelCell}
-            {visibleItems.map(item => (
-              <div
-                key={item.id}
-                style={{
-                  height: ROW_H,
-                  flexShrink: 0,
-                  backgroundColor:
-                    assignPanelItemId === item.id
-                      ? 'var(--assign-active-row-bg, var(--primary-subtle))'
-                      : hoveredRowId === item.id
-                        ? 'rgba(37,88,201,0.025)'
-                        : undefined,
-                }}
-                onMouseEnter={() => setHoveredRowId(item.id)}
-                onMouseLeave={() => setHoveredRowId(null)}
-              >
-                <LabelCell
-                  item={item}
-                  hasChildren={hasChildrenSet.has(item.id)}
-                  isExpanded={expandAll || expandedIds.has(item.id)}
-                  onToggle={toggleExpand}
-                  onAddChild={onAddChild}
-                  onContextMenu={onContextMenu}
-                  onLabelClick={onLabelClick}
-                  onOpenAssignFromLabel={onOpenAssignFromLabel}
-                />
-              </div>
-            ))}
+            {visibleRows.map((row) => {
+              if (row.kind === 'section') {
+                return (
+                  <div
+                    key={row.id}
+                    style={{
+                      height: ROW_H,
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      paddingLeft: 12,
+                      borderTop: '1px solid #E2E8F0',
+                      backgroundColor: '#F8FAFC',
+                    }}
+                  >
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      {row.label}
+                    </span>
+                  </div>
+                );
+              }
+              const { item } = row;
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    height: ROW_H,
+                    flexShrink: 0,
+                    backgroundColor:
+                      assignPanelItemId === item.id
+                        ? 'var(--assign-active-row-bg, var(--primary-subtle))'
+                        : hoveredRowId === item.id
+                          ? 'rgba(37,88,201,0.025)'
+                          : undefined,
+                  }}
+                  onMouseEnter={() => setHoveredRowId(item.id)}
+                  onMouseLeave={() => setHoveredRowId(null)}
+                >
+                  <LabelCell
+                    item={item}
+                    hasChildren={hasChildrenSet.has(item.id)}
+                    isExpanded={expandAll || expandedIds.has(item.id)}
+                    onToggle={toggleExpand}
+                    onAddChild={onAddChild}
+                    onContextMenu={onContextMenu}
+                    onLabelClick={onLabelClick}
+                    onOpenAssignFromLabel={onOpenAssignFromLabel}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           {/* Label resize handle */}
@@ -1344,7 +1425,7 @@ export function PlannerTimeline({
               ))}
 
               {/* Empty-state hint — shown when no items are on the timeline yet */}
-              {visibleItems.length === 0 && (
+              {visibleRows.length === 0 && (
                 <div
                   style={{
                     position: 'absolute',
@@ -1363,22 +1444,30 @@ export function PlannerTimeline({
               )}
 
               {/* Row dividers + hover highlights (z:5, pointer-events:none) */}
-              {visibleItems.map((item, idx) => (
-                <div
-                  key={item.id + '-divider'}
-                  style={{
-                    position: 'absolute', top: idx * ROW_H, height: ROW_H, left: 0, right: 0,
-                    zIndex: 5, pointerEvents: 'none',
-                    backgroundColor:
-                      assignPanelItemId === item.id
-                        ? 'var(--assign-active-row-bg, var(--primary-subtle))'
-                        : hoveredRowId === item.id
-                          ? 'rgba(37,88,201,0.025)'
-                          : undefined,
-                  }}
-                  className="border-b border-mileway-divider"
-                />
-              ))}
+              {visibleRows.map((row, idx) => {
+                const rowKey = row.kind === 'item' ? row.item.id : row.id;
+                const isSectionRow = row.kind === 'section';
+                const isActive = !isSectionRow && assignPanelItemId === row.item.id;
+                const isHovered = !isSectionRow && hoveredRowId === row.item.id;
+                return (
+                  <div
+                    key={rowKey + '-divider'}
+                    style={{
+                      position: 'absolute', top: idx * ROW_H, height: ROW_H, left: 0, right: 0,
+                      zIndex: 5, pointerEvents: 'none',
+                      backgroundColor: isSectionRow
+                        ? '#F8FAFC'
+                        : isActive
+                          ? 'var(--assign-active-row-bg, var(--primary-subtle))'
+                          : isHovered
+                            ? 'rgba(37,88,201,0.025)'
+                            : undefined,
+                      borderTop: isSectionRow ? '1px solid #E2E8F0' : undefined,
+                    }}
+                    className="border-b border-mileway-divider"
+                  />
+                );
+              })}
 
               {/* Today line (z:20, pointer-events:none) */}
               {todayLinePercent !== null && (
@@ -1416,25 +1505,29 @@ export function PlannerTimeline({
                 </div>
               )}
 
-              {/* Bars (z:10) */}
-              {visibleItems.map((item, idx) => (
-                <PlannerBar
-                  key={item.id}
-                  item={item}
-                  rowTop={idx * ROW_H}
-                  firstSprintNum={firstSprintNum}
-                  sprintCount={visibleSprintCount}
-                  resizePreview={resize?.itemId === item.id ? { start: resize.previewStart, span: resize.previewSpan } : null}
-                  onResizeStart={handleResizeStart}
-                  onResizeMove={handleResizeMove}
-                  onResizeEnd={handleResizeEnd}
-                  onBarClick={onBarClick}
-                  assignPanelItemId={assignPanelItemId}
-                  onContextMenu={onContextMenu}
-                  focusedMemberId={focusedMemberId}
-                  onRowHover={setHoveredRowId}
-                />
-              ))}
+              {/* Bars (z:10) — section-header rows have no bar */}
+              {visibleRows.map((row, idx) => {
+                if (row.kind === 'section') return null;
+                const { item } = row;
+                return (
+                  <PlannerBar
+                    key={item.id}
+                    item={item}
+                    rowTop={idx * ROW_H}
+                    firstSprintNum={firstSprintNum}
+                    sprintCount={visibleSprintCount}
+                    resizePreview={resize?.itemId === item.id ? { start: resize.previewStart, span: resize.previewSpan } : null}
+                    onResizeStart={handleResizeStart}
+                    onResizeMove={handleResizeMove}
+                    onResizeEnd={handleResizeEnd}
+                    onBarClick={onBarClick}
+                    assignPanelItemId={assignPanelItemId}
+                    onContextMenu={onContextMenu}
+                    focusedMemberId={focusedMemberId}
+                    onRowHover={setHoveredRowId}
+                  />
+                );
+              })}
             </div>
             </div>{/* end minWidth wrapper */}
           </div>
