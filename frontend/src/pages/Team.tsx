@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List, Building2, Archive, ArchiveRestore, CheckSquare, X, ArrowRightLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CalendarOff, Users, AlertTriangle, Mail, Filter, CalendarDays, GitBranch, LayoutGrid, List, Building2, Archive, ArchiveRestore, CheckSquare, X, ArrowRightLeft, ChevronRight, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -73,6 +73,18 @@ export function Team() {
  const [viewMode, setViewMode] = useState<'card' | 'list'>('list');
  // Tab
  const [activeTab, setActiveTab] = useState<TabType>('it');
+ // Column sort
+ const [sortKey, setSortKey] = useState<string | null>(null);
+ const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+ useEffect(() => { setSortKey(null); setSortDir('asc'); }, [activeTab]);
+ const handleSort = (key: string) => {
+   if (sortKey === key) {
+     setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+   } else {
+     setSortKey(key);
+     setSortDir('asc');
+   }
+ };
  // Multi-select
  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
  const [massUpdateOpen, setMassUpdateOpen] = useState(false);
@@ -251,6 +263,32 @@ export function Team() {
 
  const activeScenarioId = useAppStore(s => s.data.activeScenarioId);
  const activeScenario = useActiveScenario();
+
+ // ── Sort helpers ───────────────────────────────────────────────────────────
+ function sortItems<T>(items: T[], getValue: (item: T) => string): T[] {
+   if (!sortKey) return items;
+   return [...items].sort((a, b) => {
+     const av = getValue(a).toLowerCase();
+     const bv = getValue(b).toLowerCase();
+     if (av === bv) return 0;
+     const cmp = av < bv ? -1 : 1;
+     return sortDir === 'asc' ? cmp : -cmp;
+   });
+ }
+
+ function SortableHeader({ label, colKey }: { label: string; colKey: string }) {
+   const isActive = sortKey === colKey;
+   const Icon = isActive ? (sortDir === 'asc' ? ChevronUp : ChevronDown) : ChevronsUpDown;
+   return (
+     <button
+       onClick={() => handleSort(colKey)}
+       className={`group flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-widest transition-colors ${isActive ? 'text-[#0089DD]' : 'text-[#94A3B8] hover:text-[#1E293B]'}`}
+     >
+       {label}
+       <Icon size={11} className={isActive ? 'opacity-100 text-[#0089DD]' : 'opacity-0 group-hover:opacity-100 text-[#94A3B8]'} />
+     </button>
+   );
+ }
 
  return (
  <div className="space-y-6">
@@ -600,26 +638,39 @@ className="hover:border-blue-300 transition-colors"
  /* ── Compact list view ──────────────────────────────────────────── */
  <Card>
  <div className="divide-y divide-[#F0F2F5]">
- {/* Table header */}
- <div className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-[#F0F2F5] /50">
- <span />
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Name</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Role</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Country</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Skills / Squad</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] text-right pr-1">Actions</span>
- </div>
+        {/* Table header */}
+        <div className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-[#F0F2F5] /50">
+          <span />
+          <SortableHeader label="Name" colKey="it-name" />
+          <SortableHeader label="Role" colKey="it-role" />
+          <SortableHeader label="Country" colKey="it-country" />
+          <SortableHeader label="Skills / Squad" colKey="it-squad" />
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] text-right pr-1">Actions</span>
+        </div>
 
- {itGroups.map(({ label, items: members }) => (
- <div key={label}>
- {/* Group header */}
- <div className="px-4 py-1.5 bg-[#F0F2F5]/60 /30 border-b border-[#DEDFE3] /40">
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">
- {label} · {members.length}
- </span>
- </div>
+        {itGroups.map(({ label, items: members }) => {
+          const sortedMembers = sortItems(members, m => {
+            if (sortKey === 'it-name') return m.name;
+            if (sortKey === 'it-role') return m.role ?? '';
+            if (sortKey === 'it-country') return countries.find(c => c.id === m.countryId)?.name ?? '';
+            if (sortKey === 'it-squad') {
+              const sq = squads.find(s => s.id === m.squadId);
+              if (sq) return sq.name;
+              const firstSkill = (m.skillIds ?? []).map(id => skills.find(s => s.id === id)?.name ?? '').filter(Boolean).sort()[0];
+              return firstSkill ?? '';
+            }
+            return '';
+          });
+          return (
+          <div key={label}>
+            {/* Group header */}
+            <div className="px-4 py-1.5 bg-[#F0F2F5]/60 /30 border-b border-[#DEDFE3] /40">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">
+                {label} · {members.length}
+              </span>
+            </div>
 
- {members.map(member => {
+            {sortedMembers.map(member => {
  const memberSkills = getMemberSkills(member.skillIds || []);
  const countryInfo = getCountryInfo(member.countryId);
  const timeOff = getMemberTimeOff(member.id);
@@ -742,14 +793,15 @@ className="hover:border-blue-300 transition-colors"
  </div>
  </div>
  );
- })}
- </div>
- ))}
- </div>
- </Card>
- )}
+            })}
+          </div>
+          );
+        })}
+          </div>
+          </Card>
+        )}
 
- </> /* end activeTab === 'it' */}
+        </> /* end activeTab === 'it' */}
 
  {/* ── Business Contacts Tab ─────────────────────────────────────────── */}
  {activeTab === 'biz' && (
@@ -818,20 +870,31 @@ Archived ({filteredContacts.filter(c => c.archived).length})
  /* ── Biz list view ── */
  <Card>
  <div className="divide-y divide-[#F0F2F5]">
- <div className="grid grid-cols-[24px_1fr_180px_140px_200px_auto] gap-2 px-4 py-2 bg-[#F0F2F5] /50">
- <span />
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Name</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Title / Dept</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Country</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Process Teams</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] text-right pr-1">Actions</span>
- </div>
- {bizGroups.map(({ label, items }) => (
- <div key={label}>
- <div className="px-4 py-1.5 bg-[#F0F2F5]/60 /30 border-b border-[#DEDFE3] /40">
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">{label} · {items.length}</span>
- </div>
- {items.map(contact => {
+          <div className="grid grid-cols-[24px_1fr_180px_140px_200px_auto] gap-2 px-4 py-2 bg-[#F0F2F5] /50">
+            <span />
+            <SortableHeader label="Name" colKey="biz-name" />
+            <SortableHeader label="Title / Dept" colKey="biz-title" />
+            <SortableHeader label="Country" colKey="biz-country" />
+            <SortableHeader label="Process Teams" colKey="biz-pt" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] text-right pr-1">Actions</span>
+          </div>
+{bizGroups.map(({ label, items }) => {
+const sortedBiz = sortItems(items, c => {
+  if (sortKey === 'biz-name') return c.name;
+  if (sortKey === 'biz-title') return c.title ?? c.department ?? '';
+  if (sortKey === 'biz-country') return countries.find(co => co.id === c.countryId)?.name ?? '';
+  if (sortKey === 'biz-pt') {
+    const names = (c.processTeamIds ?? []).map(id => processTeams.find(p => p.id === id)?.name ?? '').filter(Boolean).sort();
+    return names[0] ?? '';
+  }
+  return '';
+});
+return (
+<div key={label}>
+<div className="px-4 py-1.5 bg-[#F0F2F5]/60 /30 border-b border-[#DEDFE3] /40">
+<span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">{label} · {items.length}</span>
+</div>
+{sortedBiz.map(contact => {
  const ci = getCountryInfo(contact.countryId);
  const initials = contact.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
  return (
@@ -904,16 +967,17 @@ Archived ({filteredContacts.filter(c => c.archived).length})
  </div>
  </div>
  );
- })}
- </div>
- ))}
- </div>
- </Card>
- )}
- </div>
- )}
+            })}
+          </div>
+          );
+        })}
+          </div>
+          </Card>
+        )}
+        </div>
+      )}
 
- {/* ── All Tab ───────────────────────────────────────────────────────── */}
+      {/* ── All Tab ───────────────────────────────────────────────────────── */}
  {activeTab === 'all' && (() => {
  const activeMembers = filteredMembers;
  const activeContacts = filteredContacts.filter(c => !c.archived);
@@ -995,14 +1059,24 @@ return (
  ) : (
  <Card>
  <div className="divide-y divide-[#F0F2F5]">
- <div className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-[#F0F2F5] /50">
- <span /><span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Name</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Role / Title</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Country</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Process Teams</span>
- <span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] text-right pr-1">Actions</span>
- </div>
- {members.map(m => {
+<div className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 px-4 py-2 bg-[#F0F2F5] /50">
+<span />
+<SortableHeader label="Name" colKey="all-name" />
+<SortableHeader label="Role / Title" colKey="all-role" />
+<SortableHeader label="Country" colKey="all-country" />
+<SortableHeader label="Process Teams" colKey="all-pt" />
+<span className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] text-right pr-1">Actions</span>
+</div>
+{sortItems(members, m => {
+  if (sortKey === 'all-name') return m.name;
+  if (sortKey === 'all-role') return m.role ?? '';
+  if (sortKey === 'all-country') return countries.find(c => c.id === m.countryId)?.name ?? '';
+  if (sortKey === 'all-pt') {
+    const names = (m.processTeamIds ?? []).map(id => processTeams.find(p => p.id === id)?.name ?? '').filter(Boolean).sort();
+    return names[0] ?? '';
+  }
+  return '';
+}).map(m => {
  const ci = getCountryInfo(m.countryId);
  const initials = m.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
  return (
@@ -1029,11 +1103,20 @@ return (
  </div>
  );
  })}
- {contacts.map(c => {
- const ci = getCountryInfo(c.countryId);
- const initials = c.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
- return (
- <div key={c.id} className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 items-center px-4 py-2.5 hover:bg-[#F0F2F5] /40 transition-colors group">
+{sortItems(contacts, c => {
+  if (sortKey === 'all-name') return c.name;
+  if (sortKey === 'all-role') return c.title ?? c.department ?? '';
+  if (sortKey === 'all-country') return countries.find(co => co.id === c.countryId)?.name ?? '';
+  if (sortKey === 'all-pt') {
+    const names = (c.processTeamIds ?? []).map(id => processTeams.find(p => p.id === id)?.name ?? '').filter(Boolean).sort();
+    return names[0] ?? '';
+  }
+  return '';
+}).map(c => {
+const ci = getCountryInfo(c.countryId);
+const initials = c.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+return (
+<div key={c.id} className="grid grid-cols-[24px_1fr_140px_140px_160px_auto] gap-2 items-center px-4 py-2.5 hover:bg-[#F0F2F5] /40 transition-colors group">
  <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="rounded border-[#DEDFE3] text-[#0089DD] focus:ring-[#0089DD] cursor-pointer" />
  <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-7 h-7 rounded-full bg-[#F0F2F5] text-[#94A3B8] text-[10px] font-bold flex items-center justify-center shrink-0">{initials}</div>
