@@ -200,6 +200,7 @@ export function buildBaselineLayout(
       jiraAssignees:     ji.assigneeName ? [ji.assigneeName] : [],
       jiraStartDate:     ji.startDate,
       jiraEndDate:       ji.dueDate,
+      requiredSkillIds:  [],
     });
   }
 
@@ -230,6 +231,7 @@ export function buildBaselineLayout(
         jiraAssignees:     parent.assigneeName ? [parent.assigneeName] : [],
         jiraStartDate:     parent.startDate,
         jiraEndDate:       parent.dueDate,
+        requiredSkillIds:  [],
       });
       changed = true;
     }

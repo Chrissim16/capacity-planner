@@ -12,7 +12,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { SkeletonCard, SkeletonList } from '../components/ui/Skeleton';
 import { PageHeader } from '../components/layout/PageHeader';
 import {
- calculateCapacity, getWarnings, getTeamUtilizationSummary,
+ calculateCapacity, getWarnings,
  calculateBusinessCapacityForQuarter,
 } from '../utils/capacity';
 import { getCurrentQuarter, getWorkdaysInQuarter } from '../utils/calendar';
@@ -124,16 +124,7 @@ export function Dashboard() {
  [state.teamMembers]
  );
 
- const activeProjects = jiraWorkItems.filter(
- w => w.type === 'epic' && w.statusCategory !== 'done'
- ).length;
-
- const currentSummary = useMemo(
- () => getTeamUtilizationSummary(currentQuarter, state),
- [currentQuarter, state]
- );
-
- // Capacity Bank: process team breakdown for selected quarter
+// Capacity Bank: process team breakdown for selected quarter
  const processTeamSummaries = useProcessTeamCapacitySummaries(capacityBankQuarter);
 
  // Timeline preview data — excluded members are hidden from the heatmap entirely
@@ -934,27 +925,6 @@ function AlertsGrid({ warnings }: {
 }
 
 /* ─── Small helpers ──────────────────────────────────────────────────────── */
-
-function SectionLabel({ title, subtitle, inline = false }: {
- title: string;
- subtitle: string;
- inline?: boolean;
-}) {
- if (inline) {
- return (
- <div>
- <span className="text-sm font-bold text-[#1E293B] uppercase tracking-wide">{title}</span>
- <span className="ml-2 text-xs text-[#94A3B8]">{subtitle}</span>
- </div>
- );
- }
- return (
-  <div className="mb-6">
-    <div className="text-sm font-bold text-[#1E293B] uppercase tracking-wide">{title}</div>
-    <div className="text-xs text-[#94A3B8] mt-0.5">{subtitle}</div>
-  </div>
- );
-}
 
 function LegendDot({ color, label }: { color: string; label: string }) {
  return (
