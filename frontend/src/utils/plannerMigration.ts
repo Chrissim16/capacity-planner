@@ -24,6 +24,7 @@ export function migratePlannerItem(raw: Partial<PlannerItem>): PlannerItem {
     jiraAssignees:     raw.jiraAssignees     ?? [],
     jiraStartDate:     raw.jiraStartDate,
     jiraEndDate:       raw.jiraEndDate,
+    requiredSkillIds:  Array.isArray(raw.requiredSkillIds) ? raw.requiredSkillIds : [],
   };
 }
 

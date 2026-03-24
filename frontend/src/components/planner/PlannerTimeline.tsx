@@ -37,6 +37,7 @@ import type {
 import { generateId } from '../../stores/actions';
 import { useCurrentState } from '../../stores/appStore';
 import { resolveItemAssignees } from '../../utils/plannerInit';
+import { computeSkillGaps, computeRollupGaps, type SkillGapInfo } from '../../utils/skillGap';
 import { usePlannerCapacityTicker } from './PlannerCapacityTicker';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -287,6 +288,8 @@ export interface PlannerTimelineProps {
   onBacklogItemScheduled?: () => void;
   /** Backlog drawer — expand after a timeline bar is dropped on the backlog (unschedule). */
   onBarUnscheduledToBacklog?: () => void;
+  /** US-SP-27: when false, skill gap badges and skill tooltips are suppressed. */
+  skillsMatchingEnabled?: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -425,6 +428,7 @@ function LabelCell({
   onContextMenu,
   onLabelClick,
   onOpenAssignFromLabel,
+  skillGapTooltip,
 }: {
   item: PlannerItem;
   hasChildren: boolean;
@@ -438,6 +442,8 @@ function LabelCell({
   onLabelClick?: (item: PlannerItem) => void;
   /** Opens AssignPanel when clicking the row title. */
   onOpenAssignFromLabel?: (item: PlannerItem) => void;
+  /** US-SP-25: tooltip text for skill gap badge (direct gap or rollup). */
+  skillGapTooltip?: string | null;
 }) {
   const indent = (INDENT[item.type] ?? 0) + 12;
   const canAddChild = onAddChild && (item.type === 'epic' || item.type === 'feature');
@@ -492,6 +498,15 @@ function LabelCell({
         </span>
       )}
 
+      {skillGapTooltip && (
+        <span
+          className="flex-shrink-0 text-amber-500 text-xs cursor-default"
+          title={skillGapTooltip}
+        >
+          ⚠
+        </span>
+      )}
+
       {/* US-UI-22: detail panel button (visible on hover) */}
       {onLabelClick && (
         <button
@@ -542,6 +557,10 @@ interface PlannerBarProps {
   focusedMemberId?: string | null;
   /** Fires on mouse enter/leave so the parent can sync the row hover highlight */
   onRowHover?: (itemId: string | null) => void;
+  /** US-SP-25: skill gap info for badge rendering */
+  skillGapInfo?: SkillGapInfo | null;
+  /** US-SP-27: when false, skill gap badges and skill tooltips are suppressed. */
+  skillsMatchingEnabled?: boolean;
 }
 
 function PlannerBar({
@@ -558,6 +577,8 @@ function PlannerBar({
   onContextMenu: onCtxMenu,
   focusedMemberId,
   onRowHover,
+  skillGapInfo,
+  skillsMatchingEnabled = true,
 }: PlannerBarProps) {
   const appState = useCurrentState();
   const barAvatarSlots = useMemo(
@@ -569,6 +590,15 @@ function PlannerBar({
       ),
     [item.assignees, appState.teamMembers, appState.businessContacts],
   );
+
+  const [barHovered, setBarHovered] = useState(false);
+  const skillNames = useMemo(() => {
+    if (!item.requiredSkillIds?.length) return [];
+    const skills = appState.skills ?? [];
+    return item.requiredSkillIds
+      .map(id => skills.find(s => s.id === id)?.name)
+      .filter(Boolean) as string[];
+  }, [item.requiredSkillIds, appState.skills]);
 
   const displayStart = resizePreview?.start ?? item.startSprint;
   const displaySpan  = resizePreview?.span  ?? item.spanSprints;
@@ -618,8 +648,8 @@ function PlannerBar({
       {...listeners}
       onClick={onBarClick ? () => onBarClick(item) : undefined}
       onContextMenu={onCtxMenu ? e => { e.preventDefault(); onCtxMenu(item, e.clientX, e.clientY); } : undefined}
-      onMouseEnter={() => onRowHover?.(item.id)}
-      onMouseLeave={() => onRowHover?.(null)}
+      onMouseEnter={() => { onRowHover?.(item.id); setBarHovered(true); }}
+      onMouseLeave={() => { onRowHover?.(null); setBarHovered(false); }}
       title={
         item.type === 'epic'
           ? 'Click to open assignment panel · Drag to move all · Shift+drag to move Epic only'
@@ -627,6 +657,20 @@ function PlannerBar({
       }
     >
       <PlannerBarAvatarStack slots={barAvatarSlots} />
+
+      {skillsMatchingEnabled && skillGapInfo && (
+        <span
+          title={
+            skillGapInfo.hasAssignees
+              ? `Skill gap: ${skillGapInfo.missingSkills.join(', ')} not covered by any assignee.`
+              : `No one assigned — ${skillGapInfo.missingSkills.join(', ')} required.`
+          }
+          style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', zIndex: 2, lineHeight: 1 }}
+          className="text-amber-500 text-xs cursor-default"
+        >
+          ⚠
+        </span>
+      )}
 
       {/* Left resize handle */}
       <div
@@ -657,6 +701,45 @@ function PlannerBar({
       >
         <div className="absolute right-1 top-1/2 -translate-y-1/2 w-0.5 h-3 rounded-full bg-white opacity-50" />
       </div>
+
+      {skillsMatchingEnabled && barHovered && skillNames.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '100%',
+            left: 0,
+            marginBottom: 6,
+            padding: '6px 10px',
+            background: '#1E293B',
+            color: '#fff',
+            borderRadius: 6,
+            fontSize: 11,
+            whiteSpace: 'nowrap',
+            zIndex: 50,
+            pointerEvents: 'none',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+          }}
+        >
+          <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 3, fontWeight: 600 }}>Required:</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            {skillNames.map(name => (
+              <span
+                key={name}
+                style={{
+                  display: 'inline-block',
+                  background: 'rgba(255,255,255,0.15)',
+                  borderRadius: 3,
+                  padding: '1px 6px',
+                  fontSize: 10,
+                  fontWeight: 500,
+                }}
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -800,6 +883,7 @@ export function PlannerTimeline({
   onOverloadedTickerClick,
   onBacklogItemScheduled,
   onBarUnscheduledToBacklog,
+  skillsMatchingEnabled = true,
 }: PlannerTimelineProps) {
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
@@ -959,11 +1043,32 @@ export function PlannerTimeline({
         directChildren.forEach(markOwned);
       }
     }
-    // Items not under any placed epic → "Unlinked items" section
+    // Items not under any placed epic → "Unlinked items" section.
+    // Within this section we still respect Feature → Story hierarchy:
+    // orphan Features are rendered with their child Stories expand/collapsible
+    // beneath them, matching the Epic → Feature nesting used above.
     const orphans = plannerItems.filter(p => !seen.has(p.id));
     if (orphans.length > 0) {
       result.push({ kind: 'section', id: '__unlinked__', label: 'Unlinked items' });
-      orphans.forEach(addVisible);
+
+      // Process orphan Features first so their child Stories can be nested under them
+      const orphanFeatures = orphans.filter(p => p.type === 'feature');
+      for (const feat of orphanFeatures) {
+        addVisible(feat);
+        const children = feat.jiraKey !== undefined && feat.jiraKey !== ''
+          ? orphans.filter(p => p.parentKey === feat.jiraKey)
+          : [];
+        if (expanded(feat.id)) {
+          children.forEach(addVisible);
+        } else {
+          // Feature collapsed — mark children as owned so they don't appear flat below
+          children.forEach(markOwned);
+        }
+      }
+
+      // Remaining orphans: stories/tasks with no feature parent among the orphans,
+      // plus items whose parentKey is dangling (parent not in plannerItems at all)
+      orphans.filter(p => !seen.has(p.id)).forEach(addVisible);
     }
     return result;
   }, [plannerItems, expandedIds, expandAll]);
@@ -983,6 +1088,29 @@ export function PlannerTimeline({
     }
     return s;
   }, [plannerItems]);
+
+  // ── Skill gap detection (US-SP-25) ─────────────────────────────────────────
+  const EMPTY_SKILL_GAP_MAP = useMemo(() => new Map<string, SkillGapInfo>(), []);
+  const skillGapMap = useMemo(
+    () => skillsMatchingEnabled
+      ? computeSkillGaps(plannerItems, timelineState.teamMembers, timelineState.skills ?? [], sprints)
+      : EMPTY_SKILL_GAP_MAP,
+    [plannerItems, timelineState.teamMembers, timelineState.skills, sprints, skillsMatchingEnabled, EMPTY_SKILL_GAP_MAP],
+  );
+
+  const collapsedIds = useMemo(() => {
+    if (expandAll) return new Set<string>();
+    const s = new Set<string>();
+    for (const id of hasChildrenSet) {
+      if (!expandedIds.has(id)) s.add(id);
+    }
+    return s;
+  }, [hasChildrenSet, expandedIds, expandAll]);
+
+  const rollupGapMap = useMemo(
+    () => computeRollupGaps(plannerItems, skillGapMap, collapsedIds),
+    [plannerItems, skillGapMap, collapsedIds],
+  );
 
   // ── Mutations ───────────────────────────────────────────────────────────────
   const commitMove = useCallback((itemId: string, newStart: number, moveChildren: boolean) => {
@@ -1356,6 +1484,19 @@ export function PlannerTimeline({
                       onContextMenu={onContextMenu}
                       onLabelClick={onLabelClick}
                       onOpenAssignFromLabel={onOpenAssignFromLabel}
+                      skillGapTooltip={
+                        (() => {
+                          const gap = skillGapMap.get(item.id);
+                          const rollup = rollupGapMap.get(item.id);
+                          if (gap) {
+                            return gap.hasAssignees
+                              ? `Skill gap: ${gap.missingSkills.join(', ')} not covered by any assignee.`
+                              : `No one assigned — ${gap.missingSkills.join(', ')} required.`;
+                          }
+                          if (rollup) return `Skill gaps in ${rollup.join(', ')}.`;
+                          return null;
+                        })()
+                      }
                     />
                   </div>
                 );
@@ -1508,6 +1649,8 @@ export function PlannerTimeline({
                     onContextMenu={onContextMenu}
                     focusedMemberId={focusedMemberId}
                     onRowHover={setHoveredRowId}
+                    skillGapInfo={skillGapMap.get(item.id) ?? null}
+                    skillsMatchingEnabled={skillsMatchingEnabled}
                   />
                 );
               })}

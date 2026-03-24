@@ -19,6 +19,7 @@ import {
  generateSprints, getSprintsForQuarter, formatDateRange, getWorkdaysInSprint,
 } from '../utils/sprints';
 import type { TeamMember, Sprint, JiraWorkItem, PlannerItem } from '../types';
+import { migratePlannerLayout } from '../utils/plannerMigration';
 import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
 import { matchesSearch } from '../utils/searchUtils';
 
@@ -66,6 +67,7 @@ export function Timeline() {
      jiraAssignees: assignPanelJiraItem.assigneeName ? [assignPanelJiraItem.assigneeName] : [],
      jiraStartDate: assignPanelJiraItem.startDate,
      jiraEndDate: assignPanelJiraItem.dueDate,
+     requiredSkillIds: [],
    };
  }, [assignPanelJiraItem, baselineScenario]);
 
@@ -494,6 +496,7 @@ export function Timeline() {
  {assignPanelPlannerItem && (
    <AssignPanel
      item={assignPanelPlannerItem}
+     plannerItems={migratePlannerLayout(baselineScenario?.plannerLayout ?? [])}
      selectedQuarter={currentQuarter}
      jiraBaseUrl={state.jiraConnections.find(c => c.isActive)?.jiraBaseUrl.replace(/\/+$/, '') ?? ''}
      jiraItems={jiraWorkItems}

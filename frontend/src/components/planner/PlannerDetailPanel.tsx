@@ -18,6 +18,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
 import { stripJiraMarkup } from '../../utils/markup';
+import { SkillMultiSelect } from './SkillMultiSelect';
 import type { PlannerItem, PlannerItemType, JiraWorkItem, Sprint } from '../../types';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -29,6 +30,8 @@ export interface PlannerDetailPanelProps {
   jiraItems: JiraWorkItem[];
   sprints: Sprint[];
   onClose: () => void;
+  /** Called when requiredSkillIds are updated on a PlannerItem. */
+  onUpdateRequiredSkills?: (itemId: string, skillIds: string[]) => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -60,10 +63,19 @@ const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
 };
 
 function resolveItem(id: string, plannerItems: PlannerItem[], jiraItems: JiraWorkItem[]) {
-  const planner = plannerItems.find(p => (p.jiraKey && p.jiraKey === id) || p.id === id);
-  const jira    = jiraItems.find(j => j.jiraKey === id)
-               ?? (planner?.jiraKey ? jiraItems.find(j => j.jiraKey === planner.jiraKey) : undefined);
+  const planner = plannerItems.find(
+    p => p.id === id || (p.jiraKey != null && p.jiraKey !== '' && p.jiraKey === id),
+  );
+  const jira =
+    jiraItems.find(j => j.jiraKey === id)
+    ?? (planner?.jiraKey ? jiraItems.find(j => j.jiraKey === planner.jiraKey) : undefined);
   return { planner, jira };
+}
+
+/** UAT / Hypercare never show required skills (any casing / legacy values). */
+function isRequiredSkillsSuppressedType(type: string): boolean {
+  const t = type.trim().toLowerCase().replace(/\s+/g, '');
+  return t === 'uat' || t === 'hypercare';
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -96,6 +108,7 @@ export function PlannerDetailPanel({
   jiraItems,
   sprints,
   onClose,
+  onUpdateRequiredSkills,
 }: PlannerDetailPanelProps) {
   const state = useCurrentState();
 
@@ -154,10 +167,12 @@ export function PlannerDetailPanel({
   const statusLabel    = jira?.status ?? (statusCategory === 'in_progress' ? 'In Progress' : statusCategory === 'done' ? 'Done' : 'To Do');
   const statusStyle    = STATUS_BADGE[statusCategory] ?? STATUS_BADGE.todo;
 
-  // Child features (epics only)
-  const childFeatures = itemType === 'epic'
-    ? plannerItems.filter(p => p.parentKey === currentId && p.type === 'feature')
-    : [];
+  // Child features (epics only) — planner rows use parent jiraKey, not parent planner id
+  const epicParentKeyForChildren = planner?.jiraKey ?? jira?.jiraKey;
+  const childFeatures =
+    itemType === 'epic' && epicParentKeyForChildren
+      ? plannerItems.filter(p => p.parentKey === epicParentKeyForChildren && p.type === 'feature')
+      : [];
   const childFeaturesJira = itemType === 'epic' && jira
     ? jiraItems.filter(j => j.parentKey === (jira.jiraKey) && j.type === 'feature')
     : [];
@@ -277,6 +292,36 @@ export function PlannerDetailPanel({
               </div>
             );
           })()}
+
+          {/* Required Skills — directly under Summary so it stays above the fold (F-SP-09) */}
+          {(planner || jira) && !isRequiredSkillsSuppressedType(itemType) && (
+            <div className="px-5 py-4 border-b border-mileway-border">
+              <p className="text-xs font-semibold uppercase tracking-wider text-mileway-grey mb-2">Required Skills</p>
+              {planner ? (
+                <>
+                  {onUpdateRequiredSkills ? (
+                    <SkillMultiSelect
+                      selectedIds={planner.requiredSkillIds ?? []}
+                      onChange={ids => onUpdateRequiredSkills(planner.id, ids)}
+                    />
+                  ) : (
+                    <SkillMultiSelect
+                      selectedIds={planner.requiredSkillIds ?? []}
+                      onChange={() => {}}
+                      readOnly
+                    />
+                  )}
+                  {(!planner.requiredSkillIds || planner.requiredSkillIds.length === 0) && !onUpdateRequiredSkills && (
+                    <p className="text-sm text-mileway-grey italic">No required skills — anyone can be assigned.</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-mileway-grey leading-relaxed">
+                  This work item is not on the scenario timeline yet. Add it from the backlog or timeline, then open details again to set required skills.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Assignees section */}
           <div className="px-5 py-4 border-b border-mileway-border">

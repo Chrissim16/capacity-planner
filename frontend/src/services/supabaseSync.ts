@@ -274,6 +274,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       plannerLayout: migratePlannerLayout(
         Array.isArray(s.planner_layout) ? s.planner_layout : []
       ),
+      skillsMatchingEnabled: s.skills_matching_enabled ?? true,
     }));
 
     // Settings key-value pairs
@@ -633,6 +634,7 @@ async function syncScenarios(scenarios: Scenario[]): Promise<void> {
     time_off: s.timeOff,
     planner_layout: s.plannerLayout != null ? s.plannerLayout : null,
     last_edited_by: s.lastEditedBy ?? null,
+    skills_matching_enabled: s.skillsMatchingEnabled ?? true,
   }));
 }
 

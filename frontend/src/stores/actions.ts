@@ -593,6 +593,7 @@ export function createScenario(name: string, description?: string): Scenario {
     plannerLayout: JSON.parse(JSON.stringify(sourceScenario?.plannerLayout ?? [])),
     projects: [],
     assignments: [],
+    skillsMatchingEnabled: true,
   };
 
   const scenarios = [...currentState.scenarios, newScenario];
@@ -954,6 +955,21 @@ export function removePlannerItem(itemId: string): void {
   });
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SKILLS MATCHING TOGGLE (F-SP-09 / US-SP-27)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function toggleSkillsMatching(scenarioId: string): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    scenarios: state.getCurrentState().scenarios.map(s =>
+      s.id === scenarioId
+        ? { ...s, skillsMatchingEnabled: !(s.skillsMatchingEnabled ?? true), updatedAt: new Date().toISOString() }
+        : s
+    ),
+  });
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SCENARIO WIZARD HELPER (Decision D12)

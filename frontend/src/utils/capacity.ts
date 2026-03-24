@@ -18,6 +18,7 @@ import type {
   JiraItemBizAssignment,
   JiraWorkItem,
   PublicHoliday,
+  PlannerItem,
 } from '../types';
 import {
   getWorkdaysInQuarter,
@@ -482,4 +483,81 @@ export function weeklyToQuarterly(daysPerWeek: number, workWeeks: number): numbe
 export function quarterlyToWeekly(totalDays: number, workWeeks: number): number {
   if (workWeeks === 0) return 0;
   return Math.round((totalDays / workWeeks) * 10) / 10;
+}
+
+// ─── SPRINT-LEVEL CAPACITY (F-SP-09 / US-SP-23) ──────────────────────────────
+
+export interface SprintCapacityResult {
+  sprint: Sprint;
+  totalWorkdays: number;
+  allocatedDays: number;
+  availableDays: number;
+  usedPercent: number;
+  isOverloaded: boolean;
+}
+
+/**
+ * Calculate a team member's capacity for a single sprint, accounting for
+ * public holidays, time-off, BAU reserve (prorated), and PlannerItem allocations.
+ *
+ * @param memberId - the team member
+ * @param sprint - sprint to evaluate
+ * @param plannerItems - all items on the planner (used to sum existing allocations)
+ * @param state - full resolved AppState (use getCurrentState())
+ * @param extraDaysPerSprint - additional days to hypothetically add (e.g. the slider value being considered)
+ */
+export function calculateSprintCapacity(
+  memberId: string,
+  sprint: Sprint,
+  plannerItems: PlannerItem[],
+  state: AppState,
+  extraDaysPerSprint: number = 0,
+): SprintCapacityResult {
+  const member = state.teamMembers.find(m => m.id === memberId);
+  if (!member) {
+    return { sprint, totalWorkdays: 0, allocatedDays: 0, availableDays: 0, usedPercent: 0, isOverloaded: false };
+  }
+
+  const holidays = getHolidaysByCountry(
+    member.countryId || state.settings.defaultCountryId,
+    state.publicHolidays,
+  );
+
+  const totalWorkdays = getWorkdaysInDateRange(sprint.startDate, sprint.endDate, holidays);
+
+  const bauPerQuarter = state.settings.bauReserveDays || 5;
+  const weeksInQuarter = 13;
+  const sprintWeeks = state.settings.sprintDurationWeeks || 3;
+  const bauProrated = Math.round(((bauPerQuarter / weeksInQuarter) * sprintWeeks) * 10) / 10;
+
+  const timeOffDays = state.timeOff
+    .filter(t => t.memberId === memberId)
+    .reduce((sum, t) => {
+      const sprintStart = new Date(sprint.startDate + 'T00:00:00');
+      const sprintEnd = new Date(sprint.endDate + 'T00:00:00');
+      return sum + getWorkdaysInDateRange(t.startDate, t.endDate, holidays, sprintStart, sprintEnd);
+    }, 0);
+
+  let allocatedDays = 0;
+  for (const item of plannerItems) {
+    const inRange = sprint.number >= item.startSprint && sprint.number < item.startSprint + item.spanSprints;
+    if (!inRange) continue;
+    for (const a of item.assignees) {
+      if (a.memberId === memberId) allocatedDays += a.daysPerSprint;
+    }
+  }
+  allocatedDays += extraDaysPerSprint;
+
+  const usedDays = bauProrated + timeOffDays + allocatedDays;
+  const availableDays = totalWorkdays - usedDays;
+  const usedPercent = totalWorkdays > 0 ? Math.round((usedDays / totalWorkdays) * 100) : 0;
+
+  return {
+    sprint,
+    totalWorkdays,
+    allocatedDays: usedDays,
+    availableDays,
+    usedPercent,
+    isOverloaded: availableDays < 0,
+  };
 }

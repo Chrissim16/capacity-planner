@@ -81,7 +81,7 @@ interface BacklogSections {
    */
   scheduledEpicHeaders: TreeNode[];
   /** Features/Stories with no resolvable Epic ancestor in the Jira data. */
-  orphans: JiraWorkItem[];
+  orphans: TreeNode[];
   /** Count of unscheduled Epics (for the sidebar header badge). */
   unscheduledEpicCount: number;
 }
@@ -153,18 +153,30 @@ function buildSections(
     }
   }
 
-  // Orphans: unscheduled Features/Stories not covered by any Epic section
-  const orphanFeatures = features.filter(
-    f => isUnscheduled(f) && !coveredFeatureKeys.has(f.jiraKey),
-  );
-  const orphanStories = stories.filter(
-    s => isUnscheduled(s) && !coveredStoryIds.has(s.id) && !s.parentKey,
-  );
+  // Orphan features: unscheduled Features not under any Epic in the Jira data.
+  // Build as TreeNodes so their child stories are visible beneath them.
+  const orphanFeatureNodes: TreeNode[] = features
+    .filter(f => isUnscheduled(f) && !coveredFeatureKeys.has(f.jiraKey))
+    .map(f => {
+      const node = featureNode(f);
+      // Mark these stories as covered so they aren't duplicated in the flat orphan list
+      for (const sn of node.children) coveredStoryIds.add(sn.item.id);
+      return node;
+    });
+
+  // Keys of every feature in jiraItems — used to detect dangling parentKey references.
+  // A story whose parentKey points to a known feature is either covered under an epic
+  // (coveredStoryIds) or under an orphan feature (just added above). Only truly
+  // parentless stories, or those whose parent is absent from jiraItems entirely, land here.
+  const featureKeySet = new Set(features.map(f => f.jiraKey));
+  const orphanStoryNodes: TreeNode[] = stories
+    .filter(s => isUnscheduled(s) && !coveredStoryIds.has(s.id) && (!s.parentKey || !featureKeySet.has(s.parentKey)))
+    .map(s => ({ item: s, children: [] }));
 
   return {
     unscheduledEpics,
     scheduledEpicHeaders,
-    orphans: [...orphanFeatures, ...orphanStories],
+    orphans: [...orphanFeatureNodes, ...orphanStoryNodes],
     unscheduledEpicCount: unscheduledEpics.length,
   };
 }
@@ -244,14 +256,14 @@ export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, on
   const totalUnscheduled =
     sections.unscheduledEpics.length +
     sections.scheduledEpicHeaders.reduce((n, s) => n + s.children.length, 0) +
-    sections.orphans.length;
+    sections.orphans.reduce((n, node) => n + 1 + node.children.length, 0);
 
   const unscheduledFeatureCount = useMemo(() => {
     let n = 0;
     for (const node of sections.unscheduledEpics) n += node.children.length;
     for (const node of sections.scheduledEpicHeaders) n += node.children.length;
     for (const o of sections.orphans) {
-      if (o.type === 'feature') n++;
+      if (o.item.type === 'feature') n++;
     }
     return n;
   }, [sections]);
@@ -598,18 +610,50 @@ export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, on
             <p className="text-[10px] font-semibold text-mileway-grey uppercase tracking-wider px-1 py-2 mt-1">
               Unlinked items
             </p>
-            {sections.orphans
-              .filter(i => itemFullyVisible(i, null, q, epicFilter, statusFilter, triageFilter, triageMap))
-              .map(i => (
-                <BacklogItem
-                  key={i.id}
-                  item={i}
-                  indent={0}
-                  triageTag={triageMap[i.id] ?? null}
-                  onTriage={setItemTriage}
-                />
-              ))
-            }
+            {sections.orphans.map(node => {
+              if (node.children.length === 0) {
+                // Leaf node — orphan story or feature with no children
+                if (!itemFullyVisible(node.item, null, q, epicFilter, statusFilter, triageFilter, triageMap)) return null;
+                return (
+                  <BacklogItem
+                    key={node.item.id}
+                    item={node.item}
+                    indent={0}
+                    triageTag={triageMap[node.item.id] ?? null}
+                    onTriage={setItemTriage}
+                  />
+                );
+              }
+              // Orphan feature with child stories — render with expand/collapse
+              const featKey = node.item.jiraKey;
+              const featExpanded = expandedIds.has(featKey);
+              const visibleChildren = node.children.filter(sn =>
+                itemFullyVisible(sn.item, null, q, epicFilter, statusFilter, triageFilter, triageMap)
+              );
+              if (!itemFullyVisible(node.item, null, q, epicFilter, statusFilter, triageFilter, triageMap) && visibleChildren.length === 0) return null;
+              return (
+                <div key={featKey}>
+                  <BacklogItem
+                    item={node.item}
+                    hasChildren={node.children.length > 0}
+                    isExpanded={featExpanded}
+                    onToggle={() => toggleExpand(featKey)}
+                    indent={0}
+                    triageTag={triageMap[node.item.id] ?? null}
+                    onTriage={setItemTriage}
+                  />
+                  {featExpanded && visibleChildren.map(sn => (
+                    <BacklogItem
+                      key={sn.item.id}
+                      item={sn.item}
+                      indent={INDENT_FEATURE}
+                      triageTag={triageMap[sn.item.id] ?? null}
+                      onTriage={setItemTriage}
+                    />
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -629,7 +673,10 @@ export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, on
               itemFullyVisible(fn.item, n.item.jiraKey, q, epicFilter, statusFilter, triageFilter, triageMap) ||
               fn.children.some(sn => itemFullyVisible(sn.item, n.item.jiraKey, q, epicFilter, statusFilter, triageFilter, triageMap))
             )
-          ) && sections.orphans.every(i => !itemFullyVisible(i, null, q, epicFilter, statusFilter, triageFilter, triageMap))
+          ) && sections.orphans.every(node =>
+            !itemFullyVisible(node.item, null, q, epicFilter, statusFilter, triageFilter, triageMap) &&
+            node.children.every(sn => !itemFullyVisible(sn.item, null, q, epicFilter, statusFilter, triageFilter, triageMap))
+          )
         ) && (
           <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
             <p className="text-sm font-medium text-mileway-text">No items match your filters</p>

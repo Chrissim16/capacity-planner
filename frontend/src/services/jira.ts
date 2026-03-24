@@ -396,6 +396,8 @@ export interface JiraKeyDiagnostic {
   storyPointsFieldId?: string;
   /** all numeric customfields on this issue: {fieldId → value} — helps identify the right SP field */
   numericCustomFields?: Record<string, number>;
+  /** customfields whose value is (or contains) a Jira issue key — helps identify non-standard parent link fields */
+  issueKeyCustomFields?: Record<string, string>;
   /** raw value of customfield_10020 truncated to 400 chars for display */
   sprintRaw?: string;
   /** parsed sprint object (null = parsing failed) */
@@ -429,9 +431,21 @@ export async function diagnoseJiraKey(
 
     // Collect all numeric customfields — helps identify the story points field
     const numericCustomFields: Record<string, number> = {};
+    // Collect customfields whose value looks like a Jira issue key reference — helps identify
+    // non-standard parent link fields (e.g. a "Feature Link" field beyond cf10014/cf10008)
+    const issueKeyCustomFields: Record<string, string> = {};
+    const jiraKeyPattern = /^[A-Z][A-Z0-9_]+-\d+$/;
     for (const [k, v] of Object.entries(f)) {
-      if (k.startsWith('customfield_') && typeof v === 'number') {
+      if (!k.startsWith('customfield_')) continue;
+      if (typeof v === 'number') {
         numericCustomFields[k] = v as number;
+      } else if (typeof v === 'string' && jiraKeyPattern.test(v)) {
+        issueKeyCustomFields[k] = v;
+      } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+        const key = (v as Record<string, unknown>).key;
+        if (typeof key === 'string' && jiraKeyPattern.test(key)) {
+          issueKeyCustomFields[k] = key;
+        }
       }
     }
 
@@ -545,6 +559,7 @@ export async function diagnoseJiraKey(
         storyPoints,
         storyPointsFieldId,
         numericCustomFields: Object.keys(numericCustomFields).length > 0 ? numericCustomFields : undefined,
+        issueKeyCustomFields: Object.keys(issueKeyCustomFields).length > 0 ? issueKeyCustomFields : undefined,
         // Sprint diagnostics
         sprintRaw: sprintRaw !== undefined ? JSON.stringify(sprintRaw).slice(0, 400) : 'null',
         sprintParsed: parsedSprint

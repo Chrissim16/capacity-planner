@@ -6,8 +6,8 @@
  * so that active-scenario overlays (projects, assignments, teamMembers, etc.) are applied.
  */
 
-import type { AppState, BusinessContact, TeamMember } from '../types';
-import { calculateCapacity, calculateBusinessCapacityForQuarter } from './capacity';
+import type { AppState, BusinessContact, TeamMember, Sprint, PlannerItem } from '../types';
+import { calculateCapacity, calculateBusinessCapacityForQuarter, calculateSprintCapacity } from './capacity';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -225,6 +225,95 @@ export function rankMemberFits(fits: MemberFit[]): MemberFit[] {
 
 /** Sort BIZ fits: same ordering as rankMemberFits. */
 export function rankBizFits(fits: BizFit[]): BizFit[] {
+  const order: Record<FitLevel, number> = { good: 0, partial: 1, over: 2 };
+  return [...fits].sort((a, b) =>
+    order[a.fitLevel] - order[b.fitLevel] ||
+    b.availableDays - a.availableDays
+  );
+}
+
+// ─── scoreMemberForPlanner (sprint-based, F-SP-09 / US-SP-26) ────────────────
+
+export interface PlannerMemberFit {
+  member: TeamMember;
+  fitLevel: FitLevel;
+  /** Minimum available days across all covered sprints. */
+  availableDays: number;
+  skillMatch: string[];
+  skillGap: string[];
+  /** Sprint numbers where the member is overloaded. */
+  overloadedSprints: number[];
+}
+
+/**
+ * Score a team member's fit for a planner item across its sprint range.
+ *
+ * Tier logic (simplified, per design decision #2):
+ *   - **Good**: capacity in all covered sprints AND all required skills matched (or no skills required)
+ *   - **Partial**: capacity in all sprints but missing skills
+ *   - **Over**: no available capacity in any covered sprint (takes precedence)
+ *
+ * @param member - the IT team member
+ * @param coveredSprints - sprints the item spans
+ * @param requiredSkillIds - skill IDs required by the item
+ * @param plannerItems - all items for allocation calculations
+ * @param state - full resolved state (getCurrentState())
+ */
+export function scoreMemberForPlanner(
+  member: TeamMember,
+  coveredSprints: Sprint[],
+  requiredSkillIds: string[],
+  plannerItems: PlannerItem[],
+  state: AppState,
+): PlannerMemberFit {
+  const overloadedSprints: number[] = [];
+  let minAvailable = Infinity;
+
+  for (const sprint of coveredSprints) {
+    const cap = calculateSprintCapacity(member.id, sprint, plannerItems, state);
+    if (cap.availableDays < minAvailable) minAvailable = cap.availableDays;
+    if (cap.isOverloaded) overloadedSprints.push(sprint.number);
+  }
+
+  if (coveredSprints.length === 0) minAvailable = 0;
+
+  // Skill matching
+  let skillMatch: string[] = [];
+  let skillGap: string[] = [];
+  if (requiredSkillIds.length > 0) {
+    for (const skillId of requiredSkillIds) {
+      const skill = state.skills.find(s => s.id === skillId);
+      const name = skill?.name ?? skillId;
+      if (member.skillIds.includes(skillId)) {
+        skillMatch.push(name);
+      } else {
+        skillGap.push(name);
+      }
+    }
+  }
+
+  // Tier determination: Over > Partial > Good
+  let fitLevel: FitLevel;
+  if (overloadedSprints.length > 0) {
+    fitLevel = 'over';
+  } else if (skillGap.length > 0) {
+    fitLevel = 'partial';
+  } else {
+    fitLevel = 'good';
+  }
+
+  return {
+    member,
+    fitLevel,
+    availableDays: minAvailable === Infinity ? 0 : minAvailable,
+    skillMatch,
+    skillGap,
+    overloadedSprints,
+  };
+}
+
+/** Sort planner fits: good → partial → over; then by available days descending. */
+export function rankPlannerFits(fits: PlannerMemberFit[]): PlannerMemberFit[] {
   const order: Record<FitLevel, number> = { good: 0, partial: 1, over: 2 };
   return [...fits].sort((a, b) =>
     order[a.fitLevel] - order[b.fitLevel] ||

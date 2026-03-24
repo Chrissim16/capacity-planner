@@ -504,6 +504,10 @@ export interface PlannerItem {
   jiraStartDate?: string;
   /** ISO date from Jira due date — used for Baseline sprint span calculation */
   jiraEndDate?: string;
+  /** Skill IDs required on this item — references Skill.id from shared skills table.
+   *  Empty for Jira-sourced items on import; not available on UAT/Hypercare items.
+   *  Not synced back to Jira; preserved on scenario clone. */
+  requiredSkillIds: string[];
 }
 
 export interface Scenario {
@@ -529,4 +533,6 @@ export interface Scenario {
   assignments: Assignment[];
   /** Planner timeline layout — only populated for scenarios created or edited in the Scenario Planner */
   plannerLayout?: PlannerItem[];
+  /** When true, skill matching UI (badges, chips, tier ranking) is active. Default: true. */
+  skillsMatchingEnabled?: boolean;
 }

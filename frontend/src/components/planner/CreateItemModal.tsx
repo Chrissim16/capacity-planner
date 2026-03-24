@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { PlannerItem, PlannerItemType } from '../../types';
 import { useCurrentState } from '../../stores/appStore';
+import { SkillMultiSelect } from './SkillMultiSelect';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ export interface CreateItemData {
   type: PlannerItemType;
   parentKey: string | undefined;
   labels: string[];
+  requiredSkillIds: string[];
 }
 
 const TYPE_OPTIONS: { value: PlannerItemType; label: string }[] = [
@@ -62,6 +64,7 @@ export function CreateItemModal({
   const [parentKey, setParentKey] = useState<string>(editItem?.parentKey ?? defaultParentKey ?? '');
   const [labelInput, setLabelInput] = useState('');
   const [labels, setLabels]       = useState<string[]>(editItem?.labels ?? []);
+  const [requiredSkillIds, setRequiredSkillIds] = useState<string[]>(editItem?.requiredSkillIds ?? []);
 
   const isEdit = !!editItem;
 
@@ -116,6 +119,7 @@ export function CreateItemModal({
       type,
       parentKey: parentKey || undefined,
       labels,
+      requiredSkillIds: (type === 'uat' || type === 'hypercare') ? [] : requiredSkillIds,
     });
   }
 
@@ -255,6 +259,17 @@ export function CreateItemModal({
               )}
             </div>
           </div>
+
+          {/* Required Skills — hidden for UAT/Hypercare */}
+          {type !== 'uat' && type !== 'hypercare' && (
+            <div>
+              <label className="block text-xs font-semibold text-mileway-grey mb-1">Required Skills</label>
+              <SkillMultiSelect
+                selectedIds={requiredSkillIds}
+                onChange={setRequiredSkillIds}
+              />
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-2">

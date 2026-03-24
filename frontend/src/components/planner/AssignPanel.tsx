@@ -15,16 +15,18 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { PlannerItem, PlannerAssignment, JiraWorkItem, Sprint } from '../../types';
 import { useCurrentState } from '../../stores/appStore';
+import { SkillChip } from './SkillMultiSelect';
 import {
-  scoreMember,
   scoreBusinessContact,
-  rankMemberFits,
   rankBizFits,
+  scoreMemberForPlanner,
+  rankPlannerFits,
   FIT_COLOURS,
-  type MemberFit,
+  type PlannerMemberFit,
   type BizFit,
+  type FitLevel,
 } from '../../utils/staffing';
-import { calculateCapacity } from '../../utils/capacity';
+import { calculateCapacity, calculateSprintCapacity, type SprintCapacityResult } from '../../utils/capacity';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -32,8 +34,8 @@ function initials(name: string): string {
   return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
 }
 
-function sortAssigneesKey(assignees: PlannerAssignment[]): string {
-  return [...assignees]
+function sortAssigneesKey(assignees: PlannerAssignment[] | undefined): string {
+  return [...(assignees ?? [])]
     .sort((a, b) => a.memberId.localeCompare(b.memberId))
     .map(a => `${a.memberId}:${a.track}:${a.daysPerSprint}`)
     .join('|');
@@ -83,7 +85,18 @@ function assigneeRowKey(memberId: string, track: 'IT' | 'BIZ'): string {
   return `${track}:${memberId}`;
 }
 
+function fmtSprintRange(start: string, end: string): string {
+  const f = (s: string) =>
+    new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${f(start)} – ${f(end)}`;
+}
+
 // ── Assignee row (single component for IT and BIZ — same markup, slider, remove) ─
+
+interface SkillMatchResult {
+  matched: string[];
+  missing: string[];
+}
 
 interface AssigneeRowPanelProps {
   memberId: string;
@@ -95,6 +108,8 @@ interface AssigneeRowPanelProps {
   entering: boolean;
   onDaysChange: (memberId: string, track: 'IT' | 'BIZ', days: number) => void;
   onRemove: (memberId: string, track: 'IT' | 'BIZ') => void;
+  overloadedSprints: SprintCapacityResult[];
+  skillMatch?: SkillMatchResult;
 }
 
 function AssigneeRowPanel({
@@ -107,57 +122,101 @@ function AssigneeRowPanel({
   entering,
   onDaysChange,
   onRemove,
+  overloadedSprints,
+  skillMatch,
 }: AssigneeRowPanelProps) {
   const days = clampAssigneeDays(daysPerSprint);
   const pct = sliderPct(days);
+  const hasOverload = overloadedSprints.length > 0;
+  const hasMissing = (skillMatch?.missing.length ?? 0) > 0;
 
   return (
     <div
       className={[
-        'flex items-center gap-2.5 py-2 px-2.5 rounded-lg border transition-all duration-[180ms] bg-mileway-bg',
-        'border-biz-light hover:border-mileway-border',
+        'py-2 px-2.5 rounded-lg border transition-all duration-[180ms] bg-mileway-bg',
+        hasOverload ? 'border-orange-400' : 'border-biz-light hover:border-mileway-border',
         removing ? 'opacity-0 translate-x-2' : 'opacity-100',
         entering ? 'assignee-row-enter' : '',
       ].join(' ')}
     >
-      <div
-        className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px] bg-mileway-blue"
-        style={{ width: 28, height: 28 }}
-      >
-        {initials(name)}
-      </div>
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <div className="text-[12.5px] font-semibold text-mileway-text truncate whitespace-nowrap">{name}</div>
-        <div className="text-[10.5px] text-mileway-grey mt-px truncate">{role || '—'}</div>
-      </div>
-      <div className="w-[130px] flex-shrink-0 flex flex-col gap-1">
-        <div className="flex justify-between items-baseline">
-          <span className="text-[10.5px] text-mileway-grey">Days / sprint</span>
-          <span className="text-xs font-bold text-mileway-text tabular-nums">
-            {days}
-            <span className="text-mileway-grey font-normal">d</span>
-          </span>
+      <div className="flex items-center gap-2.5">
+        <div
+          className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px] bg-mileway-blue"
+          style={{ width: 28, height: 28 }}
+        >
+          {initials(name)}
         </div>
-        <input
-          type="range"
-          min={1}
-          max={10}
-          step={1}
-          value={days}
-          aria-label={`Days per sprint for ${name}`}
-          className="assign-days-slider w-full"
-          style={{ ['--pct' as string]: pct }}
-          onChange={e => onDaysChange(memberId, track, Number(e.target.value))}
-        />
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="text-[12.5px] font-semibold text-mileway-text truncate whitespace-nowrap">{name}</div>
+          <div className="text-[10.5px] text-mileway-grey mt-px truncate">{role || '—'}</div>
+        </div>
+        <div className="w-[130px] flex-shrink-0 flex flex-col gap-1">
+          <div className="flex justify-between items-baseline">
+            <span className="text-[10.5px] text-mileway-grey">Days / sprint</span>
+            <span className="text-xs font-bold text-mileway-text tabular-nums">
+              {days}
+              <span className="text-mileway-grey font-normal">d</span>
+            </span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={10}
+            step={1}
+            value={days}
+            aria-label={`Days per sprint for ${name}`}
+            className="assign-days-slider w-full"
+            style={{
+              ['--pct' as string]: pct,
+              ...(hasOverload
+                ? { outline: '2px solid #fb923c', outlineOffset: '1px', borderRadius: '4px' }
+                : {}),
+            }}
+            onChange={e => onDaysChange(memberId, track, Number(e.target.value))}
+          />
+        </div>
+        <button
+          type="button"
+          aria-label={`Remove ${name}`}
+          className="flex-shrink-0 w-[22px] h-[22px] rounded-[5px] border-0 bg-transparent text-mileway-border text-xs cursor-pointer hover:bg-[var(--danger-light)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+          onClick={() => onRemove(memberId, track)}
+        >
+          ✕
+        </button>
       </div>
-      <button
-        type="button"
-        aria-label={`Remove ${name}`}
-        className="flex-shrink-0 w-[22px] h-[22px] rounded-[5px] border-0 bg-transparent text-mileway-border text-xs cursor-pointer hover:bg-[var(--danger-light)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-        onClick={() => onRemove(memberId, track)}
-      >
-        ✕
-      </button>
+      {hasOverload && (
+        <div className="mt-1.5 pl-[38px] space-y-0.5">
+          {overloadedSprints.slice(0, 3).map(r => (
+            <p key={r.sprint.number} className="text-[10.5px] text-util-over flex items-start gap-1">
+              <span aria-hidden>⚠</span>
+              <span>
+                Overloaded in S{r.sprint.number} ({fmtSprintRange(r.sprint.startDate, r.sprint.endDate)}) — {Math.round(r.allocatedDays)}/{Math.round(r.totalWorkdays)} days
+              </span>
+            </p>
+          ))}
+          {overloadedSprints.length > 3 && (
+            <p className="text-[10.5px] text-util-over pl-4">…and {overloadedSprints.length - 3} more</p>
+          )}
+        </div>
+      )}
+      {skillMatch && (skillMatch.matched.length > 0 || skillMatch.missing.length > 0) && (
+        <div className="mt-1.5 pl-[38px]">
+          {hasMissing && (
+            <p className="text-[10.5px] text-util-over flex items-start gap-1 mb-1">
+              <span aria-hidden>⚠</span>
+              <span>Missing skills: {skillMatch.missing.join(', ')}</span>
+            </p>
+          )}
+          <div className="flex flex-wrap gap-1">
+            {skillMatch.matched.map(s => (
+              <SkillChip key={s} name={s} variant="green" readOnly />
+            ))}
+            {skillMatch.missing.map(s => (
+              <SkillChip key={s} name={s} variant="red" readOnly />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -166,12 +225,16 @@ function AssigneeRowPanel({
 
 export interface AssignPanelProps {
   item: PlannerItem;
+  /** Full planner layout for sprint capacity scoring. Omit or pass [] when not in scenario planner (e.g. baseline Timeline). */
+  plannerItems?: PlannerItem[];
   selectedQuarter: string;
   jiraBaseUrl: string;
   jiraItems: JiraWorkItem[];
   onClose: () => void;
   /** Called when the user confirms changes — writes to scenario or baseline depending on caller. */
   onSave: (itemId: string, assignees: PlannerAssignment[]) => void;
+  /** US-SP-27: when false, skill chips, "Requires" line, and tiered ranking are suppressed. */
+  skillsMatchingEnabled?: boolean;
 }
 
 type PickerTrack = 'IT' | 'BIZ' | null;
@@ -253,19 +316,29 @@ function tierCellStyle(pct: number): CSSProperties {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+function normalizePlannerItemForPanel(raw: PlannerItem): PlannerItem {
+  return {
+    ...raw,
+    assignees: [...(raw.assignees ?? [])],
+    requiredSkillIds: Array.isArray(raw.requiredSkillIds) ? raw.requiredSkillIds : [],
+  };
+}
+
 export function AssignPanel({
   item,
+  plannerItems = [],
   selectedQuarter,
   jiraBaseUrl,
   jiraItems,
   onClose,
   onSave,
+  skillsMatchingEnabled = true,
 }: AssignPanelProps) {
   const state = useCurrentState();
   const panelRef = useRef<HTMLDivElement>(null);
   const pickerItInputRef = useRef<HTMLInputElement>(null);
   const pickerBizInputRef = useRef<HTMLInputElement>(null);
-  const [draft, setDraft] = useState<PlannerItem>(() => ({ ...item, assignees: [...item.assignees] }));
+  const [draft, setDraft] = useState<PlannerItem>(() => normalizePlannerItemForPanel(item));
   const [pickerTrack, setPickerTrack] = useState<PickerTrack>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [removingKeys, setRemovingKeys] = useState<Set<string>>(new Set());
@@ -273,11 +346,40 @@ export function AssignPanel({
   const [pulse, setPulse] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [panelEntered, setPanelEntered] = useState(false);
+  const [bizSectionOpen, setBizSectionOpen] = useState(() => ['uat', 'hypercare', 'epic'].includes(item.type));
 
   const quarterSprints = useMemo(
     () => state.sprints.filter(s => s.quarter === selectedQuarter),
     [state.sprints, selectedQuarter],
   );
+
+  const coveredSprints = useMemo(
+    () => state.sprints.filter(s => s.number >= draft.startSprint && s.number < draft.startSprint + draft.spanSprints),
+    [state.sprints, draft.startSprint, draft.spanSprints],
+  );
+
+  const capacityPlannerItems = useMemo(() => {
+    const list = plannerItems ?? [];
+    const merged = list.map(p => (p.id === draft.id ? draft : p));
+    return list.some(p => p.id === draft.id) ? merged : [...merged, draft];
+  }, [plannerItems, draft]);
+
+  const overloadedByMember = useMemo(() => {
+    const map = new Map<string, SprintCapacityResult[]>();
+    const itemSprints = state.sprints.filter(
+      s => s.number >= draft.startSprint && s.number < draft.startSprint + draft.spanSprints,
+    );
+    for (const a of draft.assignees) {
+      const key = assigneeRowKey(a.memberId, a.track);
+      const overloaded: SprintCapacityResult[] = [];
+      for (const sp of itemSprints) {
+        const cap = calculateSprintCapacity(a.memberId, sp, capacityPlannerItems, state, 0);
+        if (cap.isOverloaded) overloaded.push(cap);
+      }
+      if (overloaded.length > 0) map.set(key, overloaded);
+    }
+    return map;
+  }, [draft, state, capacityPlannerItems]);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setPanelEntered(true));
@@ -285,11 +387,15 @@ export function AssignPanel({
   }, []);
 
   useEffect(() => {
-    setDraft({ ...item, assignees: [...item.assignees] });
+    setDraft(normalizePlannerItemForPanel(item));
     setPickerTrack(null);
     setPickerSearch('');
     setRemovingKeys(new Set());
   }, [item.id, sortAssigneesKey(item.assignees), item.name]);
+
+  useEffect(() => {
+    setBizSectionOpen(['uat', 'hypercare', 'epic'].includes(item.type));
+  }, [item.id, item.type]);
 
   useEffect(() => {
     const t = window.setTimeout(() => panelRef.current?.querySelector<HTMLElement>('button, [href], input, select, textarea')?.focus(), 50);
@@ -363,12 +469,14 @@ export function AssignPanel({
     window.setTimeout(() => setPulse(false), 150);
   }, []);
 
-  const itFits = useMemo(() => {
+  const itPlannerFits = useMemo(() => {
     const eligible = state.teamMembers.filter(m => !m.excludedFromCapacity);
-    return rankMemberFits(
-      eligible.map(m => scoreMember(m, selectedQuarter, [], draft.jiraKey ?? draft.id, state)),
+    return rankPlannerFits(
+      eligible.map(m =>
+        scoreMemberForPlanner(m, coveredSprints, draft.requiredSkillIds ?? [], capacityPlannerItems, state),
+      ),
     );
-  }, [state, selectedQuarter, draft.jiraKey, draft.id]);
+  }, [state, coveredSprints, draft.requiredSkillIds, capacityPlannerItems]);
 
   const bizFits = useMemo(() => {
     const eligible = (state.businessContacts ?? []).filter(c => !c.archived && !c.excludedFromCapacity);
@@ -379,6 +487,28 @@ export function AssignPanel({
 
   const assignedIt = draft.assignees.filter(a => a.track === 'IT');
   const assignedBiz = draft.assignees.filter(a => a.track === 'BIZ');
+
+  const skillMatchByMember = useMemo(() => {
+    const reqIds = draft.requiredSkillIds;
+    if (!reqIds || reqIds.length === 0) return new Map<string, SkillMatchResult>();
+    const skills = state.skills ?? [];
+    const map = new Map<string, SkillMatchResult>();
+    for (const a of assignedIt) {
+      const member = state.teamMembers.find(m => m.id === a.memberId);
+      if (!member) continue;
+      const memberSkillSet = new Set(member.skillIds ?? []);
+      const matched: string[] = [];
+      const missing: string[] = [];
+      for (const rid of reqIds) {
+        const skill = skills.find(s => s.id === rid);
+        if (!skill) continue;
+        if (memberSkillSet.has(rid)) matched.push(skill.name);
+        else missing.push(skill.name);
+      }
+      map.set(a.memberId, { matched, missing });
+    }
+    return map;
+  }, [draft.requiredSkillIds, assignedIt, state.teamMembers, state.skills]);
 
   const updateAssignmentDays = (memberId: string, track: 'IT' | 'BIZ', days: number) => {
     const d = Math.min(10, Math.max(1, Math.round(days)));
@@ -445,75 +575,153 @@ export function AssignPanel({
 
   const endSprintNum = draft.startSprint + draft.spanSprints - 1;
 
-  const pickerList = useMemo(() => {
-    if (!pickerTrack) return { available: [] as (MemberFit | BizFit)[], blocked: [] as (MemberFit | BizFit)[] };
-    const assigned = new Set(
-      draft.assignees.filter(a => a.track === pickerTrack).map(a => a.memberId),
-    );
-    const fits = pickerTrack === 'IT' ? itFits : bizFits;
+  const itPickerTiers = useMemo(() => {
+    const empty = { assigned: [] as PlannerMemberFit[], good: [] as PlannerMemberFit[], partial: [] as PlannerMemberFit[], over: [] as PlannerMemberFit[] };
+    if (pickerTrack !== 'IT') return empty;
+    const assignedIds = new Set(draft.assignees.filter(a => a.track === 'IT').map(a => a.memberId));
     const q = pickerSearch.trim().toLowerCase();
-    const filt = (f: MemberFit | BizFit) => {
-      if (assigned.has(pickerTrack === 'IT' ? (f as MemberFit).member.id : (f as BizFit).contact.id)) return false;
+    const matchesSearch = (fit: PlannerMemberFit) => {
       if (!q) return true;
-      const name = pickerTrack === 'IT' ? (f as MemberFit).member.name : (f as BizFit).contact.name;
-      const role =
-        pickerTrack === 'IT'
-          ? (f as MemberFit).member.role
-          : ((f as BizFit).contact.title ?? (f as BizFit).contact.department ?? '');
-      return name.toLowerCase().includes(q) || role.toLowerCase().includes(q);
+      if (fit.member.name.toLowerCase().includes(q)) return true;
+      if (fit.member.role.toLowerCase().includes(q)) return true;
+      const memberSkillNames = (fit.member.skillIds ?? [])
+        .map(id => (state.skills ?? []).find(s => s.id === id)?.name ?? '')
+        .filter(Boolean);
+      return memberSkillNames.some(n => n.toLowerCase().includes(q));
     };
-    const pool = fits.filter(filt);
-    const order: Record<string, number> = { good: 0, partial: 1, over: 2 };
-    pool.sort((a, b) => order[a.fitLevel] - order[b.fitLevel] || b.availableDays - a.availableDays);
-    const available = pool.filter(f => f.availableDays > 0);
-    const blocked = pool.filter(f => f.availableDays <= 0);
-    return { available, blocked };
-  }, [pickerTrack, pickerSearch, draft.assignees, itFits, bizFits]);
+    const assigned: PlannerMemberFit[] = [];
+    const good: PlannerMemberFit[] = [];
+    const partial: PlannerMemberFit[] = [];
+    const over: PlannerMemberFit[] = [];
+    for (const fit of itPlannerFits) {
+      if (!matchesSearch(fit)) continue;
+      if (assignedIds.has(fit.member.id)) assigned.push(fit);
+      else if (fit.fitLevel === 'good') good.push(fit);
+      else if (fit.fitLevel === 'partial') partial.push(fit);
+      else over.push(fit);
+    }
+    return { assigned, good, partial, over };
+  }, [pickerTrack, pickerSearch, draft.assignees, itPlannerFits, state.skills]);
 
-  function fitBadgeLabel(level: string): string {
-    if (level === 'good') return 'Good';
-    if (level === 'partial') return 'Partial';
-    return '—';
+  const bizPickerList = useMemo(() => {
+    const empty = { available: [] as BizFit[], blocked: [] as BizFit[] };
+    if (pickerTrack !== 'BIZ') return empty;
+    const assignedIds = new Set(draft.assignees.filter(a => a.track === 'BIZ').map(a => a.memberId));
+    const q = pickerSearch.trim().toLowerCase();
+    const pool = bizFits.filter(f => {
+      if (assignedIds.has(f.contact.id)) return false;
+      if (!q) return true;
+      return f.contact.name.toLowerCase().includes(q) ||
+        (f.contact.title ?? f.contact.department ?? '').toLowerCase().includes(q);
+    });
+    return {
+      available: pool.filter(f => f.availableDays > 0),
+      blocked: pool.filter(f => f.availableDays <= 0),
+    };
+  }, [pickerTrack, pickerSearch, draft.assignees, bizFits]);
+
+  const tierLabels: Record<FitLevel, string> = { good: 'Good fit', partial: 'Partial fit', over: 'Over capacity' };
+
+  function renderTierHeader(label: string, fitLevel: FitLevel, count: number) {
+    if (count === 0) return null;
+    const cls = FIT_COLOURS[fitLevel];
+    return (
+      <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1">
+        <span className={`text-[9px] font-bold px-[6px] py-0.5 rounded ${cls.badge}`}>{label}</span>
+        <span className="text-[10px] text-mileway-grey">{count}</span>
+        <span className="flex-1 h-px bg-mileway-border" />
+      </div>
+    );
   }
 
-  function renderPickerRow(fit: MemberFit | BizFit, isBiz: boolean) {
-    const id = isBiz ? (fit as BizFit).contact.id : (fit as MemberFit).member.id;
-    const name = isBiz ? (fit as BizFit).contact.name : (fit as MemberFit).member.name;
-    const role = isBiz
-      ? ((fit as BizFit).contact.title ?? (fit as BizFit).contact.department ?? 'BIZ')
-      : (fit as MemberFit).member.role;
+  function renderItPickerRow(fit: PlannerMemberFit) {
     const fitCls = FIT_COLOURS[fit.fitLevel];
     const freeCls =
-      fit.availableDays > 3
-        ? 'text-util-healthy'
-        : fit.availableDays > 0
-          ? 'text-util-near'
-          : 'text-mileway-border';
+      fit.availableDays > 3 ? 'text-util-healthy' : fit.availableDays > 0 ? 'text-util-near' : 'text-mileway-border';
     const freeLabel = fit.availableDays > 0 ? `${Math.round(fit.availableDays)}d free` : '—';
-
+    const badgeCls = skillsMatchingEnabled
+      ? fitCls.badge
+      : fit.availableDays > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+    const badgeLabel = skillsMatchingEnabled
+      ? tierLabels[fit.fitLevel]
+      : fit.availableDays > 0 ? 'Available' : 'Over capacity';
     return (
       <button
-        key={id}
+        key={fit.member.id}
         type="button"
-        onClick={() => addPerson(id, isBiz ? 'BIZ' : 'IT')}
+        onClick={() => addPerson(fit.member.id, 'IT')}
         className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg border border-transparent bg-transparent hover:bg-mileway-bg hover:border-mileway-border text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
       >
         <div
-          className={[
-            'flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px]',
-            isBiz ? 'bg-purple-500' : 'bg-mileway-blue',
-          ].join(' ')}
+          className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px] bg-mileway-blue"
           style={{ width: 26, height: 26 }}
         >
-          {initials(name)}
+          {initials(fit.member.name)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-xs font-semibold text-mileway-text truncate">{name}</div>
-          <div className="text-[10.5px] text-mileway-grey truncate">{role}</div>
+          <div className="text-xs font-semibold text-mileway-text truncate">{fit.member.name}</div>
+          <div className="text-[10.5px] text-mileway-grey truncate">{fit.member.role}</div>
         </div>
-        <span className={`text-[9px] font-bold px-[7px] py-0.5 rounded ${fitCls.badge}`}>
-          {fitBadgeLabel(fit.fitLevel)}
+        <span className={`text-[9px] font-bold px-[7px] py-0.5 rounded ${badgeCls}`}>
+          {badgeLabel}
         </span>
+        <span className={`text-[10.5px] font-semibold flex-shrink-0 tabular-nums ${freeCls}`}>{freeLabel}</span>
+      </button>
+    );
+  }
+
+  function renderAssignedItRow(fit: PlannerMemberFit) {
+    const a = draft.assignees.find(x => x.memberId === fit.member.id && x.track === 'IT');
+    const days = a ? clampAssigneeDays(a.daysPerSprint) : 0;
+    return (
+      <div
+        key={fit.member.id}
+        className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg bg-mileway-bg/50"
+      >
+        <div
+          className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px] bg-mileway-blue"
+          style={{ width: 26, height: 26 }}
+        >
+          {initials(fit.member.name)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold text-mileway-text truncate">{fit.member.name}</div>
+          <div className="text-[10.5px] text-mileway-grey truncate">{fit.member.role}</div>
+        </div>
+        <span className="text-[9px] font-bold px-[7px] py-0.5 rounded bg-mileway-blue/10 text-mileway-blue">Assigned</span>
+        <span className="text-[10.5px] font-semibold text-mileway-text tabular-nums flex-shrink-0">{days}d</span>
+      </div>
+    );
+  }
+
+  function renderBizPickerRow(fit: BizFit) {
+    const fitCls = FIT_COLOURS[fit.fitLevel];
+    const freeCls =
+      fit.availableDays > 3 ? 'text-util-healthy' : fit.availableDays > 0 ? 'text-util-near' : 'text-mileway-border';
+    const freeLabel = fit.availableDays > 0 ? `${Math.round(fit.availableDays)}d free` : '—';
+    const badgeCls = skillsMatchingEnabled ? fitCls.badge
+      : fit.availableDays > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+    const badgeLabel = skillsMatchingEnabled
+      ? (fit.fitLevel === 'good' ? 'Good' : fit.fitLevel === 'partial' ? 'Partial' : '—')
+      : (fit.availableDays > 0 ? 'Available' : 'Over capacity');
+    return (
+      <button
+        key={fit.contact.id}
+        type="button"
+        onClick={() => addPerson(fit.contact.id, 'BIZ')}
+        className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg border border-transparent bg-transparent hover:bg-mileway-bg hover:border-mileway-border text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+      >
+        <div
+          className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px] bg-purple-500"
+          style={{ width: 26, height: 26 }}
+        >
+          {initials(fit.contact.name)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold text-mileway-text truncate">{fit.contact.name}</div>
+          <div className="text-[10.5px] text-mileway-grey truncate">{fit.contact.title ?? fit.contact.department ?? 'BIZ'}</div>
+        </div>
+        <span className={`text-[9px] font-bold px-[7px] py-0.5 rounded ${badgeCls}`}>{badgeLabel}</span>
         <span className={`text-[10.5px] font-semibold flex-shrink-0 tabular-nums ${freeCls}`}>{freeLabel}</span>
       </button>
     );
@@ -597,6 +805,14 @@ export function AssignPanel({
         <h2 id="assign-panel-title" className="text-[15px] font-extrabold text-mileway-text leading-[1.3] mt-1 mb-2.5">
           {draft.name}
         </h2>
+        {(draft.requiredSkillIds?.length ?? 0) > 0 && (
+          <div className="flex flex-wrap items-center gap-1 mb-2">
+            {(draft.requiredSkillIds ?? []).map(id => {
+              const skill = (state.skills ?? []).find(s => s.id === id);
+              return skill ? <SkillChip key={id} name={skill.name} readOnly /> : null;
+            })}
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <span
             className="font-mono text-xs font-bold tabular-nums rounded-[5px] px-2.5 py-0.5 border border-mileway-border text-mileway-text bg-mileway-bg"
@@ -680,6 +896,8 @@ export function AssignPanel({
                   entering={enteringKeys.has(rk)}
                   onDaysChange={updateAssignmentDays}
                   onRemove={removeAssignee}
+                  overloadedSprints={overloadedByMember.get(rk) ?? []}
+                  skillMatch={skillsMatchingEnabled ? skillMatchByMember.get(a.memberId) : undefined}
                 />
               );
             })}
@@ -693,6 +911,12 @@ export function AssignPanel({
           </button>
           <div className={['assign-inline-picker', pickerTrack === 'IT' ? 'open' : ''].join(' ')}>
             <div className="pt-2 space-y-2">
+              {skillsMatchingEnabled && (draft.requiredSkillIds?.length ?? 0) > 0 && (
+                <p className="text-[10.5px] text-mileway-grey px-2.5">
+                  <span className="font-semibold">Requires:</span>{' '}
+                  {(draft.requiredSkillIds ?? []).map(id => (state.skills ?? []).find(s => s.id === id)?.name ?? id).join(', ')}.
+                </p>
+              )}
               <div className="relative">
                 <svg
                   className="absolute left-[9px] top-1/2 -translate-y-1/2 text-mileway-grey pointer-events-none"
@@ -710,96 +934,184 @@ export function AssignPanel({
                 <input
                   ref={pickerItInputRef}
                   type="search"
-                  placeholder="Search…"
+                  placeholder="Search by name or skill…"
                   value={pickerSearch}
                   onChange={e => setPickerSearch(e.target.value)}
                   className="w-full rounded-lg border border-mileway-border bg-mileway-bg py-1.5 pl-[30px] pr-2.5 text-xs focus:outline-none focus:border-mileway-blue focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,137,221,0.10)]"
                 />
               </div>
-              <div className="max-h-[180px] overflow-y-auto space-y-0.5">
-                {pickerTrack === 'IT' && pickerList.available.map(f => renderPickerRow(f, false))}
-                {pickerTrack === 'IT' && pickerList.blocked.length > 0 && (
+              <div className="max-h-[260px] overflow-y-auto space-y-0.5">
+                {pickerTrack === 'IT' && skillsMatchingEnabled && (
                   <>
-                    <div className="text-[9.5px] font-bold text-mileway-border uppercase tracking-[0.06em] px-2.5 pt-1.5 pb-0.5">
-                      No availability
-                    </div>
-                    <div className="space-y-0.5 opacity-50 pointer-events-none">
-                      {pickerList.blocked.map(f => renderPickerRow(f, false))}
-                    </div>
+                    {itPickerTiers.assigned.length > 0 && (
+                      <>
+                        <div className="flex items-center gap-1.5 px-2.5 pt-1 pb-1">
+                          <span className="text-[9px] font-bold px-[6px] py-0.5 rounded bg-mileway-blue/10 text-mileway-blue">Assigned</span>
+                          <span className="text-[10px] text-mileway-grey">{itPickerTiers.assigned.length}</span>
+                          <span className="flex-1 h-px bg-mileway-border" />
+                        </div>
+                        {itPickerTiers.assigned.map(f => renderAssignedItRow(f))}
+                      </>
+                    )}
+                    {renderTierHeader('Good fit', 'good', itPickerTiers.good.length)}
+                    {itPickerTiers.good.map(f => renderItPickerRow(f))}
+                    {renderTierHeader('Partial fit', 'partial', itPickerTiers.partial.length)}
+                    {itPickerTiers.partial.map(f => renderItPickerRow(f))}
+                    {itPickerTiers.over.length > 0 && (
+                      <>
+                        {renderTierHeader('Over capacity', 'over', itPickerTiers.over.length)}
+                        <div className="opacity-50">
+                          {itPickerTiers.over.map(f => renderItPickerRow(f))}
+                        </div>
+                      </>
+                    )}
+                    {itPickerTiers.assigned.length === 0 && itPickerTiers.good.length === 0 && itPickerTiers.partial.length === 0 && itPickerTiers.over.length === 0 && (
+                      <p className="text-[11px] text-mileway-grey text-center py-4">No team members found.</p>
+                    )}
                   </>
                 )}
+                {pickerTrack === 'IT' && !skillsMatchingEnabled && (() => {
+                  const available = [...itPickerTiers.good, ...itPickerTiers.partial];
+                  const overCapacity = itPickerTiers.over;
+                  return (
+                    <>
+                      {itPickerTiers.assigned.length > 0 && (
+                        <>
+                          <div className="flex items-center gap-1.5 px-2.5 pt-1 pb-1">
+                            <span className="text-[9px] font-bold px-[6px] py-0.5 rounded bg-mileway-blue/10 text-mileway-blue">Assigned</span>
+                            <span className="text-[10px] text-mileway-grey">{itPickerTiers.assigned.length}</span>
+                            <span className="flex-1 h-px bg-mileway-border" />
+                          </div>
+                          {itPickerTiers.assigned.map(f => renderAssignedItRow(f))}
+                        </>
+                      )}
+                      {available.length > 0 && (
+                        <>
+                          <div className="flex items-center gap-1.5 px-2.5 pt-1 pb-1">
+                            <span className="text-[9px] font-bold px-[6px] py-0.5 rounded bg-green-100 text-green-700">Available</span>
+                            <span className="text-[10px] text-mileway-grey">{available.length}</span>
+                            <span className="flex-1 h-px bg-mileway-border" />
+                          </div>
+                          {available.map(f => renderItPickerRow(f))}
+                        </>
+                      )}
+                      {overCapacity.length > 0 && (
+                        <>
+                          <div className="flex items-center gap-1.5 px-2.5 pt-1 pb-1">
+                            <span className="text-[9px] font-bold px-[6px] py-0.5 rounded bg-red-100 text-red-700">Over capacity</span>
+                            <span className="text-[10px] text-mileway-grey">{overCapacity.length}</span>
+                            <span className="flex-1 h-px bg-mileway-border" />
+                          </div>
+                          <div className="opacity-50">
+                            {overCapacity.map(f => renderItPickerRow(f))}
+                          </div>
+                        </>
+                      )}
+                      {itPickerTiers.assigned.length === 0 && available.length === 0 && overCapacity.length === 0 && (
+                        <p className="text-[11px] text-mileway-grey text-center py-4">No team members found.</p>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>
 
-          {renderTrackDivider('BIZ', true)}
-          <div className="mt-2 space-y-1.5">
-            {assignedBiz.map(a => {
-              const c = state.businessContacts?.find(b => b.id === a.memberId);
-              const rk = assigneeRowKey(a.memberId, 'BIZ');
-              return (
-                <AssigneeRowPanel
-                  key={rk}
-                  memberId={a.memberId}
-                  name={c?.name ?? a.memberId}
-                  role={c?.title ?? c?.department ?? ''}
-                  track="BIZ"
-                  daysPerSprint={a.daysPerSprint}
-                  removing={removingKeys.has(rk)}
-                  entering={enteringKeys.has(rk)}
-                  onDaysChange={updateAssignmentDays}
-                  onRemove={removeAssignee}
-                />
-              );
-            })}
-          </div>
+          {/* BIZ section — collapsible, default depends on item type */}
           <button
             type="button"
-            className="mt-2 w-full text-left text-xs font-semibold rounded-lg py-1.5 px-2.5 border border-dashed border-mileway-border text-mileway-grey bg-transparent hover:bg-mileway-bg hover:border-mileway-grey focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-            onClick={() => togglePicker('BIZ')}
+            className="flex items-center w-full mt-2.5 group cursor-pointer bg-transparent border-0 p-0"
+            onClick={() => {
+              if (bizSectionOpen && pickerTrack === 'BIZ') setPickerTrack(null);
+              setBizSectionOpen(prev => !prev);
+            }}
           >
-            {pickerTrack === 'BIZ' ? 'Cancel' : '+ Add BIZ person'}
+            <span
+              className="text-[10.5px] font-bold uppercase tracking-[0.06em] flex-shrink-0"
+              style={{ color: 'var(--color-grey)' }}
+            >
+              BIZ{assignedBiz.length > 0 ? ` (${assignedBiz.length})` : ''}
+            </span>
+            <span className="flex-1 h-px bg-mileway-border ml-2" />
+            <span className="ml-2 text-[10px] text-mileway-grey group-hover:text-mileway-text transition-colors">
+              {bizSectionOpen ? '▾' : '▸'}
+            </span>
           </button>
-          <div className={['assign-inline-picker', pickerTrack === 'BIZ' ? 'open' : ''].join(' ')}>
-            <div className="pt-2 space-y-2">
-              <div className="relative">
-                <svg
-                  className="absolute left-[9px] top-1/2 -translate-y-1/2 text-mileway-grey pointer-events-none"
-                  width={13}
-                  height={13}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden
-                >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" />
-                </svg>
-                <input
-                  ref={pickerBizInputRef}
-                  type="search"
-                  placeholder="Search…"
-                  value={pickerSearch}
-                  onChange={e => setPickerSearch(e.target.value)}
-                  className="w-full rounded-lg border border-mileway-border bg-mileway-bg py-1.5 pl-[30px] pr-2.5 text-xs focus:outline-none focus:border-mileway-blue focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,137,221,0.10)]"
-                />
+          {bizSectionOpen && (
+            <>
+              <div className="mt-2 space-y-1.5">
+                {assignedBiz.map(a => {
+                  const c = state.businessContacts?.find(b => b.id === a.memberId);
+                  const rk = assigneeRowKey(a.memberId, 'BIZ');
+                  return (
+                    <AssigneeRowPanel
+                      key={rk}
+                      memberId={a.memberId}
+                      name={c?.name ?? a.memberId}
+                      role={c?.title ?? c?.department ?? ''}
+                      track="BIZ"
+                      daysPerSprint={a.daysPerSprint}
+                      removing={removingKeys.has(rk)}
+                      entering={enteringKeys.has(rk)}
+                      onDaysChange={updateAssignmentDays}
+                      onRemove={removeAssignee}
+                      overloadedSprints={overloadedByMember.get(rk) ?? []}
+                    />
+                  );
+                })}
               </div>
-              <div className="max-h-[180px] overflow-y-auto space-y-0.5">
-                {pickerTrack === 'BIZ' && pickerList.available.map(f => renderPickerRow(f, true))}
-                {pickerTrack === 'BIZ' && pickerList.blocked.length > 0 && (
-                  <>
-                    <div className="text-[9.5px] font-bold text-mileway-border uppercase tracking-[0.06em] px-2.5 pt-1.5 pb-0.5">
-                      No availability
-                    </div>
-                    <div className="space-y-0.5 opacity-50 pointer-events-none">
-                      {pickerList.blocked.map(f => renderPickerRow(f, true))}
-                    </div>
-                  </>
-                )}
+              <button
+                type="button"
+                className="mt-2 w-full text-left text-xs font-semibold rounded-lg py-1.5 px-2.5 border border-dashed border-mileway-border text-mileway-grey bg-transparent hover:bg-mileway-bg hover:border-mileway-grey focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                onClick={() => togglePicker('BIZ')}
+              >
+                {pickerTrack === 'BIZ' ? 'Cancel' : '+ Add BIZ person'}
+              </button>
+              <div className={['assign-inline-picker', pickerTrack === 'BIZ' ? 'open' : ''].join(' ')}>
+                <div className="pt-2 space-y-2">
+                  <div className="relative">
+                    <svg
+                      className="absolute left-[9px] top-1/2 -translate-y-1/2 text-mileway-grey pointer-events-none"
+                      width={13}
+                      height={13}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <path d="m21 21-4.35-4.35" />
+                    </svg>
+                    <input
+                      ref={pickerBizInputRef}
+                      type="search"
+                      placeholder="Search…"
+                      value={pickerSearch}
+                      onChange={e => setPickerSearch(e.target.value)}
+                      className="w-full rounded-lg border border-mileway-border bg-mileway-bg py-1.5 pl-[30px] pr-2.5 text-xs focus:outline-none focus:border-mileway-blue focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,137,221,0.10)]"
+                    />
+                  </div>
+                  <div className="max-h-[180px] overflow-y-auto space-y-0.5">
+                    {pickerTrack === 'BIZ' && bizPickerList.available.map(f => renderBizPickerRow(f))}
+                    {pickerTrack === 'BIZ' && bizPickerList.blocked.length > 0 && (
+                      <>
+                        <div className="text-[9.5px] font-bold text-mileway-border uppercase tracking-[0.06em] px-2.5 pt-1.5 pb-0.5">
+                          No availability
+                        </div>
+                        <div className="space-y-0.5 opacity-50 pointer-events-none">
+                          {bizPickerList.blocked.map(f => renderBizPickerRow(f))}
+                        </div>
+                      </>
+                    )}
+                    {pickerTrack === 'BIZ' && bizPickerList.available.length === 0 && bizPickerList.blocked.length === 0 && (
+                      <p className="text-[11px] text-mileway-grey text-center py-4">No team members found.</p>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </section>
       </div>
 

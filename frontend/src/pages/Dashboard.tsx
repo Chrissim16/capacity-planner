@@ -247,31 +247,12 @@ export function Dashboard() {
    </div>
  )}
 
- {/* Stats strip */}
- {!isEmpty && (
- <div className="flex items-center gap-6 px-1">
- <Stat icon={Users} label="Team" value={activeMembers.length} color="blue" />
- <Stat icon={FolderKanban} label="Active Epics" value={activeProjects} color="slate" />
- <Stat icon={TrendingUp} label="Avg utilization" value={`${currentSummary.averageUtilization}%`} color="slate" />
- {(warnings.overallocated.length + warnings.highUtilization.length) > 0 && (
- <Stat
- icon={AlertTriangle}
- label="Alerts"
- value={warnings.overallocated.length + warnings.highUtilization.length}
- color="red"
- />
- )}
- <div className="flex-1" />
- <span className="text-xs text-[#94A3B8]">{currentQuarter} (current)</span>
- </div>
- )}
 
  {/* ── Section 1: Capacity Bank ──────────────────────────────────────────── */}
  {!isEmpty && (
  <section>
-   <div className="flex items-center justify-between mb-4">
-     <SectionLabel title="Capacity Bank" subtitle="Team capacity breakdown by process team" inline />
-     <div className="flex items-center gap-1">
+  <div className="flex items-center justify-end mb-4">
+    <div className="flex items-center gap-1">
        {yearQuarters.map(q => (
          <button
            key={q}
@@ -287,7 +268,7 @@ export function Dashboard() {
        ))}
      </div>
    </div>
-   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
      {processTeamSummaries.map(pt => {
        const { totalDays, usedDays, availableDays, utilization } = pt.data;
        const isNA = totalDays === 0;
@@ -349,12 +330,7 @@ export function Dashboard() {
  {/* ── Section 3: Timeline Preview ──────────────────────────────────────── */}
  {!isEmpty && activeMembers.length > 0 && (
  <section>
- <div className="flex items-end justify-between mb-6">
- <SectionLabel
- title="Team Timeline"
- subtitle="Capacity by member · current year"
- inline
- />
+ <div className="flex items-end justify-end mb-6">
  <div className="flex items-center gap-2">
  {/* Heatmap / Bars toggle */}
  <div className="flex items-center rounded-lg border border-[#DEDFE3] overflow-hidden text-xs font-medium">
@@ -937,7 +913,6 @@ function AlertsGrid({ warnings }: {
 
  return (
  <section>
- <SectionLabel title="Alerts" subtitle={`${alerts.length} item${alerts.length !== 1 ? 's' : ''} require attention`} />
  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
  {alerts.map(a => (
  <div key={a.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-[#DEDFE3] shadow-sm">
@@ -990,21 +965,6 @@ function LegendDot({ color, label }: { color: string; label: string }) {
  );
 }
 
-function Stat({ icon: Icon, label, value, color }: {
- icon: React.ElementType;
- label: string;
- value: string | number;
- color: 'blue' | 'slate' | 'red';
-}) {
- const iconColors = { blue: 'text-blue-500', slate: 'text-[#94A3B8]', red: 'text-red-500' };
- return (
- <div className="flex items-center gap-2">
- <Icon size={16} className={iconColors[color]} />
- <span className="text-sm text-[#94A3B8] ">{label}</span>
- <span className="text-sm font-bold text-[#1E293B] ">{value}</span>
- </div>
- );
-}
 
 // ─── Onboarding Checklist ────────────────────────────────────────────────────
 

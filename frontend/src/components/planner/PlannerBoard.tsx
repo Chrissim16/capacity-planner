@@ -31,7 +31,8 @@ import {
 } from '../../utils/staffing';
 import { SmartAssignmentPanel } from '../SmartAssignmentPanel';
 import { ProgressBar } from '../ui/ProgressBar';
-import type { TeamMember, JiraWorkItem } from '../../types';
+import type { TeamMember, JiraWorkItem, PlannerItem } from '../../types';
+import { calculateSprintCapacity, type SprintCapacityResult } from '../../utils/capacity';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,12 @@ function priorityBadge(priority?: string): { label: string; cls: string } | null
   const p = priority.toLowerCase();
   const labelMap: Record<string, string> = { highest: 'HIGHEST', high: 'HIGH', medium: 'MED', low: 'LOW', lowest: 'LOW' };
   return { label: labelMap[p] ?? priority.toUpperCase(), cls: PRIORITY_TEXT[p] ?? 'text-mileway-grey' };
+}
+
+function fmtSprintRange(start: string, end: string): string {
+  const f = (s: string) =>
+    new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${f(start)} – ${f(end)}`;
 }
 
 // ── EpicCard ──────────────────────────────────────────────────────────────────
@@ -172,15 +179,40 @@ function EpicCard({ epic, featureCount, assignedDays, isSelected, fitLevel, isDr
 interface DaysPopoverProps {
   drop: PendingDrop;
   canAssign: boolean;
+  selectedQuarter: string;
   onConfirm: (days: number) => void;
   onDismiss: () => void;
 }
 
-function DaysPopover({ drop, canAssign, onConfirm, onDismiss }: DaysPopoverProps) {
+function DaysPopover({ drop, canAssign, selectedQuarter, onConfirm, onDismiss }: DaysPopoverProps) {
+  const state = useCurrentState();
   const [rawDays, setRawDays] = useState(String(drop.suggestedDays));
   const parsedDays = Math.max(1, parseInt(rawDays, 10) || 1);
   const isOver = parsedDays > drop.availableDays && drop.availableDays > 0;
   const isValid = rawDays !== '' && parsedDays >= 1 && canAssign;
+
+  const quarterSprints = useMemo(
+    () => state.sprints.filter(s => s.quarter === selectedQuarter),
+    [state.sprints, selectedQuarter],
+  );
+
+  const scenarioPlannerItems = useMemo((): PlannerItem[] => {
+    const active = state.scenarios.find(sc => sc.id === state.activeScenarioId);
+    return (active?.plannerLayout ?? []) as PlannerItem[];
+  }, [state.scenarios, state.activeScenarioId]);
+
+  const overloadedSprints = useMemo(() => {
+    if (quarterSprints.length === 0) return [] as SprintCapacityResult[];
+    const extraPerSprint = parsedDays / quarterSprints.length;
+    const results: SprintCapacityResult[] = [];
+    for (const sp of quarterSprints) {
+      const cap = calculateSprintCapacity(drop.memberId, sp, scenarioPlannerItems, state, extraPerSprint);
+      if (cap.isOverloaded) results.push(cap);
+    }
+    return results;
+  }, [quarterSprints, scenarioPlannerItems, state, drop.memberId, parsedDays]);
+
+  const hasOverload = overloadedSprints.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -205,14 +237,30 @@ function DaysPopover({ drop, canAssign, onConfirm, onDismiss }: DaysPopoverProps
           onChange={e => setRawDays(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && isValid) onConfirm(parsedDays); }}
           autoFocus
-          className="w-full border border-mileway-border rounded-lg px-3 py-2.5 text-sm text-mileway-text focus:outline-none focus:border-mileway-blue transition-colors duration-fast"
+          className={`w-full border rounded-lg px-3 py-2.5 text-sm text-mileway-text focus:outline-none transition-colors duration-fast ${
+            hasOverload ? 'border-orange-400 focus:border-orange-500' : 'border-mileway-border focus:border-mileway-blue'
+          }`}
         />
 
-        {isOver && (
+        {hasOverload ? (
+          <div className="mt-2 space-y-0.5">
+            {overloadedSprints.slice(0, 3).map(r => (
+              <p key={r.sprint.number} className="text-[10.5px] text-util-over flex items-start gap-1">
+                <span aria-hidden>⚠</span>
+                <span>
+                  Overloaded in S{r.sprint.number} ({fmtSprintRange(r.sprint.startDate, r.sprint.endDate)}) — {Math.round(r.allocatedDays)}/{Math.round(r.totalWorkdays)} days
+                </span>
+              </p>
+            ))}
+            {overloadedSprints.length > 3 && (
+              <p className="text-[10.5px] text-util-over pl-4">…and {overloadedSprints.length - 3} more</p>
+            )}
+          </div>
+        ) : isOver ? (
           <p className="text-xs text-util-near mt-1.5">
             This exceeds available capacity for the quarter.
           </p>
-        )}
+        ) : null}
         {!canAssign && (
           <p className="text-xs text-mileway-grey mt-1.5">
             Read-only — contact your IT manager to make assignments.
@@ -457,6 +505,7 @@ export function PlannerBoard({ scenarioId: _scenarioId, selectedQuarter, sort, o
         <DaysPopover
           drop={pendingDrop}
           canAssign={canAssign}
+          selectedQuarter={selectedQuarter}
           onConfirm={handleConfirmAssign}
           onDismiss={() => setPendingDrop(null)}
         />

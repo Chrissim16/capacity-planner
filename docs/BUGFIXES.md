@@ -382,4 +382,37 @@ Run `supabase/migrations/005_fix_public_holidays_id_type.sql` in the Supabase SQ
 
 ---
 
+## Bug #010: AssignPanel crashes — `Cannot read properties of undefined (reading 'map')`
+**Date:** 2026-03-24  
+**Severity:** High (blocks assignment UI)  
+**Found by:** User testing (Scenario Planner / Timeline — opening item / assign panel)  
+**Related:** F-SP-09 (skills matching); US-SP-22
+
+### Description
+Clicking a work item to open the assignment slide-out (`AssignPanel`) threw:
+
+```
+TypeError: Cannot read properties of undefined (reading 'map')
+    at AssignPanel (AssignPanel.tsx …)
+```
+
+### Root Cause
+1. **`plannerItems` was required** and `capacityPlannerItems` used `plannerItems.map(...)`. The **Timeline** page (`frontend/src/pages/Timeline.tsx`) renders `AssignPanel` for US-TL-01 but **did not pass `plannerItems`**, so the prop was `undefined`.
+2. After F-SP-09, **`AssignPanel` assumed** normalized `PlannerItem` shapes; legacy or synthetic items could omit **`assignees`** or **`requiredSkillIds`**, risking further runtime errors (e.g. `skillIds` on members, non-null assertions on `requiredSkillIds`).
+
+### Fix
+1. **`plannerItems` optional** on `AssignPanelProps`, defaulting to **`[]`**.
+2. **`normalizePlannerItemForPanel`** — ensures `assignees` and `requiredSkillIds` are always arrays when initializing/syncing draft state.
+3. **`capacityPlannerItems`** — if the open item’s id is not in `plannerItems` (e.g. synthetic Timeline row), **append the draft** so sprint-capacity math still includes the row being edited.
+4. **`sortAssigneesKey`** — tolerates `assignees` undefined.
+5. **IT picker search** — uses `(fit.member.skillIds ?? [])`.
+6. **Header / picker** — use `(draft.requiredSkillIds ?? [])` instead of non-null assertions.
+7. **Timeline.tsx** — pass `plannerItems={migratePlannerLayout(baselineScenario?.plannerLayout ?? [])}` and set **`requiredSkillIds: []`** on the transient `PlannerItem` built from `JiraWorkItem`.
+
+### Files Changed
+- `frontend/src/components/planner/AssignPanel.tsx`
+- `frontend/src/pages/Timeline.tsx`
+
+---
+
 *End of log*

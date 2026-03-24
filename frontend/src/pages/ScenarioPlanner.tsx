@@ -12,7 +12,7 @@
  * drag-to-unschedule gesture works natively.
  */
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
-import { Loader2, Users, Filter, X, Inbox, Check, ChevronDown, RefreshCw, Plus } from 'lucide-react';
+import { Loader2, Users, Filter, X, Inbox, Check, ChevronDown, RefreshCw, Plus, GraduationCap } from 'lucide-react';
 import {
   useFloating, autoUpdate, offset, flip, shift,
   useClick, useDismiss, useRole, useInteractions,
@@ -29,6 +29,7 @@ import {
   deleteScenario,
   updateScenario,
   initBaselineScenario,
+  toggleSkillsMatching,
 } from '../stores/actions';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 import { matchesSearch } from '../utils/searchUtils';
@@ -492,6 +493,7 @@ export function ScenarioPlanner() {
 
   useEffect(() => {
     setAssignPanelItemId(null);
+    setPlannerUI(prev => ({ ...prev, detailItemId: null }));
   }, [activeScenarioId]);
 
   // Read raw store data — useCurrentState returns a stable ref via useShallow
@@ -539,14 +541,24 @@ export function ScenarioPlanner() {
 
   const homeCreateDisabled = activeScenarioCount >= 5;
 
+  const activeScenario = useMemo(
+    () => (activeScenarioId ? allState.scenarios.find(sc => sc.id === activeScenarioId) : undefined),
+    [allState.scenarios, activeScenarioId],
+  );
+
   const plannerItems = useMemo((): PlannerItem[] => {
-    const active = allState.scenarios.find(sc => sc.id === activeScenarioId);
-    const layout = active?.plannerLayout ?? [];
+    const layout = activeScenario?.plannerLayout ?? [];
     return migratePlannerLayout(layout);
-  }, [allState.scenarios, activeScenarioId]);
+  }, [activeScenario]);
 
   const sprints   = allState.sprints       ?? [];
   const jiraItems = allState.jiraWorkItems ?? [];
+  /** Scenario snapshot Jira list when present — matches capacity/health helpers; improves detail panel resolution. */
+  const jiraItemsForDetailPanel = useMemo((): JiraWorkItem[] => {
+    const snap = activeScenario?.jiraWorkItems;
+    if (snap && snap.length > 0) return snap;
+    return jiraItems;
+  }, [activeScenario?.jiraWorkItems, jiraItems]);
 
   // ── Scenario management ────────────────────────────────────────────────────
 
@@ -690,7 +702,8 @@ export function ScenarioPlanner() {
   }, []);
 
   const handleLabelDetailClick = useCallback((item: PlannerItem) => {
-    setPlannerUI(prev => ({ ...prev, detailItemId: item.jiraKey ?? item.id }));
+    // Always use planner row id so resolveItem finds the row (jiraKey can be missing, empty, or out of sync).
+    setPlannerUI(prev => ({ ...prev, detailItemId: item.id }));
   }, []);
 
   const liveAssignPanelItem = useMemo(() => {
@@ -716,6 +729,7 @@ export function ScenarioPlanner() {
         type: data.type,
         parentKey: data.parentKey,
         labels: data.labels,
+        requiredSkillIds: data.requiredSkillIds ?? [],
       };
       handleItemsChange(plannerItems.map(p => p.id === updated.id ? updated : p));
     } else {
@@ -761,6 +775,13 @@ export function ScenarioPlanner() {
     }
     setCreateModal(null);
   }, [activeScenarioId, createModal, plannerItems, handleItemsChange]);
+
+  // F-SP-09 / US-SP-22: Update required skills on a planner item from the detail panel
+  const handleUpdateRequiredSkills = useCallback((itemId: string, skillIds: string[]) => {
+    handleItemsChange(plannerItems.map(p =>
+      p.id === itemId ? { ...p, requiredSkillIds: skillIds } : p
+    ));
+  }, [plannerItems, handleItemsChange]);
 
   // SP-18: "+" button on label row
   const handleAddChild = useCallback((parentItem: PlannerItem) => {
@@ -976,6 +997,9 @@ export function ScenarioPlanner() {
     const bizCount = (allState.businessContacts ?? []).filter(c => !c.archived && !c.excludedFromCapacity).length;
     return itCount + bizCount;
   }, [allState.teamMembers, allState.businessContacts]);
+
+  // ── Skills matching toggle (US-SP-27) ───────────────────────────────────────
+  const skillsMatchingEnabled = activeScenario?.skillsMatchingEnabled ?? true;
 
   // ── Detail panel coexistence (US-UI-21) ────────────────────────────────────
   // Board mode at < 1440px: auto-close any open side drawer when detailItemId is set.
@@ -1338,6 +1362,29 @@ export function ScenarioPlanner() {
               </button>
             )}
 
+            {/* Skills matching toggle (US-SP-27) */}
+            {activeScenarioId && (
+              <button
+                type="button"
+                onClick={() => toggleSkillsMatching(activeScenarioId)}
+                title={
+                  skillsMatchingEnabled
+                    ? 'Skills matching active — assignments are ranked by skill fit.'
+                    : 'Skills matching off — assignments ranked by capacity only.'
+                }
+                className={[
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                  skillsMatchingEnabled
+                    ? 'bg-mileway-blue-10 text-mileway-blue'
+                    : 'text-mileway-grey hover:bg-mileway-bg',
+                ].join(' ')}
+              >
+                <GraduationCap size={14} aria-hidden="true" />
+                Skills
+              </button>
+            )}
+
             {/* Backlog toggle — icon only (keyboard shortcut: B) */}
             <button
               onClick={toggleBacklog}
@@ -1437,7 +1484,10 @@ export function ScenarioPlanner() {
                         scenarioId={activeScenarioId ?? ''}
                         selectedQuarter={selectedQuarter}
                         sort={boardSort}
-                        onOpenDetail={jiraKey => setPlannerUI(prev => ({ ...prev, detailItemId: jiraKey }))}
+                        onOpenDetail={jiraKey => {
+                const row = plannerItems.find(p => p.jiraKey === jiraKey);
+                setPlannerUI(prev => ({ ...prev, detailItemId: row?.id ?? jiraKey }));
+              }}
                         overlays={plannerUI.teamDrawerOpen ? (
                           <PlannerTeamDrawer
                             selectedQuarter={selectedQuarter}
@@ -1507,6 +1557,7 @@ export function ScenarioPlanner() {
                       onOverloadedTickerClick={handleOverloadedTickerClick}
                       onBacklogItemScheduled={collapseBacklog}
                       onBarUnscheduledToBacklog={expandBacklog}
+                      skillsMatchingEnabled={skillsMatchingEnabled}
                     />
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
@@ -1555,9 +1606,10 @@ export function ScenarioPlanner() {
             <PlannerDetailPanel
               detailItemId={plannerUI.detailItemId}
               plannerItems={plannerItems}
-              jiraItems={jiraItems}
+              jiraItems={jiraItemsForDetailPanel}
               sprints={sprints}
               onClose={() => setPlannerUI(prev => ({ ...prev, detailItemId: null }))}
+              onUpdateRequiredSkills={handleUpdateRequiredSkills}
             />
           )}
         </div>
@@ -1598,11 +1650,13 @@ export function ScenarioPlanner() {
       {plannerUI.activeMode === 'timeline' && activeScenarioId && liveAssignPanelItem && (
         <AssignPanel
           item={liveAssignPanelItem}
+          plannerItems={plannerItems}
           selectedQuarter={selectedQuarter}
           jiraBaseUrl={jiraBaseUrl}
           jiraItems={jiraItems}
           onClose={() => setAssignPanelItemId(null)}
           onSave={handleAssignPanelPersist}
+          skillsMatchingEnabled={skillsMatchingEnabled}
         />
       )}
 
