@@ -21,6 +21,7 @@ import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useToast } from '../components/ui/Toast';
 import { computeRollup } from '../utils/confidence';
 import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
+import { matchesSearch } from '../utils/searchUtils';
 import type {
   JiraWorkItem,
   JiraItemBizAssignment,
@@ -330,7 +331,17 @@ export function Projects() {
     return [...s].sort();
   }, [epics]);
 
-  // Filtered epics
+  // Keys of items that directly match the current search query (used for highlight + force-expand)
+  const searchMatchKeys = useMemo(() => {
+    if (!search) return null;
+    const keys = new Set<string>();
+    for (const item of jiraWorkItems) {
+      if (matchesSearch(search, item)) keys.add(item.jiraKey);
+    }
+    return keys;
+  }, [search, jiraWorkItems]);
+
+  // Filtered epics — includes epics whose descendants match the search query
   const filteredEpics = useMemo(() => {
     return epics.filter(epic => {
       if (filterStatus && epic.statusCategory !== filterStatus) return false;
@@ -346,12 +357,23 @@ export function Projects() {
         if (!contacts.some(c => c.id === filterBizContact)) return false;
       }
       if (search) {
-        const q = search.toLowerCase();
-        if (!epic.summary.toLowerCase().includes(q) && !epic.jiraKey.toLowerCase().includes(q)) return false;
+        // Direct epic match
+        if (searchMatchKeys!.has(epic.jiraKey)) return true;
+        // Match on any feature or grandchild under this epic
+        for (const feat of featuresByEpic.get(epic.jiraKey) ?? []) {
+          if (searchMatchKeys!.has(feat.jiraKey)) return true;
+          for (const child of childrenByParent.get(feat.jiraKey) ?? []) {
+            if (searchMatchKeys!.has(child.jiraKey)) return true;
+          }
+        }
+        for (const child of childrenByParent.get(epic.jiraKey) ?? []) {
+          if (searchMatchKeys!.has(child.jiraKey)) return true;
+        }
+        return false;
       }
       return true;
     });
-  }, [epics, search, filterStatus, filterPriority, filterLabel, filterITMember, filterBizContact, bizContactsByKey, state.teamMembers]);
+  }, [epics, search, searchMatchKeys, filterStatus, filterPriority, filterLabel, filterITMember, filterBizContact, bizContactsByKey, state.teamMembers, featuresByEpic, childrenByParent]);
 
   const hasFilters = search || filterStatus || filterPriority || filterLabel || filterITMember || filterBizContact;
 
@@ -476,7 +498,9 @@ export function Projects() {
           />
         ) : (
           filteredEpics.map(epic => {
-            const isExpanded = expandedEpics.has(epic.jiraKey);
+            const epicMatchesDirect = !search || (searchMatchKeys?.has(epic.jiraKey) ?? false);
+            const epicForceExpanded  = !!search && !epicMatchesDirect;
+            const isExpanded = expandedEpics.has(epic.jiraKey) || epicForceExpanded;
             const features = featuresByEpic.get(epic.jiraKey) ?? [];
             const directChildren = childrenByParent.get(epic.jiraKey) ?? [];
             const itDays = rollupMap.get(epic.jiraKey)?.forecastedDays ?? 0;
@@ -522,7 +546,7 @@ export function Projects() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm font-semibold text-gray-900 truncate">{epic.summary}</p>
+                    <p className={`text-sm font-semibold truncate ${epicMatchesDirect ? 'text-gray-900' : 'text-gray-400'}`}>{epic.summary}</p>
 
                     {/* Labels */}
                     {epic.labels && epic.labels.length > 0 && (
@@ -570,19 +594,24 @@ export function Projects() {
                   <div className="border-t border-gray-100">
                     {/* Feature rows */}
                     {features.map(feature => {
-                      const featExpanded = expandedFeatures.has(feature.jiraKey);
                       const children = childrenByParent.get(feature.jiraKey) ?? [];
+                      const featMatchesDirect = !search || (searchMatchKeys?.has(feature.jiraKey) ?? false);
+                      const featHasChildMatch = !!search && children.some(c => searchMatchKeys?.has(c.jiraKey));
+                      const featForceExpanded = !!search && !featMatchesDirect && featHasChildMatch;
+                      const featExpanded = expandedFeatures.has(feature.jiraKey) || featForceExpanded;
                       const featItDays = rollupMap.get(feature.jiraKey)?.forecastedDays ?? 0;
                       const featBizDays = featureBizDays(feature.jiraKey);
                       const featBizAssignments = jiraItemBizAssignments.filter(a => a.jiraKey === feature.jiraKey);
                       const featLink = jiraLink(feature.jiraKey);
                       const itMembers = [...new Set(children.map(c => c.assigneeName).filter(Boolean) as string[])];
+                      // Dim features that don't match and have no matching children
+                      const featDimmed = !!search && !featMatchesDirect && !featHasChildMatch;
 
                       return (
-                        <div key={feature.jiraKey} className="border-t border-gray-50">
+                        <div key={feature.jiraKey} className={`border-t border-gray-50${featDimmed ? ' opacity-40' : ''}`}>
                           {/* Feature row */}
-                          <div className="flex items-center gap-2 px-4 py-2.5 pl-10 hover:bg-[#F5F8FC] group">
-                            {showStories && children.length > 0 ? (
+                          <div className={`flex items-center gap-2 px-4 py-2.5 pl-10 hover:bg-[#F5F8FC] group${featMatchesDirect ? ' border-l-2 border-[#0089DD]' : ''}`}>
+                            {(showStories || featForceExpanded) && children.length > 0 ? (
                               <button
                                 onClick={() => toggleFeature(feature.jiraKey)}
                                 className="text-[#94A3B8] hover:text-[#94A3B8] shrink-0"
@@ -605,7 +634,7 @@ export function Projects() {
                               <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[feature.statusCategory] ?? STATUS_COLORS.todo}`}>
                                 {statusLabel(feature.statusCategory)}
                               </span>
-                              <span className="text-sm text-gray-700 truncate">{feature.summary}</span>
+                              <span className={`text-sm truncate ${featMatchesDirect ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{feature.summary}</span>
                             </div>
 
                             {/* IT assignees */}
@@ -647,14 +676,18 @@ export function Projects() {
                           </div>
 
                           {/* Story rows */}
-                          {showStories && featExpanded && children.map(child => {
+                          {(showStories || featForceExpanded) && featExpanded && children.map(child => {
+                            const childMatchesDirect = !search || (searchMatchKeys?.has(child.jiraKey) ?? false);
+                            const childDimmed = !!search && !childMatchesDirect;
+                            // When a search is active, hide non-matching children unless showStories is on
+                            if (search && !showStories && !childMatchesDirect) return null;
                             const childBizAssignments = jiraItemBizAssignments.filter(a => a.jiraKey === child.jiraKey);
                             const childBizDays = bizDaysByKey.get(child.jiraKey) ?? 0;
                             const childLink = jiraLink(child.jiraKey);
                             const childItDays = rollupMap.get(child.jiraKey)?.forecastedDays ?? 0;
 
                             return (
-                              <div key={child.jiraKey} className="flex items-center gap-2 px-4 py-2 pl-20 bg-[#F5F8FC]/50 hover:bg-[#F5F8FC] border-t border-gray-50">
+                              <div key={child.jiraKey} className={`flex items-center gap-2 px-4 py-2 pl-20 bg-[#F5F8FC]/50 hover:bg-[#F5F8FC] border-t border-gray-50${childMatchesDirect ? ' border-l-2 border-[#0089DD]' : ''}${childDimmed ? ' opacity-40' : ''}`}>
                                 <div className="flex-1 flex items-center gap-2 min-w-0">
                                   {childLink ? (
                                     <a href={childLink} target="_blank" rel="noopener noreferrer"
@@ -667,7 +700,7 @@ export function Projects() {
                                   <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[child.statusCategory] ?? STATUS_COLORS.todo}`}>
                                     {statusLabel(child.statusCategory)}
                                   </span>
-                                  <span className="text-xs text-[#94A3B8] truncate">{child.summary}</span>
+                                  <span className={`text-xs truncate ${childMatchesDirect ? 'font-semibold text-gray-800' : 'text-[#94A3B8]'}`}>{child.summary}</span>
                                 </div>
 
                                 {/* Assignee */}
@@ -728,14 +761,16 @@ export function Projects() {
                     })}
 
                     {/* Direct children of epic (stories/tasks directly under epic) */}
-                    {showStories && directChildren.map(child => {
+                    {(showStories || epicForceExpanded) && directChildren.map(child => {
+                      const childMatchesDirect = !search || (searchMatchKeys?.has(child.jiraKey) ?? false);
+                      if (search && !showStories && !childMatchesDirect) return null;
                       const childBizAssignments = jiraItemBizAssignments.filter(a => a.jiraKey === child.jiraKey);
                       const childBizDays = bizDaysByKey.get(child.jiraKey) ?? 0;
                       const childLink = jiraLink(child.jiraKey);
                       const childItDays = rollupMap.get(child.jiraKey)?.forecastedDays ?? 0;
 
                       return (
-                        <div key={child.jiraKey} className="flex items-center gap-2 px-4 py-2 pl-12 bg-[#F5F8FC]/30 hover:bg-[#F5F8FC] border-t border-gray-50">
+                        <div key={child.jiraKey} className={`flex items-center gap-2 px-4 py-2 pl-12 bg-[#F5F8FC]/30 hover:bg-[#F5F8FC] border-t border-gray-50${childMatchesDirect ? ' border-l-2 border-[#0089DD]' : ''}${search && !childMatchesDirect ? ' opacity-40' : ''}`}>
                           <div className="flex-1 flex items-center gap-2 min-w-0">
                             {childLink ? (
                               <a href={childLink} target="_blank" rel="noopener noreferrer"
@@ -748,7 +783,7 @@ export function Projects() {
                             <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[child.statusCategory] ?? STATUS_COLORS.todo}`}>
                               {statusLabel(child.statusCategory)}
                             </span>
-                            <span className="text-xs text-[#94A3B8] truncate">{child.summary}</span>
+                            <span className={`text-xs truncate ${childMatchesDirect ? 'font-semibold text-gray-800' : 'text-[#94A3B8]'}`}>{child.summary}</span>
                           </div>
                           <div className="hidden sm:flex items-center gap-1 text-xs text-[#94A3B8] shrink-0 min-w-24">
                             {child.assigneeName && (

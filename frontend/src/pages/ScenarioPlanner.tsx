@@ -31,6 +31,7 @@ import {
   initBaselineScenario,
 } from '../stores/actions';
 import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
+import { matchesSearch } from '../utils/searchUtils';
 import { migratePlannerLayout } from '../utils/plannerMigration';
 import { resolveItemAssignees } from '../utils/plannerInit';
 import {
@@ -475,6 +476,7 @@ export function ScenarioPlanner() {
   // SP-20/21: Filters
   const [filterLabels, setFilterLabels] = useState<string[]>([]);
   const [filterEpics, setFilterEpics]   = useState<string[]>([]);
+  const [search, setSearch]             = useState('');
 
   // Home screen (no scenario open)
   const [showArchived, setShowArchived] = useState(false);
@@ -807,7 +809,7 @@ export function ScenarioPlanner() {
 
   // ── SP-20/21: Filtered items for timeline ─────────────────────────────────
 
-  const hasFilters = filterLabels.length > 0 || filterEpics.length > 0;
+  const hasFilters = filterLabels.length > 0 || filterEpics.length > 0 || !!search;
 
   // Resolve which member IDs belong to the focused process team
   const membersInFocusedTeam = useMemo((): Set<string> | null => {
@@ -902,8 +904,38 @@ export function ScenarioPlanner() {
       }
     }
 
-    return items.filter(p => matchingIds.has(p.id));
-  }, [plannerItems, filterLabels, filterEpics, hasFilters, membersInFocusedTeam]);
+    items = items.filter(p => matchingIds.has(p.id));
+
+    // Text search: item name/key or assignee name, with ancestor inclusion
+    if (search) {
+      const memberById = new Map(allState.teamMembers.map(m => [m.id, m]));
+      const byKey      = new Map(plannerItems.map(p => [p.jiraKey ?? p.id, p]));
+
+      const directMatches = new Set<string>();
+      for (const item of items) {
+        const assigneeNames = [
+          ...item.jiraAssignees,
+          ...item.assignees.map(a => memberById.get(a.memberId)?.name ?? ''),
+        ].filter(Boolean);
+        if (matchesSearch(search, { name: item.name, jiraKey: item.jiraKey }, assigneeNames)) {
+          directMatches.add(item.id);
+        }
+      }
+
+      const includeIds = new Set(directMatches);
+      for (const id of directMatches) {
+        let cur: PlannerItem | undefined = items.find(p => p.id === id);
+        while (cur?.parentKey) {
+          const parent = byKey.get(cur.parentKey);
+          if (parent) { includeIds.add(parent.id); cur = parent; } else break;
+        }
+      }
+
+      items = items.filter(p => includeIds.has(p.id));
+    }
+
+    return items;
+  }, [plannerItems, filterLabels, filterEpics, hasFilters, membersInFocusedTeam, search, allState.teamMembers]);
 
   // Keep ref in sync so handleItemsChange can merge filtered vs. full item lists
   filteredPlannerItemsRef.current = filteredPlannerItems;
@@ -1221,6 +1253,17 @@ export function ScenarioPlanner() {
           {/* Mode toggle — follows the left divider */}
           <ModeToggle mode={plannerUI.activeMode} onChange={handleModeChange} />
 
+          {/* Generic search — visible in both timeline and board modes */}
+          {activeScenarioId && (
+            <input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="px-3 py-1.5 rounded-lg border border-mileway-border bg-white text-sm text-mileway-text placeholder-mileway-grey focus:outline-none focus:border-mileway-blue focus:ring-1 focus:ring-mileway-blue w-40 transition-colors"
+            />
+          )}
+
           {/* Timeline-only filters — middle section */}
           {plannerUI.activeMode === 'timeline' && (
             <>
@@ -1267,7 +1310,7 @@ export function ScenarioPlanner() {
 
                 {hasFilters && (
                   <button
-                    onClick={() => { setFilterLabels([]); setFilterEpics([]); }}
+                    onClick={() => { setFilterLabels([]); setFilterEpics([]); setSearch(''); }}
                     title="Clear all filters"
                     className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                   >
