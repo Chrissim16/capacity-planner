@@ -1297,6 +1297,7 @@ export function PlannerTimeline({
             jiraAssignees: source.assigneeName ? [source.assigneeName] : [],
             jiraStartDate: source.startDate,
             jiraEndDate: source.dueDate,
+            requiredSkillIds: [],
           };
         }
 

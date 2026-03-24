@@ -181,7 +181,7 @@ export function ReportPDF({
               <View key={item.id} style={s.ganttRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', width: 160 }}>
                   <StatusBadge status={status} />
-                  <Text style={{ fontSize: 8, flex: 1 }} numberOfLines={1}>{item.name}</Text>
+                  <Text style={{ fontSize: 8, flex: 1 }}>{item.name}</Text>
                 </View>
 
                 <View style={s.ganttTrack}>
