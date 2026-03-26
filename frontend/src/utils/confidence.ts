@@ -52,6 +52,26 @@ export interface RollupResult {
 }
 
 /**
+ * Resolves the effective confidence level for a leaf item by walking up the
+ * parentKey chain. This allows setting confidence on an epic or feature to
+ * cascade down to all descendant leaves that don't have their own explicit level.
+ *
+ * Precedence: item's own level → nearest ancestor's level → global default.
+ */
+function resolveConfidence(
+  item: JiraWorkItem,
+  byKey: Map<string, JiraWorkItem>,
+  defaultConfidence: ConfidenceLevel,
+): ConfidenceLevel {
+  let current: JiraWorkItem | undefined = item;
+  while (current) {
+    if (current.confidenceLevel) return current.confidenceLevel;
+    current = current.parentKey ? byKey.get(current.parentKey) : undefined;
+  }
+  return defaultConfidence;
+}
+
+/**
  * Computes a map of jiraKey → { rawDays, forecastedDays, itemCount } for every
  * item that has children (features rolling up stories, epics rolling up features).
  *
@@ -85,7 +105,7 @@ export function computeRollup(
     if (children.length === 0) {
       // Leaf node — contribute own days
       const raw = item ? getRawDays(item, defaultDaysPerItem) : 0;
-      const level = item?.confidenceLevel ?? defaultConfidence;
+      const level = item ? resolveConfidence(item, byKey, defaultConfidence) : defaultConfidence;
       const result: RollupResult = {
         rawDays: raw,
         forecastedDays: getForecastedDays(raw, level, confidenceSettings),

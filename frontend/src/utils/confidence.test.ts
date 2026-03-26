@@ -128,4 +128,39 @@ describe('computeRollup', () => {
     expect(rollup.get('FEAT-1')!.rawDays).toBe(4);
     expect(rollup.get('EPIC-1')!.rawDays).toBe(4);
   });
+
+  it('cascades epic confidence to child stories without their own level', () => {
+    // Epic has 'high' confidence set; its stories have none → should inherit 'high'
+    const epic = makeItem({ jiraKey: 'EPIC-1', type: 'Epic', confidenceLevel: 'high' });
+    const story = makeItem({ jiraKey: 'STORY-1', type: 'Story', parentKey: 'EPIC-1', storyPoints: 10 });
+
+    // Global default is 'low' — should NOT be used because ancestor sets 'high'
+    const rollup = computeRollup([epic, story], 'low', DEFAULT_SETTINGS);
+
+    // 10 × 1.05 = 10.5 → ceil = 11  (high buffer, not low 25%)
+    expect(rollup.get('EPIC-1')!.forecastedDays).toBe(11);
+  });
+
+  it('cascades feature confidence to child stories, overriding the global default', () => {
+    const epic = makeItem({ jiraKey: 'EPIC-1', type: 'Epic' });
+    const feature = makeItem({ jiraKey: 'FEAT-1', type: 'Feature', parentKey: 'EPIC-1', confidenceLevel: 'low' });
+    const story = makeItem({ jiraKey: 'STORY-1', type: 'Story', parentKey: 'FEAT-1', storyPoints: 10 });
+
+    // Global default is 'high' — feature sets 'low', so story should use 'low'
+    const rollup = computeRollup([epic, feature, story], 'high', DEFAULT_SETTINGS);
+
+    // 10 × 1.25 = 12.5 → ceil = 13  (low buffer)
+    expect(rollup.get('FEAT-1')!.forecastedDays).toBe(13);
+    expect(rollup.get('EPIC-1')!.forecastedDays).toBe(13);
+  });
+
+  it("story's own confidence level takes precedence over parent epic's", () => {
+    const epic = makeItem({ jiraKey: 'EPIC-1', type: 'Epic', confidenceLevel: 'low' });
+    const story = makeItem({ jiraKey: 'STORY-1', type: 'Story', parentKey: 'EPIC-1', storyPoints: 10, confidenceLevel: 'high' });
+
+    const rollup = computeRollup([epic, story], 'medium', DEFAULT_SETTINGS);
+
+    // Story's own 'high' wins over epic's 'low': 10 × 1.05 = 10.5 → ceil = 11
+    expect(rollup.get('EPIC-1')!.forecastedDays).toBe(11);
+  });
 });

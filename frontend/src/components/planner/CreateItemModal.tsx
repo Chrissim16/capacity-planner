@@ -84,6 +84,9 @@ export function CreateItemModal({
   const parentOptions = useMemo(() => {
     const items = state.jiraWorkItems ?? [];
     if (type === 'feature') return items.filter(i => i.type === 'epic').map(i => ({ key: i.jiraKey, label: `${i.jiraKey}: ${i.summary}` }));
+    if (type === 'uat' || type === 'hypercare') {
+      return items.filter(i => i.type === 'epic').map(i => ({ key: i.jiraKey, label: `${i.jiraKey}: ${i.summary}` }));
+    }
     if (type === 'story' || type === 'task' || type === 'bug') {
       return items
         .filter(i => i.type === 'feature' || i.type === 'epic')
@@ -178,7 +181,17 @@ export function CreateItemModal({
             <label className="block text-xs font-semibold text-mileway-grey mb-1">Type</label>
             <select
               value={type}
-              onChange={e => { setType(e.target.value as PlannerItemType); setParentKey(''); }}
+              onChange={e => {
+                const newType = e.target.value as PlannerItemType;
+                setType(newType);
+                if (newType === 'uat' || newType === 'hypercare') {
+                  // Preserve the context parent key (set when the user clicked "+" on a row);
+                  // fall back to no parent so the user can pick the correct epic manually.
+                  setParentKey(defaultParentKey ?? '');
+                } else {
+                  setParentKey('');
+                }
+              }}
               className="w-full px-3 py-2 text-sm border border-mileway-border rounded-lg text-mileway-text bg-white focus:outline-none focus:border-mileway-blue transition-colors"
             >
               {TYPE_OPTIONS.map(o => (
