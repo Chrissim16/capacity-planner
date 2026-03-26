@@ -323,7 +323,86 @@ function formatSprintRange(startDate: string, endDate: string): string {
   return `${fmt(startDate)}–${fmt(endDate)}`;
 }
 
-// ── SprintHeaders ─────────────────────────────────────────────────────────────
+// ── TimelineHeader ────────────────────────────────────────────────────────────
+
+function QuarterRow({
+  quarters,
+  totalSprints,
+  dragOverQuarterLabel,
+}: {
+  quarters: VisibleQuarter[];
+  totalSprints: number;
+  dragOverQuarterLabel: string | null;
+}) {
+  return (
+    <div className="flex border-b border-mileway-border" style={{ height: QUARTER_ROW_H, background: 'var(--color-mileway-bg, #F8FAFC)' }}>
+      {quarters.map(q => {
+        const isOver = dragOverQuarterLabel === q.label;
+        const widthPct = (q.sprintCount / totalSprints) * 100;
+        return (
+          <div
+            key={q.label}
+            style={{ width: `${widthPct}%` }}
+            className={[
+              'flex-shrink-0 flex items-center px-3 border-r border-mileway-border last:border-r-0',
+              isOver ? 'text-mileway-blue' : 'text-mileway-grey',
+            ].join(' ')}
+          >
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              {q.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function QuarterHeaders({
+  quarters,
+  totalSprints,
+  dragOverQuarterLabel,
+  currentQuarterLabel,
+}: {
+  quarters: VisibleQuarter[];
+  totalSprints: number;
+  dragOverQuarterLabel: string | null;
+  currentQuarterLabel: string | null;
+}) {
+  return (
+    <div className="flex border-b border-mileway-border bg-white" style={{ height: SPRINT_HEADER_H }}>
+      {quarters.map(q => {
+        const isCurrent = q.label === currentQuarterLabel;
+        const isOver = dragOverQuarterLabel === q.label;
+        const widthPct = (q.sprintCount / totalSprints) * 100;
+        return (
+          <div
+            key={q.label}
+            style={{
+              width: `${widthPct}%`,
+              borderTop: isCurrent ? '3px solid var(--color-mileway-blue, #2558C9)' : '3px solid transparent',
+            }}
+            className={[
+              'flex-shrink-0 relative px-3 border-r border-mileway-border last:border-r-0 transition-colors duration-fast',
+              'flex flex-col justify-center gap-1',
+              isOver ? 'bg-mileway-blue-10' : '',
+            ].join(' ')}
+          >
+            <span
+              style={{ fontSize: 14 }}
+              className={['font-bold leading-none', isOver ? 'text-mileway-blue' : 'text-mileway-text'].join(' ')}
+            >
+              {q.label}
+            </span>
+            <span style={{ fontSize: 10 }} className="text-mileway-grey leading-none">
+              {q.sprintCount} sprint{q.sprintCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function SprintHeaders({
   sprints,
@@ -376,6 +455,55 @@ function SprintHeaders({
         );
       })}
     </div>
+  );
+}
+
+function TimelineHeader({
+  viewMode,
+  sprints,
+  sprintCount,
+  quarters,
+  dragOverNum,
+  currentSprintNum,
+  currentQuarterLabel,
+}: {
+  viewMode: 'sprint' | 'quarter';
+  sprints: Sprint[];
+  sprintCount: number;
+  quarters: VisibleQuarter[];
+  dragOverNum: number | null;
+  currentSprintNum: number | null;
+  currentQuarterLabel: string | null;
+}) {
+  const dragOverQuarterLabel = dragOverNum !== null
+    ? (sprints.find(s => s.number === dragOverNum)?.quarter ?? null)
+    : null;
+
+  if (viewMode === 'quarter') {
+    return (
+      <QuarterHeaders
+        quarters={quarters}
+        totalSprints={sprintCount}
+        dragOverQuarterLabel={dragOverQuarterLabel}
+        currentQuarterLabel={currentQuarterLabel}
+      />
+    );
+  }
+
+  return (
+    <>
+      <QuarterRow
+        quarters={quarters}
+        totalSprints={sprintCount}
+        dragOverQuarterLabel={dragOverQuarterLabel}
+      />
+      <SprintHeaders
+        sprints={sprints}
+        sprintCount={sprintCount}
+        dragOverNum={dragOverNum}
+        currentSprintNum={currentSprintNum}
+      />
+    </>
   );
 }
 
