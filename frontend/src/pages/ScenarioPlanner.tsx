@@ -12,7 +12,7 @@
  * drag-to-unschedule gesture works natively.
  */
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
-import { Loader2, Users, Filter, X, Inbox, Check, ChevronDown, RefreshCw, Plus, GraduationCap } from 'lucide-react';
+import { Loader2, Users, Filter, X, Inbox, Check, ChevronDown, RefreshCw, Plus, GraduationCap, Edit3 } from 'lucide-react';
 import {
   useFloating, autoUpdate, offset, flip, shift,
   useClick, useDismiss, useRole, useInteractions,
@@ -35,6 +35,7 @@ import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
 import { matchesSearch } from '../utils/searchUtils';
 import { migratePlannerLayout } from '../utils/plannerMigration';
 import { resolveItemAssignees } from '../utils/plannerInit';
+import { getEffectiveSkills } from '../utils/workItemSkills';
 import {
   appStateForScenario,
   countOverloadedTeamSprints,
@@ -59,6 +60,7 @@ import { PlannerDetailPanel } from '../components/planner/PlannerDetailPanel';
 import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
 import { PlannerContextMenu, type ContextMenuTarget } from '../components/planner/PlannerContextMenu';
 import { PlannerPersonFilterPill } from '../components/planner/PlannerPersonFilterPill';
+import { BulkEditPlannerItemsModal } from '../components/planner/BulkEditPlannerItemsModal';
 import type { PlannerItem, PlannerItemType, PlannerAssignment, Scenario, JiraWorkItem } from '../types';
 import type { BoardSort } from '../components/planner/PlannerBoard';
 
@@ -473,6 +475,8 @@ export function ScenarioPlanner() {
     defaultParentKey?: string;
   } | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuTarget | null>(null);
+  const [plannerBulkEditOpen, setPlannerBulkEditOpen] = useState(false);
+  const [plannerSelectedIds, setPlannerSelectedIds] = useState<string[]>([]);
 
   // SP-20/21: Filters
   const [filterLabels, setFilterLabels] = useState<string[]>([]);
@@ -652,7 +656,8 @@ export function ScenarioPlanner() {
         jiraAssignees: source.assigneeName ? [source.assigneeName] : [],
         jiraStartDate: source.startDate,
         jiraEndDate: source.dueDate,
-        requiredSkillIds: [],
+        // Auto-populate from the source work item (inheriting from parent epic if not set)
+        requiredSkillIds: getEffectiveSkills(source, jiraItems),
       };
     }
 
@@ -1363,6 +1368,22 @@ export function ScenarioPlanner() {
               </button>
             )}
 
+            {/* Bulk edit planner items */}
+            {activeScenarioId && plannerItems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPlannerSelectedIds(plannerItems.map(p => p.id));
+                  setPlannerBulkEditOpen(true);
+                }}
+                title="Bulk edit all planner items in this scenario"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+              >
+                <Edit3 size={14} aria-hidden="true" />
+                Bulk Edit
+              </button>
+            )}
+
             {/* Skills matching toggle (US-SP-27) */}
             {activeScenarioId && (
               <button
@@ -1681,6 +1702,13 @@ export function ScenarioPlanner() {
           onClose={() => setContextMenu(null)}
         />
       )}
+
+      {/* Bulk edit planner items modal */}
+      <BulkEditPlannerItemsModal
+        isOpen={plannerBulkEditOpen}
+        onClose={() => { setPlannerBulkEditOpen(false); setPlannerSelectedIds([]); }}
+        selectedIds={plannerSelectedIds}
+      />
 
       {/* SP-20/21: Active filter chips (shown below toolbar when filters are active) */}
       {activeScenarioId && hasFilters && plannerUI.activeMode === 'timeline' && (

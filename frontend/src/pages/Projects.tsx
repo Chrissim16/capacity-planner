@@ -1,13 +1,15 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   Search, ChevronDown, ChevronRight, ExternalLink,
   RefreshCw, Loader2, X, Check, Filter, Users,
   AlertCircle, UserCircle2, Building2, UserPlus,
+  CheckSquare, Square, Edit3,
 } from 'lucide-react';
 import { SmartAssignmentPanel } from '../components/SmartAssignmentPanel';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { BulkEditWorkItemsModal } from '../components/BulkEditWorkItemsModal';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useCurrentState } from '../stores/appStore';
 import {
@@ -16,6 +18,7 @@ import {
   updateJiraWorkItemConfidence,
 } from '../stores/actions';
 import { DaysCell } from '../components/JiraHierarchyTree';
+import { WorkItemSkillsCell } from '../components/WorkItemSkillsCell';
 import { fetchSyncPreview, applySync } from '../application/jiraSync';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useToast } from '../components/ui/Toast';
@@ -221,6 +224,18 @@ export function Projects() {
   // SmartAssignmentPanel slide-out
   const [staffingEpic, setStaffingEpic] = useState<{ jiraKey: string; summary: string } | null>(null);
 
+  // Multi-select + bulk edit
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
   // Build hierarchy
   const { epics, featuresByEpic, childrenByParent } = useMemo(() => {
     const epics: JiraWorkItem[] = [];
@@ -377,6 +392,15 @@ export function Projects() {
 
   const hasFilters = search || filterStatus || filterPriority || filterLabel || filterITMember || filterBizContact;
 
+  const selectAllFiltered = useCallback(() => {
+    const allFilteredIds = filteredEpics.map(e => e.id);
+    setSelectedIds(prev => {
+      const allSelected = allFilteredIds.every(id => prev.has(id));
+      if (allSelected) return new Set<string>();
+      return new Set(allFilteredIds);
+    });
+  }, [filteredEpics]);
+
   const toggleEpic = (key: string) =>
     setExpandedEpics(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
 
@@ -482,6 +506,25 @@ export function Projects() {
         )}
       </div>
 
+      {/* Select-all row */}
+      {filteredEpics.length > 0 && (
+        <div className="px-6 pb-2 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={selectAllFiltered}
+            className="flex items-center gap-1.5 text-xs text-[#94A3B8] hover:text-[#0089DD] transition-colors"
+          >
+            {filteredEpics.every(e => selectedIds.has(e.id))
+              ? <><CheckSquare size={13} className="text-[#0089DD]" /> Deselect all</>
+              : <><Square size={13} /> Select all {filteredEpics.length} filtered</>
+            }
+          </button>
+          {selectedIds.size > 0 && (
+            <span className="text-xs text-[#0089DD] font-medium">{selectedIds.size} selected</span>
+          )}
+        </div>
+      )}
+
       {/* Epics list */}
       <div className="flex-1 overflow-auto px-6 pb-6 space-y-3">
         {jiraWorkItems.length === 0 ? (
@@ -508,13 +551,25 @@ export function Projects() {
             const memberEmails = epicITMembers(epic.jiraKey);
             const link = jiraLink(epic.jiraKey);
 
+            const isSelected = selectedIds.has(epic.id);
+
             return (
-              <div key={epic.jiraKey} className="bg-white border border-[#DEDFE3] rounded-xl shadow-sm">
+              <div key={epic.jiraKey} className={`bg-white border rounded-xl shadow-sm ${isSelected ? 'border-[#0089DD]' : 'border-[#DEDFE3]'}`}>
                 {/* Epic header */}
                 <div
                   className="flex items-start gap-3 p-4 cursor-pointer hover:bg-[#F5F8FC] select-none"
                   onClick={() => toggleEpic(epic.jiraKey)}
                 >
+                  {/* Checkbox */}
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); toggleSelect(epic.id); }}
+                    className="mt-0.5 shrink-0 text-[#94A3B8] hover:text-[#0089DD] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD] rounded"
+                    aria-label={isSelected ? 'Deselect epic' : 'Select epic'}
+                  >
+                    {isSelected ? <CheckSquare size={16} className="text-[#0089DD]" /> : <Square size={16} />}
+                  </button>
+
                   <div className="mt-0.5 text-[#94A3B8] shrink-0">
                     {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </div>
@@ -578,6 +633,7 @@ export function Projects() {
                         {memberEmails.length}
                       </div>
                     )}
+                    <WorkItemSkillsCell item={epic} allItems={jiraWorkItems} />
                     <button
                       onClick={e => { e.stopPropagation(); setStaffingEpic({ jiraKey: epic.jiraKey, summary: epic.summary }); }}
                       className="p-1.5 rounded-lg text-[#0089DD] hover:bg-[#DEDFE3] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD]"
@@ -651,6 +707,9 @@ export function Projects() {
                             <div className="text-xs text-right text-[#0089DD] font-medium shrink-0 min-w-14">
                               {daysFmt(featItDays)}
                             </div>
+
+                            {/* Required skills */}
+                            <WorkItemSkillsCell item={feature} allItems={jiraWorkItems} />
 
                             {/* BIZ days — click to open popover */}
                             <div className="relative shrink-0 min-w-14">
@@ -732,6 +791,9 @@ export function Projects() {
                                   )}
                                 </div>
 
+                                {/* Required skills */}
+                                <WorkItemSkillsCell item={child} allItems={jiraWorkItems} />
+
                                 {/* BIZ days popover */}
                                 <div className="relative shrink-0 min-w-14">
                                   <button
@@ -803,6 +865,9 @@ export function Projects() {
                               <span className="text-xs text-[#0089DD] font-medium">{daysFmt(childItDays)}</span>
                             )}
                           </div>
+                          {/* Required skills */}
+                          <WorkItemSkillsCell item={child} allItems={jiraWorkItems} />
+
                           <div className="relative shrink-0 min-w-14">
                             <button
                               onClick={() => setOpenBizPopover(openBizPopover === child.jiraKey ? null : child.jiraKey)}
@@ -847,6 +912,37 @@ export function Projects() {
       )}
 
       {/* Sync confirmation modal */}
+      {/* Floating bulk-edit toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 bg-[#1E293B] text-white rounded-2xl shadow-2xl">
+          <span className="text-sm font-medium">{selectedIds.size} epic{selectedIds.size !== 1 ? 's' : ''} selected</span>
+          <button
+            type="button"
+            onClick={() => setBulkEditOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-[#0089DD] hover:bg-[#0077C2] rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <Edit3 size={14} />
+            Bulk Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="p-1 rounded text-[#94A3B8] hover:text-white transition-colors focus:outline-none"
+            aria-label="Clear selection"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Bulk edit modal */}
+      <BulkEditWorkItemsModal
+        isOpen={bulkEditOpen}
+        onClose={() => { setBulkEditOpen(false); setSelectedIds(new Set()); }}
+        selectedIds={[...selectedIds]}
+        itemLabel="epics"
+      />
+
       {pendingDiff && (
         <Modal
           isOpen={true}

@@ -22,6 +22,8 @@ import {
   CheckCircle2,
   X,
 } from 'lucide-react';
+import { useCurrentState } from '../../stores/appStore';
+import { getEffectiveSkills } from '../../utils/workItemSkills';
 import type { JiraWorkItem, JiraItemType, PlannerItem } from '../../types';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -749,8 +751,17 @@ export function BacklogItem({ item, indent = 0, hasChildren = false, isExpanded 
     data: { type: 'backlog-item', jiraItem: item },
   });
 
+  const state = useCurrentState();
+  const allJiraItems = state.jiraWorkItems ?? [];
+  const allSkills = state.skills ?? [];
+
   const chip = TYPE_CHIP[item.type] ?? TYPE_CHIP.task;
   const isActive = item.statusCategory === 'in_progress';
+
+  const effectiveSkillIds = getEffectiveSkills(item, allJiraItems);
+  const effectiveSkills = effectiveSkillIds
+    .map(id => allSkills.find(s => s.id === id))
+    .filter(Boolean);
 
   // Sprint or date range display (SP-03)
   const sprintLabel = (() => {
@@ -866,7 +877,27 @@ export function BacklogItem({ item, indent = 0, hasChildren = false, isExpanded 
             </div>
           )}
 
-          {/* Row 5: Assignee + sprint/date (SP-03) */}
+          {/* Row 5: Required skills — read-only badges */}
+          {effectiveSkills.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              {effectiveSkills.slice(0, 3).map(s => s && (
+                <span
+                  key={s.id}
+                  className="inline-block text-[10px] font-medium text-mileway-blue bg-mileway-blue-10 px-1.5 py-0.5 rounded border border-mileway-blue/20 truncate max-w-[80px]"
+                  title={s.name}
+                >
+                  {s.name}
+                </span>
+              ))}
+              {effectiveSkills.length > 3 && (
+                <span className="inline-block text-[10px] font-medium text-mileway-grey px-1 py-0.5">
+                  +{effectiveSkills.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Row 6: Assignee + sprint/date (SP-03) */}
           {(item.assigneeName || sprintLabel) && (
             <div className="flex items-center gap-2 flex-wrap">
               {item.assigneeName && (

@@ -252,6 +252,8 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       dueDate: w.due_date ?? undefined,
       staleFromJira: w.stale_from_jira ?? undefined,
       confidenceLevel: (w.confidence_level as JiraWorkItem['confidenceLevel']) ?? undefined,
+      // App-only field — never sourced from Jira
+      requiredSkillIds: Array.isArray(w.required_skill_ids) ? w.required_skill_ids : null,
     }));
 
     const scenarios: Scenario[] = (scenariosRes.data ?? []).map(s => ({
@@ -614,6 +616,8 @@ async function syncJiraWorkItems(items: JiraWorkItem[]): Promise<void> {
     due_date: w.dueDate ?? null,
     stale_from_jira: w.staleFromJira ?? null,
     confidence_level: w.confidenceLevel ?? null,
+    // App-only field — never read from or written to Jira
+    required_skill_ids: w.requiredSkillIds ?? null,
   }));
 }
 

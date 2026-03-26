@@ -494,7 +494,9 @@ export function syncJiraWorkItems(connectionId: string, newItems: JiraWorkItem[]
       return {
         ...newItem,
         id: existing.id,
+        // Preserve app-only fields that Jira sync never provides
         confidenceLevel: existing.confidenceLevel,
+        requiredSkillIds: existing.requiredSkillIds,
         sprintStartDate: newItem.sprintStartDate ?? existing.sprintStartDate,
         sprintEndDate: newItem.sprintEndDate ?? existing.sprintEndDate,
       };
@@ -530,6 +532,54 @@ export function updateJiraWorkItemConfidence(
       ? { ...item, confidenceLevel: confidenceLevel ?? undefined }
       : item
   );
+  state.updateData({ jiraWorkItems });
+}
+
+/**
+ * Set required skills on a single work item.
+ * Pass `null` to revert to inheriting skills from the parent epic.
+ * Pass `[]` to explicitly clear all skills (overrides inheritance).
+ */
+export function updateJiraWorkItemSkills(
+  workItemId: string,
+  skillIds: string[] | null,
+): void {
+  const state = useAppStore.getState();
+  const jiraWorkItems = state.getCurrentState().jiraWorkItems.map(item =>
+    item.id === workItemId
+      ? { ...item, requiredSkillIds: skillIds }
+      : item
+  );
+  state.updateData({ jiraWorkItems });
+}
+
+/**
+ * Bulk update multiple work items with partial field updates.
+ *
+ * For array fields (requiredSkillIds, labels), `arrayMode`:
+ *   'replace' — replaces the array entirely (default)
+ *   'add'     — unions the new values with the existing array
+ */
+export function bulkUpdateWorkItems(
+  ids: string[],
+  updates: Partial<JiraWorkItem>,
+  arrayMode: 'replace' | 'add' = 'replace',
+): void {
+  const state = useAppStore.getState();
+  const idSet = new Set(ids);
+  const jiraWorkItems = state.getCurrentState().jiraWorkItems.map(item => {
+    if (!idSet.has(item.id)) return item;
+    const merged: JiraWorkItem = { ...item, ...updates };
+    if (arrayMode === 'add') {
+      if (updates.requiredSkillIds) {
+        merged.requiredSkillIds = [...new Set([...(item.requiredSkillIds ?? []), ...updates.requiredSkillIds])];
+      }
+      if (updates.labels) {
+        merged.labels = [...new Set([...item.labels, ...updates.labels])];
+      }
+    }
+    return merged;
+  });
   state.updateData({ jiraWorkItems });
 }
 
@@ -950,6 +1000,41 @@ export function removePlannerItem(itemId: string): void {
         ...s,
         updatedAt: new Date().toISOString(),
         plannerLayout: (s.plannerLayout ?? []).filter(item => item.id !== itemId),
+      };
+    }),
+  });
+}
+
+/**
+ * Bulk update multiple PlannerItems in the active scenario's plannerLayout.
+ *
+ * For array fields, `arrayMode`:
+ *   'replace' — replaces the array entirely (default)
+ *   'add'     — unions the new values with the existing array
+ */
+export function bulkUpdatePlannerItems(
+  ids: string[],
+  updates: Partial<PlannerItem>,
+  arrayMode: 'replace' | 'add' = 'replace',
+): void {
+  const state = useAppStore.getState();
+  const activeId = state.data.activeScenarioId;
+  if (!activeId) return;
+  const idSet = new Set(ids);
+  state.updateData({
+    scenarios: state.getCurrentState().scenarios.map(s => {
+      if (s.id !== activeId) return s;
+      return {
+        ...s,
+        updatedAt: new Date().toISOString(),
+        plannerLayout: (s.plannerLayout ?? []).map(item => {
+          if (!idSet.has(item.id)) return item;
+          const merged: PlannerItem = { ...item, ...updates };
+          if (arrayMode === 'add' && updates.requiredSkillIds) {
+            merged.requiredSkillIds = [...new Set([...(item.requiredSkillIds ?? []), ...updates.requiredSkillIds])];
+          }
+          return merged;
+        }),
       };
     }),
   });

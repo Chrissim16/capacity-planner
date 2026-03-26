@@ -722,12 +722,17 @@ className="hover:border-blue-300 transition-colors"
  {member.email && (
  <p className="text-[11px] text-[#94A3B8] truncate">{member.email}</p>
  )}
- {nextOff && (
- <p className="text-[10px] text-amber-500 flex items-center gap-0.5 mt-0.5">
- <CalendarOff size={9} />
- {fmt(nextOff.startDate)}{nextOff.startDate !== nextOff.endDate ? `–${fmt(nextOff.endDate)}` : ''}
- </p>
- )}
+          {timeOff.length > 0 && (
+                  <p className="text-[10px] text-amber-500 flex items-center gap-0.5 mt-0.5">
+                    <CalendarOff size={9} />
+                    {timeOff.length} absence{timeOff.length > 1 ? 's' : ''}
+                    {nextOff && (
+                      <span className="text-amber-400">
+                        · Next: {fmt(nextOff.startDate)}{nextOff.startDate !== nextOff.endDate ? `–${fmt(nextOff.endDate)}` : ''}
+                      </span>
+                    )}
+                  </p>
+                )}
  </div>
  </div>
 

@@ -19,6 +19,7 @@ import { X, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
 import { stripJiraMarkup } from '../../utils/markup';
 import { SkillMultiSelect } from './SkillMultiSelect';
+import { getEffectiveSkills } from '../../utils/workItemSkills';
 import type { PlannerItem, PlannerItemType, JiraWorkItem, Sprint } from '../../types';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -314,6 +315,25 @@ export function PlannerDetailPanel({
                   {(!planner.requiredSkillIds || planner.requiredSkillIds.length === 0) && !onUpdateRequiredSkills && (
                     <p className="text-sm text-mileway-grey italic">No required skills — anyone can be assigned.</p>
                   )}
+                  {/* Show source note when skills were auto-populated from the work item */}
+                  {jira && (planner.requiredSkillIds?.length ?? 0) > 0 && (() => {
+                    const sourceSkills = getEffectiveSkills(jira, jiraItems);
+                    const sourceEpic = jira.type !== 'epic' && jira.requiredSkillIds == null
+                      ? jiraItems.find(j => j.jiraKey === jira.parentKey && j.requiredSkillIds != null && j.requiredSkillIds.length > 0)
+                      : null;
+                    if (sourceEpic) {
+                      const sameAsSource = sourceSkills.length === (planner.requiredSkillIds?.length ?? 0)
+                        && sourceSkills.every(id => planner.requiredSkillIds?.includes(id));
+                      if (sameAsSource) {
+                        return (
+                          <p className="mt-1.5 text-[11px] text-mileway-grey italic">
+                            Auto-populated from: {sourceEpic.summary}
+                          </p>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
                 </>
               ) : (
                 <p className="text-sm text-mileway-grey leading-relaxed">

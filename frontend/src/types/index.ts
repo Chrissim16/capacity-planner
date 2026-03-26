@@ -375,6 +375,13 @@ export interface JiraWorkItem {
   confidenceLevel?: ConfidenceLevel;
   /** Hierarchy level — used by the Planning Board to build the Epic → Feature → Story tree. */
   hierarchyLevel?: 'epic' | 'feature' | 'story' | 'subtask';
+  /**
+   * App-only field — never synced to/from Jira.
+   * `null`  = inherit required skills from the nearest ancestor that has skills set.
+   * `[]`    = explicitly no required skills (overrides any inherited skills).
+   * `[...]` = explicitly set required skill IDs.
+   */
+  requiredSkillIds?: string[] | null;
 }
 
 /**
