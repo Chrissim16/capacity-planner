@@ -1143,6 +1143,15 @@ export function PlannerTimeline({
     return { currentSprintNum: null, todayLinePercent: null };
   }, [visibleSprints, visibleSprintCount]);
 
+  const currentQuarterLabel = useMemo(() => {
+    if (currentSprintNum === null) return null;
+    return visibleSprints.find(s => s.number === currentSprintNum)?.quarter ?? null;
+  }, [currentSprintNum, visibleSprints]);
+
+  const headerH = plannerTimelineViewMode === 'sprint'
+    ? SPRINT_HEADER_H + QUARTER_ROW_H
+    : SPRINT_HEADER_H;
+
   // ── Flat visible row list (TimelineRow union — item rows + orphan section header) ─────
   const visibleRows = useMemo((): TimelineRow[] => {
     const result: TimelineRow[] = [];
@@ -1571,7 +1580,7 @@ export function PlannerTimeline({
             {/* Label header — fixed, mirrors the sticky sprint-header height in the canvas */}
             <div
               className="flex-shrink-0 flex items-end gap-1 px-2 pb-1.5 border-b border-mileway-border bg-mileway-bg"
-              style={{ height: SPRINT_HEADER_H }}
+              style={{ height: headerH }}
             >
               <button
                 onClick={() => { setExpandAll(true); setExpandedIds(new Set()); }}
@@ -1668,15 +1677,20 @@ export function PlannerTimeline({
           {/* Gantt canvas — onScroll drives the label rows sync */}
           <div ref={canvasScrollRef} className="flex-1 overflow-auto" onScroll={onCanvasScroll}>
             {/* Inner wrapper enforces minimum column width so columns never crush below 100px */}
-            <div style={{ minWidth: visibleSprintCount * MIN_SPRINT_W }}>
+            <div style={{ minWidth: plannerTimelineViewMode === 'quarter'
+              ? visibleQuarters.length * MIN_QUARTER_W
+              : visibleSprintCount * MIN_SPRINT_W }}>
             {/* Sprint headers — sticky so they stay visible when scrolling */}
             <div className="sticky top-0 z-20 bg-white">
               <div className="relative">
-                <SprintHeaders
+                <TimelineHeader
+                  viewMode={plannerTimelineViewMode}
                   sprints={visibleSprints}
                   sprintCount={visibleSprintCount}
+                  quarters={visibleQuarters}
                   dragOverNum={dragOverNum}
                   currentSprintNum={currentSprintNum}
+                  currentQuarterLabel={currentQuarterLabel}
                 />
               </div>
               {ticker.sprintRow}
