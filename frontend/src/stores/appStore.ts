@@ -13,6 +13,7 @@ import type {
   SortConfig,
   TeamViewMode,
   TimelineViewMode,
+  PlannerTimelineViewMode,
   Settings,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
@@ -132,6 +133,7 @@ interface UIState {
   currentSettingsSection: string;
   teamViewMode: TeamViewMode;
   timelineViewMode: TimelineViewMode;
+  plannerTimelineViewMode: PlannerTimelineViewMode;
   filters: Filters;
   epicFilters: EpicFilters;
   epicsSortConfig: SortConfig;
@@ -143,6 +145,7 @@ const defaultUIState: UIState = {
   currentSettingsSection: 'general',
   teamViewMode: 'current',
   timelineViewMode: 'quarter',
+  plannerTimelineViewMode: 'sprint',
   filters: { member: [], system: [], status: [] },
   epicFilters: { search: '', priority: '', status: '', label: '', squad: '', processTeam: '', itMember: '', bizContact: '' },
   epicsSortConfig: { field: '', direction: 'asc' },
@@ -248,6 +251,7 @@ interface AppStore {
   setSettingsSection: (section: string) => void;
   setTeamViewMode: (mode: TeamViewMode) => void;
   setTimelineViewMode: (mode: TimelineViewMode) => void;
+  setPlannerTimelineViewMode: (mode: PlannerTimelineViewMode) => void;
   setFilters: (filters: Partial<Filters>) => void;
   setEpicFilters: (filters: Partial<EpicFilters>) => void;
   setEpicsSort: (sort: SortConfig) => void;
@@ -436,6 +440,9 @@ export const useAppStore = create<AppStore>()(
       setTimelineViewMode: (mode) =>
         set((state) => ({ ui: { ...state.ui, timelineViewMode: mode } })),
 
+      setPlannerTimelineViewMode: (mode) =>
+        set((state) => ({ ui: { ...state.ui, plannerTimelineViewMode: mode } })),
+
       setFilters: (filters) =>
         set((state) => ({
           ui: { ...state.ui, filters: { ...state.ui.filters, ...filters } },
@@ -532,3 +539,4 @@ export const useActiveScenario = () => useAppStore(useShallow((state) => {
 }));
 
 export const useCurrentState = () => useAppStore(useShallow((state) => state.getCurrentState()));
+export const usePlannerTimelineViewMode = () => useAppStore((state) => state.ui.plannerTimelineViewMode);

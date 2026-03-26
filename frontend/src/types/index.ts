@@ -226,6 +226,7 @@ export interface MemberCapacitySummary {
 export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'planner' | 'report' | 'settings';
 export type TeamViewMode = 'current' | 'all';
 export type TimelineViewMode = 'week' | 'month' | 'quarter' | 'year';
+export type PlannerTimelineViewMode = 'sprint' | 'quarter';
 
 export interface Filters {
   member: string[];
