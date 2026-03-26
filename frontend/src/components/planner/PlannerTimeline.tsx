@@ -35,7 +35,7 @@ import type {
   BusinessContact,
 } from '../../types';
 import { generateId } from '../../stores/actions';
-import { useCurrentState } from '../../stores/appStore';
+import { useCurrentState, usePlannerTimelineViewMode, useAppStore } from '../../stores/appStore';
 import { resolveItemAssignees } from '../../utils/plannerInit';
 import { computeSkillGaps, computeRollupGaps, type SkillGapInfo } from '../../utils/skillGap';
 import { usePlannerCapacityTicker } from './PlannerCapacityTicker';
@@ -49,6 +49,14 @@ const SPRINT_HEADER_H = 64;
 const ROW_H = 44;
 const BAR_PAD_Y = 7;
 const MIN_SPRINT_W = 100;
+const QUARTER_ROW_H = 24;
+const MIN_QUARTER_W = 160;
+
+interface VisibleQuarter {
+  label: string;
+  startIdx: number;
+  sprintCount: number;
+}
 
 const BAR: Record<string, { bg: string; border: string; borderW: number; radius: number }> = {
   epic:      { bg: 'rgba(168,196,245,0.18)', border: '#6090E0', borderW: 2, radius: 6 },
@@ -943,6 +951,22 @@ export function PlannerTimeline({
 
   const visibleSprintCount = Math.max(visibleSprints.length, 1);
   const firstSprintNum = visibleSprints[0]?.number ?? 1;
+
+  const plannerTimelineViewMode = usePlannerTimelineViewMode();
+
+  const visibleQuarters = useMemo((): VisibleQuarter[] => {
+    const result: VisibleQuarter[] = [];
+    for (let i = 0; i < visibleSprints.length; i++) {
+      const label = visibleSprints[i].quarter ?? '';
+      const last = result[result.length - 1];
+      if (last && last.label === label) {
+        last.sprintCount++;
+      } else {
+        result.push({ label, startIdx: i, sprintCount: 1 });
+      }
+    }
+    return result;
+  }, [visibleSprints]);
 
   const activeDragLayout = useMemo((): PlannerItem[] | undefined => {
     if (resize) {
