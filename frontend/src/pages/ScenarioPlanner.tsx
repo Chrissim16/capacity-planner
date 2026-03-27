@@ -1082,7 +1082,7 @@ export function ScenarioPlanner() {
     const t = window.setTimeout(() => {
       persistPlannerSession({
         activeScenarioId,
-        lastActiveMode: plannerUI.activeMode,
+        lastActiveMode: plannerUI.activeMode === 'board' ? 'board' : 'timeline',
         lastActiveQuarter: plannerUI.currentQuarterIndex,
         backlogDrawerOpen: plannerUI.backlogOpen,
       });

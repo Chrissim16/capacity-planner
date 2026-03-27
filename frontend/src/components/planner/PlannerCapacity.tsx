@@ -107,7 +107,7 @@ function computeLoadContributions(
     if (!inRange) continue;
     for (const a of item.assignees) {
       if (a.memberId === memberId) {
-        result.push({ itemId: item.id, title: item.title ?? item.type, days: a.daysPerSprint });
+        result.push({ itemId: item.id, title: item.name || item.type, days: a.daysPerSprint });
       }
     }
   }

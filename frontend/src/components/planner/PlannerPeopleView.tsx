@@ -103,7 +103,7 @@ export function PlannerPeopleView({
         const a = item.assignees.find(x => x.memberId === m.id);
         if (!a) return [];
         if (item.startSprint + item.spanSprints - 1 < qFirst || item.startSprint > qLast) return [];
-        return [{ itemId: item.id, title: item.title ?? item.type, startSprint: item.startSprint, spanSprints: item.spanSprints, daysPerSprint: a.daysPerSprint }];
+        return [{ itemId: item.id, title: item.name || item.type, startSprint: item.startSprint, spanSprints: item.spanSprints, daysPerSprint: a.daysPerSprint }];
       });
       rows.push({ id: m.id, name: m.name, role: m.role, track: 'IT', processTeamIds: m.processTeamIds ?? [], bizScale: 1, bizBauPerSprint: 0, items });
     }
@@ -114,7 +114,7 @@ export function PlannerPeopleView({
         const a = item.assignees.find(x => x.memberId === c.id);
         if (!a) return [];
         if (item.startSprint + item.spanSprints - 1 < qFirst || item.startSprint > qLast) return [];
-        return [{ itemId: item.id, title: item.title ?? item.type, startSprint: item.startSprint, spanSprints: item.spanSprints, daysPerSprint: a.daysPerSprint }];
+        return [{ itemId: item.id, title: item.name || item.type, startSprint: item.startSprint, spanSprints: item.spanSprints, daysPerSprint: a.daysPerSprint }];
       });
       if (items.length === 0) continue;
       const bizScale = (c.workingDaysPerWeek ?? 5) / 5;
