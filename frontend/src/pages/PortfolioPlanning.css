@@ -347,6 +347,13 @@
   border-radius: 4px;
   flex-shrink: 0;
 }
+a.pp-jkey, a.pv-assign-key, a.pp-cg-epic-key {
+  text-decoration: none;
+  cursor: pointer;
+}
+a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
+  text-decoration: underline;
+}
 .ev-epic-name { font-size: 13px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ev-epic-total { font-size: 11px; color: var(--txt2); flex-shrink: 0; }
 .ev-epic-remove {

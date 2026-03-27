@@ -266,7 +266,10 @@ function EpicView({
     lpRows.push(
       <div key={`e-${epicKey}`} className="ev-epic" onClick={() => onToggleEpic(epicKey)}>
         <span className={`pp-chev${collapsed ? '' : ' open'}`}>▶</span>
-        <span className="pp-jkey">{epicKey}</span>
+        {jiraBaseUrl
+          ? <a href={`${jiraBaseUrl}/browse/${epicKey}`} target="_blank" rel="noopener noreferrer" className="pp-jkey">{epicKey}</a>
+          : <span className="pp-jkey">{epicKey}</span>
+        }
         <span className="ev-epic-name">{epic.summary}</span>
         {totalDays > 0 && <span className="ev-epic-total">{totalDays}d</span>}
         <button className="ev-epic-remove" onClick={e => { e.stopPropagation(); onRemoveEpic(epicKey); }}>×</button>
@@ -649,7 +652,10 @@ function PeopleView({
         const label = a.barW >= 4 ? `${a.epic.jiraKey} ${a.days}d` : `${a.days}d`;
         lpRows.push(
           <div key={`pvasn-${pid}-${a.epic.jiraKey}-${a.phase}`} className="pv-assign">
-            <span className="pv-assign-key">{a.epic.jiraKey}</span>
+            {jiraBaseUrl
+              ? <a href={`${jiraBaseUrl}/browse/${a.epic.jiraKey}`} target="_blank" rel="noopener noreferrer" className="pv-assign-key">{a.epic.jiraKey}</a>
+              : <span className="pv-assign-key">{a.epic.jiraKey}</span>
+            }
             <span className="pv-assign-name">{a.epic.summary}</span>
             <span className={`pp-pv-pp ${phK}`}>{PH_LBL[a.phase].slice(0, 3)}</span>
             <span className="pv-assign-days">{a.days}d</span>
@@ -825,7 +831,10 @@ function SummaryView({
                 return (
                   <div key={epicKey} className="pp-cg-epic-row">
                     <div className="pp-cg-epic-label">
-                      <span className="pp-cg-epic-key">{epicKey}</span>
+                      {jiraBaseUrl
+                        ? <a href={`${jiraBaseUrl}/browse/${epicKey}`} target="_blank" rel="noopener noreferrer" className="pp-cg-epic-key">{epicKey}</a>
+                        : <span className="pp-cg-epic-key">{epicKey}</span>
+                      }
                       <span className="pp-cg-epic-name">{epic.summary}</span>
                     </div>
                     <div className="pp-cg-epic-gantt" style={{ position: 'relative' }}>
@@ -1245,6 +1254,10 @@ export function PortfolioPlanning() {
     : `Q${qOpts[activeQIdx].q + 1} ${qOpts[activeQIdx].year}`;
 
   const allEpics  = useMemo(() => state.jiraWorkItems.filter(i => i.type === 'epic'), [state.jiraWorkItems]);
+  const jiraBaseUrl = useMemo(() => {
+    const conn = state.jiraConnections.find(c => c.isActive);
+    return conn?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
+  }, [state.jiraConnections]);
   const boardEpics = useMemo(
     () => plan.boardEpicKeys.map(k => allEpics.find(e => e.jiraKey === k)).filter(Boolean) as JiraWorkItem[],
     [plan.boardEpicKeys, allEpics]
