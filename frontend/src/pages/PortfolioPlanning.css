@@ -135,6 +135,82 @@
 .pp-btn.primary:hover { background: #0078C4; }
 .pp-divider { width: 1px; height: 22px; background: var(--border); }
 
+/* ── Scenario bar ────────────────────────────────────────────────────────── */
+.pp-scenario-bar {
+  height: 36px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+.pp-scenario-pill {
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 100ms;
+  white-space: nowrap;
+}
+.pp-scenario-pill:hover { border-color: var(--blue); color: var(--blue); }
+.pp-scenario-pill.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+.pp-scenario-pill-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.pp-scenario-pill-wrap.on .pp-scenario-pill { background: var(--blue); color: #fff; border-color: var(--blue); }
+.pp-scenario-delete {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: var(--txt3);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: inherit;
+  transition: all 100ms;
+}
+.pp-scenario-delete:hover { background: var(--danger-light); color: var(--danger); }
+.pp-scenario-fork-btn {
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 20px;
+  border: 1px dashed var(--border);
+  background: none;
+  color: var(--txt3);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 100ms;
+  margin-left: 2px;
+}
+.pp-scenario-fork-btn:hover { border-color: var(--blue); color: var(--blue); }
+.pp-scenario-rename-inp {
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 20px;
+  border: 1px solid var(--blue);
+  background: var(--white);
+  color: var(--txt1);
+  font-family: inherit;
+  outline: none;
+  width: 120px;
+}
+
 /* ── Tab bar ─────────────────────────────────────────────────────────────── */
 .pp-tabbar {
   height: var(--tabbar-h);
@@ -337,6 +413,15 @@
 }
 .ev-pname { font-size: 12px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ev-prole { font-size: 10px; color: var(--txt3); flex-shrink: 0; }
+
+/* Skill match dot badge */
+.pp-skill-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0; margin-left: 4px; align-self: center;
+}
+.pp-skill-dot.matched { background: #16A34A; }
+.pp-skill-dot.partial { background: #D97706; }
+.pp-skill-dot.missing { background: #DC2626; }
 .ev-days {
   font-size: 12px; font-weight: 600; min-width: 36px; text-align: right; flex-shrink: 0;
   cursor: text; border-radius: 4px; padding: 2px 5px; color: var(--txt1); transition: background 100ms;
@@ -437,6 +522,16 @@
 .pp-pbar.t { background: var(--t-bg); color: var(--t-c); border-color: var(--t-bd); }
 .pp-pbar.p { background: var(--p-bg); color: var(--p-c); border-color: var(--p-bd); }
 .pp-pbar.h { background: var(--h-bg); color: var(--h-c); border-color: var(--h-bd); }
+
+/* Overload tint — overlaid via ::after so phase colour is preserved */
+.pp-pbar.overloaded,
+.pp-pbar.near-cap { position: relative; overflow: hidden; }
+.pp-pbar.overloaded::after,
+.pp-pbar.near-cap::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+}
+.pp-pbar.overloaded::after { background: rgba(239, 68, 68, 0.22); box-shadow: inset 0 0 0 1.5px rgba(220, 38, 38, 0.5); }
+.pp-pbar.near-cap::after   { background: rgba(249, 115, 22, 0.18); box-shadow: inset 0 0 0 1.5px rgba(234, 88, 12, 0.45); }
 
 /* ── People View ─────────────────────────────────────────────────────────── */
 .pv-person-hd {
