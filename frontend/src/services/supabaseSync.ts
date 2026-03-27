@@ -32,6 +32,7 @@ import type {
   System,
   Squad,
   ProcessTeam,
+  BusinessTeam,
   Settings,
   JiraSettings,
   BusinessContact,
@@ -101,7 +102,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
   try {
     const [
       rolesRes, countriesRes, holidaysRes, skillsRes, systemsRes,
-      squadsRes, processTeamsRes,
+      squadsRes, processTeamsRes, businessTeamsRes,
       teamMembersRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes,
       bizContactsRes, bizTimeOffRes, bizJiraItemsRes,
@@ -113,6 +114,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       supabase.from('systems').select('*').order('name'),
       supabase.from('squads').select('*').order('name'),
       supabase.from('process_teams').select('*').order('name'),
+      supabase.from('business_teams').select('*').order('name'),
       supabase.from('team_members').select('*').eq('is_active', true).order('name'),
       supabase.from('time_off').select('*'),
       supabase.from('settings').select('*'),
@@ -127,7 +129,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
 
     const allResults = [
       rolesRes, countriesRes, holidaysRes, skillsRes, systemsRes,
-      squadsRes, processTeamsRes,
+      squadsRes, processTeamsRes, businessTeamsRes,
       teamMembersRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes,
       bizContactsRes, bizTimeOffRes, bizJiraItemsRes,
@@ -167,6 +169,10 @@ export async function loadFromSupabase(): Promise<AppState | null> {
 
     const processTeams: ProcessTeam[] = (processTeamsRes.data ?? []).map(pt => ({
       id: pt.id, name: pt.name,
+    }));
+
+    const businessTeams: BusinessTeam[] = (businessTeamsRes.data ?? []).map(bt => ({
+      id: bt.id, name: bt.name,
     }));
 
     const teamMembers: TeamMember[] = (teamMembersRes.data ?? []).map(m => ({
@@ -309,6 +315,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       workingHoursPerDay: c.working_hours_per_day ?? 8,
       bauReserveDays: c.bau_reserve_days ?? 5,
       processTeamIds: Array.isArray(c.process_team_ids) ? c.process_team_ids : [],
+      businessTeamIds: Array.isArray(c.business_team_ids) ? c.business_team_ids : [],
       notes: c.notes ?? undefined,
       archived: c.archived ?? false,
       excludedFromCapacity: c.excluded_from_capacity ?? false,
@@ -361,6 +368,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       systems,
       squads,
       processTeams,
+      businessTeams,
       teamMembers,
       timeOff,
       quarters: generateQuarters(8),
@@ -404,6 +412,7 @@ export async function saveToSupabase(state: AppState): Promise<void> {
     ['systems',                      syncSystems(state.systems)],
     ['squads',                       syncSquads(state.squads)],
     ['process_teams',                syncProcessTeams(state.processTeams)],
+    ['business_teams',               syncBusinessTeams(state.businessTeams ?? [])],
     ['team_members',                 syncTeamMembers(state.teamMembers)],
     ['time_off',                     syncTimeOff(state.timeOff)],
     ['sprints',                      syncSprints(state.sprints)],
@@ -465,6 +474,19 @@ async function syncSquads(squads: Squad[]): Promise<void> {
 
 async function syncProcessTeams(processTeams: ProcessTeam[]): Promise<void> {
   await upsertAndPrune('process_teams', processTeams, pt => ({ id: pt.id, name: pt.name }));
+}
+
+async function syncBusinessTeams(businessTeams: BusinessTeam[]): Promise<void> {
+  try {
+    await upsertAndPrune('business_teams', businessTeams, bt => ({ id: bt.id, name: bt.name }));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('business_teams') && (msg.includes('does not exist') || msg.includes('relation'))) {
+      console.warn('[Sync] business_teams table not found — run migration 036. Skipping.');
+      return;
+    }
+    throw err;
+  }
 }
 
 const BASE_MEMBER_ROW = (m: TeamMember) => ({
@@ -674,6 +696,7 @@ const FULL_BIZ_CONTACT_ROW = (c: BusinessContact) => ({
   email: c.email ?? null, country_id: c.countryId,
   working_days_per_week: c.workingDaysPerWeek ?? 5, working_hours_per_day: c.workingHoursPerDay ?? 8,
   bau_reserve_days: c.bauReserveDays ?? 5, process_team_ids: c.processTeamIds ?? [],
+  business_team_ids: c.businessTeamIds ?? [],
   notes: c.notes ?? null, archived: c.archived ?? false,
   excluded_from_capacity: c.excludedFromCapacity ?? false,
   updated_at: new Date().toISOString(),
@@ -706,11 +729,11 @@ async function syncBusinessContacts(contacts: BusinessContact[]): Promise<void> 
         await upsertAndPrune('business_contacts', contacts, BIZ_CONTACT_ROW_NO_EXCLUDED);
       } catch (err2) {
         const msg2 = err2 instanceof Error ? err2.message : String(err2);
-        if (msg2.includes('bau_reserve_days') || msg2.includes('process_team_ids')) {
+        if (msg2.includes('bau_reserve_days') || msg2.includes('process_team_ids') || msg2.includes('business_team_ids')) {
           await upsertAndPrune('business_contacts', contacts, LEGACY_BIZ_CONTACT_ROW);
         } else { throw err2; }
       }
-    } else if (msg.includes('bau_reserve_days') || msg.includes('process_team_ids')) {
+    } else if (msg.includes('bau_reserve_days') || msg.includes('process_team_ids') || msg.includes('business_team_ids')) {
       await upsertAndPrune('business_contacts', contacts, LEGACY_BIZ_CONTACT_ROW);
     } else {
       throw err;

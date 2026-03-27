@@ -118,6 +118,7 @@ const defaultAppState: AppState = {
   systems: [],
   squads: [],
   processTeams: [],
+  businessTeams: [],
   teamMembers: [],
   timeOff: [],
   quarters: generateQuarters(8),

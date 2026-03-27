@@ -29,7 +29,7 @@ const blankContact = (): Omit<BusinessContact, 'id'> => ({
 
 export function BusinessContactsSection() {
  const state = useCurrentState();
- const { businessContacts, businessTimeOff, countries } = state;
+ const { businessContacts, businessTimeOff, countries, businessTeams } = state;
 
  const [showArchived, setShowArchived] = useState(false);
  const [editContact, setEditContact] = useState<BusinessContact | null>(null);
@@ -38,6 +38,7 @@ export function BusinessContactsSection() {
  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
  const [deleteConfirm, setDeleteConfirm] = useState<BusinessContact | null>(null);
  const [expandedTimeOff, setExpandedTimeOff] = useState<string | null>(null);
+ const [selectedBusinessTeamIds, setSelectedBusinessTeamIds] = useState<string[]>([]);
  // Time-off add form
  const [toContactId, setToContactId] = useState('');
  const [toStart, setToStart] = useState('');
@@ -68,6 +69,7 @@ export function BusinessContactsSection() {
  const openAdd = () => {
  setForm(blankContact());
  setFormErrors({});
+ setSelectedBusinessTeamIds([]);
  setIsAddOpen(true);
  setEditContact(null);
  };
@@ -75,16 +77,24 @@ export function BusinessContactsSection() {
  const openEdit = (c: BusinessContact) => {
  setForm({ ...c });
  setFormErrors({});
+ setSelectedBusinessTeamIds(c.businessTeamIds ?? []);
  setEditContact(c);
  setIsAddOpen(true);
  };
 
+ const handleBusinessTeamToggle = (id: string) => {
+ setSelectedBusinessTeamIds(prev =>
+   prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+ );
+ };
+
  const handleSave = () => {
  if (!validateForm()) return;
+ const payload = { ...form, businessTeamIds: selectedBusinessTeamIds };
  if (editContact) {
- updateBusinessContact(editContact.id, form);
+ updateBusinessContact(editContact.id, payload);
  } else {
- addBusinessContact(form);
+ addBusinessContact(payload);
  }
  setIsAddOpen(false);
  };
@@ -315,6 +325,29 @@ export function BusinessContactsSection() {
  onChange={e => setForm(f => ({ ...f, workingHoursPerDay: parseInt(e.target.value) || 8 }))}
  />
  </div>
+ {businessTeams.length > 0 && (
+ <div>
+ <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
+ Business Teams
+ </label>
+ <div className="flex flex-wrap gap-2">
+ {businessTeams.map(bt => (
+ <button
+ key={bt.id}
+ type="button"
+ onClick={() => handleBusinessTeamToggle(bt.id)}
+ className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+ selectedBusinessTeamIds.includes(bt.id)
+ ? 'bg-blue-100 text-blue-700'
+ : 'bg-[#F0F2F5] text-[#94A3B8] hover:bg-[#DEDFE3]'
+ }`}
+ >
+ {bt.name}
+ </button>
+ ))}
+ </div>
+ </div>
+ )}
  <div>
  <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
  Notes (optional)

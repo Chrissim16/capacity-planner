@@ -211,6 +211,16 @@ export function deleteProcessTeam(id: string): void {
   state.updateData({ processTeams: state.getCurrentState().processTeams.filter(p => p.id !== id) });
 }
 
+export function addBusinessTeam(name: string): void {
+  const state = useAppStore.getState();
+  state.updateData({ businessTeams: [...state.getCurrentState().businessTeams, { id: generateId('bt'), name }] });
+}
+
+export function deleteBusinessTeam(id: string): void {
+  const state = useAppStore.getState();
+  state.updateData({ businessTeams: state.getCurrentState().businessTeams.filter(b => b.id !== id) });
+}
+
 export function addSkill(name: string, category: 'System' | 'Process' | 'Technical'): void {
   const state = useAppStore.getState();
   state.updateData({ skills: [...state.getCurrentState().skills, { id: generateId('skill'), name, category }] });

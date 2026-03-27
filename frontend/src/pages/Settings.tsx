@@ -9,6 +9,7 @@ import { CountriesSection } from './settings/CountriesSection';
 import { HolidaysSection } from './settings/HolidaysSection';
 import { BusinessContactsSection } from './settings/BusinessContactsSection';
 import { ProcessTeamsSection } from './settings/ProcessTeamsSection';
+import { BusinessTeamsSection } from './settings/BusinessTeamsSection';
 import { SprintsSection } from './settings/SprintsSection';
 import { JiraSection } from './settings/JiraSection';
 import { DataSection } from './settings/DataSection';
@@ -86,6 +87,7 @@ export function Settings() {
             <CountriesSection />
             <HolidaysSection />
             <ProcessTeamsSection />
+            <BusinessTeamsSection />
             <BusinessContactsSection />
           </div>
         )}

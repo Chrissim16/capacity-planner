@@ -36,6 +36,7 @@ import type {
   EpicPhasePlan,
   EpicPhaseAssignment,
   ProcessTeam,
+  BusinessTeam,
 } from '../types';
 import './PortfolioPlanning.css';
 
@@ -1095,7 +1096,7 @@ function PortfolioDrawer({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PortfolioPickerPopover({
-  epicKey: _epicKey, phase: _phase, anchorRect, existingMemberIds, memberMap, contactMap, processTeams,
+  epicKey: _epicKey, phase: _phase, anchorRect, existingMemberIds, memberMap, contactMap, businessTeams,
   onSelect, onClose,
 }: {
   epicKey: string;
@@ -1104,7 +1105,7 @@ function PortfolioPickerPopover({
   existingMemberIds: Set<string>;
   memberMap: Map<string, TeamMember>;
   contactMap: Map<string, BusinessContact>;
-  processTeams: ProcessTeam[];
+  businessTeams: BusinessTeam[];
   onSelect: (memberId: string, track: 'IT' | 'BIZ') => void;
   onClose: () => void;
 }) {
@@ -1118,15 +1119,15 @@ function PortfolioPickerPopover({
     const biz = [...contactMap.values()]
       .filter(c => !c.excludedFromCapacity)
       .map(c => ({ id: c.id, name: c.name, sub: c.title ?? '', track: 'BIZ' as const, isTeam: false }));
-    // Business teams from processTeams, fallback to BUSINESS_TEAMS constant
-    const teamSrc = processTeams.length > 0
-      ? processTeams.map(pt => ({ id: `TEAM:${pt.name}`, name: pt.name, abbr: pt.name.slice(0, 2).toUpperCase() }))
+    // Business teams from configurable business teams, fallback to BUSINESS_TEAMS constant
+    const teamSrc = businessTeams.length > 0
+      ? businessTeams.map(bt => ({ id: `TEAM:${bt.name}`, name: bt.name, abbr: bt.name.slice(0, 2).toUpperCase() }))
       : BUSINESS_TEAMS;
     const teams = teamSrc.map(t => ({
       id: t.id, name: t.name, sub: 'Business team', track: 'BIZ' as const, isTeam: true,
     }));
     return [...it, ...biz, ...teams].sort((a, b) => a.name.localeCompare(b.name));
-  }, [memberMap, contactMap, processTeams]);
+  }, [memberMap, contactMap, businessTeams]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return entries;
@@ -1737,7 +1738,7 @@ export function PortfolioPlanning() {
             )}
             memberMap={memberMap}
             contactMap={contactMap}
-            processTeams={state.processTeams}
+            businessTeams={state.businessTeams}
             onSelect={(memberId, track) => {
               handleUpsertAssignment(pickerTarget.epicKey, pickerTarget.phase, memberId, 0, track);
               setPickerTarget(null);

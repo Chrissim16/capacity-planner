@@ -47,6 +47,11 @@ export interface ProcessTeam {
   name: string;
 }
 
+export interface BusinessTeam {
+  id: string;
+  name: string;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TEAM MEMBERS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -131,6 +136,7 @@ export interface BusinessContact {
   workingHoursPerDay?: number;
   bauReserveDays?: number;
   processTeamIds?: string[];
+  businessTeamIds?: string[];
   notes?: string;
   archived?: boolean;
   excludedFromCapacity?: boolean;
@@ -170,6 +176,7 @@ export interface AppState {
   systems: System[];
   squads: Squad[];
   processTeams: ProcessTeam[];
+  businessTeams: BusinessTeam[];
   teamMembers: TeamMember[];
   timeOff: TimeOff[];
   quarters: string[];
