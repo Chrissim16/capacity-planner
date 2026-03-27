@@ -938,8 +938,8 @@ function PortfolioDrawer({
   const [selAssignees, setSelAssignees] = useState<Set<string>>(new Set());
   const [selStatuses, setSelStatuses]   = useState<Set<string>>(new Set());
 
-  // Sync selection when board keys change externally
-  useEffect(() => { setSelected(new Set(boardEpicKeys)); }, [boardEpicKeys]);
+  // Reset selection to current board keys whenever the drawer opens or board keys change externally
+  useEffect(() => { setSelected(new Set(boardEpicKeys)); }, [open, boardEpicKeys]);
 
   const allLabels   = useMemo(() => [...new Set(allEpics.flatMap(e => e.labels))].sort(), [allEpics]);
   const allAssignees = useMemo(() => [...new Set(allEpics.map(e => e.assigneeName).filter(Boolean) as string[])].sort(), [allEpics]);
