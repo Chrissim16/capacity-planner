@@ -19,7 +19,7 @@
 import { useState, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { ChevronRight, ChevronDown, AlertTriangle } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
-import { calculateCapacity } from '../../utils/capacity';
+import { calculateSprintCapacity } from '../../utils/capacity';
 import type { PlannerItem, Sprint, ProcessTeam } from '../../types';
 import type { DragPreview } from './PlannerTimeline';
 
@@ -360,24 +360,17 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
     return map;
   }, [state.processTeams]);
 
-  // Build PersonRow for IT members
+  // Build PersonRow for IT members — per-sprint capacity accounts for absences/holidays
   const memberRows = useMemo((): PersonRow[] => {
     const activeMembers = (state.teamMembers ?? []).filter(m => !m.excludedFromCapacity);
-    const n = quarterSprints.length || 1;
     return activeMembers.map(m => {
-      let quarterAvail = 0;
-      try {
-        const cap = calculateCapacity(m.id, selectedQuarter, state);
-        const fixedUsed = cap.breakdown
-          .filter(b => b.type === 'bau' || b.type === 'timeoff')
-          .reduce((sum, b) => sum + b.days, 0);
-        quarterAvail = Math.max(0, cap.totalWorkdays - fixedUsed);
-      } catch { quarterAvail = 0; }
-      const perSprintAvail = Math.round(quarterAvail / n);
-      const cells = quarterSprints.map(s => ({
-        load: computeLoadDays(m.id, s.number, plannerItems, activeDragPreview),
-        avail: perSprintAvail,
-      }));
+      const cells = quarterSprints.map(s => {
+        const sprintCap = calculateSprintCapacity(m.id, s, [], state);
+        return {
+          load: computeLoadDays(m.id, s.number, plannerItems, activeDragPreview),
+          avail: Math.max(0, sprintCap.availableDays),
+        };
+      });
       return {
         id: m.id,
         name: m.name,
@@ -388,7 +381,7 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
         isOverloaded: cells.some(c => c.avail > 0 && c.load > c.avail),
       };
     });
-  }, [state, quarterSprints, selectedQuarter, plannerItems, activeDragPreview]);
+  }, [state, quarterSprints, plannerItems, activeDragPreview]);
 
   // Build PersonRow for BIZ contacts
   const contactRows = useMemo((): PersonRow[] => {
