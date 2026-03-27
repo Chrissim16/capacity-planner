@@ -223,7 +223,7 @@ export interface MemberCapacitySummary {
 // UI STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'planner' | 'report' | 'settings';
+export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'planner' | 'portfolio-planning' | 'report' | 'settings';
 export type TeamViewMode = 'current' | 'all';
 export type TimelineViewMode = 'week' | 'month' | 'quarter' | 'year';
 export type PlannerTimelineViewMode = 'sprint' | 'quarter';
@@ -543,4 +543,28 @@ export interface Scenario {
   plannerLayout?: PlannerItem[];
   /** When true, skill matching UI (badges, chips, tier ranking) is active. Default: true. */
   skillsMatchingEnabled?: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PORTFOLIO PLANNING
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type PlanningPhase = 'design' | 'build' | 'test' | 'deploy' | 'hypercare';
+
+export interface EpicPhasePlan {
+  id: string;
+  epicKey: string;
+  phase: PlanningPhase;
+  startDay: number | null;
+  updatedAt: string;
+}
+
+export interface EpicPhaseAssignment {
+  id: string;
+  epicKey: string;
+  phase: PlanningPhase;
+  memberId: string;
+  track: 'IT' | 'BIZ';
+  days: number;
+  updatedAt: string;
 }

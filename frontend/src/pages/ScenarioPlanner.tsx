@@ -739,48 +739,39 @@ export function ScenarioPlanner() {
       };
       handleItemsChange(plannerItems.map(p => p.id === updated.id ? updated : p));
     } else {
-      // Create mode — manual items go into the scenario's plannerLayout
-      // but WITHOUT a startSprint (they live in the backlog until dragged).
-      // We model this as startSprint: 0 and spanSprints: 0 which the backlog
-      // can pick up on, OR we add them as jiraWorkItems on the scenario.
-      // Since PlannerBacklog reads from jiraItems (JiraWorkItem[]), and manual
-      // items need to appear there, we add a synthetic JiraWorkItem to the
-      // scenario's jiraWorkItems array. This keeps everything consistent.
-      const syntheticId = generateId('manual');
+      // Create mode — add a PlannerItem directly to plannerLayout so it appears
+      // immediately on the timeline under its parent. Manual items have sourceId: ''
+      // (no backing JiraWorkItem) and isManual: true.
       const syntheticKey = `MANUAL-${Date.now()}`;
 
-      // Add a synthetic JiraWorkItem to the scenario so it appears in the backlog
-      const state = useAppStore.getState();
-      const current = state.getCurrentState();
-      const scenario = current.scenarios.find(s => s.id === activeScenarioId);
-      if (scenario) {
-        const syntheticJiraItem = {
-          id: syntheticId,
-          connectionId: '',
-          jiraKey: syntheticKey,
-          jiraId: '',
-          summary: data.name,
-          type: data.type as 'epic' | 'feature' | 'story' | 'task' | 'bug',
-          typeName: data.type,
-          status: 'To Do',
-          statusCategory: 'todo' as const,
-          parentKey: data.parentKey,
-          labels: data.labels,
-          components: [],
-          created: new Date().toISOString(),
-          updated: new Date().toISOString(),
-        };
-        state.updateData({
-          scenarios: current.scenarios.map(s =>
-            s.id === activeScenarioId
-              ? { ...s, jiraWorkItems: [...s.jiraWorkItems, syntheticJiraItem], updatedAt: new Date().toISOString() }
-              : s,
-          ),
-        });
-      }
+      // Inherit the parent's start sprint when available; fall back to the first sprint.
+      const parentItem = data.parentKey
+        ? plannerItems.find(p => p.jiraKey === data.parentKey)
+        : undefined;
+      const startSprint = parentItem?.startSprint ?? sprints[0]?.number ?? 1;
+      // Default span mirrors what PlannerTimeline uses when dragging from backlog.
+      const TYPE_DEFAULT_SPAN: Partial<Record<PlannerItemType, number>> = { epic: 6, feature: 2 };
+      const spanSprints = TYPE_DEFAULT_SPAN[data.type as PlannerItemType] ?? 1;
+
+      const newPlannerItem: PlannerItem = {
+        id: generateId('planner'),
+        sourceId: '',
+        name: data.name,
+        type: data.type as PlannerItemType,
+        jiraKey: syntheticKey,
+        parentKey: data.parentKey,
+        startSprint,
+        spanSprints,
+        assignees: [],
+        isManual: true,
+        labels: data.labels ?? [],
+        jiraAssignees: [],
+        requiredSkillIds: data.requiredSkillIds ?? [],
+      };
+      handleItemsChange([...plannerItems, newPlannerItem]);
     }
     setCreateModal(null);
-  }, [activeScenarioId, createModal, plannerItems, handleItemsChange]);
+  }, [activeScenarioId, createModal, plannerItems, handleItemsChange, sprints]);
 
   // F-SP-09 / US-SP-22: Update required skills on a planner item from the detail panel
   const handleUpdateRequiredSkills = useCallback((itemId: string, skillIds: string[]) => {

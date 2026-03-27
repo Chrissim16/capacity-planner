@@ -12,6 +12,7 @@ import {
   AlertCircle,
   LogOut,
   Layers,
+  LayoutGrid,
   FileBarChart,
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -23,37 +24,40 @@ import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { supabase, isSupabaseConfigured } from '../../services/supabase';
 
 const VIEW_TO_PATH: Record<ViewType, string> = {
-  dashboard: '/',
-  timeline:  '/timeline',
-  projects:  '/epics',
-  jira:      '/epics',
-  team:      '/team',
-  scenarios: '/scenarios',
-  planner:   '/planner',
-  report:    '/report',
-  settings:  '/settings',
+  dashboard:           '/',
+  timeline:            '/timeline',
+  projects:            '/epics',
+  jira:                '/epics',
+  team:                '/team',
+  scenarios:           '/scenarios',
+  planner:             '/planner',
+  'portfolio-planning': '/portfolio-planning',
+  report:              '/report',
+  settings:            '/settings',
 };
 
 const PATH_TO_VIEW: Record<string, ViewType> = {
-  '/':          'dashboard',
-  '/timeline':  'timeline',
-  '/epics':     'projects',
-  '/team':      'team',
-  '/scenarios': 'scenarios',
-  '/planner':   'planner',
-  '/planning':  'planner',
-  '/report':    'report',
-  '/settings':  'settings',
+  '/':                   'dashboard',
+  '/timeline':           'timeline',
+  '/epics':              'projects',
+  '/team':               'team',
+  '/scenarios':          'scenarios',
+  '/planner':            'planner',
+  '/planning':           'planner',
+  '/portfolio-planning': 'portfolio-planning',
+  '/report':             'report',
+  '/settings':           'settings',
 };
 
 const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string }[] = [
-  { view: 'dashboard', icon: LayoutDashboard, label: 'Capacity' },
-  { view: 'timeline',  icon: Calendar,        label: 'Timeline' },
-  { view: 'projects',  icon: FolderKanban,    label: 'Epics' },
-  { view: 'team',      icon: Users,           label: 'Team' },
-  { view: 'planner',   icon: Layers,          label: 'Scenario Planner' },
-  { view: 'report',    icon: FileBarChart,    label: 'Report' },
-  { view: 'settings',  icon: Settings,        label: 'Settings' },
+  { view: 'dashboard',           icon: LayoutDashboard, label: 'Capacity' },
+  { view: 'timeline',            icon: Calendar,        label: 'Timeline' },
+  { view: 'projects',            icon: FolderKanban,    label: 'Epics' },
+  { view: 'team',                icon: Users,           label: 'Team' },
+  { view: 'planner',             icon: Layers,          label: 'Scenario Planner' },
+  { view: 'portfolio-planning',  icon: LayoutGrid,      label: 'Portfolio Planning' },
+  { view: 'report',              icon: FileBarChart,    label: 'Report' },
+  { view: 'settings',            icon: Settings,        label: 'Settings' },
 ];
 
 interface SidebarProps {

@@ -7,6 +7,7 @@ import { Projects } from './pages/Projects';
 import { Team } from './pages/Team';
 import { Scenarios } from './pages/Scenarios';
 import { ScenarioPlanner } from './pages/ScenarioPlanner';
+import { PortfolioPlanning } from './pages/PortfolioPlanning';
 import { Report } from './pages/Report';
 import { Settings } from './pages/Settings';
 import { ToastProvider } from './components/ui/Toast';
@@ -22,41 +23,44 @@ import { isSupabaseConfigured } from './services/supabase';
 
 /** Maps a URL pathname to a ViewType (defaults to 'dashboard'). */
 const PATH_TO_VIEW: Record<string, ViewType> = {
-  '/':          'dashboard',
-  '/timeline':  'timeline',
-  '/epics':     'projects',
-  '/team':      'team',
-  '/scenarios': 'scenarios',
-  '/planner':   'planner',
-  '/planning':  'planner',
-  '/report':    'report',
-  '/settings':  'settings',
+  '/':                    'dashboard',
+  '/timeline':            'timeline',
+  '/epics':               'projects',
+  '/team':                'team',
+  '/scenarios':           'scenarios',
+  '/planner':             'planner',
+  '/planning':            'planner',
+  '/portfolio-planning':  'portfolio-planning',
+  '/report':              'report',
+  '/settings':            'settings',
 };
 
 /** Maps a ViewType to its canonical URL pathname. */
 const VIEW_TO_PATH: Record<ViewType, string> = {
-  dashboard: '/',
-  timeline:  '/timeline',
-  projects:  '/epics',
-  jira:      '/epics',
-  team:      '/team',
-  scenarios: '/scenarios',
-  planner:   '/planner',
-  report:    '/report',
-  settings:  '/settings',
+  dashboard:           '/',
+  timeline:            '/timeline',
+  projects:            '/epics',
+  jira:                '/epics',
+  team:                '/team',
+  scenarios:           '/scenarios',
+  planner:             '/planner',
+  'portfolio-planning': '/portfolio-planning',
+  report:              '/report',
+  settings:            '/settings',
 };
 
 // Page components map
 const pages: Record<ViewType, React.ComponentType> = {
-  dashboard: Dashboard,
-  timeline: Timeline,
-  projects: Projects,
-  team: Team,
-  jira: Projects,
-  scenarios: Scenarios,
-  planner: ScenarioPlanner,
-  report: Report,
-  settings: Settings,
+  dashboard:           Dashboard,
+  timeline:            Timeline,
+  projects:            Projects,
+  team:                Team,
+  jira:                Projects,
+  scenarios:           Scenarios,
+  planner:             ScenarioPlanner,
+  'portfolio-planning': PortfolioPlanning,
+  report:              Report,
+  settings:            Settings,
 };
 
 function App() {
@@ -166,7 +170,7 @@ function App() {
 
   return (
     <ToastProvider>
-      <Layout variant={currentView === 'planner' || currentView === 'report' ? 'fullbleed' : 'default'}>
+      <Layout variant={currentView === 'planner' || currentView === 'report' || currentView === 'portfolio-planning' ? 'fullbleed' : 'default'}>
         <CurrentPage />
       </Layout>
       <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />

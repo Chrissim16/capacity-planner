@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Planning — VS Finance</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --white:#FFFFFF; --bg:#FAFAFA; --offwh:#F5F8FC;
+  --border:#E2E8F0; --bord-lt:#F1F5F9;
+  --txt1:#1E293B; --txt2:#64748B; --txt3:#94A3B8;
+  --blue:#0089DD; --blue-lt:#EBF5FC;
+  --d-c:#7C3AED; --d-bg:#F5F0FF; --d-bd:#C4B5FD;
+  --b-c:#1D6FE8; --b-bg:#EFF6FF; --b-bd:#93C5FD;
+  --t-c:#D97706; --t-bg:#FFFBEB; --t-bd:#FCD34D;
+  --p-c:#16A34A; --p-bg:#F0FDF4; --p-bd:#86EFAC;
+  --h-c:#DB2777; --h-bg:#FDF2F8; --h-bd:#F9A8D4;
+  --util-over:#EF4444; --util-near:#F59E0B; --util-ok:#22C55E; --util-bench:#94A3B8;
+  --row-epic:40px; --row-phase:38px; --row-person:34px; --row-add:28px;
+  --row-p-hd:40px; --row-p-cap:26px;
+  --week-w:52px; --left-w:460px; /* week-w overridden dynamically via JS */
+  --topbar-h:52px; --tabbar-h:40px; --drawer-w:420px;
+}
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--txt1); font-size:13px; overflow:hidden; height:100vh; }
+
+.topbar { height:var(--topbar-h); background:var(--white); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; padding:0 20px; position:fixed; top:0; left:0; right:0; z-index:300; transition:right 300ms ease; }
+.topbar.drawer-open { right:var(--drawer-w); }
+.tb-title { font-size:15px; font-weight:600; flex:1; display:flex; align-items:center; gap:8px; }
+.tb-badge { font-size:11px; color:var(--txt3); background:var(--offwh); border:1px solid var(--border); padding:2px 8px; border-radius:4px; }
+.seg { display:flex; background:var(--offwh); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+.seg-btn { padding:5px 12px; font-size:12px; font-weight:500; border:none; background:transparent; color:var(--txt2); cursor:pointer; font-family:inherit; transition:all 100ms; white-space:nowrap; }
+.seg-btn.on { background:var(--white); color:var(--txt1); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.btn { display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:6px; border:1px solid var(--border); background:var(--white); color:var(--txt1); font-size:12px; font-weight:500; font-family:inherit; cursor:pointer; transition:all 100ms; white-space:nowrap; flex-shrink:0; }
+.btn:hover { background:var(--offwh); }
+.btn.active { background:#FFF7ED; border-color:#FED7AA; color:#C2410C; }
+.btn.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+.btn.primary:hover { background:#0078C4; }
+.divider { width:1px; height:22px; background:var(--border); }
+
+.tabbar { height:var(--tabbar-h); background:var(--white); border-bottom:1px solid var(--border); display:flex; align-items:stretch; padding:0 20px; position:fixed; top:var(--topbar-h); left:0; right:0; z-index:299; transition:right 300ms ease; }
+.tabbar.drawer-open { right:var(--drawer-w); }
+.tab { padding:0 16px; font-size:13px; font-weight:500; color:var(--txt2); cursor:pointer; display:flex; align-items:center; gap:6px; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 120ms; user-select:none; }
+.tab.on { color:var(--blue); border-bottom-color:var(--blue); }
+
+.app { margin-top:calc(var(--topbar-h) + var(--tabbar-h)); height:calc(100vh - var(--topbar-h) - var(--tabbar-h)); display:flex; overflow:hidden; transition:margin-right 300ms ease; }
+.app.drawer-open { margin-right:var(--drawer-w); }
+.view { display:none; width:100%; height:100%; }
+.view.on { display:flex; }
+
+.lp { width:var(--left-w); flex-shrink:0; background:var(--white); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; z-index:10; }
+.lp-hd { height:52px; flex-shrink:0; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 14px; gap:8px; background:var(--white); }
+.lp-hd-label { font-size:10px; font-weight:600; color:var(--txt3); text-transform:uppercase; letter-spacing:.06em; }
+.lp-body { flex:1; overflow-y:auto; overflow-x:hidden; }
+.rp { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+.rp-scroll { flex:1; overflow:auto; }
+
+/* collapse all btn */
+.collapse-btn { font-size:11px; font-weight:500; color:var(--txt2); background:transparent; border:1px solid var(--border); border-radius:4px; padding:3px 8px; cursor:pointer; font-family:inherit; transition:all 100ms; white-space:nowrap; }
+.collapse-btn:hover { background:var(--offwh); color:var(--txt1); }
+
+/* hint bar */
+.hint-bar { padding:0 16px; height:28px; background:#FFF7ED; border-bottom:1px solid #FED7AA; display:none; align-items:center; gap:6px; font-size:11px; color:#92400E; flex-shrink:0; }
+.hint-bar.on { display:flex; }
+
+/* ── EPIC ROWS ── */
+.ev-epic { height:var(--row-epic); display:flex; align-items:center; background:var(--offwh); border-bottom:1px solid var(--border); padding:0 12px; gap:8px; cursor:pointer; user-select:none; transition:background 100ms; }
+.ev-epic:hover { background:#EEF2F8; }
+.chev { width:16px; height:16px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--txt3); font-size:9px; transition:transform 150ms; }
+.chev.open { transform:rotate(90deg); }
+.jkey { font-size:10px; font-weight:600; color:var(--blue); background:var(--blue-lt); padding:2px 6px; border-radius:4px; flex-shrink:0; }
+.ev-epic-name { font-size:13px; font-weight:600; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ev-epic-total { font-size:11px; color:var(--txt2); flex-shrink:0; }
+.ev-epic-remove { width:20px; height:20px; display:flex; align-items:center; justify-content:center; border-radius:4px; cursor:pointer; color:var(--txt3); font-size:16px; flex-shrink:0; opacity:0; transition:all 100ms; border:none; background:transparent; }
+.ev-epic:hover .ev-epic-remove { opacity:1; }
+.ev-epic-remove:hover { background:#FEE2E2; color:var(--util-over); }
+
+.ev-phase { height:var(--row-phase); display:flex; align-items:center; padding:0 12px 0 32px; gap:8px; border-bottom:1px solid var(--bord-lt); user-select:none; transition:background 100ms; }
+.ev-phase:hover { background:var(--offwh); }
+.ph-label { font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; flex-shrink:0; }
+.ph-label.d{background:var(--d-bg);color:var(--d-c);}
+.ph-label.b{background:var(--b-bg);color:var(--b-c);}
+.ph-label.t{background:var(--t-bg);color:var(--t-c);}
+.ph-label.p{background:var(--p-bg);color:var(--p-c);}
+.ph-label.h{background:var(--h-bg);color:var(--h-c);}
+.ph-dates { font-size:11px; color:var(--txt3); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ph-dates.set { color:var(--txt2); }
+.ph-dur { font-size:11px; font-weight:600; color:var(--txt1); flex-shrink:0; }
+.ph-total { font-size:11px; color:var(--txt2); flex-shrink:0; min-width:44px; text-align:right; }
+.ph-expand { cursor:pointer; flex-shrink:0; }
+.ph-remove { width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:3px; cursor:pointer; color:var(--txt3); font-size:14px; flex-shrink:0; opacity:0; transition:all 100ms; border:none; background:transparent; }
+.ev-phase:hover .ph-remove { opacity:1; }
+.ph-remove:hover { color:var(--util-over); background:#FEE2E2; }
+
+.ev-person { height:var(--row-person); display:flex; align-items:center; padding:0 12px 0 48px; gap:8px; border-bottom:1px solid var(--bord-lt); background:var(--white); transition:background 100ms; }
+.ev-person:hover { background:#F8FAFD; }
+.av { width:22px; height:22px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; color:#fff; }
+.ev-pname { font-size:12px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ev-prole { font-size:10px; color:var(--txt3); flex-shrink:0; }
+.ev-days { font-size:12px; font-weight:600; min-width:36px; text-align:right; flex-shrink:0; }
+.ev-days-inp { width:52px; border:1px solid var(--border); border-radius:4px; padding:3px 6px; font-size:12px; font-family:inherit; text-align:center; display:none; background:var(--white); }
+.ev-days-inp:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 2px rgba(0,137,221,.12); }
+.edit-on .ev-days { display:none; }
+.edit-on .ev-days-inp { display:block; }
+.ev-person-remove { width:16px; height:16px; display:flex; align-items:center; justify-content:center; border-radius:3px; cursor:pointer; color:var(--txt3); font-size:13px; opacity:0; transition:all 100ms; border:none; background:transparent; flex-shrink:0; }
+.ev-person:hover .ev-person-remove { opacity:1; }
+.ev-person-remove:hover { color:var(--util-over); }
+.ev-add-person { height:var(--row-add); display:flex; align-items:center; gap:5px; padding:0 12px 0 48px; color:var(--txt3); font-size:11px; cursor:pointer; border-bottom:1px solid var(--bord-lt); transition:all 100ms; user-select:none; }
+.ev-add-person:hover { color:var(--blue); background:var(--blue-lt); }
+
+/* ── GANTT ── */
+.g-head { position:sticky; top:0; z-index:20; background:var(--white); border-bottom:1px solid var(--border); }
+.g-months { height:24px; display:flex; border-bottom:1px solid var(--bord-lt); }
+.g-month { font-size:11px; font-weight:600; color:var(--txt2); display:flex; align-items:center; padding:0 8px; border-right:1px solid var(--bord-lt); flex-shrink:0; }
+.g-weeks { height:28px; display:flex; }
+.g-week { width:var(--week-w); flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; border-right:1px solid var(--bord-lt); }
+.g-week.ms { border-left:2px solid var(--border); }
+.g-week.today-week { background:var(--blue-lt); }
+.g-wnum { font-size:10px; font-weight:600; color:var(--txt3); }
+.g-wdate { font-size:10px; color:var(--txt3); }
+
+.g-epic   { height:var(--row-epic);   border-bottom:1px solid var(--border); position:relative; background:var(--offwh); overflow:visible; }
+.g-phase  { height:var(--row-phase);  border-bottom:1px solid var(--bord-lt); position:relative; background:var(--white); }
+.g-person { height:var(--row-person); border-bottom:1px solid var(--bord-lt); position:relative; background:var(--white); }
+.g-add    { height:var(--row-add);    border-bottom:1px solid var(--bord-lt); background:var(--white); }
+
+.g-phase.empty-phase.edit-on { cursor:pointer; }
+.g-phase.empty-phase.edit-on:hover { background:#F0F7FF; }
+
+.g-grid { position:absolute; inset:0; display:flex; pointer-events:none; }
+.g-col  { width:var(--week-w); flex-shrink:0; height:100%; border-right:1px solid var(--bord-lt); }
+.g-col.ms { border-left:2px solid var(--border); }
+.g-col.today-col { background:rgba(0,137,221,.04); }
+
+.g-click-cols { position:absolute; inset:0; display:flex; z-index:2; }
+.g-click-col  { width:var(--week-w); flex-shrink:0; height:100%; border-right:1px solid transparent; transition:background 100ms; }
+.g-click-col:hover { background:rgba(0,137,221,.12); }
+
+.set-start-hint { position:absolute; inset:0; display:none; align-items:center; justify-content:center; font-size:11px; color:var(--txt3); pointer-events:none; gap:5px; z-index:1; }
+.edit-on .g-phase.empty-phase .set-start-hint { display:flex; }
+
+/* today line */
+.today-line { position:absolute; top:0; bottom:0; width:2px; background:var(--blue); z-index:10; pointer-events:none; opacity:.7; }
+
+/* Phase bar */
+.pbar { position:absolute; top:7px; height:24px; border-radius:4px; border:1.5px solid transparent; display:flex; align-items:center; padding:0 10px; font-size:11px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:3; user-select:none; transition:box-shadow 100ms; cursor:default; min-width:10px; }
+.edit-on .pbar { cursor:grab; }
+.edit-on .pbar:hover { box-shadow:0 2px 10px rgba(0,0,0,.14); }
+.pbar.dragging { cursor:grabbing!important; box-shadow:0 4px 18px rgba(0,0,0,.18)!important; z-index:100; opacity:.9; transition:none; }
+.pbar.d{background:var(--d-bg);color:var(--d-c);border-color:var(--d-bd);}
+.pbar.b{background:var(--b-bg);color:var(--b-c);border-color:var(--b-bd);}
+.pbar.t{background:var(--t-bg);color:var(--t-c);border-color:var(--t-bd);}
+.pbar.p{background:var(--p-bg);color:var(--p-c);border-color:var(--p-bd);}
+.pbar.h{background:var(--h-bg);color:var(--h-c);border-color:var(--h-bd);}
+
+/* ── PEOPLE VIEW ── */
+.pv-person-hd { height:var(--row-p-hd); display:flex; align-items:center; padding:0 12px; gap:10px; background:var(--white); border-bottom:1px solid var(--border); cursor:pointer; user-select:none; }
+.pv-person-hd:hover { background:#F8FAFD; }
+.av-lg { width:28px; height:28px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#fff; }
+.pv-pinfo { flex:1; min-width:0; }
+.pv-pname { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pv-prole { font-size:11px; color:var(--txt3); }
+.pv-util-pill { font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; flex-shrink:0; }
+.pv-util-pill.over{background:#FEE2E2;color:var(--util-over);}
+.pv-util-pill.near{background:#FEF3C7;color:var(--util-near);}
+.pv-util-pill.ok{background:#DCFCE7;color:#16A34A;}
+.pv-util-pill.bench{background:var(--offwh);color:var(--txt3);}
+.pv-cap-row { height:var(--row-p-cap); display:flex; align-items:center; padding:0 12px 0 50px; gap:8px; border-bottom:1px solid var(--border); background:var(--offwh); }
+.pv-cap-bar { flex:1; height:5px; border-radius:3px; background:var(--bord-lt); overflow:hidden; }
+.pv-cap-fill { height:100%; border-radius:3px; }
+.pv-cap-fill.over{background:var(--util-over);}
+.pv-cap-fill.near{background:var(--util-near);}
+.pv-cap-fill.ok{background:var(--util-ok);}
+.pv-cap-fill.bench{background:var(--util-bench);}
+.pv-cap-label { font-size:11px; color:var(--txt2); white-space:nowrap; flex-shrink:0; }
+.pv-assign { height:var(--row-person); display:flex; align-items:center; padding:0 12px 0 50px; gap:8px; border-bottom:1px solid var(--bord-lt); background:var(--white); }
+.pv-assign:hover { background:#F8FAFD; }
+.pv-assign-key { font-size:10px; font-weight:600; color:var(--blue); background:var(--blue-lt); padding:2px 6px; border-radius:4px; flex-shrink:0; }
+.pv-assign-name { font-size:12px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pv-assign-days { font-size:12px; font-weight:600; flex-shrink:0; }
+.pv-pp { font-size:10px; font-weight:600; padding:1px 5px; border-radius:3px; }
+.pv-pp.d{background:var(--d-bg);color:var(--d-c);} .pv-pp.b{background:var(--b-bg);color:var(--b-c);}
+.pv-pp.t{background:var(--t-bg);color:var(--t-c);} .pv-pp.p{background:var(--p-bg);color:var(--p-c);}
+.pv-pp.h{background:var(--h-bg);color:var(--h-c);}
+.g-pv-phd  { height:var(--row-p-hd);  border-bottom:1px solid var(--border); position:relative; background:var(--offwh); }
+.g-pv-cap  { height:var(--row-p-cap); border-bottom:1px solid var(--border); position:relative; background:var(--offwh); }
+.g-pv-asgn { height:var(--row-person); border-bottom:1px solid var(--bord-lt); position:relative; background:var(--white); }
+.abar { position:absolute; top:7px; height:20px; border-radius:4px; display:flex; align-items:center; padding:0 7px; font-size:11px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:3; user-select:none; }
+.abar:hover { box-shadow:0 2px 8px rgba(0,0,0,.12); z-index:4; }
+.abar.d{background:var(--d-bg);color:var(--d-c);border:1.5px solid var(--d-bd);}
+.abar.b{background:var(--b-bg);color:var(--b-c);border:1.5px solid var(--b-bd);}
+.abar.t{background:var(--t-bg);color:var(--t-c);border:1.5px solid var(--t-bd);}
+.abar.p{background:var(--p-bg);color:var(--p-c);border:1.5px solid var(--p-bd);}
+.abar.h{background:var(--h-bg);color:var(--h-c);border:1.5px solid var(--h-bd);}
+.heat-row { position:absolute; inset:0; display:flex; pointer-events:none; }
+.heat-cell { width:var(--week-w); flex-shrink:0; height:100%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; border-right:1px solid var(--bord-lt); }
+.heat-cell.over{background:rgba(239,68,68,.12);color:var(--util-over);}
+.heat-cell.near{background:rgba(245,158,11,.10);color:var(--util-near);}
+.heat-cell.ok{background:rgba(34,197,94,.08);color:#16A34A;}
+.heat-cell.bench{background:transparent;color:var(--txt3);}
+
+/* ── DRAWER ── */
+.drawer { position:fixed; top:0; right:0; bottom:0; width:var(--drawer-w); background:var(--white); border-left:1px solid var(--border); display:flex; flex-direction:column; transform:translateX(100%); transition:transform 300ms ease; z-index:400; box-shadow:-4px 0 24px rgba(0,0,0,.08); }
+.drawer.open { transform:translateX(0); }
+.dr-head { height:var(--topbar-h); flex-shrink:0; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 16px; gap:10px; }
+.dr-title { font-size:14px; font-weight:600; flex:1; }
+.dr-close { width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius:6px; cursor:pointer; color:var(--txt2); font-size:18px; border:none; background:transparent; }
+.dr-close:hover { background:var(--offwh); }
+.dr-filters { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:8px; }
+.dr-search { display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:6px; padding:6px 10px; background:var(--offwh); }
+.dr-search input { border:none; background:transparent; font-family:inherit; font-size:13px; color:var(--txt1); flex:1; outline:none; }
+.dr-search input::placeholder { color:var(--txt3); }
+.dr-filter-row { display:flex; gap:6px; flex-wrap:wrap; position:relative; }
+
+/* Filter button */
+.flt-btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:4px 10px; border-radius:6px; font-size:12px; font-weight:500;
+  border:1px solid var(--border); background:var(--white); color:var(--txt2);
+  cursor:pointer; font-family:inherit; transition:all 100ms; user-select:none; white-space:nowrap;
+}
+.flt-btn:hover { background:var(--offwh); }
+.flt-btn.active { background:var(--blue-lt); border-color:var(--blue); color:var(--blue); }
+.flt-count { background:var(--blue); color:#fff; font-size:10px; font-weight:700; padding:0 5px; border-radius:10px; min-width:16px; text-align:center; }
+.flt-chevron { font-size:8px; color:var(--txt3); transition:transform 120ms; }
+.flt-btn.open .flt-chevron { transform:rotate(180deg); }
+
+/* Dropdown */
+.flt-dropdown {
+  position:absolute; top:calc(100% + 6px); left:0;
+  width:240px; background:var(--white);
+  border:1px solid var(--border); border-radius:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);
+  z-index:500; display:none; flex-direction:column; overflow:hidden;
+}
+.flt-dropdown.open { display:flex; }
+.flt-dd-search { display:flex; align-items:center; gap:6px; padding:8px 10px; border-bottom:1px solid var(--bord-lt); }
+.flt-dd-search input { border:none; font-family:inherit; font-size:12px; color:var(--txt1); flex:1; outline:none; background:transparent; }
+.flt-dd-search input::placeholder { color:var(--txt3); }
+.flt-dd-list { max-height:200px; overflow-y:auto; }
+.flt-dd-item { display:flex; align-items:center; gap:8px; padding:7px 10px; cursor:pointer; transition:background 80ms; font-size:12px; color:var(--txt1); user-select:none; }
+.flt-dd-item:hover { background:var(--offwh); }
+.flt-dd-item.checked { background:var(--blue-lt); }
+.flt-dd-empty { padding:12px 10px; font-size:12px; color:var(--txt3); text-align:center; }
+.flt-dd-footer { border-top:1px solid var(--bord-lt); padding:6px 10px; display:flex; justify-content:space-between; }
+.flt-dd-clear { font-size:11px; color:var(--txt2); cursor:pointer; padding:2px 4px; border-radius:3px; }
+.flt-dd-clear:hover { color:var(--util-over); background:#FEE2E2; }
+.dr-list-head { padding:8px 16px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--bord-lt); }
+.dr-select-all { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px; font-weight:500; color:var(--txt2); user-select:none; }
+.dr-count { font-size:11px; color:var(--txt3); margin-left:auto; }
+.dr-list { flex:1; overflow-y:auto; }
+.dr-epic-item { display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--bord-lt); cursor:pointer; transition:background 100ms; user-select:none; }
+.dr-epic-item:hover { background:var(--offwh); }
+.dr-epic-item.checked { background:var(--blue-lt); }
+.cb { width:16px; height:16px; border-radius:4px; flex-shrink:0; border:1.5px solid var(--border); background:var(--white); display:flex; align-items:center; justify-content:center; transition:all 100ms; }
+.cb.on { background:var(--blue); border-color:var(--blue); }
+.cb.on::after { content:'✓'; color:#fff; font-size:10px; font-weight:700; }
+.dr-epic-info { flex:1; min-width:0; }
+.dr-epic-key { font-size:10px; font-weight:600; color:var(--blue); background:var(--blue-lt); padding:2px 6px; border-radius:4px; display:inline-block; margin-bottom:2px; }
+.dr-epic-name { font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dr-epic-meta { font-size:11px; color:var(--txt3); margin-top:1px; }
+.dr-epic-status { font-size:10px; font-weight:600; padding:1px 6px; border-radius:3px; flex-shrink:0; }
+.dr-epic-status.active{background:#DCFCE7;color:#16A34A;}
+.dr-epic-status.planned{background:var(--b-bg);color:var(--b-c);}
+.dr-epic-status.backlog{background:var(--offwh);color:var(--txt3);}
+.dr-epic-status.in-progress{background:#FEF3C7;color:var(--util-near);}
+.dr-footer { padding:12px 16px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:center; }
+.dr-sel-count { font-size:12px; color:var(--txt2); flex:1; }
+
+.empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:40px; text-align:center; }
+.empty-icon { font-size:36px; opacity:.3; }
+.empty-title { font-size:15px; font-weight:600; color:var(--txt2); }
+.empty-sub { font-size:13px; color:var(--txt3); max-width:280px; line-height:1.6; }
+
+.tip { position:fixed; background:var(--txt1); color:#fff; padding:9px 12px; border-radius:7px; font-size:12px; line-height:1.65; z-index:9999; pointer-events:none; display:none; box-shadow:0 4px 20px rgba(0,0,0,.25); max-width:260px; }
+.tip strong { font-weight:600; display:block; margin-bottom:2px; font-size:11px; color:rgba(255,255,255,.6); }
+.tip-name { display:block; margin-bottom:4px; }
+.tip-row { display:flex; justify-content:space-between; gap:12px; margin-top:2px; }
+.tip-row span:last-child { font-weight:600; }
+.tip-note { font-size:11px; color:#FCD34D; margin-top:4px; }
+
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ── SUMMARY / DASHBOARD TAB ── */
+.sv { flex:1; overflow-y:auto; padding:24px; display:flex; flex-direction:column; gap:24px; background:var(--bg); }
+
+/* Section headers */
+.sec-hd { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.sec-title { font-size:13px; font-weight:600; color:var(--txt1); }
+.sec-sub { font-size:12px; color:var(--txt3); }
+
+/* KPI cards */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
+.kpi-card {
+  background:var(--white); border:1px solid var(--border); border-radius:10px;
+  padding:16px; display:flex; flex-direction:column; gap:10px;
+}
+.kpi-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.kpi-team { font-size:12px; font-weight:600; color:var(--txt1); }
+.kpi-badge { font-size:10px; font-weight:600; padding:2px 7px; border-radius:4px; flex-shrink:0; }
+.kpi-badge.over { background:#FEE2E2; color:var(--util-over); }
+.kpi-badge.near { background:#FEF3C7; color:var(--util-near); }
+.kpi-badge.ok   { background:#DCFCE7; color:#16A34A; }
+.kpi-badge.bench{ background:var(--offwh); color:var(--txt3); }
+.kpi-nums { display:flex; align-items:baseline; gap:4px; }
+.kpi-est  { font-size:22px; font-weight:600; color:var(--txt1); line-height:1; }
+.kpi-avail{ font-size:12px; color:var(--txt3); }
+.kpi-bar  { height:6px; border-radius:3px; background:var(--bord-lt); overflow:hidden; }
+.kpi-bar-fill { height:100%; border-radius:3px; transition:width 400ms; }
+.kpi-bar-fill.over { background:var(--util-over); }
+.kpi-bar-fill.near { background:var(--util-near); }
+.kpi-bar-fill.ok   { background:var(--util-ok); }
+.kpi-bar-fill.bench{ background:var(--util-bench); }
+.kpi-members { font-size:11px; color:var(--txt3); }
+
+/* Compact Gantt */
+.cg-wrap { background:var(--white); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.cg-head { display:flex; border-bottom:1px solid var(--border); background:var(--offwh); }
+.cg-label-col { width:280px; flex-shrink:0; border-right:1px solid var(--border); display:flex; align-items:center; padding:0 14px; height:36px; }
+.cg-label-hd { font-size:10px; font-weight:600; color:var(--txt3); text-transform:uppercase; letter-spacing:.06em; }
+.cg-weeks-hd { flex:1; display:flex; overflow:hidden; }
+.cg-week-hd { flex:1; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--txt3); border-right:1px solid var(--bord-lt); height:36px; white-space:nowrap; font-weight:500; }
+.cg-week-hd.ms { border-left:2px solid var(--border); }
+.cg-week-hd.today-w { background:var(--blue-lt); color:var(--blue); font-weight:600; }
+
+/* Team group header in compact gantt */
+.cg-team-row { display:flex; border-bottom:1px solid var(--border); background:var(--offwh); }
+.cg-team-label { width:280px; flex-shrink:0; border-right:1px solid var(--border); display:flex; align-items:center; padding:0 14px; height:30px; gap:8px; }
+.cg-team-name { font-size:11px; font-weight:600; color:var(--txt2); }
+.cg-team-gantt { flex:1; height:30px; position:relative; }
+
+/* Epic row in compact gantt */
+.cg-epic-row { display:flex; border-bottom:1px solid var(--bord-lt); }
+.cg-epic-row:last-child { border-bottom:none; }
+.cg-epic-label { width:280px; flex-shrink:0; border-right:1px solid var(--border); display:flex; align-items:center; padding:0 14px 0 22px; height:32px; gap:7px; overflow:hidden; }
+.cg-epic-key { font-size:10px; font-weight:600; color:var(--blue); background:var(--blue-lt); padding:1px 5px; border-radius:3px; flex-shrink:0; }
+.cg-epic-name { font-size:11px; color:var(--txt1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cg-epic-gantt { flex:1; height:32px; position:relative; overflow:visible; }
+
+/* Phase segments on compact gantt row */
+.cg-grid { position:absolute; inset:0; display:flex; pointer-events:none; }
+.cg-col  { flex:1; height:100%; border-right:1px solid var(--bord-lt); }
+.cg-col.ms { border-left:2px solid var(--border); }
+.cg-col.today-c { background:rgba(0,137,221,.04); }
+.cg-bar {
+  position:absolute; top:5px; height:22px; border-radius:3px;
+  border:1.5px solid transparent; font-size:10px; font-weight:500;
+  display:flex; align-items:center; padding:0 6px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  user-select:none; z-index:2;
+}
+.cg-bar.d{background:var(--d-bg);color:var(--d-c);border-color:var(--d-bd);}
+.cg-bar.b{background:var(--b-bg);color:var(--b-c);border-color:var(--b-bd);}
+.cg-bar.t{background:var(--t-bg);color:var(--t-c);border-color:var(--t-bd);}
+.cg-bar.p{background:var(--p-bg);color:var(--p-c);border-color:var(--p-bd);}
+.cg-bar.h{background:var(--h-bg);color:var(--h-c);border-color:var(--h-bd);}
+.cg-today-line { position:absolute; top:0; bottom:0; width:2px; background:var(--blue); opacity:.6; z-index:5; pointer-events:none; }
+
+/* Person capacity table */
+.pct-wrap { background:var(--white); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.pct-hd { display:grid; grid-template-columns:200px 80px 80px 1fr 60px; gap:0; border-bottom:1px solid var(--border); background:var(--offwh); height:34px; }
+.pct-hd-cell { display:flex; align-items:center; padding:0 14px; font-size:10px; font-weight:600; color:var(--txt3); text-transform:uppercase; letter-spacing:.06em; border-right:1px solid var(--bord-lt); }
+.pct-hd-cell:last-child { border-right:none; }
+.pct-row { display:grid; grid-template-columns:200px 80px 80px 1fr 60px; border-bottom:1px solid var(--bord-lt); min-height:42px; }
+.pct-row:last-child { border-bottom:none; }
+.pct-cell { display:flex; align-items:center; padding:0 14px; border-right:1px solid var(--bord-lt); font-size:12px; }
+.pct-cell:last-child { border-right:none; }
+.pct-person { gap:8px; }
+.pct-bar-cell { flex-direction:column; justify-content:center; gap:4px; padding:8px 14px; }
+.pct-bar { width:100%; height:6px; border-radius:3px; background:var(--bord-lt); overflow:hidden; }
+.pct-bar-fill { height:100%; border-radius:3px; }
+.pct-bar-fill.over{background:var(--util-over);}
+.pct-bar-fill.near{background:var(--util-near);}
+.pct-bar-fill.ok{background:var(--util-ok);}
+.pct-bar-fill.bench{background:var(--util-bench);}
+.pct-bar-label { font-size:10px; color:var(--txt3); }
+.pct-status { font-size:11px; font-weight:600; }
+.pct-status.over{color:var(--util-over);}
+.pct-status.near{color:var(--util-near);}
+.pct-delta { font-size:12px; font-weight:600; }
+.pct-delta.over{color:var(--util-over);}
+.pct-delta.near{color:var(--util-near);}
+.pct-delta.ok{color:#16A34A;}
+.pct-empty { padding:32px; text-align:center; color:var(--txt3); font-size:13px; }
+
+</style>
+</head>
+<body>
+
+<div class="topbar" id="topbar">
+  <div class="tb-title">Portfolio Planning<span class="tb-badge">VS Finance · <span id="yearBadge"></span></span></div>
+  <div class="seg" id="qSeg"></div>
+  <div class="divider"></div>
+  <button class="btn" id="editBtn" onclick="toggleEdit()">✎ Edit</button>
+  <button class="btn primary" onclick="openDrawer()">+ Add Epics</button>
+</div>
+
+<div class="tabbar" id="tabbar">
+  <div class="tab on" onclick="switchTab('epic')"   id="tab-epic">⬡ Epic View</div>
+  <div class="tab"    onclick="switchTab('people')" id="tab-people">◎ People View</div>
+  <div class="tab"    onclick="switchTab('summary')" id="tab-summary">▦ Summary</div>
+</div>
+
+<div class="app" id="app">
+  <!-- EPIC VIEW -->
+  <div class="view on" id="view-epic">
+    <div class="lp">
+      <div class="lp-hd">
+        <span class="lp-hd-label">Epic · Phase · Person</span>
+        <span style="flex:1"></span>
+        <button class="collapse-btn" onclick="expandCollapseAll('epic',true)">Expand all</button>
+        <button class="collapse-btn" onclick="expandCollapseAll('epic',false)">Collapse all</button>
+      </div>
+      <div class="hint-bar" id="hintBar">✎ Edit mode — click a week on an empty phase row to set the start date · drag a bar to reposition</div>
+      <div class="lp-body" id="ev-lp-body"></div>
+    </div>
+    <div class="rp"><div class="rp-scroll" id="ev-rp-scroll"><div id="ev-gantt"></div></div></div>
+  </div>
+
+  <!-- PEOPLE VIEW -->
+  <div class="view" id="view-people">
+    <div class="lp">
+      <div class="lp-hd">
+        <span class="lp-hd-label">Person · Epic assignments</span>
+        <span style="flex:1"></span>
+        <button class="collapse-btn" onclick="expandCollapseAll('people',true)">Expand all</button>
+        <button class="collapse-btn" onclick="expandCollapseAll('people',false)">Collapse all</button>
+      </div>
+      <div class="lp-body" id="pv-lp-body"></div>
+    </div>
+    <div class="rp"><div class="rp-scroll" id="pv-rp-scroll"><div id="pv-gantt"></div></div></div>
+  </div>
+
+  <!-- SUMMARY VIEW -->
+  <div class="view" id="view-summary">
+    <div class="sv" id="sv-body">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="dr-head"><span class="dr-title">Add Epics to Portfolio</span><button class="dr-close" onclick="closeDrawer()">×</button></div>
+  <div class="dr-filters">
+    <div class="dr-search"><span style="color:var(--txt3)">🔍</span><input id="drSearch" type="text" placeholder="Search by name or key…" oninput="renderDrawer()"></div>
+    <div class="dr-filter-row" id="drFilters">
+      <div style="position:relative">
+        <button class="flt-btn" id="fltLabelBtn" onclick="toggleDropdown('label')">Labels <span class="flt-count" id="fltLabelCount" style="display:none"></span><span class="flt-chevron">▼</span></button>
+        <div class="flt-dropdown" id="fltLabelDd">
+          <div class="flt-dd-search"><span style="color:var(--txt3)">🔍</span><input type="text" placeholder="Search labels…" oninput="renderDropdown('label',this.value)"></div>
+          <div class="flt-dd-list" id="fltLabelList"></div>
+          <div class="flt-dd-footer"><span class="flt-dd-clear" onclick="clearFilter('label')">Clear all</span></div>
+        </div>
+      </div>
+      <div style="position:relative">
+        <button class="flt-btn" id="fltAssigneeBtn" onclick="toggleDropdown('assignee')">Assignee <span class="flt-count" id="fltAssigneeCount" style="display:none"></span><span class="flt-chevron">▼</span></button>
+        <div class="flt-dropdown" id="fltAssigneeDd">
+          <div class="flt-dd-search"><span style="color:var(--txt3)">🔍</span><input type="text" placeholder="Search assignees…" oninput="renderDropdown('assignee',this.value)"></div>
+          <div class="flt-dd-list" id="fltAssigneeList"></div>
+          <div class="flt-dd-footer"><span class="flt-dd-clear" onclick="clearFilter('assignee')">Clear all</span></div>
+        </div>
+      </div>
+      <div style="position:relative">
+        <button class="flt-btn" id="fltStatusBtn" onclick="toggleDropdown('status')">Status <span class="flt-count" id="fltStatusCount" style="display:none"></span><span class="flt-chevron">▼</span></button>
+        <div class="flt-dropdown" id="fltStatusDd">
+          <div class="flt-dd-search"><span style="color:var(--txt3)">🔍</span><input type="text" placeholder="Search statuses…" oninput="renderDropdown('status',this.value)"></div>
+          <div class="flt-dd-list" id="fltStatusList"></div>
+          <div class="flt-dd-footer"><span class="flt-dd-clear" onclick="clearFilter('status')">Clear all</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="dr-list-head">
+    <label class="dr-select-all" onclick="toggleSelectAll()"><div class="cb" id="selectAllCb"></div>Select all visible</label>
+    <span class="dr-count" id="drCount"></span>
+  </div>
+  <div class="dr-list" id="drList"></div>
+  <div class="dr-footer">
+    <span class="dr-sel-count" id="drSelCount"></span>
+    <button class="btn" onclick="closeDrawer()">Cancel</button>
+    <button class="btn primary" onclick="saveDrawer()">Add to portfolio</button>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────
+let WEEK_W = 52;
+let DAY_W  = WEEK_W / 5;
+
+function calcWeekW() {
+  // Available gantt width = viewport - left panel - scrollbar allowance
+  const drawerOpen = document.getElementById('app').classList.contains('drawer-open');
+  const drawerW    = drawerOpen ? 420 : 0;
+  const leftW      = 460;
+  const avail      = window.innerWidth - leftW - drawerW - 2;
+  const nWeeks     = WEEKS.length;
+  if (!nWeeks) return 52;
+  // Full year: min 52px so columns don't get too narrow
+  // Quarter/smaller: fill available width
+  const isFullYear = Q_OPTS[activeQIdx].q === -1;
+  if (isFullYear) return Math.max(52, Math.floor(avail / nWeeks));
+  return Math.max(52, Math.floor(avail / nWeeks));
+}
+
+function applyWeekW() {
+  WEEK_W = calcWeekW();
+  DAY_W  = WEEK_W / 5;
+  document.documentElement.style.setProperty('--week-w', WEEK_W + 'px');
+}
+const PHASES = ['d','b','t','p','h'];
+const PH_LBL = { d:'Design', b:'Build', t:'Test', p:'Deploy', h:'Hypercare' };
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ─────────────────────────────────────────────
+// DYNAMIC QUARTER LOGIC
+// ─────────────────────────────────────────────
+const TODAY = new Date(); // real today
+const CUR_YEAR = TODAY.getFullYear();
+const CUR_MONTH = TODAY.getMonth(); // 0-indexed
+const CUR_Q = Math.floor(CUR_MONTH / 3); // 0=Q1, 1=Q2, 2=Q3, 3=Q4
+
+// Build quarter options: current quarter + next 2 + "Full Year"
+function getQuarterOptions() {
+  const opts = [];
+  for (let i = 0; i < 3; i++) {
+    let q = CUR_Q + i;
+    let y = CUR_YEAR;
+    if (q > 3) { q -= 4; y++; }
+    opts.push({ label: `Q${q+1} ${y}`, q, year: y });
+  }
+  opts.push({ label: `Full Year ${CUR_YEAR}`, q: -1, year: CUR_YEAR });
+  return opts;
+}
+
+const Q_OPTS = getQuarterOptions();
+let activeQIdx = 0; // index into Q_OPTS
+
+// Quarter → date range
+function quarterRange(qOpt) {
+  if (qOpt.q === -1) {
+    // Full year
+    return { start: new Date(qOpt.year, 0, 1), end: new Date(qOpt.year, 11, 31) };
+  }
+  const startMonth = qOpt.q * 3;
+  return {
+    start: new Date(qOpt.year, startMonth, 1),
+    end:   new Date(qOpt.year, startMonth + 3, 0)
+  };
+}
+
+// Find first Monday on or after a date
+function firstMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? 1 : day === 1 ? 0 : 8 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+// Generate weeks for the active quarter view
+function genWeeksForQ(qOpt) {
+  const range = quarterRange(qOpt);
+  const start = firstMonday(range.start);
+  const end   = range.end;
+  const r = [];
+  const d = new Date(start);
+  while (d <= end || r.length < 4) {
+    const prev  = r.length > 0 ? r[r.length-1].monthIdx : -1;
+    const mi    = d.getMonth();
+    const jan4  = new Date(d.getFullYear(), 0, 4);
+    const wn    = Math.ceil(((d - jan4) / 86400000 + jan4.getDay() + 1) / 7);
+    const isToday = d <= TODAY && new Date(d.getTime() + 6*86400000) >= TODAY;
+    r.push({
+      idx: r.length, num: wn,
+      startDate: new Date(d),
+      label: `${d.getDate()} ${MONTHS[mi].slice(0,3)}`,
+      month: MONTHS[mi], monthIdx: mi,
+      isMonthStart: mi !== prev,
+      isTodayWeek: isToday
+    });
+    d.setDate(d.getDate() + 7);
+    if (d > end && r.length >= 8) break;
+  }
+  return r;
+}
+
+// T_START = start of active gantt window
+let WEEKS = [];
+let T_START = new Date();
+
+function refreshWeeks() {
+  WEEKS = genWeeksForQ(Q_OPTS[activeQIdx]);
+  T_START = WEEKS.length > 0 ? WEEKS[0].startDate : new Date();
+  applyWeekW();
+}
+
+// ─────────────────────────────────────────────
+// PEOPLE & COLORS
+// ─────────────────────────────────────────────
+const AV_COLORS = { MC:'#0089DD',RB:'#7C3AED',DH:'#D97706',SL:'#16A34A',SH:'#DB2777',KU:'#1D6FE8',GV:'#059669',TA:'#D97706',NB:'#7C3AED',LP:'#DB2777',EM:'#64748B',JB:'#1D6FE8' };
+const avColor = id => AV_COLORS[id] || '#64748B';
+
+const PEOPLE = {
+  MC:{ name:'Melvin Campbell',   role:'Solution Lead',  availDays:60, absenceDays:5  },
+  RB:{ name:'Rob Brodie',        role:'Business',       availDays:40, absenceDays:0  },
+  DH:{ name:'David Halsey',      role:'Developer',      availDays:55, absenceDays:3  },
+  SL:{ name:'Scott Lamont',      role:'Tech Analyst',   availDays:60, absenceDays:0  },
+  SH:{ name:'Stephanie Holt',    role:'Business: PMO',  availDays:40, absenceDays:8  },
+  KU:{ name:'Katerina Urobina',  role:'Solution Lead',  availDays:60, absenceDays:4  },
+  GV:{ name:'Gijs van der Veen', role:'Tech Analyst',   availDays:60, absenceDays:0  },
+  TA:{ name:'Tina Agustin',      role:'Developer',      availDays:55, absenceDays:6  },
+  NB:{ name:'Niels Bloklander',  role:'Business: FP&A', availDays:40, absenceDays:0  },
+  LP:{ name:'Lars Petersen',     role:'Business: AP',   availDays:35, absenceDays:5  },
+  EM:{ name:'Emma Müller',       role:'Business: CFO',  availDays:30, absenceDays:0  },
+  JB:{ name:'James Bailey',      role:'Solution Lead',  availDays:60, absenceDays:2  },
+};
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+const dToX = d => d * DAY_W;
+const dToW = d => Math.max(DAY_W, d * DAY_W);
+const xToD = x => Math.max(0, Math.round(x / DAY_W));
+
+function dayToDateStr(day) {
+  const d = new Date(T_START);
+  d.setDate(d.getDate() + Math.round(day * 7 / 5));
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
+}
+
+// Today's position in working days from T_START
+function todayDayOffset() {
+  const msPerDay = 86400000;
+  const diff = Math.floor((TODAY - T_START) / msPerDay);
+  // approximate working days (5/7)
+  return Math.max(0, Math.round(diff * 5 / 7));
+}
+
+function calcBarWidth(phObj) {
+  const entries = Object.entries(phObj.persons);
+  if (!entries.length) return 0;
+  let maxDays = 0, maxPid = '';
+  for (const [pid, p] of entries) { if (p.days > maxDays) { maxDays = p.days; maxPid = pid; } }
+  return maxDays + (PEOPLE[maxPid]?.absenceDays || 0);
+}
+
+function calcMaxPerson(phObj) {
+  const entries = Object.entries(phObj.persons);
+  if (!entries.length) return null;
+  let maxDays = 0, maxPid = '';
+  for (const [pid, p] of entries) { if (p.days > maxDays) { maxDays = p.days; maxPid = pid; } }
+  return maxPid || null;
+}
+
+// ─────────────────────────────────────────────
+// EPICS DATA
+// ─────────────────────────────────────────────
+const ALL_EPICS = [
+  { id:'e1', key:'ERP-3300', name:'AP Control Framework',           assignee:'MC', label:'Finance Systems', status:'in-progress', collapsed:false,
+    phases:{
+      d:{ startDay:0,    persons:{ MC:{days:3}, RB:{days:1} },             personCollapsed:false },
+      b:{ startDay:16,   persons:{ MC:{days:10}, DH:{days:8} },            personCollapsed:false },
+      t:{ startDay:35,   persons:{ SL:{days:7}, MC:{days:3} },             personCollapsed:false },
+      p:{ startDay:52,   persons:{ MC:{days:2} },                          personCollapsed:false },
+      h:{ startDay:null, persons:{},                                        personCollapsed:false },
+    }
+  },
+  { id:'e2', key:'IT-1312', name:'Bonds Restructuring',            assignee:'KU', label:'Treasury', status:'planned', collapsed:false,
+    phases:{
+      d:{ startDay:10,   persons:{ KU:{days:5}, GV:{days:3} },             personCollapsed:false },
+      b:{ startDay:28,   persons:{ KU:{days:10}, GV:{days:8}, TA:{days:5} }, personCollapsed:false },
+      t:{ startDay:48,   persons:{ KU:{days:5}, TA:{days:5} },             personCollapsed:false },
+      p:{ startDay:62,   persons:{ GV:{days:2} },                          personCollapsed:false },
+      h:{ startDay:null, persons:{},                                        personCollapsed:false },
+    }
+  },
+  { id:'e3', key:'IT-992',  name:'Indirect Cashflow',              assignee:'KU', label:'Treasury', status:'in-progress', collapsed:false,
+    phases:{
+      d:{ startDay:2,    persons:{ KU:{days:2}, NB:{days:2} },             personCollapsed:false },
+      b:{ startDay:18,   persons:{ KU:{days:8}, TA:{days:6} },             personCollapsed:false },
+      t:{ startDay:38,   persons:{ KU:{days:4}, GV:{days:2} },             personCollapsed:false },
+      p:{ startDay:null, persons:{},                                        personCollapsed:false },
+      h:{ startDay:null, persons:{},                                        personCollapsed:false },
+    }
+  },
+  { id:'e4', key:'EPM-516', name:'Pillar II Reporting — Onestream', assignee:'KU', label:'Reporting', status:'planned', collapsed:true,
+    phases:{ d:{startDay:null,persons:{},personCollapsed:false}, b:{startDay:null,persons:{},personCollapsed:false}, t:{startDay:null,persons:{},personCollapsed:false}, p:{startDay:null,persons:{},personCollapsed:false}, h:{startDay:null,persons:{},personCollapsed:false} }
+  },
+  { id:'e5', key:'IT-821',  name:'FP&A Automation',               assignee:'JB', label:'Finance Systems', status:'planned', collapsed:true,
+    phases:{ d:{startDay:null,persons:{},personCollapsed:false}, b:{startDay:null,persons:{},personCollapsed:false}, t:{startDay:null,persons:{},personCollapsed:false}, p:{startDay:null,persons:{},personCollapsed:false}, h:{startDay:null,persons:{},personCollapsed:false} }
+  },
+  { id:'e6', key:'ERP-4100',name:'Vendor Portal Upgrade',          assignee:'MC', label:'Finance Systems', status:'backlog', collapsed:true,
+    phases:{ d:{startDay:null,persons:{},personCollapsed:false}, b:{startDay:null,persons:{},personCollapsed:false}, t:{startDay:null,persons:{},personCollapsed:false}, p:{startDay:null,persons:{},personCollapsed:false}, h:{startDay:null,persons:{},personCollapsed:false} }
+  },
+  { id:'e7', key:'IT-1278', name:'Corporate Tax Engine',           assignee:'SL', label:'Tax', status:'backlog', collapsed:true,
+    phases:{ d:{startDay:null,persons:{},personCollapsed:false}, b:{startDay:null,persons:{},personCollapsed:false}, t:{startDay:null,persons:{},personCollapsed:false}, p:{startDay:null,persons:{},personCollapsed:false}, h:{startDay:null,persons:{},personCollapsed:false} }
+  },
+  { id:'e8', key:'EPM-601', name:'Cost Allocation Redesign',       assignee:'NB', label:'Reporting', status:'planned', collapsed:true,
+    phases:{ d:{startDay:null,persons:{},personCollapsed:false}, b:{startDay:null,persons:{},personCollapsed:false}, t:{startDay:null,persons:{},personCollapsed:false}, p:{startDay:null,persons:{},personCollapsed:false}, h:{startDay:null,persons:{},personCollapsed:false} }
+  },
+];
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let boardEpicIds = ['e1','e2','e3'];
+let drawerSelectedIds = new Set();
+let activeFilters = new Set();
+let editMode = false;
+let pvExpanded = {};
+let dragging = null;
+
+// ─────────────────────────────────────────────
+// DERIVED
+// ─────────────────────────────────────────────
+const boardEpics = () => ALL_EPICS.filter(e => boardEpicIds.includes(e.id));
+const epicTotalDays = e => PHASES.reduce((s,ph) => s + Object.values(e.phases[ph].persons).reduce((ss,p)=>ss+p.days,0), 0);
+const phaseTotalDays = phObj => Object.values(phObj.persons).reduce((s,p)=>s+p.days,0);
+
+function buildPeopleSummary() {
+  const map = {};
+  for (const epic of boardEpics()) for (const ph of PHASES) {
+    const phObj = epic.phases[ph];
+    const barW  = calcBarWidth(phObj);
+    for (const [pid, pdata] of Object.entries(phObj.persons)) {
+      if (!map[pid]) map[pid] = { assignments:[] };
+      map[pid].assignments.push({ epic, ph, days:pdata.days, startDay:phObj.startDay??0, endDay:(phObj.startDay??0)+barW, hasBar:phObj.startDay!==null&&barW>0 });
+    }
+  }
+  return map;
+}
+
+function personWeeklyUtil(assignments) {
+  return WEEKS.map((_,i) => {
+    let used = 0;
+    for (const a of assignments) {
+      if (!a.hasBar) continue;
+      const o = Math.min(a.endDay, i*5+5) - Math.max(a.startDay, i*5);
+      if (o > 0) used += o;
+    }
+    const pct = used / 5;
+    return { used, pct, cls: pct>1?'over':pct>0.85?'near':pct>0.05?'ok':'bench' };
+  });
+}
+
+// ─────────────────────────────────────────────
+// QUARTER SELECTOR
+// ─────────────────────────────────────────────
+function buildQSeg() {
+  const seg = document.getElementById('qSeg');
+  document.getElementById('yearBadge').textContent = CUR_YEAR;
+  seg.innerHTML = Q_OPTS.map((q,i) =>
+    `<button class="seg-btn${i===activeQIdx?' on':''}" onclick="setQ(${i})">${q.label}</button>`
+  ).join('');
+}
+
+function setQ(idx) {
+  activeQIdx = idx;
+  refreshWeeks();
+  buildQSeg();
+  render();
+  // Scroll gantt to start
+  document.getElementById('ev-rp-scroll').scrollLeft = 0;
+  document.getElementById('pv-rp-scroll').scrollLeft = 0;
+}
+
+// ─────────────────────────────────────────────
+// GANTT HELPERS
+// ─────────────────────────────────────────────
+function totalW() { return WEEKS.length * WEEK_W; }
+
+function ganttHeader() {
+  const ms=[]; let c=null,n=0;
+  for(const w of WEEKS){if(w.month!==c){if(c)ms.push({label:c,count:n});c=w.month;n=1;}else n++;}
+  if(c)ms.push({label:c,count:n});
+  let h=`<div class="g-head" style="min-width:${totalW()}px"><div class="g-months">`;
+  for(const m of ms) h+=`<div class="g-month" style="width:${m.count*WEEK_W}px">${m.label}</div>`;
+  h+=`</div><div class="g-weeks">`;
+  for(const w of WEEKS) h+=`<div class="g-week${w.isMonthStart?' ms':''}${w.isTodayWeek?' today-week':''}"><span class="g-wnum">W${w.num}</span><span class="g-wdate">${w.label}</span></div>`;
+  return h+`</div></div>`;
+}
+
+function gridBg() {
+  let g='<div class="g-grid">';
+  for(const w of WEEKS) g+=`<div class="g-col${w.isMonthStart?' ms':''}${w.isTodayWeek?' today-col':''}"></div>`;
+  return g+'</div>';
+}
+
+function todayLine() {
+  const x = dToX(todayDayOffset());
+  if (x < 0 || x > totalW()) return '';
+  return `<div class="today-line" style="left:${x}px"></div>`;
+}
+
+// ─────────────────────────────────────────────
+// EXPAND / COLLAPSE ALL
+// ─────────────────────────────────────────────
+function expandCollapseAll(view, expand) {
+  if (view === 'epic') {
+    for (const epic of boardEpics()) {
+      epic.collapsed = !expand;
+      for (const ph of PHASES) epic.phases[ph].personCollapsed = !expand;
+    }
+  } else {
+    const allPids = [...new Set(boardEpics().flatMap(e=>PHASES.flatMap(ph=>Object.keys(e.phases[ph].persons))))];
+    for (const pid of allPids) pvExpanded[pid] = expand;
+  }
+  render();
+}
+
+// ─────────────────────────────────────────────
+// RENDER EPIC VIEW
+// ─────────────────────────────────────────────
+function renderEpicView() {
+  const be = boardEpics();
+  const editCls = editMode ? 'edit-on' : '';
+  const tw = totalW();
+
+  if (!be.length) {
+    document.getElementById('ev-lp-body').innerHTML = `<div class="empty-state"><div class="empty-icon">⬡</div><div class="empty-title">No Epics added yet</div><div class="empty-sub">Click <strong>+ Add Epics</strong> to select Epics from Jira and start planning.</div></div>`;
+    document.getElementById('ev-gantt').innerHTML = '';
+    return;
+  }
+
+  let lp='', g=ganttHeader();
+
+  for (const epic of be) {
+    const tot = epicTotalDays(epic);
+    lp += `<div class="ev-epic" onclick="toggleEpic('${epic.id}')">
+      <span class="chev ${epic.collapsed?'':'open'}">▶</span>
+      <span class="jkey">${epic.key}</span>
+      <span class="ev-epic-name">${epic.name}</span>
+      <span class="ev-epic-total">${tot?tot+'d':''}</span>
+      <button class="ev-epic-remove" onclick="removeEpic(event,'${epic.id}')">×</button>
+    </div>`;
+
+    // Epic summary gantt row
+    g += `<div class="g-epic" style="min-width:${tw}px">${gridBg()}${todayLine()}`;
+    for (const ph of PHASES) {
+      const phObj = epic.phases[ph];
+      if (phObj.startDay === null) continue;
+      const barW = calcBarWidth(phObj);
+      if (barW <= 0) continue;
+      const short = barW >= 4 ? `${PH_LBL[ph]} ${barW}d` : `${barW}d`;
+      g += `<div class="pbar ${ph}" style="left:${dToX(phObj.startDay)}px;width:${dToW(barW)}px"
+        data-eid="${epic.id}" data-ph="${ph}"
+        onmouseenter="showPhaseTip(event,'${epic.id}','${ph}')" onmouseleave="hideTip()"
+        onmousedown="startDragPhase(event,'${epic.id}','${ph}')">${short}</div>`;
+    }
+    g += `</div>`;
+
+    if (!epic.collapsed) {
+      for (const ph of PHASES) {
+        const phObj  = epic.phases[ph];
+        const hasStart = phObj.startDay !== null;
+        const barW   = calcBarWidth(phObj);
+        const hasBar = hasStart && barW > 0;
+        const tot    = phaseTotalDays(phObj);
+
+        let dateStr = 'No start date set';
+        let durStr  = '';
+        if (hasStart) {
+          dateStr = `${dayToDateStr(phObj.startDay)} → ${hasBar ? dayToDateStr(phObj.startDay + barW) : '…'}`;
+          durStr  = hasBar ? `${barW}d` : '';
+        }
+
+        lp += `<div class="ev-phase ${editCls}" onclick="togglePersonSection(event,'${epic.id}','${ph}')">
+          <span class="chev ph-expand ${phObj.personCollapsed?'':'open'}">▶</span>
+          <span class="ph-label ${ph}">${PH_LBL[ph]}</span>
+          <span class="ph-dates ${hasStart?'set':''}">${dateStr}</span>
+          ${durStr ? `<span class="ph-dur">${durStr}</span>` : ''}
+          <span class="ph-total">${tot ? tot+'d' : ''}</span>
+          ${hasBar && editMode ? `<button class="ph-remove" onclick="removePhase(event,'${epic.id}','${ph}')">×</button>` : ''}
+        </div>`;
+
+        // Phase gantt row
+        if (!hasBar) {
+          let clickCols = '';
+          if (editMode) {
+            clickCols = '<div class="g-click-cols">';
+            for (let i=0; i<WEEKS.length; i++) clickCols += `<div class="g-click-col" onclick="setPhaseStart(event,'${epic.id}','${ph}',${i*5})"></div>`;
+            clickCols += '</div>';
+          }
+          g += `<div class="g-phase empty-phase ${editMode?'edit-on':''}" style="min-width:${tw}px">${gridBg()}${todayLine()}${clickCols}
+            <div class="set-start-hint">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+              Click a week to set start date
+            </div>
+          </div>`;
+        } else {
+          const short = barW >= 4 ? `${PH_LBL[ph]} ${barW}d` : `${barW}d`;
+          g += `<div class="g-phase" style="min-width:${tw}px">${gridBg()}${todayLine()}
+            <div class="pbar ${ph}" style="left:${dToX(phObj.startDay)}px;width:${dToW(barW)}px"
+              data-eid="${epic.id}" data-ph="${ph}"
+              onmouseenter="showPhaseTip(event,'${epic.id}','${ph}')" onmouseleave="hideTip()"
+              onmousedown="startDragPhase(event,'${epic.id}','${ph}')">${short}</div>
+          </div>`;
+        }
+
+        if (!phObj.personCollapsed) {
+          for (const [pid, pdata] of Object.entries(phObj.persons)) {
+            const p = PEOPLE[pid] || { name:pid, role:'' };
+            lp += `<div class="ev-person ${editCls}">
+              <div class="av" style="background:${avColor(pid)}">${pid}</div>
+              <span class="ev-pname">${p.name}</span>
+              <span class="ev-prole">${p.role}</span>
+              <span class="ev-days">${pdata.days}d</span>
+              <input class="ev-days-inp" type="number" min="0" step="0.5" value="${pdata.days}"
+                data-eid="${epic.id}" data-ph="${ph}" data-pid="${pid}" oninput="onDayInput(this)">
+              ${editMode ? `<button class="ev-person-remove" onclick="removePerson(event,'${epic.id}','${ph}','${pid}')">×</button>` : ''}
+            </div>`;
+            g += `<div class="g-person" style="min-width:${tw}px">${gridBg()}</div>`;
+          }
+          if (editMode) {
+            lp += `<div class="ev-add-person" onclick="addPerson('${epic.id}','${ph}')">
+              <svg width="11" height="11" viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Add person
+            </div>`;
+            g += `<div class="g-add" style="min-width:${tw}px">${gridBg()}</div>`;
+          }
+        }
+      }
+    }
+  }
+
+  document.getElementById('ev-lp-body').innerHTML = lp;
+  document.getElementById('ev-gantt').innerHTML   = g;
+  document.getElementById('hintBar').classList.toggle('on', editMode);
+}
+
+// ─────────────────────────────────────────────
+// RENDER PEOPLE VIEW
+// ─────────────────────────────────────────────
+function renderPeopleView() {
+  const summary = buildPeopleSummary();
+  const allPids = [...new Set(boardEpics().flatMap(e=>PHASES.flatMap(ph=>Object.keys(e.phases[ph].persons))))];
+  let lp='', g=ganttHeader();
+  const tw = totalW();
+
+  if (!allPids.length) {
+    document.getElementById('pv-lp-body').innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><div class="empty-title">No people assigned yet</div><div class="empty-sub">Add team members to Epic phases to see the People View.</div></div>`;
+    document.getElementById('pv-gantt').innerHTML = '';
+    return;
+  }
+
+  for (const pid of allPids) {
+    const p       = PEOPLE[pid] || { name:pid, role:'', availDays:50, absenceDays:0 };
+    const assigns = (summary[pid]?.assignments) || [];
+    const totalEst = assigns.reduce((s,a)=>s+a.days,0);
+    const pct     = totalEst / p.availDays;
+    const utCls   = pct>1?'over':pct>0.85?'near':pct>0.05?'ok':'bench';
+    const isExp   = pvExpanded[pid] !== false;
+    const weekUtil = personWeeklyUtil(assigns);
+
+    lp += `<div class="pv-person-hd" onclick="togglePvPerson('${pid}')">
+      <div class="av-lg" style="background:${avColor(pid)}">${pid}</div>
+      <div class="pv-pinfo"><div class="pv-pname">${p.name}</div><div class="pv-prole">${p.role}</div></div>
+      <span class="pv-util-pill ${utCls}">${totalEst}d / ${p.availDays}d</span>
+      <span class="chev ${isExp?'open':''}" style="margin-left:4px">▶</span>
+    </div>`;
+    lp += `<div class="pv-cap-row">
+      <div class="pv-cap-bar"><div class="pv-cap-fill ${utCls}" style="width:${Math.min(100,pct*100)}%"></div></div>
+      <span class="pv-cap-label">${Math.round(pct*100)}% utilized</span>
+    </div>`;
+
+    g += `<div class="g-pv-phd" style="min-width:${tw}px">${gridBg()}${todayLine()}</div>`;
+    let heatHtml = `<div class="heat-row">`;
+    for (let i=0; i<WEEKS.length; i++) {
+      const u = weekUtil[i];
+      const val = u.used > 0 ? `${u.used.toFixed(0)}d` : '';
+      heatHtml += `<div class="heat-cell ${u.cls}">${val}</div>`;
+    }
+    g += `<div class="g-pv-cap" style="min-width:${tw}px">${heatHtml}</div></div>`;
+
+    if (isExp) {
+      for (const a of assigns) {
+        lp += `<div class="pv-assign">
+          <span class="pv-assign-key">${a.epic.key}</span>
+          <span class="pv-assign-name">${a.epic.name}</span>
+          <span class="pv-pp ${a.ph}">${PH_LBL[a.ph].slice(0,3).toUpperCase()}</span>
+          <span class="pv-assign-days">${a.days}d</span>
+        </div>`;
+        if (a.hasBar) {
+          const bw = dToW(a.endDay - a.startDay);
+          const label = bw >= 60 ? `${a.epic.key} · ${PH_LBL[a.ph]}` : a.epic.key;
+          g += `<div class="g-pv-asgn" style="min-width:${tw}px">${gridBg()}
+            <div class="abar ${a.ph}" style="left:${dToX(a.startDay)}px;width:${bw}px"
+              onmouseenter="showAssignTip(event,'${pid}','${a.epic.id}','${a.ph}')" onmouseleave="hideTip()">${label}</div>
+          </div>`;
+        } else {
+          g += `<div class="g-pv-asgn" style="min-width:${tw}px">${gridBg()}<span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--txt3)">No start date set</span></div>`;
+        }
+      }
+    }
+  }
+
+  document.getElementById('pv-lp-body').innerHTML = lp;
+  document.getElementById('pv-gantt').innerHTML   = g;
+}
+
+function render() { renderEpicView(); renderPeopleView(); }
+
+// ─────────────────────────────────────────────
+// SCROLL SYNC
+// ─────────────────────────────────────────────
+function syncScroll(bId, sId) {
+  const b=document.getElementById(bId), s=document.getElementById(sId);
+  let lock=false;
+  b.addEventListener('scroll',()=>{ if(lock)return;lock=true;s.scrollTop=b.scrollTop;requestAnimationFrame(()=>{lock=false;}); });
+  s.addEventListener('scroll',()=>{ if(lock)return;lock=true;b.scrollTop=s.scrollTop;requestAnimationFrame(()=>{lock=false;}); });
+}
+
+// ─────────────────────────────────────────────
+// PHASE START DATE
+// ─────────────────────────────────────────────
+function setPhaseStart(e, eid, ph, day) {
+  e.stopPropagation();
+  const epic = ALL_EPICS.find(ep=>ep.id===eid);
+  if (epic) { epic.phases[ph].startDay = day; render(); }
+}
+
+// ─────────────────────────────────────────────
+// DRAG
+// ─────────────────────────────────────────────
+function startDragPhase(e, eid, ph) {
+  if (!editMode) return;
+  e.stopPropagation(); e.preventDefault(); hideTip();
+  const bar = e.currentTarget; bar.classList.add('dragging');
+  dragging = { bar, eid, ph, startX:e.clientX, origLeft:parseFloat(bar.style.left)||0 };
+  document.body.style.userSelect = 'none';
+}
+function onDragMove(e) { if (!dragging) return; dragging.bar.style.left=Math.max(0,dragging.origLeft+(e.clientX-dragging.startX))+'px'; }
+function onDragEnd() {
+  if (!dragging) return;
+  const newD = xToD(parseFloat(dragging.bar.style.left)||0);
+  const epic = ALL_EPICS.find(ep=>ep.id===dragging.eid);
+  if (epic) epic.phases[dragging.ph].startDay = newD;
+  dragging.bar.classList.remove('dragging');
+  dragging = null; document.body.style.userSelect = '';
+  render();
+}
+document.addEventListener('mousemove', e=>{ onDragMove(e); });
+document.addEventListener('mouseup',   ()=>{ onDragEnd(); });
+
+// ─────────────────────────────────────────────
+// INTERACTIONS
+// ─────────────────────────────────────────────
+function switchTab(n) { document.querySelectorAll('.view,.tab').forEach(el=>el.classList.remove('on')); document.getElementById('view-'+n).classList.add('on'); document.getElementById('tab-'+n).classList.add('on'); if(n==='summary') renderSummary(); }
+function toggleEpic(id) { const e=ALL_EPICS.find(e=>e.id===id); if(e){e.collapsed=!e.collapsed;render();} }
+function togglePersonSection(ev,eid,ph) { ev.stopPropagation(); const e=ALL_EPICS.find(e=>e.id===eid); if(e){e.phases[ph].personCollapsed=!e.phases[ph].personCollapsed;render();} }
+function togglePvPerson(pid) { pvExpanded[pid]=pvExpanded[pid]===false?true:false; render(); }
+function removeEpic(ev,id) { ev.stopPropagation(); boardEpicIds=boardEpicIds.filter(i=>i!==id); render(); }
+function removePhase(ev,eid,ph) { ev.stopPropagation(); const e=ALL_EPICS.find(e=>e.id===eid); if(e){e.phases[ph].startDay=null;e.phases[ph].persons={};render();} }
+function removePerson(ev,eid,ph,pid) { ev.stopPropagation(); const e=ALL_EPICS.find(e=>e.id===eid); if(e){delete e.phases[ph].persons[pid];render();} }
+function toggleEdit() { editMode=!editMode; const b=document.getElementById('editBtn'); b.textContent=editMode?'✓ Done':'✎ Edit'; b.classList.toggle('active',editMode); render(); }
+function onDayInput(inp) {
+  const days=parseFloat(inp.value)||0;
+  const e=ALL_EPICS.find(e=>e.id===inp.dataset.eid);
+  if(e&&e.phases[inp.dataset.ph].persons[inp.dataset.pid]){
+    e.phases[inp.dataset.ph].persons[inp.dataset.pid].days=days;
+    renderEpicView();
+  }
+}
+function addPerson(eid,ph) {
+  const pid=prompt('Person ID (e.g. MC, KU, DH):'); if(!pid) return;
+  const e=ALL_EPICS.find(e=>e.id===eid); if(!e) return;
+  e.phases[ph].persons[pid.toUpperCase().trim()]={days:0}; render();
+}
+
+// ─────────────────────────────────────────────
+// DRAWER — multi-select dropdown filters
+// ─────────────────────────────────────────────
+
+// Filter state: { label: Set, assignee: Set, status: Set }
+const filterSets = { label: new Set(), assignee: new Set(), status: new Set() };
+
+// Dropdown state
+let openDropdown = null;
+
+const STATUS_LABELS = { active:'Active', planned:'Planned', backlog:'Backlog', 'in-progress':'In Progress' };
+
+function openDrawer() {
+  drawerSelectedIds = new Set(boardEpicIds);
+  document.getElementById('drawer').classList.add('open');
+  ['topbar','tabbar','app'].forEach(id=>document.getElementById(id).classList.add('drawer-open'));
+  applyWeekW();
+  initDropdowns();
+  renderDrawer();
+}
+function closeDrawer() {
+  closeAllDropdowns();
+  document.getElementById('drawer').classList.remove('open');
+  ['topbar','tabbar','app'].forEach(id=>document.getElementById(id).classList.remove('drawer-open'));
+  applyWeekW(); render();
+}
+function saveDrawer() { boardEpicIds=[...drawerSelectedIds]; closeDrawer(); }
+
+// Build option lists from epic data
+function getOptions(type) {
+  if (type==='label')    return [...new Set(ALL_EPICS.map(e=>e.label))].sort();
+  if (type==='assignee') return [...new Set(ALL_EPICS.map(e=>e.assignee))].sort();
+  if (type==='status')   return [...new Set(ALL_EPICS.map(e=>e.status))].sort();
+  return [];
+}
+
+function initDropdowns() {
+  renderDropdown('label','');
+  renderDropdown('assignee','');
+  renderDropdown('status','');
+  updateFilterBtns();
+}
+
+function renderDropdown(type, query) {
+  const listEl = document.getElementById('flt'+cap(type)+'List');
+  if (!listEl) return;
+  const opts = getOptions(type).filter(o=>o.toLowerCase().includes(query.toLowerCase()));
+  const set  = filterSets[type];
+  if (!opts.length) { listEl.innerHTML=`<div class="flt-dd-empty">No results</div>`; return; }
+  listEl.innerHTML = opts.map(o => {
+    const label = type==='status' ? (STATUS_LABELS[o]||o) : o;
+    return `<div class="flt-dd-item${set.has(o)?' checked':''}" onclick="toggleOption('${type}','${o}')">
+      <div class="cb${set.has(o)?' on':''}"></div>
+      <span>${label}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleOption(type, value) {
+  const set = filterSets[type];
+  set.has(value) ? set.delete(value) : set.add(value);
+  renderDropdown(type, '');
+  updateFilterBtns();
+  renderDrawer();
+}
+
+function clearFilter(type) {
+  filterSets[type].clear();
+  renderDropdown(type,'');
+  updateFilterBtns();
+  renderDrawer();
+}
+
+function updateFilterBtns() {
+  ['label','assignee','status'].forEach(type => {
+    const btn   = document.getElementById('flt'+cap(type)+'Btn');
+    const count = document.getElementById('flt'+cap(type)+'Count');
+    const n     = filterSets[type].size;
+    if (!btn||!count) return;
+    btn.classList.toggle('active', n>0);
+    count.style.display = n>0 ? 'inline-block' : 'none';
+    count.textContent   = n;
+  });
+}
+
+function toggleDropdown(type) {
+  const dd = document.getElementById('flt'+cap(type)+'Dd');
+  const btn = document.getElementById('flt'+cap(type)+'Btn');
+  if (!dd) return;
+  const isOpen = dd.classList.contains('open');
+  closeAllDropdowns();
+  if (!isOpen) {
+    dd.classList.add('open');
+    btn.classList.add('open');
+    openDropdown = type;
+  }
+}
+
+function closeAllDropdowns() {
+  ['label','assignee','status'].forEach(type => {
+    document.getElementById('flt'+cap(type)+'Dd')?.classList.remove('open');
+    document.getElementById('flt'+cap(type)+'Btn')?.classList.remove('open');
+  });
+  openDropdown = null;
+}
+
+function cap(s) { return s.charAt(0).toUpperCase()+s.slice(1); }
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', e => {
+  if (openDropdown && !e.target.closest('.flt-dropdown') && !e.target.closest('.flt-btn')) {
+    closeAllDropdowns();
+  }
+});
+
+function getFilteredEpics() {
+  const q = (document.getElementById('drSearch')?.value||'').toLowerCase();
+  return ALL_EPICS.filter(e => {
+    if (filterSets.label.size    && !filterSets.label.has(e.label))       return false;
+    if (filterSets.assignee.size && !filterSets.assignee.has(e.assignee)) return false;
+    if (filterSets.status.size   && !filterSets.status.has(e.status))     return false;
+    if (q && !e.name.toLowerCase().includes(q) && !e.key.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderDrawer() {
+  const filtered = getFilteredEpics();
+  document.getElementById('drCount').textContent=`${filtered.length} epic${filtered.length!==1?'s':''}`;
+  const allCh=filtered.length>0&&filtered.every(e=>drawerSelectedIds.has(e.id));
+  document.getElementById('selectAllCb').className='cb'+(allCh?' on':'');
+  document.getElementById('drList').innerHTML=filtered.length?filtered.map(e=>{
+    const ch=drawerSelectedIds.has(e.id);
+    return `<div class="dr-epic-item${ch?' checked':''}" onclick="toggleDrawerEpic('${e.id}')">
+      <div class="cb${ch?' on':''}"></div>
+      <div class="dr-epic-info"><span class="dr-epic-key">${e.key}</span><div class="dr-epic-name">${e.name}</div><div class="dr-epic-meta">${e.label} · ${PEOPLE[e.assignee]?.name||e.assignee}</div></div>
+      <span class="dr-epic-status ${e.status}">${STATUS_LABELS[e.status]||e.status}</span>
+    </div>`;}).join(''):`<div style="padding:24px;text-align:center;color:var(--txt3)">No epics match your filters</div>`;
+  const sel=drawerSelectedIds.size;
+  document.getElementById('drSelCount').textContent=sel?`${sel} epic${sel!==1?'s':''} selected`:'Nothing selected yet';
+}
+function toggleDrawerEpic(id) { drawerSelectedIds.has(id)?drawerSelectedIds.delete(id):drawerSelectedIds.add(id); renderDrawer(); }
+function toggleSelectAll() { const f=getFilteredEpics(); const all=f.every(e=>drawerSelectedIds.has(e.id)); all?f.forEach(e=>drawerSelectedIds.delete(e.id)):f.forEach(e=>drawerSelectedIds.add(e.id)); renderDrawer(); }
+
+// ─────────────────────────────────────────────
+// TOOLTIPS
+// ─────────────────────────────────────────────
+function showPhaseTip(e,eid,ph) {
+  const epic=ALL_EPICS.find(ep=>ep.id===eid); if(!epic) return;
+  const phObj=epic.phases[ph]; const barW=calcBarWidth(phObj);
+  const maxPid=calcMaxPerson(phObj); const absD=maxPid?(PEOPLE[maxPid]?.absenceDays||0):0;
+  const lines=Object.entries(phObj.persons).map(([id,p])=>`<div class="tip-row"><span>${PEOPLE[id]?.name||id}</span><span>${p.days}d</span></div>`).join('');
+  const dateStr=phObj.startDay!==null?`${dayToDateStr(phObj.startDay)} → ${dayToDateStr(phObj.startDay+barW)}`:'No dates set';
+  const absNote=absD?`<div class="tip-note">+${absD}d absence (${PEOPLE[maxPid]?.name||maxPid}) included in duration</div>`:'';
+  document.getElementById('tip').innerHTML=`<strong>${epic.key} · ${PH_LBL[ph]}</strong><span class="tip-name">${dateStr} · ${barW}d total</span>${lines}${absNote}`;
+  document.getElementById('tip').style.display='block'; posTip(e);
+}
+function showAssignTip(e,pid,eid,ph) {
+  const epic=ALL_EPICS.find(ep=>ep.id===eid); const pdata=epic?.phases[ph].persons[pid]; if(!pdata) return;
+  document.getElementById('tip').innerHTML=`<strong>${epic.key} · ${PH_LBL[ph]}</strong><span class="tip-name">${epic.name}</span><div class="tip-row"><span>Effort</span><span>${pdata.days}d</span></div>`;
+  document.getElementById('tip').style.display='block'; posTip(e);
+}
+function posTip(e) { const tip=document.getElementById('tip'); let x=e.clientX+14,y=e.clientY-8; if(x+270>window.innerWidth) x=e.clientX-270-14; if(y+130>window.innerHeight) y=e.clientY-130; tip.style.left=x+'px'; tip.style.top=y+'px'; }
+function hideTip() { document.getElementById('tip').style.display='none'; }
+document.addEventListener('mousemove',e=>{ if(document.getElementById('tip').style.display!=='none'&&!dragging) posTip(e); });
+
+
+// ─────────────────────────────────────────────
+// PROCESS TEAMS  (mock — real app reads from store)
+// ─────────────────────────────────────────────
+const PROCESS_TEAMS = {
+  'Finance Systems': ['MC','DH','SH'],
+  'Treasury':        ['KU','GV','TA'],
+  'Reporting':       ['NB','LP','EM'],
+  'Tax':             ['SL','RB'],
+};
+
+// ─────────────────────────────────────────────
+// RENDER SUMMARY
+// ─────────────────────────────────────────────
+function renderSummary() {
+  const be = boardEpics();
+  const summary = buildPeopleSummary();
+  const tw = totalW();
+
+  // ── KPI data per team ──
+  const teamStats = Object.entries(PROCESS_TEAMS).map(([team, members]) => {
+    const avail = members.reduce((s,pid)=>(PEOPLE[pid]?s+PEOPLE[pid].availDays:s),0);
+    const est   = members.reduce((s,pid)=>{
+      const assigns = summary[pid]?.assignments||[];
+      return s + assigns.reduce((ss,a)=>ss+a.days,0);
+    },0);
+    const pct = avail>0 ? est/avail : 0;
+    const cls = pct>1?'over':pct>0.85?'near':pct>0?'ok':'bench';
+    const label = pct>1?'Over capacity':pct>0.85?'Near capacity':pct>0?'On track':'No estimates';
+    return { team, members, avail, est, pct, cls, label };
+  });
+
+  // ── Bottleneck / over-near people ──
+  const allPids = [...new Set(be.flatMap(e=>PHASES.flatMap(ph=>Object.keys(e.phases[ph].persons))))];
+  const personRows = allPids.map(pid => {
+    const p = PEOPLE[pid]||{name:pid,role:'',availDays:50};
+    const assigns = (summary[pid]?.assignments)||[];
+    const est = assigns.reduce((s,a)=>s+a.days,0);
+    const pct = est/p.availDays;
+    const cls = pct>1?'over':pct>0.85?'near':'ok';
+    return { pid, p, est, pct, cls };
+  }).filter(r=>r.cls==='over'||r.cls==='near')
+    .sort((a,b)=>b.pct-a.pct);
+
+  // ── Compact Gantt weeks header ──
+  function cgWeeksHd() {
+    let h='<div class="cg-weeks-hd">';
+    for(const w of WEEKS) {
+      h+=`<div class="cg-week-hd${w.isMonthStart?' ms':''}${w.isTodayWeek?' today-w':''}">${w.label}</div>`;
+    }
+    return h+'</div>';
+  }
+
+  function cgGrid(rowH) {
+    let g='<div class="cg-grid">';
+    for(const w of WEEKS) g+=`<div class="cg-col${w.isMonthStart?' ms':''}${w.isTodayWeek?' today-c':''}"></div>`;
+    return g+'</div>';
+  }
+
+  function todayX() {
+    const x = dToX(todayDayOffset());
+    return x>=0&&x<=tw ? `<div class="cg-today-line" style="left:${x}px"></div>` : '';
+  }
+
+  // Width per column in compact gantt = same as main gantt WEEK_W
+  // but columns are flex:1 so we derive pixel left/width from fraction of totalW
+  function barStyle(startDay, widthDays) {
+    const x = dToX(startDay);
+    const w = dToW(widthDays);
+    return `left:${x}px;width:${w}px`;
+  }
+
+  // ── Build HTML ──
+  let html = '';
+
+  // Section 1 — KPI cards
+  html += `<div>
+    <div class="sec-hd"><span class="sec-title">Capacity by Process Team</span><span class="sec-sub">Estimated days vs available capacity</span></div>
+    <div class="kpi-grid">`;
+  for(const t of teamStats) {
+    html+=`<div class="kpi-card">
+      <div class="kpi-card-top">
+        <span class="kpi-team">${t.team}</span>
+        ${t.cls==='over'?`<span class="kpi-badge over">${t.label}</span>`:''}
+      </div>
+      <div class="kpi-nums">
+        <span class="kpi-est">${t.est}d</span>
+        <span class="kpi-avail">/ ${t.avail}d available</span>
+      </div>
+      <div class="kpi-bar"><div class="kpi-bar-fill ${t.cls}" style="width:${Math.min(100,t.pct*100)}%"></div></div>
+    </div>`;
+  }
+  html += `</div></div>`;
+
+  // Section 2 — Compact Gantt
+  html += `<div>
+    <div class="sec-hd"><span class="sec-title">Timeline Overview</span><span class="sec-sub">All Epics · grouped by process team</span></div>
+    <div class="cg-wrap">
+      <div class="cg-head">
+        <div class="cg-label-col"><span class="cg-label-hd">Epic</span></div>
+        ${cgWeeksHd()}
+      </div>`;
+
+  for(const [team, members] of Object.entries(PROCESS_TEAMS)) {
+    // find epics that have at least one person from this team
+    const teamEpics = be.filter(epic =>
+      PHASES.some(ph => Object.keys(epic.phases[ph].persons).some(pid => members.includes(pid)))
+    );
+    if(!teamEpics.length) continue;
+
+    html+=`<div class="cg-team-row">
+      <div class="cg-team-label"><span class="cg-team-name">${team}</span></div>
+      <div class="cg-team-gantt">${cgGrid()}${todayX()}</div>
+    </div>`;
+
+    for(const epic of teamEpics) {
+      html+=`<div class="cg-epic-row">
+        <div class="cg-epic-label">
+          <span class="cg-epic-key">${epic.key}</span>
+          <span class="cg-epic-name" title="${epic.name}">${epic.name}</span>
+        </div>
+        <div class="cg-epic-gantt">${cgGrid()}${todayX()}`;
+
+      for(const ph of PHASES) {
+        const phObj = epic.phases[ph];
+        if(phObj.startDay===null) continue;
+        const barW = calcBarWidth(phObj);
+        if(barW<=0) continue;
+        const short = barW>=5?`${PH_LBL[ph].slice(0,3)} ${barW}d`:`${barW}d`;
+        html+=`<div class="cg-bar ${ph}" style="${barStyle(phObj.startDay,barW)}"
+          onmouseenter="showPhaseTip(event,'${epic.id}','${ph}')" onmouseleave="hideTip()">${short}</div>`;
+      }
+      html+=`</div></div>`;
+    }
+  }
+  html+=`</div></div>`;
+
+  // Section 3 — Person capacity (over/near only)
+  html+=`<div>
+    <div class="sec-hd">
+      <span class="sec-title">Capacity Alerts</span>
+      <span class="sec-sub">Over-allocated and near-capacity team members</span>
+    </div>
+    <div class="pct-wrap">
+      <div class="pct-hd">
+        <div class="pct-hd-cell">Person</div>
+        <div class="pct-hd-cell">Est.</div>
+        <div class="pct-hd-cell">Available</div>
+        <div class="pct-hd-cell">Utilization</div>
+        <div class="pct-hd-cell">Delta</div>
+      </div>`;
+
+  if(!personRows.length) {
+    html+=`<div class="pct-empty">No over-allocated or near-capacity team members — looking good!</div>`;
+  } else {
+    for(const r of personRows) {
+      const delta = r.est - r.p.availDays;
+      const deltaStr = (delta>0?'+':'')+delta+'d';
+      html+=`<div class="pct-row">
+        <div class="pct-cell pct-person">
+          <div class="av" style="background:${avColor(r.pid)}">${r.pid}</div>
+          <div>
+            <div style="font-weight:600;font-size:12px">${r.p.name}</div>
+            <div style="font-size:11px;color:var(--txt3)">${r.p.role}</div>
+          </div>
+        </div>
+        <div class="pct-cell"><span style="font-weight:600">${r.est}d</span></div>
+        <div class="pct-cell">${r.p.availDays}d</div>
+        <div class="pct-cell pct-bar-cell">
+          <div class="pct-bar"><div class="pct-bar-fill ${r.cls}" style="width:${Math.min(100,r.pct*100)}%"></div></div>
+          <span class="pct-bar-label">${Math.round(r.pct*100)}% utilized</span>
+        </div>
+        <div class="pct-cell"><span class="pct-delta ${r.cls}">${deltaStr}</span></div>
+      </div>`;
+    }
+  }
+  html+=`</div></div>`;
+
+  document.getElementById('sv-body').innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+// RESIZE HANDLER
+// ─────────────────────────────────────────────
+window.addEventListener('resize', () => { applyWeekW(); render(); });
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+refreshWeeks();
+buildQSeg();
+render();
+syncScroll('ev-lp-body','ev-rp-scroll');
+syncScroll('pv-lp-body','pv-rp-scroll');
+</script>
+</body>
+</html>
