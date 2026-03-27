@@ -55,6 +55,7 @@ import { PlannerTimeline, type DragPreview } from '../components/planner/Planner
 import { PlannerCapacity, type PlannerCapacityHandle } from '../components/planner/PlannerCapacity';
 import { AssignPanel } from '../components/planner/AssignPanel';
 import { PlannerPeopleView } from '../components/planner/PlannerPeopleView';
+import { PlannerSummaryView } from '../components/planner/PlannerSummaryView';
 import { PlannerTeamDrawer } from '../components/planner/PlannerTeamDrawer';
 import { BoardToolbar } from '../components/planner/BoardToolbar';
 import { PlannerDetailPanel } from '../components/planner/PlannerDetailPanel';
@@ -70,7 +71,7 @@ const PlannerBoard = lazy(() =>
   import('../components/planner/PlannerBoard').then(m => ({ default: m.PlannerBoard }))
 );
 
-type PlannerMode = 'board' | 'timeline' | 'people';
+type PlannerMode = 'board' | 'timeline' | 'people' | 'summary';
 
 // ── PlannerUIState ────────────────────────────────────────────────────────────
 // All UI-only toggle state for the Scenario Planner shell. Lives here so the
@@ -127,12 +128,12 @@ function ViewportNotice() {
 
 // ── ModeToggle ────────────────────────────────────────────────────────────────
 
-const MODE_LABELS: Record<PlannerMode, string> = { board: 'Board', timeline: 'Timeline', people: 'People' };
+const MODE_LABELS: Record<PlannerMode, string> = { board: 'Board', timeline: 'Timeline', people: 'People', summary: 'Summary' };
 
 function ModeToggle({ mode, onChange }: { mode: PlannerMode; onChange: (m: PlannerMode) => void }) {
   return (
     <div className="flex items-center gap-0.5 bg-mileway-bg rounded-lg p-0.5">
-      {(['board', 'timeline', 'people'] as PlannerMode[]).map(m => (
+      {(['board', 'timeline', 'people', 'summary'] as PlannerMode[]).map(m => (
         <button
           key={m}
           onClick={() => onChange(m)}
@@ -1634,6 +1635,17 @@ export function ScenarioPlanner() {
           {plannerUI.activeMode === 'people' && (
             <div className="flex-1 min-h-0 overflow-hidden">
               <PlannerPeopleView
+                plannerItems={plannerItems}
+                sprints={sprints}
+                selectedQuarter={selectedQuarter}
+              />
+            </div>
+          )}
+
+          {/* Summary / KPI view */}
+          {plannerUI.activeMode === 'summary' && (
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <PlannerSummaryView
                 plannerItems={plannerItems}
                 sprints={sprints}
                 selectedQuarter={selectedQuarter}
