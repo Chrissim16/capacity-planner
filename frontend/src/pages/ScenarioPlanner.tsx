@@ -622,6 +622,17 @@ export function ScenarioPlanner() {
     );
   }, [activeScenarioId, plannerItems]);
 
+  const handleUpdateAssigneeDays = useCallback((itemId: string, memberId: string, days: number) => {
+    if (!activeScenarioId) return;
+    updatePlannerLayout(
+      activeScenarioId,
+      plannerItems.map(p => p.id !== itemId ? p : {
+        ...p,
+        assignees: p.assignees.map(a => a.memberId === memberId ? { ...a, daysPerSprint: days } : a),
+      }),
+    );
+  }, [activeScenarioId, plannerItems]);
+
   const handleActiveDragChange = useCallback((preview: DragPreview | null) => {
     setActiveDragPreview(preview);
   }, []);
@@ -1523,6 +1534,7 @@ export function ScenarioPlanner() {
                 activeDragPreview={activeDragPreview}
                 isVisible={plannerUI.capacityOpen}
                 labelWidth={260}
+                onUpdateDays={handleUpdateAssigneeDays}
               />
             </div>
           )}
@@ -1596,6 +1608,7 @@ export function ScenarioPlanner() {
                       isVisible
                       focusedMemberId={plannerUI.focusedMemberId}
                       labelWidth={260}
+                      onUpdateDays={handleUpdateAssigneeDays}
                     />
                   </div>
                 </div>

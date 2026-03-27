@@ -40,6 +40,8 @@ export interface PlannerCapacityProps {
   focusedMemberId?: string | null;
   /** Label column width in px — kept in sync with PlannerTimeline. Default: 260. */
   labelWidth?: number;
+  /** Called when the user edits a day count inline in a capacity cell. */
+  onUpdateDays?: (itemId: string, memberId: string, days: number) => void;
 }
 
 export type PlannerCapacityHandle = {
@@ -49,7 +51,8 @@ export type PlannerCapacityHandle = {
 
 // ── Internal types ────────────────────────────────────────────────────────────
 
-interface CellData { load: number; avail: number }
+interface ContributionEntry { itemId: string; title: string; days: number }
+interface CellData { load: number; avail: number; contributions: ContributionEntry[]; sprintNumber: number }
 
 interface PersonRow {
   id: string;
@@ -91,27 +94,47 @@ function initials(name: string): string {
   return name.trim().split(/\s+/).map(w => w[0] ?? '').join('').slice(0, 2).toUpperCase();
 }
 
-function computeLoadDays(
+function computeLoadContributions(
   memberId: string,
   sprintNumber: number,
   items: PlannerItem[],
   preview: DragPreview | null | undefined,
-): number {
-  let load = 0;
+): ContributionEntry[] {
+  const result: ContributionEntry[] = [];
   for (const item of items) {
     const effectiveStart = preview?.itemId === item.id ? preview.newStartSprint : item.startSprint;
     const inRange = sprintNumber >= effectiveStart && sprintNumber < effectiveStart + item.spanSprints;
     if (!inRange) continue;
     for (const a of item.assignees) {
-      if (a.memberId === memberId) load += a.daysPerSprint;
+      if (a.memberId === memberId) {
+        result.push({ itemId: item.id, title: item.title ?? item.type, days: a.daysPerSprint });
+      }
     }
   }
-  return load;
+  return result;
 }
 
 // ── SprintCell ───────────────────────────────────────────────────────────────
 
-function SprintCell({ loadDays, availDays }: { loadDays: number; availDays: number }) {
+interface SprintCellEditProps {
+  contributions: ContributionEntry[];
+  sprintNumber: number;
+  memberId: string;
+  editingKey: string | null; // "${sprintNumber}:${itemId}"
+  onStartEdit: (key: string) => void;
+  onCommit: (itemId: string, memberId: string, days: number) => void;
+  onCancel: () => void;
+}
+
+function SprintCell({
+  loadDays,
+  availDays,
+  editProps,
+}: {
+  loadDays: number;
+  availDays: number;
+  editProps?: SprintCellEditProps;
+}) {
   const pct = availDays > 0 ? Math.round((loadDays / availDays) * 100) : (loadDays > 0 ? 100 : 0);
   const { bg, color } = tierStyle(pct);
   const barPct = Math.min(100, pct);
@@ -128,9 +151,51 @@ function SprintCell({ loadDays, availDays }: { loadDays: number; availDays: numb
       }}
     >
       <div style={{ color, fontSize: 11, fontWeight: 600, lineHeight: 1.2 }}>{pct}%</div>
-      <div style={{ color: '#9CA3AF', fontSize: 10, lineHeight: 1.2, marginTop: 1 }}>
-        {loadDays}d / {availDays}d
-      </div>
+      {editProps ? (
+        <div style={{ fontSize: 10, lineHeight: 1.4, marginTop: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
+          {editProps.contributions.length === 0
+            ? <span style={{ color: '#D1D5DB' }}>—</span>
+            : editProps.contributions.map(c => {
+                const key = `${editProps.sprintNumber}:${c.itemId}`;
+                const isEditing = editProps.editingKey === key;
+                return isEditing ? (
+                  <input
+                    key={c.itemId}
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    defaultValue={c.days}
+                    ref={el => { if (el) { el.focus(); el.select(); } }}
+                    style={{ width: 38, fontSize: 10, padding: '0 2px', border: '1px solid #0089DD', borderRadius: 2, outline: 'none' }}
+                    onBlur={e => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v) && v >= 0) editProps.onCommit(c.itemId, editProps.memberId, v);
+                      else editProps.onCancel();
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') e.currentTarget.blur();
+                      else if (e.key === 'Escape') { editProps.onCancel(); e.currentTarget.blur(); }
+                    }}
+                  />
+                ) : (
+                  <span
+                    key={c.itemId}
+                    style={{ color: '#6B7280', cursor: 'pointer', borderBottom: '1px dotted #9CA3AF' }}
+                    title={`Edit "${c.title}": ${c.days}d`}
+                    onClick={() => editProps.onStartEdit(key)}
+                  >
+                    {c.days}d
+                  </span>
+                );
+              })
+          }
+          <span style={{ color: '#9CA3AF' }}>/ {availDays}d</span>
+        </div>
+      ) : (
+        <div style={{ color: '#9CA3AF', fontSize: 10, lineHeight: 1.2, marginTop: 1 }}>
+          {loadDays}d / {availDays}d
+        </div>
+      )}
       <div style={{ height: 3, borderRadius: 2, background: '#E5E7EB', marginTop: 3, overflow: 'hidden', position: 'relative' }}>
         <div
           style={{
@@ -209,7 +274,16 @@ function PersonLabel({ row }: { row: PersonRow }) {
 
 // ── PersonRow ────────────────────────────────────────────────────────────────
 
-function PersonRowView({ row, isFocused }: { row: PersonRow; isFocused?: boolean }) {
+function PersonRowView({
+  row,
+  isFocused,
+  onUpdateDays,
+}: {
+  row: PersonRow;
+  isFocused?: boolean;
+  onUpdateDays?: (itemId: string, memberId: string, days: number) => void;
+}) {
+  const [editingKey, setEditingKey] = useState<string | null>(null);
   return (
     <div
       data-planner-cap-member="true"
@@ -229,7 +303,23 @@ function PersonRowView({ row, isFocused }: { row: PersonRow; isFocused?: boolean
     >
       <PersonLabel row={row} />
       {row.sprints.map((s, i) => (
-        <SprintCell key={i} loadDays={s.load} availDays={s.avail} />
+        <SprintCell
+          key={i}
+          loadDays={s.load}
+          availDays={s.avail}
+          editProps={onUpdateDays ? {
+            contributions: s.contributions,
+            sprintNumber: s.sprintNumber,
+            memberId: row.id,
+            editingKey,
+            onStartEdit: setEditingKey,
+            onCommit: (itemId, memberId, days) => {
+              onUpdateDays(itemId, memberId, days);
+              setEditingKey(null);
+            },
+            onCancel: () => setEditingKey(null),
+          } : undefined}
+        />
       ))}
     </div>
   );
@@ -242,11 +332,13 @@ function TeamGroupView({
   isExpanded,
   onToggle,
   focusedMemberId,
+  onUpdateDays,
 }: {
   group: TeamGroup;
   isExpanded: boolean;
   onToggle: () => void;
   focusedMemberId?: string | null;
+  onUpdateDays?: (itemId: string, memberId: string, days: number) => void;
 }) {
   const summaryOverloaded = group.summary.some(c => pctFromCell(c) > 100);
 
@@ -314,7 +406,7 @@ function TeamGroupView({
 
       {/* Individual member rows */}
       {isExpanded && group.members.map(row => (
-        <PersonRowView key={row.id} row={row} isFocused={focusedMemberId === row.id} />
+        <PersonRowView key={row.id} row={row} isFocused={focusedMemberId === row.id} onUpdateDays={onUpdateDays} />
       ))}
     </>
   );
@@ -331,6 +423,7 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
     isVisible,
     focusedMemberId,
     labelWidth: labelWidthProp,
+    onUpdateDays,
   },
   ref,
 ) {
@@ -365,10 +458,13 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
     const activeMembers = (state.teamMembers ?? []).filter(m => !m.excludedFromCapacity);
     return activeMembers.map(m => {
       const cells = quarterSprints.map(s => {
+        const contributions = computeLoadContributions(m.id, s.number, plannerItems, activeDragPreview);
         const sprintCap = calculateSprintCapacity(m.id, s, [], state);
         return {
-          load: computeLoadDays(m.id, s.number, plannerItems, activeDragPreview),
+          load: contributions.reduce((sum, c) => sum + c.days, 0),
           avail: Math.max(0, sprintCap.availableDays),
+          contributions,
+          sprintNumber: s.number,
         };
       });
       return {
@@ -391,10 +487,15 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
       const scale = (c.workingDaysPerWeek ?? 5) / 5;
       const bauPerSprint = Math.round((c.bauReserveDays ?? 5) / 6);
       const perSprintAvail = Math.max(0, Math.round(sprintWorkdays * scale) - bauPerSprint);
-      const cells = quarterSprints.map(s => ({
-        load: computeLoadDays(c.id, s.number, plannerItems, activeDragPreview),
-        avail: perSprintAvail,
-      }));
+      const cells = quarterSprints.map(s => {
+        const contributions = computeLoadContributions(c.id, s.number, plannerItems, activeDragPreview);
+        return {
+          load: contributions.reduce((sum, e) => sum + e.days, 0),
+          avail: perSprintAvail,
+          contributions,
+          sprintNumber: s.number,
+        };
+      });
       return {
         id: c.id,
         name: c.name,
@@ -428,9 +529,11 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
     const groups: TeamGroup[] = [];
     for (const [ptId, members] of teamMap) {
       const pt = processTeamMap.get(ptId);
-      const summary: CellData[] = quarterSprints.map((_, idx) => ({
-        load: members.reduce((s, m) => s + (m.sprints[idx]?.load ?? 0), 0),
-        avail: members.reduce((s, m) => s + (m.sprints[idx]?.avail ?? 0), 0),
+      const summary: CellData[] = quarterSprints.map((s, idx) => ({
+        load: members.reduce((sum, m) => sum + (m.sprints[idx]?.load ?? 0), 0),
+        avail: members.reduce((sum, m) => sum + (m.sprints[idx]?.avail ?? 0), 0),
+        contributions: [],
+        sprintNumber: s.number,
       }));
       const worstPct = Math.max(0, ...summary.map(c => pctFromCell(c)));
       groups.push({
@@ -445,9 +548,11 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
     groups.sort((a, b) => b.worstPct - a.worstPct);
 
     // Unassigned group
-    const unSummary: CellData[] = quarterSprints.map((_, idx) => ({
-      load: unassigned.reduce((s, m) => s + (m.sprints[idx]?.load ?? 0), 0),
-      avail: unassigned.reduce((s, m) => s + (m.sprints[idx]?.avail ?? 0), 0),
+    const unSummary: CellData[] = quarterSprints.map((s, idx) => ({
+      load: unassigned.reduce((sum, m) => sum + (m.sprints[idx]?.load ?? 0), 0),
+      avail: unassigned.reduce((sum, m) => sum + (m.sprints[idx]?.avail ?? 0), 0),
+      contributions: [],
+      sprintNumber: s.number,
     }));
     const unGroup: TeamGroup = {
       teamId: '__unassigned__',
@@ -467,9 +572,11 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
 
   // Team total row
   const teamTotals = useMemo(() => {
-    return quarterSprints.map((_, idx) => ({
-      load: allRows.reduce((s, d) => s + (d.sprints[idx]?.load ?? 0), 0),
-      avail: allRows.reduce((s, d) => s + (d.sprints[idx]?.avail ?? 0), 0),
+    return quarterSprints.map((s, idx) => ({
+      load: allRows.reduce((sum, d) => sum + (d.sprints[idx]?.load ?? 0), 0),
+      avail: allRows.reduce((sum, d) => sum + (d.sprints[idx]?.avail ?? 0), 0),
+      contributions: [] as ContributionEntry[],
+      sprintNumber: s.number,
     }));
   }, [allRows, quarterSprints]);
 
@@ -526,6 +633,7 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
               isExpanded={!collapsedTeams.has(group.teamId)}
               onToggle={() => toggleTeam(group.teamId)}
               focusedMemberId={focusedMemberId}
+              onUpdateDays={onUpdateDays}
             />
           ))}
 
@@ -536,12 +644,13 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
               isExpanded={!collapsedTeams.has('__unassigned__')}
               onToggle={() => toggleTeam('__unassigned__')}
               focusedMemberId={focusedMemberId}
+              onUpdateDays={onUpdateDays}
             />
           )}
         </>
       ) : (
         // No process teams at all — flat list
-        allRows.map(row => <PersonRowView key={row.id} row={row} isFocused={focusedMemberId === row.id} />)
+        allRows.map(row => <PersonRowView key={row.id} row={row} isFocused={focusedMemberId === row.id} onUpdateDays={onUpdateDays} />)
       )}
 
       {/* SP-15 AC7: Data quality notice when >20% of IT members have no process team */}
