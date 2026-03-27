@@ -109,9 +109,9 @@ const DRAWER_W = 420;
 /** Minimum column width in px. */
 const MIN_WEEK_W = 52;
 
-export function calcWeekW(nWeeks: number, drawerOpen: boolean): number {
+export function calcWeekW(nWeeks: number, drawerOpen: boolean, leftW = LEFT_W): number {
   if (nWeeks === 0) return MIN_WEEK_W;
-  const avail = window.innerWidth - LEFT_W - (drawerOpen ? DRAWER_W : 0) - 2;
+  const avail = window.innerWidth - leftW - (drawerOpen ? DRAWER_W : 0) - 2;
   return Math.max(MIN_WEEK_W, Math.floor(avail / nWeeks));
 }
 

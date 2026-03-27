@@ -37,6 +37,25 @@ import type {
 } from '../types';
 import './PortfolioPlanning.css';
 
+// ── Business team placeholders (used when specific person not yet known) ──────
+const BUSINESS_TEAMS = [
+  { id: 'TEAM:Treasury',        name: 'Treasury',        abbr: 'TR' },
+  { id: 'TEAM:Finance Systems', name: 'Finance Systems', abbr: 'FS' },
+  { id: 'TEAM:Reporting',       name: 'Reporting',       abbr: 'RP' },
+  { id: 'TEAM:Tax',             name: 'Tax',             abbr: 'TX' },
+  { id: 'TEAM:AP & Payments',   name: 'AP & Payments',   abbr: 'AP' },
+  { id: 'TEAM:FP&A',            name: 'FP&A',            abbr: 'FA' },
+  { id: 'TEAM:IT Platform',     name: 'IT Platform',     abbr: 'IT' },
+  { id: 'TEAM:PMO',             name: 'PMO',             abbr: 'PM' },
+];
+
+function teamEntryForId(id: string): { name: string; abbr: string } {
+  const entry = BUSINESS_TEAMS.find(t => t.id === id);
+  const name  = entry?.name ?? id.replace('TEAM:', '');
+  const abbr  = entry?.abbr ?? name.slice(0, 2).toUpperCase();
+  return { name, abbr };
+}
+
 // ── Avatar color palette ───────────────────────────────────────────────────────
 const AV_PALETTE = [
   '#0089DD','#7C3AED','#D97706','#16A34A','#DB2777',
@@ -136,7 +155,7 @@ interface EpicViewProps {
   weeks:         PortfolioWeek[];
   tStart:        Date;
   dayW:          number;
-  editMode:      boolean;
+  panelWidth:    number;
   epicCollapsed: Record<string, boolean>;
   phasePersonCollapsed: Record<string, boolean>;
   onToggleEpic:  (key: string) => void;
@@ -147,21 +166,24 @@ interface EpicViewProps {
   onClearPhase:  (epicKey: string, phase: PlanningPhase) => void;
   onRemoveAssignment: (epicKey: string, phase: PlanningPhase, memberId: string) => void;
   onUpdateDays:  (epicKey: string, phase: PlanningPhase, memberId: string, days: number) => void;
+  onAddPerson:   (epicKey: string, phase: PlanningPhase, rect: DOMRect) => void;
   onExpandAll:   () => void;
   onCollapseAll: () => void;
+  onResizeMouseDown: (e: React.MouseEvent) => void;
   lpRef:         React.RefObject<HTMLDivElement | null>;
   ganttRef:      React.RefObject<HTMLDivElement | null>;
 }
 
 function EpicView({
   boardEpics, phasePlansMap, assignMap, absenceLookup, memberMap, contactMap,
-  weeks, tStart, dayW, editMode,
+  weeks, tStart, dayW, panelWidth,
   epicCollapsed, phasePersonCollapsed,
   onToggleEpic, onTogglePhasePersons, onRemoveEpic, onSetPhaseStart,
-  onDragPhaseStart, onClearPhase, onRemoveAssignment, onUpdateDays,
-  onExpandAll, onCollapseAll, lpRef, ganttRef,
+  onDragPhaseStart, onClearPhase, onRemoveAssignment, onUpdateDays, onAddPerson,
+  onExpandAll, onCollapseAll, onResizeMouseDown, lpRef, ganttRef,
 }: EpicViewProps) {
   const totalW = weeks.length * (dayW * 5);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
 
   const syncGanttFromLp = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
@@ -173,7 +195,7 @@ function EpicView({
   if (!boardEpics.length) {
     return (
       <div className="pp-view on">
-        <div className="pp-lp">
+        <div className="pp-lp" style={{ width: panelWidth }}>
           <div className="pp-lp-hd"><span className="pp-lp-hd-label">Epic · Phase · Person</span></div>
           <div className="pp-empty-state">
             <div className="pp-empty-icon">◈</div>
@@ -181,6 +203,7 @@ function EpicView({
             <div className="pp-empty-sub">Click <strong>+ Add Epics</strong> to select Epics from Jira and start planning.</div>
           </div>
         </div>
+        <div className="pp-lp-resize" onMouseDown={onResizeMouseDown} />
         <div className="pp-rp"><div className="pp-rp-scroll" /></div>
       </div>
     );
@@ -229,7 +252,7 @@ function EpicView({
               key={ph}
               className={`pp-pbar ${PH_KEY[ph]}`}
               style={{ left: dToX(startDay, dayW), width: dToW(barW, dayW) }}
-              onMouseDown={editMode ? e => onDragPhaseStart(epicKey, ph, e) : undefined}
+              onMouseDown={e => onDragPhaseStart(epicKey, ph, e)}
             >
               {label}
             </div>
@@ -257,13 +280,13 @@ function EpicView({
 
         // Phase left-panel row
         lpRows.push(
-          <div key={`p-${phKey}`} className={`ev-phase${editMode ? ' edit-on' : ''}`} onClick={() => onTogglePhasePersons(epicKey, ph)}>
+          <div key={`p-${phKey}`} className="ev-phase" onClick={() => onTogglePhasePersons(epicKey, ph)}>
             <span className={`pp-chev ph-expand${pCollapsed ? '' : ' open'}`}>▶</span>
             <span className={`pp-ph-label ${PH_KEY[ph]}`}>{PH_LBL[ph]}</span>
             <span className={`ph-dates${startDay !== null ? ' set' : ''}`}>{dateStr}</span>
             {durStr && <span className="ph-dur">{durStr}</span>}
             <span className="ph-total">{totalPhDays > 0 ? `${totalPhDays}d` : ''}</span>
-            {hasBar && editMode && (
+            {hasBar && (
               <button className="ph-remove" onClick={e => { e.stopPropagation(); onClearPhase(epicKey, ph); }}>×</button>
             )}
           </div>
@@ -271,18 +294,15 @@ function EpicView({
 
         // Phase Gantt row
         if (!hasBar) {
-          const clickCols = editMode ? (
-            <div className="pp-g-click-cols">
-              {weeks.map((_, i) => (
-                <div key={i} className="pp-g-click-col" onClick={() => onSetPhaseStart(epicKey, ph, i)} />
-              ))}
-            </div>
-          ) : null;
           ganttRows.push(
-            <div key={`gp-${phKey}`} className={`pp-g-phase empty-phase${editMode ? ' edit-on' : ''}`} style={{ minWidth: totalW }}>
+            <div key={`gp-${phKey}`} className="pp-g-phase empty-phase" style={{ minWidth: totalW }}>
               <GridBg weeks={weeks} />
               <TodayLine tStart={tStart} totalW={totalW} dayW={dayW} />
-              {clickCols}
+              <div className="pp-g-click-cols">
+                {weeks.map((_, i) => (
+                  <div key={i} className="pp-g-click-col" onClick={() => onSetPhaseStart(epicKey, ph, i)} />
+                ))}
+              </div>
               <div className="pp-set-start-hint">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" />
@@ -299,7 +319,7 @@ function EpicView({
               <div
                 className={`pp-pbar ${PH_KEY[ph]}`}
                 style={{ left: dToX(startDay!, dayW), width: dToW(barW, dayW) }}
-                onMouseDown={editMode ? e => onDragPhaseStart(epicKey, ph, e) : undefined}
+                onMouseDown={e => onDragPhaseStart(epicKey, ph, e)}
               >
                 {barW >= 4 ? `${PH_SHORT[ph]} ${barW}d` : `${barW}d`}
               </div>
@@ -310,42 +330,80 @@ function EpicView({
         // Person rows (if phase section expanded)
         if (!pCollapsed) {
           for (const assign of assignments) {
-            const member  = memberMap.get(assign.memberId);
-            const contact = contactMap.get(assign.memberId);
-            const name    = member?.name ?? contact?.name ?? assign.memberId;
-            const role    = member?.role ?? contact?.title ?? '';
+            const isTeam   = assign.memberId.startsWith('TEAM:');
+            const member   = isTeam ? undefined : memberMap.get(assign.memberId);
+            const contact  = isTeam ? undefined : contactMap.get(assign.memberId);
+            const name     = member?.name ?? contact?.name ?? assign.memberId;
+            const role     = member?.role ?? contact?.title ?? '';
+            const rowKey   = `${phKey}_${assign.memberId}`;
+            const isEditing = editingKey === rowKey;
+
             ganttRows.push(
               <div key={`gperson-${phKey}-${assign.memberId}`} className="pp-g-person" style={{ minWidth: totalW }}>
                 <GridBg weeks={weeks} />
               </div>
             );
+
+            // Build the avatar + name/role part depending on team vs person
+            let avatarEl: React.ReactNode;
+            let nameEl: React.ReactNode;
+            if (isTeam) {
+              const { name: teamName, abbr } = teamEntryForId(assign.memberId);
+              avatarEl = <div className="pp-av team">{abbr}</div>;
+              nameEl = (
+                <>
+                  <span className="ev-pname">{teamName} Team</span>
+                  <span className="pp-picker-badge team">Team</span>
+                </>
+              );
+            } else {
+              avatarEl = <div className="pp-av" style={{ background: avColor(assign.memberId) }}>{initials(name)}</div>;
+              nameEl = (
+                <>
+                  <span className="ev-pname">{name}</span>
+                  <span className="ev-prole">{role}</span>
+                </>
+              );
+            }
+
             lpRows.push(
-              <div key={`person-${phKey}-${assign.memberId}`} className={`ev-person${editMode ? ' edit-on' : ''}`}>
-                <div className="pp-av" style={{ background: avColor(assign.memberId) }}>{initials(name)}</div>
-                <span className="ev-pname">{name}</span>
-                <span className="ev-prole">{role}</span>
-                <span className="ev-days">{assign.days}d</span>
+              <div key={`person-${phKey}-${assign.memberId}`} className={`ev-person${isEditing ? ' editing' : ''}`}>
+                {avatarEl}
+                {nameEl}
+                <span
+                  className="ev-days"
+                  onClick={() => setEditingKey(rowKey)}
+                >
+                  {assign.days}d
+                </span>
                 <input
                   className="ev-days-inp"
                   type="number"
                   min="0"
                   step="0.5"
                   defaultValue={assign.days}
+                  ref={el => { if (el && isEditing) { el.focus(); el.select(); } }}
                   onBlur={e => {
                     const v = parseFloat(e.target.value);
                     if (!isNaN(v) && v !== assign.days) onUpdateDays(epicKey, ph, assign.memberId, v);
+                    setEditingKey(null);
                   }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }}
                 />
-                {editMode && (
-                  <button className="ev-person-remove" onClick={() => onRemoveAssignment(epicKey, ph, assign.memberId)}>×</button>
-                )}
+                <button className="ev-person-remove" onClick={() => onRemoveAssignment(epicKey, ph, assign.memberId)}>×</button>
               </div>
             );
           }
-          // "Add person" row (edit mode only)
-          if (editMode) {
+          // "Add person or team" row — always rendered
+          if (!pCollapsed) {
             lpRows.push(
-              <div key={`add-${phKey}`} className="ev-add-person">+ Add person</div>
+              <div
+                key={`add-${phKey}`}
+                className="ev-add-person"
+                onClick={e => onAddPerson(epicKey, ph, (e.currentTarget as HTMLElement).getBoundingClientRect())}
+              >
+                + Add person or team
+              </div>
             );
             ganttRows.push(
               <div key={`gadd-${phKey}`} className="pp-g-add" style={{ minWidth: totalW }} />
@@ -358,22 +416,18 @@ function EpicView({
 
   return (
     <div className="pp-view on">
-      <div className="pp-lp">
+      <div className="pp-lp" style={{ width: panelWidth }}>
         <div className="pp-lp-hd">
           <span className="pp-lp-hd-label">Epic · Phase · Person</span>
           <span style={{ flex: 1 }} />
           <button className="pp-collapse-btn" onClick={onExpandAll}>Expand all</button>
           <button className="pp-collapse-btn" onClick={onCollapseAll} style={{ marginLeft: 4 }}>Collapse all</button>
         </div>
-        {editMode && (
-          <div className="pp-hint-bar on">
-            ✎ Edit mode — click a week on an empty phase row to set the start date · drag a bar to reposition
-          </div>
-        )}
         <div className="pp-lp-body" ref={lpRef} onScroll={syncGanttFromLp}>
           {lpRows}
         </div>
       </div>
+      <div className="pp-lp-resize" onMouseDown={onResizeMouseDown} />
       <div className="pp-rp">
         <div className="pp-rp-scroll" ref={ganttRef} onScroll={syncLpFromGantt}>
           <div style={{ minWidth: totalW }}>
@@ -408,16 +462,18 @@ interface PersonSummary {
 }
 
 function PeopleView({
-  peopleSummaries, weeks, tStart, dayW,
+  peopleSummaries, weeks, tStart, dayW, panelWidth,
   pvExpanded, onTogglePerson,
-  lpRef, ganttRef,
+  onResizeMouseDown, lpRef, ganttRef,
 }: {
   peopleSummaries: PersonSummary[];
   weeks: PortfolioWeek[];
   tStart: Date;
   dayW: number;
+  panelWidth: number;
   pvExpanded: Record<string, boolean>;
   onTogglePerson: (id: string) => void;
+  onResizeMouseDown: (e: React.MouseEvent) => void;
   lpRef: React.RefObject<HTMLDivElement | null>;
   ganttRef: React.RefObject<HTMLDivElement | null>;
 }) {
@@ -442,6 +498,8 @@ function PeopleView({
     );
   }
 
+  const isTeamEntry = (pid: string) => pid.startsWith('TEAM:');
+
   const lpRows:    React.ReactNode[] = [];
   const ganttRows: React.ReactNode[] = [];
 
@@ -464,27 +522,39 @@ function PeopleView({
       return { pct, cls: utilTier(pct) };
     });
 
+    const isTeam = isTeamEntry(pid);
+
     // Left panel — person header
     lpRows.push(
       <div key={`pvhd-${pid}`} className="pv-person-hd" onClick={() => onTogglePerson(pid)}>
         <div className={`pp-chev${expanded ? ' open' : ''}`}>▶</div>
-        <div className="pp-av-lg" style={{ background: avColor(pid) }}>{initials(ps.name)}</div>
+        {isTeam
+          ? <div className="pp-av-lg team" style={{ background: '#F5F8FC', color: '#64748B', borderRadius: 6, border: '1px solid #E2E8F0' }}>{teamEntryForId(pid).abbr}</div>
+          : <div className="pp-av-lg" style={{ background: avColor(pid) }}>{initials(ps.name)}</div>
+        }
         <div className="pv-pinfo">
-          <div className="pv-pname">{ps.name}</div>
-          <div className="pv-prole">{ps.role}</div>
+          <div className="pv-pname">{isTeam ? `${teamEntryForId(pid).name} Team` : ps.name}</div>
+          <div className="pv-prole">{isTeam ? 'Business team' : ps.role}</div>
         </div>
-        <div className={`pv-util-pill ${tier}`}>
-          {Math.round(utilPct * 100)}%
-        </div>
+        {!isTeam && (
+          <div className={`pv-util-pill ${tier}`}>
+            {Math.round(utilPct * 100)}%
+          </div>
+        )}
       </div>
     );
-    // Capacity bar row
+    // Capacity bar row — teams show placeholder instead of utilisation
     lpRows.push(
       <div key={`pvcap-${pid}`} className="pv-cap-row">
-        <div className="pv-cap-bar">
-          <div className={`pv-cap-fill ${tier}`} style={{ width: `${Math.min(100, utilPct * 100)}%` }} />
-        </div>
-        <span className="pv-cap-label">{estDays}d / {ps.availDays}d</span>
+        {isTeam
+          ? <span className="pv-team-placeholder">No capacity data — team placeholder</span>
+          : <>
+              <div className="pv-cap-bar">
+                <div className={`pv-cap-fill ${tier}`} style={{ width: `${Math.min(100, utilPct * 100)}%` }} />
+              </div>
+              <span className="pv-cap-label">{estDays}d / {ps.availDays}d</span>
+            </>
+        }
       </div>
     );
 
@@ -494,7 +564,7 @@ function PeopleView({
         <GridBg weeks={weeks} />
         <div className="pp-heat-row">
           {weekUtils.map((w, i) => (
-            <div key={i} className={`pp-heat-cell ${w.cls}`}>
+            <div key={i} className={`pp-heat-cell ${w.cls}${weeks[i].isMonthStart ? ' ms' : ''}`}>
               {w.pct > 0.05 ? `${Math.round(w.pct * 100)}%` : ''}
             </div>
           ))}
@@ -541,7 +611,7 @@ function PeopleView({
 
   return (
     <div className="pp-view on">
-      <div className="pp-lp">
+      <div className="pp-lp" style={{ width: panelWidth }}>
         <div className="pp-lp-hd">
           <span className="pp-lp-hd-label">Person · Epic assignments</span>
         </div>
@@ -549,6 +619,7 @@ function PeopleView({
           {lpRows}
         </div>
       </div>
+      <div className="pp-lp-resize" onMouseDown={onResizeMouseDown} />
       <div className="pp-rp">
         <div className="pp-rp-scroll" ref={ganttRef} onScroll={syncLpFromGantt}>
           <div style={{ minWidth: totalW }}>
@@ -615,10 +686,12 @@ function SummaryView({
     });
   }, [processTeams, boardEpics, assignMap, quarter, state]);
 
-  // Capacity alerts — people over or near capacity
+  // Capacity alerts — people over or near capacity (exclude team placeholders)
   const alertRows = useMemo(() => {
     return peopleSummaries
       .filter(ps => {
+        const pid = ps.member?.id ?? ps.contact?.id ?? ps.name;
+        if (pid.startsWith('TEAM:')) return false;
         const utilPct = ps.availDays > 0 ? ps.assignments.reduce((s, a) => s + a.days, 0) / ps.availDays : 0;
         return utilPct > 0.85;
       })
@@ -955,6 +1028,113 @@ function PortfolioDrawer({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PICKER POPOVER
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PortfolioPickerPopover({
+  epicKey, phase, anchorRect, existingMemberIds, memberMap, contactMap, processTeams,
+  onSelect, onClose,
+}: {
+  epicKey: string;
+  phase: PlanningPhase;
+  anchorRect: DOMRect;
+  existingMemberIds: Set<string>;
+  memberMap: Map<string, TeamMember>;
+  contactMap: Map<string, BusinessContact>;
+  processTeams: ProcessTeam[];
+  onSelect: (memberId: string, track: 'IT' | 'BIZ') => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState('');
+
+  // Build flat entry list: IT members + BIZ contacts + business teams
+  const entries = useMemo(() => {
+    const it = [...memberMap.values()]
+      .filter(m => !m.excludedFromCapacity)
+      .map(m => ({ id: m.id, name: m.name, sub: m.role ?? '', track: 'IT' as const, isTeam: false }));
+    const biz = [...contactMap.values()]
+      .filter(c => !c.excludedFromCapacity)
+      .map(c => ({ id: c.id, name: c.name, sub: c.title ?? '', track: 'BIZ' as const, isTeam: false }));
+    // Business teams from processTeams, fallback to BUSINESS_TEAMS constant
+    const teamSrc = processTeams.length > 0
+      ? processTeams.map(pt => ({ id: `TEAM:${pt.name}`, name: pt.name, abbr: pt.name.slice(0, 2).toUpperCase() }))
+      : BUSINESS_TEAMS;
+    const teams = teamSrc.map(t => ({
+      id: t.id, name: t.name, sub: 'Business team', track: 'BIZ' as const, isTeam: true,
+    }));
+    return [...it, ...biz, ...teams].sort((a, b) => a.name.localeCompare(b.name));
+  }, [memberMap, contactMap, processTeams]);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return entries;
+    const q = query.toLowerCase();
+    return entries.filter(e => e.name.toLowerCase().includes(q) || e.sub.toLowerCase().includes(q));
+  }, [entries, query]);
+
+  // Dismiss on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const el = document.getElementById('pp-picker-popover');
+      if (el && !el.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  // Position: below the anchor, flip up if near bottom
+  const above = anchorRect.bottom + 240 > window.innerHeight;
+  const style: React.CSSProperties = {
+    top: above ? anchorRect.top - 244 : anchorRect.bottom + 4,
+    left: Math.min(anchorRect.left, window.innerWidth - 290),
+  };
+
+  return (
+    <div id="pp-picker-popover" className="pp-picker" style={style}>
+      <div className="pp-picker-search">
+        <span style={{ color: '#94A3B8', fontSize: 13 }}>🔍</span>
+        <input
+          autoFocus
+          placeholder="Search people or teams…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+        />
+      </div>
+      <div className="pp-picker-list">
+        {filtered.length === 0
+          ? <div className="pp-picker-empty">No results</div>
+          : filtered.map(e => {
+              const isAdded = existingMemberIds.has(e.id);
+              const teamEntry = e.isTeam ? teamEntryForId(e.id) : null;
+              return (
+                <div
+                  key={e.id}
+                  className={`pp-picker-item${isAdded ? ' disabled' : ''}`}
+                  onClick={() => { if (!isAdded) { onSelect(e.id, e.track); } }}
+                >
+                  {e.isTeam
+                    ? <div className="pp-picker-av team">{teamEntry?.abbr ?? e.name.slice(0, 2).toUpperCase()}</div>
+                    : <div className="pp-picker-av" style={{ background: avColor(e.id) }}>{initials(e.name)}</div>
+                  }
+                  <div className="pp-picker-info">
+                    <div className="pp-picker-name">{e.name}{e.isTeam ? ' Team' : ''}</div>
+                    <div className="pp-picker-sub">{e.sub}</div>
+                  </div>
+                  {isAdded
+                    ? <span className="pp-picker-added">Added</span>
+                    : <span className={`pp-picker-badge ${e.isTeam ? 'team' : e.track.toLowerCase()}`}>
+                        {e.isTeam ? 'Team' : e.track}
+                      </span>
+                  }
+                </div>
+              );
+            })
+        }
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -964,16 +1144,22 @@ export function PortfolioPlanning() {
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'summary'>('epic');
-  const [editMode, setEditMode]     = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeQIdx, setActiveQIdx] = useState(0);
   const [epicCollapsed, setEpicCollapsed]   = useState<Record<string, boolean>>({});
   const [phasePersonCollapsed, setPhasePersonCollapsed] = useState<Record<string, boolean>>({});
   const [pvExpanded, setPvExpanded] = useState<Record<string, boolean>>({});
   const [weekW, setWeekW]           = useState(52);
+  const [panelWidth, setPanelWidth] = useState(460);
+  const [pickerTarget, setPickerTarget] = useState<{
+    epicKey: string; phase: PlanningPhase; rect: DOMRect;
+  } | null>(null);
 
-  // ── Drag state ─────────────────────────────────────────────────────────────
+  // ── Drag state (phase bars) ────────────────────────────────────────────────
   const dragRef = useRef<{ epicKey: string; phase: PlanningPhase; startX: number; origDay: number } | null>(null);
+
+  // ── Resize state (left panel) ──────────────────────────────────────────────
+  const resizeRef = useRef<{ startX: number; startW: number } | null>(null);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const ppRootRef    = useRef<HTMLDivElement>(null);
@@ -1066,17 +1252,58 @@ export function PortfolioPlanning() {
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, quarter, state]);
 
-  // ── Week width ─────────────────────────────────────────────────────────────
+  // ── Week width (recalculates when panel resizes or drawer opens) ───────────
   useEffect(() => {
     const apply = () => {
-      const w = calcWeekW(weeks.length, drawerOpen);
+      const w = calcWeekW(weeks.length, drawerOpen, panelWidth);
       setWeekW(w);
       ppRootRef.current?.style.setProperty('--week-w', w + 'px');
     };
     apply();
     window.addEventListener('resize', apply);
     return () => window.removeEventListener('resize', apply);
-  }, [weeks.length, drawerOpen]);
+  }, [weeks.length, drawerOpen, panelWidth]);
+
+  // ── Sync --left-w CSS variable when panel width changes ────────────────────
+  useEffect(() => {
+    ppRootRef.current?.style.setProperty('--left-w', panelWidth + 'px');
+  }, [panelWidth]);
+
+  // ── Left panel resize event handlers ──────────────────────────────────────
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const newW = Math.max(200, Math.min(700, resizeRef.current.startW + (e.clientX - resizeRef.current.startX)));
+      setPanelWidth(newW);
+    };
+    const onUp = () => {
+      if (!resizeRef.current) return;
+      resizeRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, []);
+
+  // ── Left panel resize ─────────────────────────────────────────────────────
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeRef.current = { startX: e.clientX, startW: panelWidth };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [panelWidth]);
+
+  // ── Person / team picker ───────────────────────────────────────────────────
+  const handleAddPerson = useCallback((epicKey: string, phase: PlanningPhase, rect: DOMRect) => {
+    setPickerTarget(prev =>
+      prev?.epicKey === epicKey && prev?.phase === phase ? null : { epicKey, phase, rect }
+    );
+  }, []);
 
   // ── Drag to reposition phase bar ──────────────────────────────────────────
   const handleDragPhaseStart = useCallback((epicKey: string, phase: PlanningPhase, e: React.MouseEvent) => {
@@ -1156,12 +1383,6 @@ export function PortfolioPlanning() {
           ))}
         </div>
         <div className="pp-divider" />
-        <button
-          className={`pp-btn${editMode ? ' active' : ''}`}
-          onClick={() => setEditMode(e => !e)}
-        >
-          ✎ Edit
-        </button>
         <button className="pp-btn primary" onClick={() => setDrawerOpen(true)}>
           + Add Epics
         </button>
@@ -1187,7 +1408,7 @@ export function PortfolioPlanning() {
             weeks={weeks}
             tStart={tStart}
             dayW={dayW}
-            editMode={editMode}
+            panelWidth={panelWidth}
             epicCollapsed={epicCollapsed}
             phasePersonCollapsed={phasePersonCollapsed}
             onToggleEpic={toggleEpic}
@@ -1203,8 +1424,10 @@ export function PortfolioPlanning() {
               const existing = plan.phaseAssignments.find(a => a.epicKey === epicKey && a.phase === phase && a.memberId === memberId);
               if (existing) plan.upsertAssignment(epicKey, phase, memberId, days, existing.track);
             }}
+            onAddPerson={handleAddPerson}
             onExpandAll={expandAll}
             onCollapseAll={collapseAll}
+            onResizeMouseDown={handleResizeMouseDown}
             lpRef={epicLpRef}
             ganttRef={epicGanttRef}
           />
@@ -1215,8 +1438,10 @@ export function PortfolioPlanning() {
             weeks={weeks}
             tStart={tStart}
             dayW={dayW}
+            panelWidth={panelWidth}
             pvExpanded={pvExpanded}
             onTogglePerson={id => setPvExpanded(prev => ({ ...prev, [id]: !prev[id] }))}
+            onResizeMouseDown={handleResizeMouseDown}
             lpRef={pvLpRef}
             ganttRef={pvGanttRef}
           />
@@ -1243,6 +1468,26 @@ export function PortfolioPlanning() {
           onClose={() => setDrawerOpen(false)}
           onSave={handleSaveDrawer}
         />
+
+        {/* Person / team picker popover */}
+        {pickerTarget && (
+          <PortfolioPickerPopover
+            epicKey={pickerTarget.epicKey}
+            phase={pickerTarget.phase}
+            anchorRect={pickerTarget.rect}
+            existingMemberIds={new Set(
+              (assignMap.get(pickerTarget.epicKey)?.get(pickerTarget.phase) ?? []).map(a => a.memberId)
+            )}
+            memberMap={memberMap}
+            contactMap={contactMap}
+            processTeams={state.processTeams}
+            onSelect={(memberId, track) => {
+              plan.upsertAssignment(pickerTarget.epicKey, pickerTarget.phase, memberId, 0, track);
+              setPickerTarget(null);
+            }}
+            onClose={() => setPickerTarget(null)}
+          />
+        )}
       </div>
     </div>
   );
