@@ -77,11 +77,11 @@ interface TeamGroup {
 interface TierStyle { bg: string; color: string }
 
 function tierStyle(pct: number): TierStyle {
-  if (pct <= 0)   return { bg: '#FAFAFA', color: '#D1D5DB' };
-  if (pct <= 50)  return { bg: '#F0FDF4', color: '#16A34A' };
-  if (pct <= 80)  return { bg: '#FEFCE8', color: '#CA8A04' };
-  if (pct <= 100) return { bg: '#FFF7ED', color: '#EA580C' };
-  return              { bg: '#FEF2F2', color: '#DC2626' };
+  if (pct <= 0)   return { bg: 'transparent',              color: '#CBD5E1' };
+  if (pct <= 50)  return { bg: 'rgba(22,163,74,0.08)',     color: '#16A34A' };
+  if (pct <= 80)  return { bg: 'rgba(202,138,4,0.10)',     color: '#CA8A04' };
+  if (pct <= 100) return { bg: 'rgba(234,88,12,0.10)',     color: '#EA580C' };
+  return              { bg: 'rgba(220,38,38,0.12)',     color: '#DC2626' };
 }
 
 function pctFromCell(cell: CellData): number {
@@ -146,7 +146,7 @@ function SprintCell({
         flex: 1,
         minWidth: 0,
         backgroundColor: bg,
-        borderRight: '1px solid #EBEBEB',
+        borderRight: '1px solid #E2E8F0',
         padding: '5px 8px',
       }}
     >
@@ -189,10 +189,10 @@ function SprintCell({
                 );
               })
           }
-          <span style={{ color: '#9CA3AF' }}>/ {availDays}d</span>
+          <span style={{ color: '#64748B' }}>/ {availDays}d</span>
         </div>
       ) : (
-        <div style={{ color: '#9CA3AF', fontSize: 10, lineHeight: 1.2, marginTop: 1 }}>
+        <div style={{ color: '#64748B', fontSize: 10, lineHeight: 1.2, marginTop: 1 }}>
           {loadDays}d / {availDays}d
         </div>
       )}
@@ -230,7 +230,7 @@ function PersonLabel({ row }: { row: PersonRow }) {
         alignItems: 'center',
         gap: 8,
         padding: '5px 10px',
-        borderRight: '1px solid #EBEBEB',
+        borderRight: '1px solid #E2E8F0',
       }}
     >
       <div
@@ -251,7 +251,7 @@ function PersonLabel({ row }: { row: PersonRow }) {
           </span>
           <span
             style={{
-              flexShrink: 0, fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 3,
+              flexShrink: 0, fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 6,
               backgroundColor: row.track === 'IT' ? '#E0F0FB' : '#EDE9FE',
               color: row.track === 'IT' ? '#0089DD' : '#7C3AED',
             }}
@@ -264,7 +264,7 @@ function PersonLabel({ row }: { row: PersonRow }) {
             </span>
           )}
         </div>
-        <div style={{ fontSize: 10, color: '#9CA3AF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 10, color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {row.role}
         </div>
       </div>
@@ -348,7 +348,7 @@ function TeamGroupView({
       <div
         style={{
           display: 'flex',
-          borderBottom: '1px solid #EBEBEB',
+          borderBottom: '1px solid #E2E8F0',
           backgroundColor: '#F8FAFC',
           cursor: 'pointer',
           borderLeft: summaryOverloaded ? '3px solid #DC2626' : '3px solid transparent',
@@ -367,7 +367,7 @@ function TeamGroupView({
             alignItems: 'center',
             gap: 6,
             padding: '6px 10px',
-            borderRight: '1px solid #EBEBEB',
+            borderRight: '1px solid #E2E8F0',
           }}
         >
           {isExpanded
@@ -377,7 +377,7 @@ function TeamGroupView({
           <span style={{ fontSize: 11, fontWeight: 700, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {group.teamName}
           </span>
-          <span style={{ fontSize: 10, color: '#9CA3AF', flexShrink: 0 }}>({group.members.length})</span>
+          <span style={{ fontSize: 10, color: '#64748B', flexShrink: 0 }}>({group.members.length})</span>
           {summaryOverloaded && (
             <AlertTriangle size={11} style={{ flexShrink: 0, color: '#DC2626' }} />
           )}
@@ -392,11 +392,11 @@ function TeamGroupView({
               key={i}
               style={{
                 flex: 1, minWidth: 0, backgroundColor: bg,
-                borderRight: '1px solid #EBEBEB', padding: '5px 8px',
+                borderRight: '1px solid #E2E8F0', padding: '5px 8px',
               }}
             >
               <div style={{ color, fontSize: 11, fontWeight: 600, lineHeight: 1.2 }}>{teamPct}%</div>
-              <div style={{ color: '#9CA3AF', fontSize: 10, lineHeight: 1.2, marginTop: 1 }}>
+              <div style={{ color: '#64748B', fontSize: 10, lineHeight: 1.2, marginTop: 1 }}>
                 {cell.load}d / {cell.avail}d
               </div>
             </div>
@@ -596,13 +596,13 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
     <div
       ref={scrollRef}
       className="flex-shrink-0 border-t border-mileway-border bg-white"
-      style={{ maxHeight: 300, overflowY: 'auto' }}
+      style={{ maxHeight: 300, overflowY: 'auto', fontFamily: "'DM Sans', sans-serif" }}
     >
       {/* Team total row — pinned at top */}
       <div
         style={{
           display: 'flex',
-          borderBottom: '1px solid #EBEBEB',
+          borderBottom: '1px solid #E2E8F0',
           backgroundColor: '#F8FAFC',
           position: 'sticky',
           top: 0,
@@ -613,7 +613,7 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
           style={{
             flexShrink: 0, width: colLabelW,
             display: 'flex', alignItems: 'center',
-            padding: '6px 12px', borderRight: '1px solid #EBEBEB',
+            padding: '6px 12px', borderRight: '1px solid #E2E8F0',
           }}
         >
           <span style={{ fontSize: 12, fontWeight: 700, color: '#1E293B' }}>Team total</span>
@@ -668,7 +668,7 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
       )}
 
       {allRows.length === 0 && (
-        <div style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: '#9CA3AF' }}>
+        <div style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: '#64748B' }}>
           No team members to display.
         </div>
       )}

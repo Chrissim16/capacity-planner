@@ -21,11 +21,11 @@ const BAR_H = 16;
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function tierStyle(pct: number): { bg: string; color: string } {
-  if (pct <= 0)   return { bg: '#FAFAFA',  color: '#D1D5DB' };
-  if (pct <= 50)  return { bg: '#F0FDF4',  color: '#16A34A' };
-  if (pct <= 80)  return { bg: '#FEFCE8',  color: '#CA8A04' };
-  if (pct <= 100) return { bg: '#FFF7ED',  color: '#EA580C' };
-  return              { bg: '#FEF2F2',  color: '#DC2626' };
+  if (pct <= 0)   return { bg: 'transparent',           color: '#CBD5E1' };
+  if (pct <= 50)  return { bg: 'rgba(22,163,74,0.08)',  color: '#16A34A' };
+  if (pct <= 80)  return { bg: 'rgba(202,138,4,0.10)',  color: '#CA8A04' };
+  if (pct <= 100) return { bg: 'rgba(234,88,12,0.10)',  color: '#EA580C' };
+  return              { bg: 'rgba(220,38,38,0.12)',  color: '#DC2626' };
 }
 
 const ITEM_COLORS = [
@@ -151,16 +151,16 @@ export function PlannerPeopleView({
     setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   if (quarterSprints.length === 0) {
-    return <div style={{ padding: 24, color: '#9CA3AF', fontSize: 13 }}>No sprints configured for this quarter.</div>;
+    return <div style={{ padding: 24, color: '#64748B', fontSize: 13 }}>No sprints configured for this quarter.</div>;
   }
 
   const N = quarterSprints.length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#fff' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#fff', fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: '1px solid #EBEBEB', flexShrink: 0, backgroundColor: '#FAFAFA' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: '1px solid #E2E8F0', flexShrink: 0, backgroundColor: '#FAFAFA' }}>
         <span style={{ fontSize: 11, color: '#6B7280' }}>Team:</span>
         <select
           value={filterTeam}
@@ -170,16 +170,16 @@ export function PlannerPeopleView({
           <option value="">All teams</option>
           {processTeams.map(pt => <option key={pt.id} value={pt.id}>{pt.name}</option>)}
         </select>
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#9CA3AF' }}>{rows.length} people</span>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748B' }}>{rows.length} people</span>
       </div>
 
       {/* Sprint header */}
-      <div style={{ display: 'flex', flexShrink: 0, borderBottom: '1px solid #EBEBEB', backgroundColor: '#F8FAFC' }}>
-        <div style={{ flexShrink: 0, width: labelWidth, padding: '5px 12px', borderRight: '1px solid #EBEBEB', fontSize: 11, fontWeight: 700, color: '#1E293B' }}>
+      <div style={{ display: 'flex', flexShrink: 0, borderBottom: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
+        <div style={{ flexShrink: 0, width: labelWidth, padding: '5px 12px', borderRight: '1px solid #E2E8F0', fontSize: 11, fontWeight: 700, color: '#1E293B' }}>
           Person
         </div>
         {quarterSprints.map(s => (
-          <div key={s.id} style={{ flex: 1, padding: '5px 8px', borderRight: '1px solid #EBEBEB', fontSize: 10, fontWeight: 600, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div key={s.id} style={{ flex: 1, padding: '5px 8px', borderRight: '1px solid #E2E8F0', fontSize: 10, fontWeight: 600, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {s.name}
           </div>
         ))}
@@ -188,7 +188,7 @@ export function PlannerPeopleView({
       {/* Person rows */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {rows.length === 0 && (
-          <div style={{ padding: 24, textAlign: 'center', color: '#9CA3AF', fontSize: 12 }}>No people to display.</div>
+          <div style={{ padding: 24, textAlign: 'center', color: '#64748B', fontSize: 12 }}>No people to display.</div>
         )}
         {rows.map(row => {
           const avails   = sprintAvail.get(row.id) ?? quarterSprints.map(() => 0);
@@ -209,17 +209,17 @@ export function PlannerPeopleView({
                 style={{ display: 'flex', alignItems: 'stretch', cursor: 'pointer', minHeight: 36 }}
                 onClick={() => toggleExpanded(row.id)}
               >
-                <div style={{ flexShrink: 0, width: labelWidth, display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px 4px 10px', borderRight: '1px solid #EBEBEB' }}>
+                <div style={{ flexShrink: 0, width: labelWidth, display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px 4px 10px', borderRight: '1px solid #E2E8F0' }}>
                   {isExp
-                    ? <ChevronDown  size={10} style={{ flexShrink: 0, color: '#9CA3AF' }} />
-                    : <ChevronRight size={10} style={{ flexShrink: 0, color: '#9CA3AF' }} />
+                    ? <ChevronDown  size={10} style={{ flexShrink: 0, color: '#64748B' }} />
+                    : <ChevronRight size={10} style={{ flexShrink: 0, color: '#64748B' }} />
                   }
                   <div style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', backgroundColor: row.track === 'IT' ? '#E0F0FB' : '#EDE9FE', color: row.track === 'IT' ? '#0089DD' : '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 700 }}>
                     {initials(row.name)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 11, fontWeight: 500, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</div>
-                    <div style={{ fontSize: 10, color: '#9CA3AF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.role}</div>
+                    <div style={{ fontSize: 10, color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.role}</div>
                   </div>
                   <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, backgroundColor: badge.bg, color: badge.color }}>
                     {utilPct}%
@@ -235,9 +235,9 @@ export function PlannerPeopleView({
                   const pct   = avail > 0 ? Math.round((load / avail) * 100) : (load > 0 ? 100 : 0);
                   const { bg, color } = tierStyle(pct);
                   return (
-                    <div key={s.id} style={{ flex: 1, backgroundColor: bg, borderRight: '1px solid #EBEBEB', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '3px 6px' }}>
+                    <div key={s.id} style={{ flex: 1, backgroundColor: bg, borderRight: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '3px 6px' }}>
                       <div style={{ fontSize: 10, fontWeight: 600, color }}>{pct}%</div>
-                      <div style={{ fontSize: 9, color: '#9CA3AF' }}>{load}d/{avail}d</div>
+                      <div style={{ fontSize: 9, color: '#64748B' }}>{load}d/{avail}d</div>
                     </div>
                   );
                 })}
@@ -248,10 +248,10 @@ export function PlannerPeopleView({
                 const col = itemColor(it.itemId);
                 return (
                   <div key={it.itemId} style={{ display: 'flex', borderTop: '1px solid #F1F5F9', minHeight: 28, backgroundColor: '#FAFAFA' }}>
-                    <div style={{ flexShrink: 0, width: labelWidth, padding: '4px 8px 4px 40px', borderRight: '1px solid #EBEBEB', display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
+                    <div style={{ flexShrink: 0, width: labelWidth, padding: '4px 8px 4px 40px', borderRight: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
                       <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: col, flexShrink: 0 }} />
                       <span style={{ fontSize: 10, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }} title={it.title}>{it.title}</span>
-                      <span style={{ fontSize: 9, color: '#9CA3AF', flexShrink: 0 }}>{it.daysPerSprint}d</span>
+                      <span style={{ fontSize: 9, color: '#64748B', flexShrink: 0 }}>{it.daysPerSprint}d</span>
                     </div>
                     <div style={{ flex: 1, display: 'grid', gridTemplateColumns: `repeat(${N}, 1fr)` }}>
                       {quarterSprints.map(s => {

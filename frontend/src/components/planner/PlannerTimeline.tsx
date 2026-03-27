@@ -45,12 +45,18 @@ import { usePlannerCapacityTicker } from './PlannerCapacityTicker';
 const LABEL_W_DEFAULT = 260;
 const LABEL_W_MIN = 160;
 const LABEL_W_MAX = 500;
-const SPRINT_HEADER_H = 64;
-const ROW_H = 44;
-const BAR_PAD_Y = 7;
+const SPRINT_HEADER_H = 52;
+const BAR_PAD_Y = 6;
 const MIN_SPRINT_W = 100;
 const QUARTER_ROW_H = 24;
 const MIN_QUARTER_W = 160;
+
+/** Per-type row height — three-tier hierarchy matching Portfolio Planner density. */
+function rowH(type: PlannerItemType | 'section'): number {
+  if (type === 'epic') return 40;
+  if (type === 'feature') return 36;
+  return 32; // story, task, bug, uat, hypercare, custom, section
+}
 
 interface VisibleQuarter {
   label: string;
@@ -59,14 +65,14 @@ interface VisibleQuarter {
 }
 
 const BAR: Record<string, { bg: string; border: string; borderW: number; radius: number }> = {
-  epic:      { bg: 'rgba(168,196,245,0.18)', border: '#6090E0', borderW: 2, radius: 6 },
-  feature:   { bg: '#A8C4F5',               border: '#6090E0', borderW: 1, radius: 5 },
-  story:     { bg: '#D0CCC8',               border: '#A09D97', borderW: 1, radius: 4 },
-  task:      { bg: '#D0CCC8',               border: '#A09D97', borderW: 1, radius: 4 },
+  epic:      { bg: 'rgba(37,99,235,0.08)',  border: '#2563EB', borderW: 2, radius: 6 },
+  feature:   { bg: '#DBEAFE',               border: '#2563EB', borderW: 1, radius: 5 },
+  story:     { bg: '#E2E8F0',               border: '#94A3B8', borderW: 1, radius: 4 },
+  task:      { bg: '#E2E8F0',               border: '#94A3B8', borderW: 1, radius: 4 },
   bug:       { bg: '#FEE2E2',               border: '#DC2626', borderW: 1, radius: 4 },
-  uat:       { bg: '#CDB0F5',               border: '#9B6EE2', borderW: 1, radius: 4 },
-  hypercare: { bg: '#90D9B8',               border: '#1A7A52', borderW: 1, radius: 4 },
-  custom:    { bg: '#D0CCC8',               border: '#A09D97', borderW: 1, radius: 4 },
+  uat:       { bg: '#EDE9FE',               border: '#7C3AED', borderW: 1, radius: 4 },
+  hypercare: { bg: '#DCFCE7',               border: '#16A34A', borderW: 1, radius: 4 },
+  custom:    { bg: '#E2E8F0',               border: '#94A3B8', borderW: 1, radius: 4 },
 };
 
 const INDENT: Partial<Record<PlannerItemType, number>> = {
@@ -438,14 +444,14 @@ function SprintHeaders({
               </span>
             )}
             <span
-              style={{ fontSize: 12.5, marginTop: isCurrent ? 14 : 0 }}
+              style={{ fontSize: 12, marginTop: isCurrent ? 12 : 0 }}
               className={['font-bold leading-none', dragOverNum === s.number ? 'text-mileway-blue' : 'text-mileway-text'].join(' ')}
             >
               {s.name}
             </span>
             {s.startDate && s.endDate && (
               <span
-                style={{ fontSize: 10, fontFamily: 'monospace' }}
+                style={{ fontSize: 10 }}
                 className="text-mileway-grey truncate leading-none"
               >
                 {formatSprintRange(s.startDate, s.endDate)}
@@ -765,7 +771,7 @@ function PlannerBar({
       style={{
         position: 'absolute',
         top: rowTop + BAR_PAD_Y,
-        height: ROW_H - BAR_PAD_Y * 2,
+        height: rowH(item.type) - BAR_PAD_Y * 2,
         left: `${frac.left * 100}%`,
         width: `${frac.width * 100}%`,
         minWidth: 6,
@@ -938,7 +944,7 @@ function BarDragOverlay({ item, shiftHeld }: { item: PlannerItem; shiftHeld?: bo
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div
         style={{
-          height: ROW_H - BAR_PAD_Y * 2,
+          height: rowH(item.type) - BAR_PAD_Y * 2,
           width: 200,
           background: s.bg,
           border: `${s.borderW}px solid ${s.border}`,
@@ -1553,10 +1559,24 @@ export function PlannerTimeline({
   }, []);
 
   // ── Render ──────────────────────────────────────────────────────────────────
-  const contentH = visibleRows.length * ROW_H;
+  const contentH = visibleRows.reduce(
+    (sum, row) => sum + rowH(row.kind === 'section' ? 'section' : row.item.type),
+    0,
+  );
   // Drop zones must always be hittable — enforce a minimum height so dragging
   // onto an empty timeline still registers. 240px covers ~5 rows of visual space.
   const totalH = Math.max(contentH, 240);
+
+  // Cumulative row top offsets (variable heights per item type).
+  const rowTops = useMemo(() => {
+    const tops: number[] = [];
+    let acc = 0;
+    for (const row of visibleRows) {
+      tops.push(acc);
+      acc += rowH(row.kind === 'section' ? 'section' : row.item.type);
+    }
+    return tops;
+  }, [visibleRows]);
 
   if (visibleSprints.length === 0) {
     return (
@@ -1568,7 +1588,7 @@ export function PlannerTimeline({
 
   return (
     <>
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
         {/* Main body — no separate sub-toolbar; Expand/Collapse live in the label header */}
         <div className="flex flex-1 overflow-hidden">
@@ -1623,7 +1643,7 @@ export function PlannerTimeline({
                     <div
                       key={row.id}
                       style={{
-                        height: ROW_H,
+                        height: rowH('section'),
                         flexShrink: 0,
                         display: 'flex',
                         alignItems: 'center',
@@ -1643,7 +1663,7 @@ export function PlannerTimeline({
                   <div
                     key={item.id}
                     style={{
-                      height: ROW_H,
+                      height: rowH(item.type),
                       flexShrink: 0,
                       backgroundColor:
                         assignPanelItemId === item.id
@@ -1762,7 +1782,7 @@ export function PlannerTimeline({
                   <div
                     key={rowKey + '-divider'}
                     style={{
-                      position: 'absolute', top: idx * ROW_H, height: ROW_H, left: 0, right: 0,
+                      position: 'absolute', top: rowTops[idx], height: rowH(row.kind === 'section' ? 'section' : row.item.type), left: 0, right: 0,
                       zIndex: 5, pointerEvents: 'none',
                       backgroundColor: isSectionRow
                         ? '#F8FAFC'
@@ -1822,7 +1842,7 @@ export function PlannerTimeline({
                   <PlannerBar
                     key={item.id}
                     item={item}
-                    rowTop={idx * ROW_H}
+                    rowTop={rowTops[idx] ?? 0}
                     firstSprintNum={firstSprintNum}
                     sprintCount={visibleSprintCount}
                     resizePreview={resize?.itemId === item.id ? { start: resize.previewStart, span: resize.previewSpan } : null}

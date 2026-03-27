@@ -18,11 +18,11 @@ import type { PlannerItem, Sprint } from '../../types';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function tierStyle(pct: number): { bg: string; color: string } {
-  if (pct <= 0)   return { bg: '#F9FAFB', color: '#9CA3AF' };
-  if (pct <= 50)  return { bg: '#F0FDF4', color: '#16A34A' };
-  if (pct <= 80)  return { bg: '#FEFCE8', color: '#CA8A04' };
-  if (pct <= 100) return { bg: '#FFF7ED', color: '#EA580C' };
-  return              { bg: '#FEF2F2', color: '#DC2626' };
+  if (pct <= 0)   return { bg: 'transparent',           color: '#CBD5E1' };
+  if (pct <= 50)  return { bg: 'rgba(22,163,74,0.08)',  color: '#16A34A' };
+  if (pct <= 80)  return { bg: 'rgba(202,138,4,0.10)',  color: '#CA8A04' };
+  if (pct <= 100) return { bg: 'rgba(234,88,12,0.10)',  color: '#EA580C' };
+  return              { bg: 'rgba(220,38,38,0.12)',  color: '#DC2626' };
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ function KpiCard({ label, value, sub, accent }: { label: string; value: string |
     <div style={{ flex: 1, minWidth: 140, padding: '14px 16px', border: '1px solid #E5E7EB', borderRadius: 8, background: '#fff', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ fontSize: 24, fontWeight: 700, color: accent ?? '#1E293B', lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{label}</div>
-      {sub && <div style={{ fontSize: 11, color: '#9CA3AF' }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 11, color: '#64748B' }}>{sub}</div>}
     </div>
   );
 }
@@ -164,7 +164,7 @@ export function PlannerSummaryView({ plannerItems, sprints, selectedQuarter }: P
   const utilAccent = avgUtil > 100 ? '#DC2626' : avgUtil > 85 ? '#EA580C' : avgUtil > 50 ? '#CA8A04' : '#16A34A';
 
   return (
-    <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 24, overflowY: 'auto', height: '100%' }}>
+    <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 24, overflowY: 'auto', height: '100%', fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* KPI cards */}
       <div>
@@ -232,7 +232,7 @@ export function PlannerSummaryView({ plannerItems, sprints, selectedQuarter }: P
                   </div>
                   <div style={{ fontSize: 11, color: row.worstSprintPct > 100 ? '#EA580C' : '#6B7280' }}>
                     {row.worstSprintName}
-                    {row.worstSprintPct > 0 && <span style={{ marginLeft: 4, color: '#9CA3AF' }}>({row.worstSprintPct}%)</span>}
+                    {row.worstSprintPct > 0 && <span style={{ marginLeft: 4, color: '#64748B' }}>({row.worstSprintPct}%)</span>}
                   </div>
                 </div>
               );
@@ -242,7 +242,7 @@ export function PlannerSummaryView({ plannerItems, sprints, selectedQuarter }: P
       )}
 
       {teamRows.length === 0 && (
-        <div style={{ padding: '24px', textAlign: 'center', color: '#9CA3AF', fontSize: 12 }}>
+        <div style={{ padding: '24px', textAlign: 'center', color: '#64748B', fontSize: 12 }}>
           No process teams configured. Add teams in team settings to see the breakdown.
         </div>
       )}

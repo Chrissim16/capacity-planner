@@ -1104,7 +1104,7 @@ export function ScenarioPlanner() {
       <ViewportNotice />
 
       {/* Main page — hidden below 1200px */}
-      <div className="hidden min-[1200px]:flex flex-col h-full bg-mileway-bg font-planner">
+      <div className="hidden min-[1200px]:flex flex-col h-full bg-mileway-bg font-sans">
         {!activeScenarioId ? (
           <div className="flex flex-col flex-1 min-h-0 overflow-auto px-8 py-8">
             <div className="max-w-5xl mx-auto w-full flex flex-col flex-1 min-h-0">
@@ -1179,7 +1179,7 @@ export function ScenarioPlanner() {
                   return (
                     <li
                       key={sc.id}
-                      className="bg-white border border-[#EBEBEB] rounded-xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shadow-sm"
+                      className="bg-white border border-[#E2E8F0] rounded-xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shadow-sm"
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
