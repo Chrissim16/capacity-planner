@@ -208,6 +208,7 @@ interface EpicViewProps {
   ganttRef:      React.RefObject<HTMLDivElement | null>;
   personOverloadMap: Map<string, 'over' | 'near'>;
   allJiraItems: JiraWorkItem[];
+  jiraBaseUrl: string;
 }
 
 function EpicView({
@@ -217,7 +218,7 @@ function EpicView({
   onToggleEpic, onTogglePhasePersons, onRemoveEpic, onSetPhaseStart,
   onDragPhaseStart, onClearPhase, onRemoveAssignment, onUpdateDays, onAddPerson,
   onExpandAll, onCollapseAll, onResizeMouseDown, lpRef, ganttRef,
-  personOverloadMap, allJiraItems,
+  personOverloadMap, allJiraItems, jiraBaseUrl,
 }: EpicViewProps) {
   const totalW = weeks.length * (dayW * 5);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -531,7 +532,7 @@ interface PersonSummary {
 function PeopleView({
   peopleSummaries, weeks, tStart, dayW, panelWidth,
   pvExpanded, onTogglePerson,
-  onResizeMouseDown, lpRef, ganttRef,
+  onResizeMouseDown, lpRef, ganttRef, jiraBaseUrl,
 }: {
   peopleSummaries: PersonSummary[];
   weeks: PortfolioWeek[];
@@ -543,6 +544,7 @@ function PeopleView({
   onResizeMouseDown: (e: React.MouseEvent) => void;
   lpRef: React.RefObject<HTMLDivElement | null>;
   ganttRef: React.RefObject<HTMLDivElement | null>;
+  jiraBaseUrl: string;
 }) {
   const totalW = weeks.length * (dayW * 5);
 
@@ -708,7 +710,7 @@ function PeopleView({
 
 function SummaryView({
   processTeams, boardEpics, peopleSummaries, phasePlansMap, assignMap,
-  absenceLookup, weeks, quarter, state,
+  absenceLookup, weeks, quarter, state, jiraBaseUrl,
 }: {
   processTeams: ProcessTeam[];
   boardEpics: JiraWorkItem[];
@@ -719,6 +721,7 @@ function SummaryView({
   weeks: PortfolioWeek[];
   quarter: string;
   state: ReturnType<typeof useCurrentState>;
+  jiraBaseUrl: string;
 }) {
   // KPI cards — one per process team
   const kpiCards = useMemo(() => {
@@ -1701,6 +1704,7 @@ export function PortfolioPlanning() {
             ganttRef={epicGanttRef}
             personOverloadMap={personOverloadMap}
             allJiraItems={state.jiraWorkItems}
+            jiraBaseUrl={jiraBaseUrl}
           />
         )}
         {activeTab === 'people' && (
@@ -1715,6 +1719,7 @@ export function PortfolioPlanning() {
             onResizeMouseDown={handleResizeMouseDown}
             lpRef={pvLpRef}
             ganttRef={pvGanttRef}
+            jiraBaseUrl={jiraBaseUrl}
           />
         )}
         {activeTab === 'summary' && (
@@ -1728,6 +1733,7 @@ export function PortfolioPlanning() {
             weeks={weeks}
             quarter={quarter}
             state={state}
+            jiraBaseUrl={jiraBaseUrl}
           />
         )}
 
