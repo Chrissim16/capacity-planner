@@ -1032,7 +1032,7 @@ function PortfolioDrawer({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PortfolioPickerPopover({
-  epicKey, phase, anchorRect, existingMemberIds, memberMap, contactMap, processTeams,
+  epicKey: _epicKey, phase: _phase, anchorRect, existingMemberIds, memberMap, contactMap, processTeams,
   onSelect, onClose,
 }: {
   epicKey: string;
