@@ -32,6 +32,27 @@ export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error' | 'offline';
 
 const STORAGE_KEY = 'capacity-planner-data';
 
+/**
+ * Safely write to localStorage, silently handling QuotaExceededError.
+ * When the quota is hit we log a warning but let the app continue —
+ * Supabase remains the source of truth.
+ */
+function safeSetItem(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    if (e instanceof DOMException && (
+      e.name === 'QuotaExceededError' ||
+      e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+      e.code === 22 // legacy Firefox / Safari
+    )) {
+      console.warn('[Store] localStorage quota exceeded — skipping local cache write. Data is safe in Supabase.');
+    } else {
+      console.error('[Store] localStorage.setItem failed:', e);
+    }
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // DEFAULT STATE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -291,7 +312,7 @@ const customStorage = {
     try {
       const parsed = JSON.parse(value);
       if (parsed.state?.data) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed.state.data));
+        safeSetItem(STORAGE_KEY, JSON.stringify(parsed.state.data));
       }
     } catch (e) {
       console.error('[Storage] setItem error:', e);
@@ -344,7 +365,7 @@ export const useAppStore = create<AppStore>()(
                 : null,
             };
             set({ data: hydratedData });
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(hydratedData));
+            safeSetItem(STORAGE_KEY, JSON.stringify(hydratedData));
             set({ isInitializing: false, syncStatus: 'saved' });
           } else {
             set({ isInitializing: false, syncStatus: 'idle' });
@@ -405,7 +426,7 @@ export const useAppStore = create<AppStore>()(
               lastModified: new Date().toISOString(),
             };
             set({ data: newData });
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+            safeSetItem(STORAGE_KEY, JSON.stringify(newData));
             scheduleSyncToSupabase(newData, (status, error) =>
               get().setSyncStatus(status as SyncStatus, error)
             );
@@ -419,7 +440,7 @@ export const useAppStore = create<AppStore>()(
           lastModified: new Date().toISOString(),
         };
         set({ data: newData });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        safeSetItem(STORAGE_KEY, JSON.stringify(newData));
         scheduleSyncToSupabase(newData, (status, error) =>
           get().setSyncStatus(status as SyncStatus, error)
         );
@@ -463,7 +484,7 @@ export const useAppStore = create<AppStore>()(
           settings: { ...state.data.settings, darkMode: !state.data.settings.darkMode },
         };
         set({ data: newData });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        safeSetItem(STORAGE_KEY, JSON.stringify(newData));
         scheduleSyncToSupabase(newData, (status, error) =>
           get().setSyncStatus(status as SyncStatus, error)
         );
@@ -494,7 +515,7 @@ export const useAppStore = create<AppStore>()(
 
       syncToStorage: () => {
         const state = get();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+        safeSetItem(STORAGE_KEY, JSON.stringify(state.data));
       },
     }),
     {
