@@ -50,9 +50,15 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     setLoading(true);
 
     Promise.all([
+      supabase.from('portfolio_epics').select('epic_key'),
       supabase.from('epic_phase_plans').select('*'),
       supabase.from('epic_phase_assignments').select('*'),
-    ]).then(([plansRes, assignRes]) => {
+    ]).then(([boardRes, plansRes, assignRes]) => {
+      if (boardRes.data && boardRes.data.length > 0) {
+        const keys = (boardRes.data as Array<{ epic_key: string }>).map(r => r.epic_key);
+        setBoardEpicKeys(keys);
+        saveBoardKeys(keys);
+      }
       if (plansRes.data) {
         setPhasePlans(
           (plansRes.data as Array<{
@@ -86,7 +92,7 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     }).finally(() => setLoading(false));
   }, []);
 
-  // ── Board membership (localStorage) ─────────────────────────────────────
+  // ── Board membership (localStorage + Supabase) ───────────────────────────
   const addEpicToBoard = useCallback((epicKey: string) => {
     setBoardEpicKeys(prev => {
       if (prev.includes(epicKey)) return prev;
@@ -94,6 +100,12 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
       saveBoardKeys(next);
       return next;
     });
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('portfolio_epics')
+        .upsert({ epic_key: epicKey }, { onConflict: 'epic_key' })
+        .then(({ error }) => { if (error) console.warn('[Portfolio] addEpicToBoard:', error.message); });
+    }
   }, []);
 
   const removeEpicFromBoard = useCallback((epicKey: string) => {
@@ -102,6 +114,13 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
       saveBoardKeys(next);
       return next;
     });
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('portfolio_epics')
+        .delete()
+        .eq('epic_key', epicKey)
+        .then(({ error }) => { if (error) console.warn('[Portfolio] removeEpicFromBoard:', error.message); });
+    }
   }, []);
 
   // ── Phase start day ───────────────────────────────────────────────────────
