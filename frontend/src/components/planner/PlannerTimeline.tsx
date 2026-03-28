@@ -63,15 +63,15 @@ interface VisibleQuarter {
   sprintCount: number;
 }
 
-const BAR: Record<string, { bg: string; border: string; borderW: number; radius: number }> = {
-  epic:      { bg: 'rgba(0,137,221,0.10)', border: '#0089DD', borderW: 1.5, radius: 4 },
-  feature:   { bg: '#CCE4F9',              border: '#0089DD', borderW: 1.5, radius: 4 },
-  story:     { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1.5, radius: 4 },
-  task:      { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1.5, radius: 4 },
-  bug:       { bg: '#FEE2E2',              border: '#DC2626', borderW: 1.5, radius: 4 },
-  uat:       { bg: '#EDE9FE',              border: '#7C3AED', borderW: 1.5, radius: 4 },
-  hypercare: { bg: '#DCFCE7',              border: '#16A34A', borderW: 1.5, radius: 4 },
-  custom:    { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1.5, radius: 4 },
+const BAR: Record<string, { bg: string; border: string; borderW: number; radius: number; height: number }> = {
+  epic:      { bg: 'rgba(0,137,221,0.10)', border: '#0089DD', borderW: 2, radius: 6, height: 30 },
+  feature:   { bg: '#CCE4F9',              border: '#0089DD', borderW: 1, radius: 5, height: 22 },
+  story:     { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1, radius: 4, height: 18 },
+  task:      { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1, radius: 4, height: 18 },
+  bug:       { bg: '#FEE2E2',              border: '#DC2626', borderW: 1, radius: 4, height: 18 },
+  uat:       { bg: '#E6F2FC',              border: '#94A3B8', borderW: 1, radius: 4, height: 18 },
+  hypercare: { bg: '#CCE4F9',              border: '#0089DD', borderW: 1, radius: 4, height: 18 },
+  custom:    { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1, radius: 4, height: 18 },
 };
 
 const INDENT: Partial<Record<PlannerItemType, number>> = {
@@ -785,8 +785,8 @@ function PlannerBar({
       ref={setNodeRef}
       style={{
         position: 'absolute',
-        top: rowTop + 7,
-        height: 24,
+        top: rowTop + Math.round((rowH(item.type) - s.height) / 2),
+        height: s.height,
         left: `${frac.left * 100}%`,
         width: `${frac.width * 100}%`,
         minWidth: 6,
@@ -796,13 +796,11 @@ function PlannerBar({
         boxSizing: 'border-box',
         zIndex: 10,
         opacity: barOpacity,
-        transition: 'opacity 200ms ease, box-shadow 150ms ease',
+        transition: 'opacity 200ms ease, box-shadow 150ms ease, filter 150ms ease, transform 150ms ease',
         cursor: isDragging ? 'grabbing' : 'grab',
-        boxShadow: isDragging
-          ? '0 4px 18px rgba(0,0,0,.18)'
-          : barHovered
-          ? '0 2px 10px rgba(0,0,0,.14)'
-          : undefined,
+        boxShadow: isDragging ? '0 4px 18px rgba(0,0,0,.18)' : undefined,
+        filter: barHovered && !isDragging ? 'brightness(0.9)' : undefined,
+        transform: barHovered && !isDragging ? 'translateY(-1px)' : undefined,
         outline: assignOpen ? '2px solid var(--assign-active-outline, var(--color-primary))' : undefined,
         outlineOffset: assignOpen ? 2 : undefined,
       }}
