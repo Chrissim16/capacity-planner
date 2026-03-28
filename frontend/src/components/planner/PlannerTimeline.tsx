@@ -458,7 +458,6 @@ function TimelineHeader({
   sprintCount,
   quarters,
   dragOverNum,
-  currentSprintNum,
   currentQuarterLabel,
 }: {
   viewMode: 'sprint' | 'quarter';
@@ -466,7 +465,6 @@ function TimelineHeader({
   sprintCount: number;
   quarters: VisibleQuarter[];
   dragOverNum: number | null;
-  currentSprintNum: number | null;
   currentQuarterLabel: string | null;
 }) {
   const dragOverQuarterLabel = dragOverNum !== null
@@ -1726,7 +1724,6 @@ export function PlannerTimeline({
                   sprintCount={visibleSprintCount}
                   quarters={visibleQuarters}
                   dragOverNum={dragOverNum}
-                  currentSprintNum={currentSprintNum}
                   currentQuarterLabel={currentQuarterLabel}
                 />
               </div>
