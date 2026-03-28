@@ -1841,27 +1841,7 @@ export function PlannerTimeline({
                     zIndex: 20,
                     pointerEvents: 'none',
                   }}
-                >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      backgroundColor: 'var(--color-primary)',
-                      color: 'white',
-                      fontSize: 9,
-                      fontWeight: 700,
-                      letterSpacing: '0.06em',
-                      textTransform: 'uppercase',
-                      padding: '2px 4px',
-                      borderRadius: 4,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    Today
-                  </div>
-                </div>
+                />
               )}
 
               {/* Bars (z:10) — section-header rows have no bar */}
