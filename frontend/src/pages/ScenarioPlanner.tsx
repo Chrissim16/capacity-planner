@@ -132,17 +132,20 @@ const MODE_LABELS: Record<PlannerMode, string> = { board: 'Board', timeline: 'Ti
 
 function ModeToggle({ mode, onChange }: { mode: PlannerMode; onChange: (m: PlannerMode) => void }) {
   return (
-    <div className="flex items-center gap-0.5 bg-mileway-bg rounded-lg p-0.5">
+    <div className="flex items-center">
       {(['board', 'timeline', 'people', 'summary'] as PlannerMode[]).map(m => (
         <button
           key={m}
           onClick={() => onChange(m)}
-          className={[
-            'px-3 py-1.5 rounded text-sm font-medium transition-colors duration-fast',
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+          style={
             mode === m
-              ? 'bg-mileway-blue-10 text-mileway-blue'
-              : 'text-mileway-grey hover:text-mileway-text',
+              ? { height: 40, marginBottom: -1, borderBottom: '2px solid var(--color-primary)' }
+              : { height: 40 }
+          }
+          className={[
+            'px-4 text-sm font-medium transition-colors duration-fast',
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue focus-visible:ring-inset',
+            mode === m ? 'text-[var(--color-primary)]' : 'text-mileway-grey hover:text-mileway-text',
           ].join(' ')}
         >
           {MODE_LABELS[m]}
@@ -182,13 +185,14 @@ function SaveButton() {
       onClick={() => void retrySyncToSupabase()}
       disabled={isSaving}
       className={[
-        'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-fast',
+        'flex items-center gap-2 px-4 py-1.5 font-medium transition-all duration-fast',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
         isSaving  ? 'bg-mileway-blue-10 text-mileway-blue cursor-not-allowed'
         : isError ? 'bg-white border-2 border-red-500 text-red-600 hover:bg-red-50'
         : isSaved ? 'bg-green-50 text-green-700 border border-green-200'
                   : 'bg-mileway-blue text-white hover:bg-[#0077C2]',
       ].join(' ')}
+      style={{ fontSize: 12, fontWeight: 500, borderRadius: 6 }}
     >
       {isSaving && <Loader2 size={14} className="animate-spin" />}
       {isSaved  && <Check   size={14} />}
@@ -471,6 +475,10 @@ export function ScenarioPlanner() {
   // Quarter navigation — 8 quarters forward from today, current quarter at index 0
   const quarters = useMemo(() => generateQuarters(8), []);
   const selectedQuarter = quarters[plannerUI.currentQuarterIndex] ?? getCurrentQuarter();
+  const connectionName = useMemo(
+    () => (allState.jiraConnections?.find(x => x.isActive) ?? allState.jiraConnections?.[0])?.name ?? '',
+    [allState.jiraConnections],
+  );
 
   // SP-17/18/19: Create/edit modal and context menu
   const [createModal, setCreateModal] = useState<{
@@ -1261,24 +1269,90 @@ export function ScenarioPlanner() {
           </div>
         ) : (
           <>
-        {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-        {/*
-          Layout: [Scenario chip] [Scenario pill ▾] [+] [|] [Board|Timeline]
-                  [flex-1 spacer]
-                  [(timeline) Add Epic] [(timeline) Filters] [(timeline) ‹ Q ›]
-                  [Backlog] [Team] [Save]
-        */}
-        <div className="flex-shrink-0 bg-white border-b border-mileway-border px-6 py-3 flex items-center gap-3">
+        {/* ── Tier 1: Topbar (52px) ──────────────────────────────────────── */}
+        <div
+          className="flex-shrink-0 bg-white border-b border-mileway-border px-6 flex items-center"
+          style={{ height: 52 }}
+        >
+          {/* Left: back + scenario title + context badge */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => switchScenario(null)}
+              className="text-sm font-medium text-mileway-grey hover:text-mileway-text focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded-lg px-2 py-1 -ml-1 flex-shrink-0"
+            >
+              ← Back
+            </button>
+            <div className="w-px h-5 bg-mileway-border flex-shrink-0" aria-hidden="true" />
+            <span style={{ fontSize: 15, fontWeight: 600, color: '#1E293B' }} className="flex-shrink-0 truncate max-w-[200px]">
+              {activeScenario?.name ?? 'Scenario'}
+            </span>
+            {(connectionName || selectedQuarter) && (
+              <span
+                style={{
+                  fontSize: 11,
+                  color: '#94A3B8',
+                  background: '#F5F8FC',
+                  border: '1px solid #DEDFE3',
+                  borderRadius: 4,
+                  padding: '2px 8px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {[connectionName, selectedQuarter].filter(Boolean).join(' · ')}
+              </span>
+            )}
+          </div>
 
-          <button
-            type="button"
-            onClick={() => switchScenario(null)}
-            className="text-sm font-medium text-mileway-grey hover:text-mileway-text focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded-lg px-2 py-1 -ml-1 flex-shrink-0"
-          >
-            ← Back to overview
-          </button>
+          {/* Center: quarter segmented control */}
+          <div className="flex-1 flex justify-center px-6 min-w-0">
+            <div
+              style={{
+                display: 'flex',
+                background: '#F5F8FC',
+                border: '1px solid #DEDFE3',
+                borderRadius: 6,
+                overflow: 'hidden',
+                flexShrink: 0,
+              }}
+            >
+              {quarters.map((q, i) => (
+                <button
+                  key={q}
+                  onClick={() => setPlannerUI(prev => ({ ...prev, currentQuarterIndex: i }))}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: 11,
+                    fontWeight: selectedQuarter === q ? 600 : 500,
+                    color: selectedQuarter === q ? '#1E293B' : '#94A3B8',
+                    background: selectedQuarter === q ? '#FFFFFF' : 'transparent',
+                    boxShadow: selectedQuarter === q ? '0 1px 3px rgba(0,0,0,.08)' : undefined,
+                    border: 'none',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'background 150ms ease, color 150ms ease, box-shadow 150ms ease',
+                  }}
+                  className="focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue focus-visible:ring-inset"
+                >
+                  {q.replace(/\s(\d{2})(\d{2})$/, " '$2")}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          {/* Left group: scenario controls + mode toggle (ScenarioTabs renders chip, pill, +, divider) */}
+          {/* Right: Save button */}
+          <div className="flex-shrink-0">
+            <SaveButton />
+          </div>
+        </div>
+
+        {/* ── Tier 2: Tabbar (40px) ───────────────────────────────────────── */}
+        <div
+          className="flex-shrink-0 bg-white border-b border-mileway-border px-6 flex items-center gap-3"
+          style={{ height: 40 }}
+        >
+          {/* Scenario controls: dropdown pill + new scenario + divider */}
           <ScenarioTabs
             scenarios={scenarios}
             activeScenarioId={activeScenarioId}
@@ -1286,7 +1360,7 @@ export function ScenarioPlanner() {
             onCreate={handleCreateScenario}
           />
 
-          {/* Mode toggle — follows the left divider */}
+          {/* Mode tabs — Board | Timeline | People | Summary */}
           <ModeToggle mode={plannerUI.activeMode} onChange={handleModeChange} />
 
           {/* Generic search — visible in both timeline and board modes */}
@@ -1296,14 +1370,13 @@ export function ScenarioPlanner() {
               placeholder="Search..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-mileway-border bg-white text-sm text-mileway-text placeholder-mileway-grey focus:outline-none focus:border-mileway-blue focus:ring-1 focus:ring-mileway-blue w-40 transition-colors"
+              className="px-3 py-1 rounded-lg border border-mileway-border bg-white text-sm text-mileway-text placeholder-mileway-grey focus:outline-none focus:border-mileway-blue focus:ring-1 focus:ring-mileway-blue w-36 transition-colors"
             />
           )}
 
-          {/* Timeline-only filters — middle section */}
+          {/* Timeline-only filters */}
           {plannerUI.activeMode === 'timeline' && (
             <>
-              {/* Process Team filter */}
               {activeScenarioId && allState.processTeams.length > 0 && (
                 <ProcessTeamFilterPill
                   options={allState.processTeams}
@@ -1312,7 +1385,6 @@ export function ScenarioPlanner() {
                 />
               )}
 
-              {/* People filter */}
               {activeScenarioId && (
                 <PlannerPersonFilterPill
                   selectedMemberId={plannerUI.focusedMemberId}
@@ -1322,7 +1394,6 @@ export function ScenarioPlanner() {
                 />
               )}
 
-              {/* SP-20/21: Label + Epic filters */}
               <div className="flex items-center gap-2">
                 <select
                   value=""
@@ -1331,7 +1402,7 @@ export function ScenarioPlanner() {
                     if (v && !filterLabels.includes(v)) setFilterLabels(prev => [...prev, v]);
                     e.target.value = '';
                   }}
-                  className="text-xs border border-mileway-border rounded-lg px-2 py-1.5 text-mileway-text bg-white focus:outline-none focus:border-mileway-blue transition-colors max-w-[120px]"
+                  className="text-xs border border-mileway-border rounded-lg px-2 py-1 text-mileway-text bg-white focus:outline-none focus:border-mileway-blue transition-colors max-w-[120px]"
                   title="Filter by label"
                 >
                   <option value="">Labels{filterLabels.length > 0 ? ` (${filterLabels.length})` : ''}</option>
@@ -1348,7 +1419,7 @@ export function ScenarioPlanner() {
                   <button
                     onClick={() => { setFilterLabels([]); setFilterEpics([]); setSearch(''); }}
                     title="Clear all filters"
-                    className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                   >
                     <X size={12} aria-hidden="true" />
                     Clear
@@ -1358,23 +1429,21 @@ export function ScenarioPlanner() {
             </>
           )}
 
-          {/* Right-side actions — always visible, never pushed off-screen */}
+          {/* Right-side actions */}
           <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-            {/* Add Epic — timeline only */}
             {plannerUI.activeMode === 'timeline' && activeScenarioId && (
               <button
                 type="button"
                 onClick={() => setCreateModal({ defaultType: 'epic' })}
                 title="Add Epic"
                 aria-label="Add Epic"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-mileway-blue bg-mileway-blue-10 hover:bg-mileway-blue hover:text-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium text-mileway-blue bg-mileway-blue-10 hover:bg-mileway-blue hover:text-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
               >
                 <Plus size={14} aria-hidden="true" />
                 Add Epic
               </button>
             )}
 
-            {/* Bulk edit planner items */}
             {activeScenarioId && plannerItems.length > 0 && (
               <button
                 type="button"
@@ -1383,14 +1452,13 @@ export function ScenarioPlanner() {
                   setPlannerBulkEditOpen(true);
                 }}
                 title="Bulk edit all planner items in this scenario"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
               >
                 <Edit3 size={14} aria-hidden="true" />
                 Bulk Edit
               </button>
             )}
 
-            {/* Skills matching toggle (US-SP-27) */}
             {activeScenarioId && (
               <button
                 type="button"
@@ -1401,7 +1469,7 @@ export function ScenarioPlanner() {
                     : 'Skills matching off — assignments ranked by capacity only.'
                 }
                 className={[
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+                  'flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-fast',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
                   skillsMatchingEnabled
                     ? 'bg-mileway-blue-10 text-mileway-blue'
@@ -1413,7 +1481,6 @@ export function ScenarioPlanner() {
               </button>
             )}
 
-            {/* Backlog toggle — icon only (keyboard shortcut: B) */}
             <button
               onClick={toggleBacklog}
               title={
@@ -1423,7 +1490,7 @@ export function ScenarioPlanner() {
                   : '')
               }
               className={[
-                'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+                'flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-medium transition-colors duration-fast',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
                 plannerUI.backlogOpen
                   ? 'bg-mileway-blue-10 text-mileway-blue'
@@ -1433,7 +1500,6 @@ export function ScenarioPlanner() {
               <Inbox size={14} aria-hidden="true" />
             </button>
 
-            {/* Team toggle (keyboard shortcut: T) */}
             <button
               onClick={toggleTeamDrawer}
               title={
@@ -1441,7 +1507,7 @@ export function ScenarioPlanner() {
                 (teamBadgeCount > 0 ? ` · ${teamBadgeCount} people` : '')
               }
               className={[
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-fast',
+                'flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-fast',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
                 plannerUI.teamDrawerOpen
                   ? 'bg-mileway-blue-10 text-mileway-blue'
@@ -1452,21 +1518,17 @@ export function ScenarioPlanner() {
               Team
             </button>
 
-            {/* Refresh from Jira — only for non-baseline scenarios */}
             {activeScenarioId && scenarios.some(s => s.id === activeScenarioId) && (
               <button
                 type="button"
                 onClick={() => refreshScenarioFromJira(activeScenarioId)}
                 title="Refresh Jira data into this scenario"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
               >
                 <RefreshCw size={14} aria-hidden="true" />
                 Refresh
               </button>
             )}
-
-            {/* Save */}
-            <SaveButton />
           </div>
         </div>
 

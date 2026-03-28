@@ -43,8 +43,8 @@ import { usePlannerCapacityTicker } from './PlannerCapacityTicker';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const LABEL_W_DEFAULT = 260;
-const LABEL_W_MIN = 160;
-const LABEL_W_MAX = 500;
+const LABEL_W_MIN = 200;
+const LABEL_W_MAX = 700;
 const SPRINT_HEADER_H = 52;
 const BAR_PAD_Y = 6;
 const MIN_SPRINT_W = 100;
@@ -65,18 +65,18 @@ interface VisibleQuarter {
 }
 
 const BAR: Record<string, { bg: string; border: string; borderW: number; radius: number }> = {
-  epic:      { bg: 'rgba(37,99,235,0.08)',  border: '#2563EB', borderW: 2, radius: 6 },
-  feature:   { bg: '#DBEAFE',               border: '#2563EB', borderW: 1, radius: 5 },
-  story:     { bg: '#E2E8F0',               border: '#94A3B8', borderW: 1, radius: 4 },
-  task:      { bg: '#E2E8F0',               border: '#94A3B8', borderW: 1, radius: 4 },
-  bug:       { bg: '#FEE2E2',               border: '#DC2626', borderW: 1, radius: 4 },
-  uat:       { bg: '#EDE9FE',               border: '#7C3AED', borderW: 1, radius: 4 },
-  hypercare: { bg: '#DCFCE7',               border: '#16A34A', borderW: 1, radius: 4 },
-  custom:    { bg: '#E2E8F0',               border: '#94A3B8', borderW: 1, radius: 4 },
+  epic:      { bg: 'rgba(0,137,221,0.10)', border: '#0089DD', borderW: 1.5, radius: 4 },
+  feature:   { bg: '#CCE4F9',              border: '#0089DD', borderW: 1.5, radius: 4 },
+  story:     { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1.5, radius: 4 },
+  task:      { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1.5, radius: 4 },
+  bug:       { bg: '#FEE2E2',              border: '#DC2626', borderW: 1.5, radius: 4 },
+  uat:       { bg: '#EDE9FE',              border: '#7C3AED', borderW: 1.5, radius: 4 },
+  hypercare: { bg: '#DCFCE7',              border: '#16A34A', borderW: 1.5, radius: 4 },
+  custom:    { bg: '#F0F2F5',              border: '#DEDFE3', borderW: 1.5, radius: 4 },
 };
 
 const INDENT: Partial<Record<PlannerItemType, number>> = {
-  epic: 0, feature: 16, story: 32, task: 32, bug: 32, uat: 32, hypercare: 32,
+  epic: 0, feature: 20, story: 36, task: 36, bug: 36, uat: 36, hypercare: 36,
 };
 
 /** Stable saturated backgrounds for bar avatars (no per-member colour on types yet). */
@@ -592,7 +592,7 @@ function LabelCell({
 
   return (
     <div
-      className="group flex items-center gap-1.5 h-full border-b border-mileway-divider hover:bg-mileway-bg transition-colors duration-fast"
+      className={`group flex items-center gap-1.5 h-full border-b hover:bg-mileway-bg transition-colors duration-fast ${item.type === 'epic' ? 'bg-mileway-bg border-mileway-border' : 'bg-white border-mileway-divider'}`}
       style={{ paddingLeft: indent, paddingRight: 8 }}
       onContextMenu={onContextMenu ? e => { e.preventDefault(); onContextMenu(item, e.clientX, e.clientY); } : undefined}
     >
@@ -637,6 +637,22 @@ function LabelCell({
           style={{ fontWeight: item.type === 'epic' ? 600 : 400 }}
         >
           {item.name}
+        </span>
+      )}
+
+      {item.jiraKey && (
+        <span
+          className="flex-shrink-0"
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: '#0089DD',
+            background: '#E6F2FC',
+            padding: '2px 6px',
+            borderRadius: 4,
+          }}
+        >
+          {item.jiraKey}
         </span>
       )}
 
@@ -762,7 +778,7 @@ function PlannerBar({
   if (focusedMemberId != null && !isDragging) {
     barOpacity = assignedToFilter ? 1 : 0.2;
   } else {
-    barOpacity = isDragging ? 0.35 : 1;
+    barOpacity = isDragging ? 0.9 : 1;
   }
 
   return (
@@ -770,8 +786,8 @@ function PlannerBar({
       ref={setNodeRef}
       style={{
         position: 'absolute',
-        top: rowTop + BAR_PAD_Y,
-        height: rowH(item.type) - BAR_PAD_Y * 2,
+        top: rowTop + 7,
+        height: 24,
         left: `${frac.left * 100}%`,
         width: `${frac.width * 100}%`,
         minWidth: 6,
@@ -781,8 +797,13 @@ function PlannerBar({
         boxSizing: 'border-box',
         zIndex: 10,
         opacity: barOpacity,
-        transition: 'opacity 200ms ease',
-        cursor: 'grab',
+        transition: 'opacity 200ms ease, box-shadow 150ms ease',
+        cursor: isDragging ? 'grabbing' : 'grab',
+        boxShadow: isDragging
+          ? '0 4px 18px rgba(0,0,0,.18)'
+          : barHovered
+          ? '0 2px 10px rgba(0,0,0,.14)'
+          : undefined,
         outline: assignOpen ? '2px solid var(--assign-active-outline, var(--color-primary))' : undefined,
         outlineOffset: assignOpen ? 2 : undefined,
       }}
@@ -944,13 +965,14 @@ function BarDragOverlay({ item, shiftHeld }: { item: PlannerItem; shiftHeld?: bo
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div
         style={{
-          height: rowH(item.type) - BAR_PAD_Y * 2,
+          height: 24,
           width: 200,
           background: s.bg,
           border: `${s.borderW}px solid ${s.border}`,
           borderRadius: s.radius,
           opacity: 0.9,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+          boxShadow: '0 4px 18px rgba(0,0,0,.18)',
+          cursor: 'grabbing',
           display: 'flex',
           alignItems: 'center',
           padding: '0 8px',
@@ -1030,6 +1052,7 @@ export function PlannerTimeline({
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
   const [labelWidth, setLabelWidth]           = useState(() => labelWidthProp ?? LABEL_W_DEFAULT);
+  const [isLabelHandleDragging, setIsLabelHandleDragging] = useState(false);
   const [hoveredRowId, setHoveredRowId]       = useState<string | null>(null);
   const [dragOverNum, setDragOverNum]         = useState<number | null>(null);
   const [activeItem, setActiveItem]           = useState<PlannerItem | null>(null);
@@ -1310,12 +1333,13 @@ export function PlannerTimeline({
   function onLabelHandleDown(e: ReactPointerEvent<HTMLDivElement>) {
     labelDragRef.current = { startX: e.clientX, startW: labelWidth };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setIsLabelHandleDragging(true);
   }
   function onLabelHandleMove(e: ReactPointerEvent<HTMLDivElement>) {
     if (!labelDragRef.current) return;
     setLabelWidth(Math.max(LABEL_W_MIN, Math.min(LABEL_W_MAX, labelDragRef.current.startW + e.clientX - labelDragRef.current.startX)));
   }
-  function onLabelHandleUp() { labelDragRef.current = null; }
+  function onLabelHandleUp() { labelDragRef.current = null; setIsLabelHandleDragging(false); }
 
   // ── Bar resize ──────────────────────────────────────────────────────────────
   const handleResizeStart = useCallback((
@@ -1588,7 +1612,7 @@ export function PlannerTimeline({
 
   return (
     <>
-      <div className="flex flex-col flex-1 overflow-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="flex flex-col flex-1 overflow-hidden" style={{ fontFamily: "'DM Sans', sans-serif", '--left-w': `${labelWidth}px` } as CSSProperties}>
 
         {/* Main body — no separate sub-toolbar; Expand/Collapse live in the label header */}
         <div className="flex flex-1 overflow-hidden">
@@ -1600,37 +1624,42 @@ export function PlannerTimeline({
           >
             {/* Label header — fixed, mirrors the sticky sprint-header height in the canvas */}
             <div
-              className="flex-shrink-0 flex items-end gap-1 px-2 pb-1.5 border-b border-mileway-border bg-mileway-bg"
+              className="flex-shrink-0 flex items-end justify-between px-3 pb-1.5 border-b border-mileway-border bg-mileway-bg"
               style={{ height: headerH }}
             >
-              <button
-                onClick={() => { setExpandAll(true); setExpandedIds(new Set()); }}
-                className="text-[11px] font-medium text-mileway-grey hover:text-mileway-text px-2 py-0.5 rounded hover:bg-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-              >
-                Expand all
-              </button>
-              <button
-                onClick={() => { setExpandAll(false); setExpandedIds(new Set()); }}
-                className="text-[11px] font-medium text-mileway-grey hover:text-mileway-text px-2 py-0.5 rounded hover:bg-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-              >
-                Collapse all
-              </button>
-              {/* Sprint | Quarter view toggle */}
-              <div className="ml-auto flex rounded border border-mileway-border overflow-hidden" style={{ fontSize: 11 }}>
-                {(['sprint', 'quarter'] as const).map(mode => (
-                  <button
-                    key={mode}
-                    onClick={() => setPlannerTimelineViewMode(mode)}
-                    className={[
-                      'px-2 py-0.5 font-medium capitalize transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                      plannerTimelineViewMode === mode
-                        ? 'bg-mileway-blue text-white'
-                        : 'text-mileway-grey hover:text-mileway-text hover:bg-white',
-                    ].join(' ')}
-                  >
-                    {mode}
-                  </button>
-                ))}
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Epic · Feature · Story
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => { setExpandAll(true); setExpandedIds(new Set()); }}
+                  className="text-[11px] font-medium text-mileway-grey hover:text-mileway-blue px-2 py-0.5 rounded border border-mileway-border hover:border-mileway-blue bg-transparent hover:bg-mileway-blue-10 transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                >
+                  Expand all
+                </button>
+                <button
+                  onClick={() => { setExpandAll(false); setExpandedIds(new Set()); }}
+                  className="text-[11px] font-medium text-mileway-grey hover:text-mileway-blue px-2 py-0.5 rounded border border-mileway-border hover:border-mileway-blue bg-transparent hover:bg-mileway-blue-10 transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                >
+                  Collapse all
+                </button>
+                {/* Sprint | Quarter view toggle */}
+                <div className="ml-1 flex rounded border border-mileway-border overflow-hidden" style={{ fontSize: 11 }}>
+                  {(['sprint', 'quarter'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setPlannerTimelineViewMode(mode)}
+                      className={[
+                        'px-2 py-0.5 font-medium capitalize transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                        plannerTimelineViewMode === mode
+                          ? 'bg-mileway-blue text-white'
+                          : 'text-mileway-grey hover:text-mileway-text hover:bg-white',
+                      ].join(' ')}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             {/* Ticker label — fixed, mirrors the sticky ticker-sprint-row height in the canvas */}
@@ -1706,7 +1735,8 @@ export function PlannerTimeline({
 
           {/* Label resize handle */}
           <div
-            className="w-1 flex-shrink-0 bg-mileway-divider hover:bg-mileway-blue cursor-col-resize transition-colors duration-fast"
+            className={`flex-shrink-0 cursor-col-resize transition-colors duration-fast ${isLabelHandleDragging ? 'bg-mileway-blue' : 'bg-mileway-divider hover:bg-mileway-blue'}`}
+            style={{ width: 4 }}
             onPointerDown={onLabelHandleDown}
             onPointerMove={onLabelHandleMove}
             onPointerUp={onLabelHandleUp}
@@ -1807,7 +1837,8 @@ export function PlannerTimeline({
                     top: 0,
                     bottom: 0,
                     width: 2,
-                    backgroundColor: '#E63946',
+                    backgroundColor: 'var(--color-primary)',
+                    opacity: 0.7,
                     zIndex: 20,
                     pointerEvents: 'none',
                   }}
@@ -1818,7 +1849,7 @@ export function PlannerTimeline({
                       top: 0,
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      backgroundColor: '#E63946',
+                      backgroundColor: 'var(--color-primary)',
                       color: 'white',
                       fontSize: 9,
                       fontWeight: 700,
