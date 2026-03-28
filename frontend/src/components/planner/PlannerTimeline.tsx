@@ -23,7 +23,7 @@ import {
   type DragMoveEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { ChevronRight, ChevronDown, Plus, Pencil } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Pencil, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { useToast } from '../ui/Toast';
 import type {
   PlannerItem,
@@ -1629,16 +1629,18 @@ export function PlannerTimeline({
               </span>
               <div className="flex items-center gap-1">
                 <button
+                  title="Expand all"
                   onClick={() => { setExpandAll(true); setExpandedIds(new Set()); }}
-                  className="text-[11px] font-medium text-mileway-grey hover:text-mileway-blue px-2 py-0.5 rounded border border-mileway-border hover:border-mileway-blue bg-transparent hover:bg-mileway-blue-10 transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                  className="flex items-center justify-center w-6 h-6 rounded border border-mileway-border text-mileway-grey hover:text-mileway-blue hover:border-mileway-blue bg-transparent hover:bg-mileway-blue-10 transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
                 >
-                  Expand all
+                  <ChevronsDown size={13} strokeWidth={2} />
                 </button>
                 <button
+                  title="Collapse all"
                   onClick={() => { setExpandAll(false); setExpandedIds(new Set()); }}
-                  className="text-[11px] font-medium text-mileway-grey hover:text-mileway-blue px-2 py-0.5 rounded border border-mileway-border hover:border-mileway-blue bg-transparent hover:bg-mileway-blue-10 transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+                  className="flex items-center justify-center w-6 h-6 rounded border border-mileway-border text-mileway-grey hover:text-mileway-blue hover:border-mileway-blue bg-transparent hover:bg-mileway-blue-10 transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
                 >
-                  Collapse all
+                  <ChevronsUp size={13} strokeWidth={2} />
                 </button>
                 {/* Sprint | Quarter view toggle */}
                 <div className="ml-1 flex rounded border border-mileway-border overflow-hidden" style={{ fontSize: 11 }}>
