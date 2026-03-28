@@ -304,6 +304,8 @@ export function ScenarioPlanner() {
   const [plannerUI, setPlannerUI] = useState<PlannerUIState>(INITIAL_PLANNER_UI);
   /** Timeline — slide-out AssignPanel target item id */
   const [assignPanelItemId, setAssignPanelItemId] = useState<string | null>(null);
+  /** SP-10: member to auto-add when AssignPanel opens via drag-to-assign */
+  const [assignPanelMemberId, setAssignPanelMemberId] = useState<string | null>(null);
   const [boardSort, setBoardSort] = useState<BoardSort>('priority');
 
   const capacityPanelRef = useRef<PlannerCapacityHandle>(null);
@@ -632,6 +634,13 @@ export function ScenarioPlanner() {
 
   const handleOpenAssignPanel = useCallback((item: PlannerItem) => {
     setAssignPanelItemId(item.id);
+    setAssignPanelMemberId(null);
+    setPlannerUI(prev => ({ ...prev, detailItemId: null }));
+  }, []);
+
+  const handlePeopleDropOnBar = useCallback((item: PlannerItem, memberId: string) => {
+    setAssignPanelItemId(item.id);
+    setAssignPanelMemberId(memberId);
     setPlannerUI(prev => ({ ...prev, detailItemId: null }));
   }, []);
 
@@ -1486,6 +1495,7 @@ export function ScenarioPlanner() {
                       onItemsChange={handleItemsChange}
                       onActiveDragChange={handleActiveDragChange}
                       onBarClick={handleOpenAssignPanel}
+                      onPeopleDropOnBar={handlePeopleDropOnBar}
                       onOpenAssignFromLabel={handleOpenAssignPanel}
                       onLabelClick={handleLabelDetailClick}
                       assignPanelItemId={assignPanelItemId}
@@ -1619,9 +1629,10 @@ export function ScenarioPlanner() {
           selectedQuarter={selectedQuarter}
           jiraBaseUrl={jiraBaseUrl}
           jiraItems={jiraItems}
-          onClose={() => setAssignPanelItemId(null)}
+          onClose={() => { setAssignPanelItemId(null); setAssignPanelMemberId(null); }}
           onSave={handleAssignPanelPersist}
           skillsMatchingEnabled={skillsMatchingEnabled}
+          pendingMemberId={assignPanelMemberId}
         />
       )}
 

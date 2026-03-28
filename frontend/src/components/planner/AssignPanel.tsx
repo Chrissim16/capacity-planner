@@ -235,6 +235,8 @@ export interface AssignPanelProps {
   onSave: (itemId: string, assignees: PlannerAssignment[]) => void;
   /** US-SP-27: when false, skill chips, "Requires" line, and tiered ranking are suppressed. */
   skillsMatchingEnabled?: boolean;
+  /** SP-10: when set, auto-adds this IT member to the draft when the panel opens for this item. */
+  pendingMemberId?: string | null;
 }
 
 type PickerTrack = 'IT' | 'BIZ' | null;
@@ -333,6 +335,7 @@ export function AssignPanel({
   onClose,
   onSave,
   skillsMatchingEnabled = true,
+  pendingMemberId,
 }: AssignPanelProps) {
   const state = useCurrentState();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -396,6 +399,15 @@ export function AssignPanel({
   useEffect(() => {
     setBizSectionOpen(['uat', 'hypercare', 'epic'].includes(item.type));
   }, [item.id, item.type]);
+
+  // SP-10: auto-add the dragged IT member when the panel opens via drag-to-assign
+  useEffect(() => {
+    if (!pendingMemberId) return;
+    setDraft(prev => {
+      if (prev.assignees.some(a => a.memberId === pendingMemberId && a.track === 'IT')) return prev;
+      return { ...prev, assignees: [...prev.assignees, { memberId: pendingMemberId, track: 'IT', daysPerSprint: 2 }] };
+    });
+  }, [pendingMemberId, item.id]);
 
   useEffect(() => {
     const t = window.setTimeout(() => panelRef.current?.querySelector<HTMLElement>('button, [href], input, select, textarea')?.focus(), 50);

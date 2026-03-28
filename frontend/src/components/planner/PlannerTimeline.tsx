@@ -303,6 +303,8 @@ export interface PlannerTimelineProps {
   onBarUnscheduledToBacklog?: () => void;
   /** US-SP-27: when false, skill gap badges and skill tooltips are suppressed. */
   skillsMatchingEnabled?: boolean;
+  /** SP-10: fires when a team member card is dropped onto a timeline bar — passes item + memberId. */
+  onPeopleDropOnBar?: (item: PlannerItem, memberId: string) => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1042,6 +1044,7 @@ export function PlannerTimeline({
   onBacklogItemScheduled,
   onBarUnscheduledToBacklog,
   skillsMatchingEnabled = true,
+  onPeopleDropOnBar,
 }: PlannerTimelineProps) {
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
@@ -1566,8 +1569,13 @@ export function PlannerTimeline({
       if (aData.type === 'people-drag' && overId.startsWith('bar-')) {
         const barItemId = overId.replace(/^bar-/, '');
         const targetItem = items.find(p => p.id === barItemId);
-        if (targetItem && onBarClick) {
-          onBarClick(targetItem);
+        const memberId = (aData as { memberId?: string }).memberId;
+        if (targetItem) {
+          if (onPeopleDropOnBar && memberId) {
+            onPeopleDropOnBar(targetItem, memberId);
+          } else {
+            onBarClick?.(targetItem);
+          }
         }
         return;
       }
