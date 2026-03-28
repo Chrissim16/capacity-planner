@@ -340,7 +340,7 @@ function QuarterRow({
   dragOverQuarterLabel: string | null;
 }) {
   return (
-    <div className="flex border-b border-mileway-border" style={{ height: QUARTER_ROW_H, background: 'var(--color-mileway-bg, #F8FAFC)' }}>
+    <div className="flex border-b border-mileway-border" style={{ height: QUARTER_ROW_H, background: '#FFFFFF' }}>
       {quarters.map(q => {
         const isOver = dragOverQuarterLabel === q.label;
         const widthPct = (q.sprintCount / totalSprints) * 100;
@@ -1742,7 +1742,7 @@ export function PlannerTimeline({
           />
 
           {/* Gantt canvas — onScroll drives the label rows sync */}
-          <div ref={canvasScrollRef} className="flex-1 overflow-auto" onScroll={onCanvasScroll}>
+          <div ref={canvasScrollRef} className="flex-1 overflow-auto" style={{ background: '#FAFAFA' }} onScroll={onCanvasScroll}>
             {/* Inner wrapper enforces minimum column width so columns never crush below 100px */}
             <div style={{ minWidth: plannerTimelineViewMode === 'quarter'
               ? visibleQuarters.length * MIN_QUARTER_W
@@ -1819,7 +1819,9 @@ export function PlannerTimeline({
                           ? 'var(--assign-active-row-bg, var(--primary-subtle))'
                           : isHovered
                             ? 'rgba(37,88,201,0.025)'
-                            : undefined,
+                            : row.item.type === 'epic'
+                              ? '#F5F8FC'
+                              : undefined,
                       borderTop: isSectionRow ? '1px solid #E2E8F0' : undefined,
                     }}
                     className="border-b border-mileway-divider"
