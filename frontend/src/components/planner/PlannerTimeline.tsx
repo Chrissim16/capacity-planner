@@ -413,17 +413,14 @@ function SprintHeaders({
   sprints,
   sprintCount,
   dragOverNum,
-  currentSprintNum,
 }: {
   sprints: Sprint[];
   sprintCount: number;
   dragOverNum: number | null;
-  currentSprintNum: number | null;
 }) {
   return (
     <div className="flex border-b border-mileway-border bg-white" style={{ height: SPRINT_HEADER_H }}>
       {sprints.map(s => {
-        const isCurrent = s.number === currentSprintNum;
         return (
           <div
             key={s.id}
@@ -498,7 +495,6 @@ function TimelineHeader({
         sprints={sprints}
         sprintCount={sprintCount}
         dragOverNum={dragOverNum}
-        currentSprintNum={currentSprintNum}
       />
     </>
   );

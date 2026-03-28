@@ -12,7 +12,7 @@
  * drag-to-unschedule gesture works natively.
  */
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
-import { Loader2, Users, Filter, X, Inbox, Check, ChevronDown, RefreshCw, Plus, GraduationCap, Edit3 } from 'lucide-react';
+import { Loader2, Users, Filter, X, Check, ChevronDown, Plus, GraduationCap, Edit3 } from 'lucide-react';
 import {
   useFloating, autoUpdate, offset, flip, shift,
   useClick, useDismiss, useRole, useInteractions,
@@ -24,7 +24,7 @@ import {
   createScenario,
   switchScenario,
   updatePlannerLayout,
-  refreshScenarioFromJira,
+
   generateId,
   deleteScenario,
   updateScenario,
@@ -62,7 +62,6 @@ import { BoardToolbar } from '../components/planner/BoardToolbar';
 import { PlannerDetailPanel } from '../components/planner/PlannerDetailPanel';
 import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
 import { PlannerContextMenu, type ContextMenuTarget } from '../components/planner/PlannerContextMenu';
-import { PlannerPersonFilterPill } from '../components/planner/PlannerPersonFilterPill';
 import { BulkEditPlannerItemsModal } from '../components/planner/BulkEditPlannerItemsModal';
 import type { PlannerItem, PlannerItemType, PlannerAssignment, Scenario, JiraWorkItem } from '../types';
 import type { BoardSort } from '../components/planner/PlannerBoard';
@@ -199,98 +198,6 @@ function SaveButton() {
       {isSaved  && <Check   size={14} />}
       {isSaving ? 'Saving…' : isError ? 'Retry' : isSaved ? 'Saved' : 'Save'}
     </button>
-  );
-}
-
-// ── ProcessTeamFilterPill ─────────────────────────────────────────────────────
-
-function ProcessTeamFilterPill({
-  options,
-  selected,
-  onChange,
-}: {
-  options: { id: string; name: string }[];
-  selected: string | null;
-  onChange: (id: string | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const { refs, floatingStyles, context } = useFloating({
-    open,
-    onOpenChange: setOpen,
-    placement: 'bottom-start',
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-
-  const click = useClick(context);
-  const dismiss = useDismiss(context);
-  const role = useRole(context, { role: 'listbox' });
-  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss, role]);
-
-  const selectedName = selected ? (options.find(o => o.id === selected)?.name ?? null) : null;
-  const label = selectedName ?? 'All Teams';
-
-  return (
-    <>
-      <button
-        type="button"
-        ref={refs.setReference}
-        {...getReferenceProps()}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={[
-          'inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors duration-fast',
-          'border focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-          selected
-            ? 'border-mileway-blue bg-mileway-blue-10 text-mileway-blue'
-            : 'border-mileway-border bg-white text-mileway-text hover:bg-mileway-bg',
-        ].join(' ')}
-      >
-        <span className="max-w-[120px] truncate">{label}</span>
-        <ChevronDown size={12} className="flex-shrink-0 text-current opacity-60" aria-hidden />
-      </button>
-
-      {open && (
-        <FloatingPortal>
-          <FloatingFocusManager context={context} modal={false} initialFocus={-1} returnFocus>
-            <div
-              ref={refs.setFloating}
-              style={floatingStyles}
-              {...getFloatingProps()}
-              className="z-[120] min-w-[180px] max-w-[260px] max-h-[min(320px,70vh)] overflow-y-auto rounded-lg border border-mileway-border bg-white py-1 shadow-lg"
-              role="listbox"
-              aria-label="Filter by process team"
-            >
-              <button
-                type="button"
-                role="option"
-                aria-selected={selected === null}
-                onClick={() => { onChange(null); setOpen(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-mileway-bg focus:outline-none focus-visible:bg-mileway-blue-10 transition-colors duration-fast"
-              >
-                <span className="flex-1 font-medium text-mileway-text">All Teams</span>
-                {selected === null && <Check size={13} className="flex-shrink-0 text-mileway-blue" aria-hidden />}
-              </button>
-              {options.length > 0 && <div className="my-1 h-px bg-mileway-divider" role="presentation" />}
-              {options.map(opt => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  role="option"
-                  aria-selected={selected === opt.id}
-                  onClick={() => { onChange(opt.id); setOpen(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-mileway-bg focus:outline-none focus-visible:bg-mileway-blue-10 transition-colors duration-fast"
-                >
-                  <span className="flex-1 truncate text-mileway-text">{opt.name}</span>
-                  {selected === opt.id && <Check size={13} className="flex-shrink-0 text-mileway-blue" aria-hidden />}
-                </button>
-              ))}
-            </div>
-          </FloatingFocusManager>
-        </FloatingPortal>
-      )}
-    </>
   );
 }
 
@@ -519,11 +426,6 @@ export function ScenarioPlanner() {
     const c = allState.jiraConnections?.find(x => x.isActive);
     return c?.jiraBaseUrl?.replace(/\/+$/, '') ?? '';
   }, [allState.jiraConnections]);
-  const connectionName = useMemo(
-    () => (allState.jiraConnections?.find(x => x.isActive) ?? allState.jiraConnections?.[0])?.name ?? '',
-    [allState.jiraConnections],
-  );
-
   const scenarios = useMemo(
     () => allState.scenarios.filter(sc => !sc.isBaseline),
     [allState.scenarios],
@@ -1009,11 +911,6 @@ export function ScenarioPlanner() {
   // ── Toolbar badge counts ───────────────────────────────────────────────────
 
   // Backlog badge: unscheduled epics in jiraItems (not yet placed on timeline)
-  const backlogBadgeCount = useMemo(() => {
-    const scheduledSourceIds = new Set(plannerItems.map(p => p.sourceId));
-    return jiraItems.filter(i => i.type === 'epic' && !scheduledSourceIds.has(i.id)).length;
-  }, [plannerItems, jiraItems]);
-
   // Team badge: active IT members + non-archived BIZ contacts
   const teamBadgeCount = useMemo(() => {
     const itCount = (allState.teamMembers ?? []).filter(m => !m.excludedFromCapacity).length;
