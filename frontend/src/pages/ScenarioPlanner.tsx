@@ -475,10 +475,6 @@ export function ScenarioPlanner() {
   // Quarter navigation — 8 quarters forward from today, current quarter at index 0
   const quarters = useMemo(() => generateQuarters(8), []);
   const selectedQuarter = quarters[plannerUI.currentQuarterIndex] ?? getCurrentQuarter();
-  const connectionName = useMemo(
-    () => (allState.jiraConnections?.find(x => x.isActive) ?? allState.jiraConnections?.[0])?.name ?? '',
-    [allState.jiraConnections],
-  );
 
   // SP-17/18/19: Create/edit modal and context menu
   const [createModal, setCreateModal] = useState<{
@@ -522,6 +518,10 @@ export function ScenarioPlanner() {
     const c = allState.jiraConnections?.find(x => x.isActive);
     return c?.jiraBaseUrl?.replace(/\/+$/, '') ?? '';
   }, [allState.jiraConnections]);
+  const connectionName = useMemo(
+    () => (allState.jiraConnections?.find(x => x.isActive) ?? allState.jiraConnections?.[0])?.name ?? '',
+    [allState.jiraConnections],
+  );
 
   const scenarios = useMemo(
     () => allState.scenarios.filter(sc => !sc.isBaseline),

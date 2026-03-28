@@ -46,7 +46,6 @@ const LABEL_W_DEFAULT = 260;
 const LABEL_W_MIN = 200;
 const LABEL_W_MAX = 700;
 const SPRINT_HEADER_H = 52;
-const BAR_PAD_Y = 6;
 const MIN_SPRINT_W = 100;
 const QUARTER_ROW_H = 24;
 const MIN_QUARTER_W = 160;
