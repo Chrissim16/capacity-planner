@@ -19,7 +19,7 @@ import {
   FloatingFocusManager, FloatingPortal,
 } from '@floating-ui/react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus } from '../stores/appStore';
+import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus, usePlannerTimelineViewMode } from '../stores/appStore';
 import {
   createScenario,
   switchScenario,
@@ -31,7 +31,8 @@ import {
   initBaselineScenario,
   toggleSkillsMatching,
 } from '../stores/actions';
-import { getCurrentQuarter, generateQuarters } from '../utils/calendar';
+import { getCurrentQuarter } from '../utils/calendar';
+import { getPortfolioQuarterOpts } from '../utils/portfolioGeometry';
 import { matchesSearch } from '../utils/searchUtils';
 import { migratePlannerLayout } from '../utils/plannerMigration';
 import { resolveItemAssignees } from '../utils/plannerInit';
@@ -86,7 +87,7 @@ interface PlannerUIState {
   capacityOpen: boolean;
   /** Active canvas mode */
   activeMode: PlannerMode;
-  /** Index into the generateQuarters(8) array — drives the quarter navigator */
+  /** Index into the getPortfolioQuarterOpts() array — drives the quarter navigator */
   currentQuarterIndex: number;
   /** Board mode — which epic card is selected (drives SmartAssignment panel) */
   selectedProjectId: string | null;
@@ -473,7 +474,7 @@ export function ScenarioPlanner() {
   const [activeDragPreview, setActiveDragPreview] = useState<DragPreview | null>(null);
 
   // Quarter navigation — 8 quarters forward from today, current quarter at index 0
-  const quarters = useMemo(() => generateQuarters(8), []);
+  const quarters = useMemo(() => getPortfolioQuarterOpts().map(o => o.label), []);
   const selectedQuarter = quarters[plannerUI.currentQuarterIndex] ?? getCurrentQuarter();
 
   // SP-17/18/19: Create/edit modal and context menu
@@ -529,6 +530,8 @@ export function ScenarioPlanner() {
   );
 
   const appData = useAppStore(s => s.data);
+  const plannerTimelineViewMode = usePlannerTimelineViewMode();
+  const setPlannerTimelineViewMode = useAppStore(s => s.setPlannerTimelineViewMode);
 
   const scenarioHealthById = useMemo(() => {
     const map = new Map<string, { overloaded: number; unscheduled: number }>();
@@ -1305,8 +1308,8 @@ export function ScenarioPlanner() {
             )}
           </div>
 
-          {/* Center: quarter segmented control */}
-          <div className="flex-1 flex justify-center px-6 min-w-0">
+          {/* Right: quarter segmented control + Save button */}
+          <div className="flex-1 flex justify-end items-center gap-3 min-w-0">
             <div
               style={{
                 display: 'flex',
@@ -1339,10 +1342,6 @@ export function ScenarioPlanner() {
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Right: Save button */}
-          <div className="flex-shrink-0">
             <SaveButton />
           </div>
         </div>
@@ -1393,6 +1392,24 @@ export function ScenarioPlanner() {
                   }
                 />
               )}
+
+              {/* Sprint | Quarter view toggle */}
+              <div className="flex rounded border border-mileway-border overflow-hidden" style={{ fontSize: 11 }}>
+                {(['sprint', 'quarter'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setPlannerTimelineViewMode(mode)}
+                    className={[
+                      'px-2 py-0.5 font-medium capitalize transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+                      plannerTimelineViewMode === mode
+                        ? 'bg-mileway-blue text-white'
+                        : 'text-mileway-grey hover:text-mileway-text hover:bg-white',
+                    ].join(' ')}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
 
               <div className="flex items-center gap-2">
                 <select

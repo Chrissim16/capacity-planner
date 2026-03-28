@@ -35,7 +35,7 @@ import type {
   BusinessContact,
 } from '../../types';
 import { generateId } from '../../stores/actions';
-import { useCurrentState, usePlannerTimelineViewMode, useAppStore } from '../../stores/appStore';
+import { useCurrentState, usePlannerTimelineViewMode } from '../../stores/appStore';
 import { resolveItemAssignees } from '../../utils/plannerInit';
 import { computeSkillGaps, computeRollupGaps, type SkillGapInfo } from '../../utils/skillGap';
 import { usePlannerCapacityTicker } from './PlannerCapacityTicker';
@@ -1107,7 +1107,6 @@ export function PlannerTimeline({
   const firstSprintNum = visibleSprints[0]?.number ?? 1;
 
   const plannerTimelineViewMode = usePlannerTimelineViewMode();
-  const setPlannerTimelineViewMode = useAppStore(s => s.setPlannerTimelineViewMode);
 
   const visibleQuarters = useMemo((): VisibleQuarter[] => {
     const result: VisibleQuarter[] = [];
@@ -1642,23 +1641,6 @@ export function PlannerTimeline({
                 >
                   <ChevronsUp size={13} strokeWidth={2} />
                 </button>
-                {/* Sprint | Quarter view toggle */}
-                <div className="ml-1 flex rounded border border-mileway-border overflow-hidden" style={{ fontSize: 11 }}>
-                  {(['sprint', 'quarter'] as const).map(mode => (
-                    <button
-                      key={mode}
-                      onClick={() => setPlannerTimelineViewMode(mode)}
-                      className={[
-                        'px-2 py-0.5 font-medium capitalize transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                        plannerTimelineViewMode === mode
-                          ? 'bg-mileway-blue text-white'
-                          : 'text-mileway-grey hover:text-mileway-text hover:bg-white',
-                      ].join(' ')}
-                    >
-                      {mode}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
             {/* Ticker label — fixed, mirrors the sticky ticker-sprint-row height in the canvas */}
