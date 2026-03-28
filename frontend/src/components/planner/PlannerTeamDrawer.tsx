@@ -119,12 +119,13 @@ function TeamMemberCard({
 
       {/* ── Card body ───────────────────────────────────────────────────────── */}
       <div
-        ref={activeMode === 'board' ? setNodeRef : undefined}
-        {...(activeMode === 'board' ? { ...attributes, ...listeners } : {})}
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
         className={[
           'flex-1 min-w-0 flex items-center gap-2.5 px-2 py-2.5 pr-2.5 rounded-lg',
-          activeMode === 'board' ? 'cursor-grab' : 'cursor-default',
-          isDragging && activeMode === 'board' ? 'cursor-grabbing' : '',
+          'cursor-grab',
+          isDragging ? 'cursor-grabbing' : '',
         ].join(' ')}
         onClick={activeMode === 'timeline' ? onBodyClick : undefined}
         role={activeMode === 'timeline' ? 'button' : undefined}
