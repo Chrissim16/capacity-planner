@@ -434,16 +434,8 @@ function SprintHeaders({
               dragOverNum === s.number ? 'bg-mileway-blue-10' : '',
             ].join(' ')}
           >
-            {isCurrent && (
-              <span
-                style={{ fontSize: 9, letterSpacing: '0.06em' }}
-                className="absolute top-1.5 left-2 uppercase font-bold bg-mileway-blue text-white px-1 py-0.5 rounded leading-none"
-              >
-                Current
-              </span>
-            )}
             <span
-              style={{ fontSize: 12, marginTop: isCurrent ? 12 : 0 }}
+              style={{ fontSize: 12 }}
               className={['font-bold leading-none', dragOverNum === s.number ? 'text-mileway-blue' : 'text-mileway-text'].join(' ')}
             >
               {s.name}

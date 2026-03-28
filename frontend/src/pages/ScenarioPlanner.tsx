@@ -1290,22 +1290,6 @@ export function ScenarioPlanner() {
             <span style={{ fontSize: 15, fontWeight: 600, color: '#1E293B' }} className="flex-shrink-0 truncate max-w-[200px]">
               {activeScenario?.name ?? 'Scenario'}
             </span>
-            {(connectionName || selectedQuarter) && (
-              <span
-                style={{
-                  fontSize: 11,
-                  color: '#94A3B8',
-                  background: '#F5F8FC',
-                  border: '1px solid #DEDFE3',
-                  borderRadius: 4,
-                  padding: '2px 8px',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                }}
-              >
-                {[connectionName, selectedQuarter].filter(Boolean).join(' · ')}
-              </span>
-            )}
           </div>
 
           {/* Right: quarter segmented control + Save button */}
@@ -1376,23 +1360,6 @@ export function ScenarioPlanner() {
           {/* Timeline-only filters */}
           {plannerUI.activeMode === 'timeline' && (
             <>
-              {activeScenarioId && allState.processTeams.length > 0 && (
-                <ProcessTeamFilterPill
-                  options={allState.processTeams}
-                  selected={plannerUI.focusedProcessTeamId}
-                  onChange={id => setPlannerUI(prev => ({ ...prev, focusedProcessTeamId: id }))}
-                />
-              )}
-
-              {activeScenarioId && (
-                <PlannerPersonFilterPill
-                  selectedMemberId={plannerUI.focusedMemberId}
-                  onSelectMemberId={id =>
-                    setPlannerUI(prev => ({ ...prev, focusedMemberId: id }))
-                  }
-                />
-              )}
-
               {/* Sprint | Quarter view toggle */}
               <div className="flex rounded border border-mileway-border overflow-hidden" style={{ fontSize: 11 }}>
                 {(['sprint', 'quarter'] as const).map(mode => (
@@ -1499,25 +1466,6 @@ export function ScenarioPlanner() {
             )}
 
             <button
-              onClick={toggleBacklog}
-              title={
-                `${plannerUI.backlogOpen ? 'Collapse' : 'Expand'} backlog (B)` +
-                (backlogBadgeCount > 0
-                  ? ` · ${backlogBadgeCount} unscheduled epic${backlogBadgeCount !== 1 ? 's' : ''}`
-                  : '')
-              }
-              className={[
-                'flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-medium transition-colors duration-fast',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                plannerUI.backlogOpen
-                  ? 'bg-mileway-blue-10 text-mileway-blue'
-                  : 'text-mileway-grey hover:bg-mileway-bg',
-              ].join(' ')}
-            >
-              <Inbox size={14} aria-hidden="true" />
-            </button>
-
-            <button
               onClick={toggleTeamDrawer}
               title={
                 `${plannerUI.teamDrawerOpen ? 'Hide' : 'Show'} team drawer (T)` +
@@ -1535,17 +1483,6 @@ export function ScenarioPlanner() {
               Team
             </button>
 
-            {activeScenarioId && scenarios.some(s => s.id === activeScenarioId) && (
-              <button
-                type="button"
-                onClick={() => refreshScenarioFromJira(activeScenarioId)}
-                title="Refresh Jira data into this scenario"
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-              >
-                <RefreshCw size={14} aria-hidden="true" />
-                Refresh
-              </button>
-            )}
           </div>
         </div>
 
