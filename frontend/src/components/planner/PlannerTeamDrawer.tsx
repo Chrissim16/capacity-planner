@@ -90,7 +90,7 @@ function TeamMemberCard({
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `people-${card.id}`,
     data: { type: 'people-drag', memberId: card.id, memberName: card.name, track: card.track },
-    disabled: activeMode === 'timeline',
+    disabled: false,
   });
 
   const usedPct = Math.min(card.usedPercent, 100);

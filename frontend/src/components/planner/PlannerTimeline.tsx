@@ -748,10 +748,21 @@ function PlannerBar({
   const frac = barFracs(displayStart, displaySpan, firstSprintNum, sprintCount);
   if (!frac.visible) return null;
 
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: item.id,
     data: { type: 'timeline-bar', plannerItem: item },
   });
+
+  // SP-10: bar also acts as drop target for people-drag
+  const { isOver: isPersonOver, setNodeRef: setDropRef } = useDroppable({
+    id: `bar-${item.id}`,
+    data: { type: 'bar-drop', plannerItem: item },
+  });
+
+  const setNodeRef = useCallback((node: HTMLDivElement | null) => {
+    setDragRef(node);
+    setDropRef(node);
+  }, [setDragRef, setDropRef]);
 
   const assignOpen = assignPanelItemId === item.id;
 
@@ -784,11 +795,11 @@ function PlannerBar({
         opacity: barOpacity,
         transition: 'opacity 200ms ease, box-shadow 150ms ease, filter 150ms ease, transform 150ms ease',
         cursor: isDragging ? 'grabbing' : 'grab',
-        boxShadow: isDragging ? '0 4px 18px rgba(0,0,0,.18)' : undefined,
+        boxShadow: isPersonOver ? '0 0 0 2px rgba(0,137,221,0.5), 0 0 8px rgba(0,137,221,0.25)' : isDragging ? '0 4px 18px rgba(0,0,0,.18)' : undefined,
         filter: barHovered && !isDragging ? 'brightness(0.9)' : undefined,
         transform: barHovered && !isDragging ? 'translateY(-1px)' : undefined,
-        outline: assignOpen ? '2px solid var(--assign-active-outline, var(--color-primary))' : undefined,
-        outlineOffset: assignOpen ? 2 : undefined,
+        outline: isPersonOver ? '2px solid #0089DD' : assignOpen ? '2px solid var(--assign-active-outline, var(--color-primary))' : undefined,
+        outlineOffset: isPersonOver || assignOpen ? 2 : undefined,
       }}
       {...attributes}
       {...listeners}
@@ -1549,6 +1560,16 @@ export function PlannerTimeline({
             });
           }
         }
+      }
+
+      // Case 4: person-drag → bar (SP-10 drag-to-assign)
+      if (aData.type === 'people-drag' && overId.startsWith('bar-')) {
+        const barItemId = overId.replace(/^bar-/, '');
+        const targetItem = items.find(p => p.id === barItemId);
+        if (targetItem && onBarClick) {
+          onBarClick(targetItem);
+        }
+        return;
       }
     },
   });
