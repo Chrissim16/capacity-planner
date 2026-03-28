@@ -18,7 +18,10 @@ import {
   useClick, useDismiss, useRole, useInteractions,
   FloatingFocusManager, FloatingPortal,
 } from '@floating-ui/react';
-import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import {
+  DndContext, PointerSensor, useSensor, useSensors,
+  closestCenter, rectIntersection, type CollisionDetection,
+} from '@dnd-kit/core';
 import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus, usePlannerTimelineViewMode } from '../stores/appStore';
 import {
   createScenario,
@@ -410,6 +413,16 @@ export function ScenarioPlanner() {
 
   // Shared sensors for Timeline mode DndContext
   const timelineSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  // SP-10: when dragging a team member, only consider bar-* droppables so
+  // full-height SprintColumnZones don't win rect-intersection against thin bars.
+  const timelineCollisionDetection: CollisionDetection = useCallback(({ droppableContainers, active, ...args }) => {
+    if (active.data.current?.type === 'people-drag') {
+      const barContainers = droppableContainers.filter(c => c.id.toString().startsWith('bar-'));
+      return closestCenter({ droppableContainers: barContainers, active, ...args });
+    }
+    return rectIntersection({ droppableContainers, active, ...args });
+  }, []);
 
   const activeScenarioId = useActiveScenarioId();
 
@@ -1468,7 +1481,7 @@ export function ScenarioPlanner() {
           {/* Timeline mode — DndContext wraps gantt + overlay drawers so all
               useDraggable/useDroppable hooks share a single context */}
           {plannerUI.activeMode === 'timeline' && (
-            <DndContext sensors={timelineSensors}>
+            <DndContext sensors={timelineSensors} collisionDetection={timelineCollisionDetection}>
               <div className="h-full flex flex-row overflow-hidden min-h-0">
                 {activeScenarioId ? (
                   <PlannerBacklog
