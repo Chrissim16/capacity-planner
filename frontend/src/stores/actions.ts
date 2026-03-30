@@ -22,6 +22,9 @@ import type {
   Assignment,
   PlannerItem,
   PlannerAssignment,
+  ManualEpic,
+  EpicPhasePlan,
+  EpicPhaseAssignment,
 } from '../types';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -680,6 +683,58 @@ export function duplicateScenario(scenarioId: string, newName: string): Scenario
 
   state.updateData({ scenarios: [...currentState.scenarios, newScenario] });
   return newScenario;
+}
+
+export interface PortfolioScenarioSnapshot {
+  boardEpicKeys: string[];
+  manualEpics: ManualEpic[];
+  phasePlans: EpicPhasePlan[];
+  phaseAssignments: EpicPhaseAssignment[];
+}
+
+export function createPortfolioScenario(
+  name: string,
+  snapshot: PortfolioScenarioSnapshot,
+): Scenario {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const now = new Date().toISOString();
+
+  const newScenario: Scenario = {
+    id: generateId('scenario'),
+    name,
+    createdAt: now,
+    updatedAt: now,
+    isBaseline: false,
+    isPortfolioScenario: true,
+    archived: false,
+    basedOnSyncAt: currentState.jiraConnections.find(c => c.lastSyncAt)?.lastSyncAt,
+    jiraWorkItems: [],
+    jiraItemBizAssignments: [],
+    teamMembers: [],
+    timeOff: [],
+    projects: [],
+    assignments: [],
+    portfolioBoardEpicKeys: JSON.parse(JSON.stringify(snapshot.boardEpicKeys)),
+    portfolioManualEpics: JSON.parse(JSON.stringify(snapshot.manualEpics)),
+    portfolioPhasePlans: JSON.parse(JSON.stringify(snapshot.phasePlans)),
+    portfolioPhaseAssignments: JSON.parse(JSON.stringify(snapshot.phaseAssignments)),
+  };
+
+  state.updateData({ scenarios: [...currentState.scenarios, newScenario] });
+  return newScenario;
+}
+
+export function updatePortfolioScenario(
+  scenarioId: string,
+  updates: Partial<Pick<Scenario, 'name' | 'portfolioBoardEpicKeys' | 'portfolioManualEpics' | 'portfolioPhasePlans' | 'portfolioPhaseAssignments'>>,
+): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    scenarios: state.getCurrentState().scenarios.map(s =>
+      s.id === scenarioId ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+    ),
+  });
 }
 
 export function updateScenario(

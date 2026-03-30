@@ -442,7 +442,7 @@ export function ScenarioPlanner() {
     return c?.jiraBaseUrl?.replace(/\/+$/, '') ?? '';
   }, [allState.jiraConnections]);
   const scenarios = useMemo(
-    () => allState.scenarios.filter(sc => !sc.isBaseline),
+    () => allState.scenarios.filter(sc => !sc.isBaseline && !sc.isPortfolioScenario),
     [allState.scenarios],
   );
 
@@ -478,7 +478,7 @@ export function ScenarioPlanner() {
   const homeCreateDisabled = activeScenarioCount >= 5;
 
   const activeScenario = useMemo(
-    () => (activeScenarioId ? allState.scenarios.find(sc => sc.id === activeScenarioId) : undefined),
+    () => (activeScenarioId ? allState.scenarios.find(sc => sc.id === activeScenarioId && !sc.isPortfolioScenario) : undefined),
     [allState.scenarios, activeScenarioId],
   );
 
@@ -977,7 +977,7 @@ export function ScenarioPlanner() {
   // Active scenario was removed (e.g. sync) — return to home
   useEffect(() => {
     if (!activeScenarioId) return;
-    const exists = allState.scenarios.some(s => s.id === activeScenarioId && !s.isBaseline);
+    const exists = allState.scenarios.some(s => s.id === activeScenarioId && !s.isBaseline && !s.isPortfolioScenario);
     if (!exists) switchScenario(null);
   }, [activeScenarioId, allState.scenarios]);
 

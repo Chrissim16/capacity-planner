@@ -546,7 +546,9 @@ export const useIsLoading = () => useAppStore((state) => state.isLoading);
 export const useIsInitializing = () => useAppStore((state) => state.isInitializing);
 export const useError = () => useAppStore((state) => state.error);
 export const useActiveScenarioId = () => useAppStore((state) => state.data.activeScenarioId);
-export const useScenarios = () => useAppStore(useShallow((state) => state.data.scenarios));
+export const useScenarios = () => useAppStore(useShallow((state) =>
+  state.data.scenarios.filter(s => !s.isPortfolioScenario)
+));
 export const useIsBaselineWithJira = () => useAppStore((state) =>
   !state.data.activeScenarioId && state.data.jiraConnections.length > 0
 );
@@ -557,7 +559,7 @@ export const useSyncStatus = () => useAppStore(useShallow((state) => ({ status: 
 export const useActiveScenario = () => useAppStore(useShallow((state) => {
   const { activeScenarioId, scenarios } = state.data;
   if (!activeScenarioId) return null;
-  return scenarios.find(s => s.id === activeScenarioId) || null;
+  return scenarios.find(s => s.id === activeScenarioId && !s.isPortfolioScenario) || null;
 }));
 
 export const useCurrentState = () => useAppStore(useShallow((state) => state.getCurrentState()));
