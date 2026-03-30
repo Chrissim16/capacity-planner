@@ -33,6 +33,7 @@ import {
   type PortfolioWeek,
 } from '../utils/portfolioGeometry';
 import { usePortfolioPlan } from '../hooks/usePortfolioPlan';
+import { AddManualEpicModal } from './AddManualEpicModal';
 import type {
   JiraWorkItem,
   TeamMember,
@@ -44,6 +45,7 @@ import type {
   AllocationSegment,
   ProcessTeam,
   BusinessTeam,
+  ManualEpic,
 } from '../types';
 import './PortfolioPlanning.css';
 
@@ -95,6 +97,25 @@ function teamEntryForId(id: string): { name: string; abbr: string } {
   const name  = entry?.name ?? id.replace('TEAM:', '');
   const abbr  = entry?.abbr ?? name.slice(0, 2).toUpperCase();
   return { name, abbr };
+}
+
+function manualToJiraWorkItem(m: ManualEpic): JiraWorkItem {
+  return {
+    id:              `manual-${m.epicKey}`,
+    connectionId:    'manual',
+    jiraKey:         m.epicKey,
+    jiraId:          m.epicKey,
+    summary:         m.summary,
+    description:     m.description,
+    type:            'epic',
+    typeName:        'Manual Epic',
+    status:          'Manual',
+    statusCategory:  'todo',
+    labels:          [],
+    components:      [],
+    created:         '',
+    updated:         '',
+  };
 }
 
 // ── Avatar color palette ───────────────────────────────────────────────────────
@@ -353,7 +374,7 @@ function EpicView({
           <div className="pp-empty-state">
             <div className="pp-empty-icon">◈</div>
             <div className="pp-empty-title">No Epics added yet</div>
-            <div className="pp-empty-sub">Click <strong>+ Add Epics</strong> to select Epics from Jira and start planning.</div>
+            <div className="pp-empty-sub">Click <strong>+ Add Epics</strong> to select Epics from Jira, or <strong>+ Create Manual Epic</strong> (inside the drawer) to add one manually.</div>
           </div>
         </div>
         <div className="pp-lp-resize" onMouseDown={onResizeMouseDown} />
@@ -382,7 +403,7 @@ function EpicView({
     lpRows.push(
       <div key={`e-${epicKey}`} className="ev-epic" onClick={() => onToggleEpic(epicKey)}>
         <span className={`pp-chev${collapsed ? '' : ' open'}`}>▶</span>
-        {jiraBaseUrl
+        {jiraBaseUrl && !epicKey.startsWith('MAN-')
           ? <a href={`${jiraBaseUrl}/browse/${epicKey}`} target="_blank" rel="noopener noreferrer" className="pp-jkey">{epicKey}</a>
           : <span className="pp-jkey">{epicKey}</span>
         }
@@ -1115,13 +1136,14 @@ function SummaryView({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PortfolioDrawer({
-  open, allEpics, boardEpicKeys, onClose, onSave,
+  open, allEpics, boardEpicKeys, onClose, onSave, onCreateManual,
 }: {
   open: boolean;
   allEpics: JiraWorkItem[];
   boardEpicKeys: string[];
   onClose: () => void;
   onSave: (keys: string[]) => void;
+  onCreateManual: () => void;
 }) {
   const [search, setSearch]     = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set(boardEpicKeys));
@@ -1288,7 +1310,9 @@ function PortfolioDrawer({
         ))}
       </div>
       <div className="pp-dr-footer">
-        <span className="pp-dr-sel-count">{selected.size} selected</span>
+        <button className="pp-btn pp-dr-create-btn" onClick={onCreateManual}>
+          + Create Manual Epic
+        </button>
         <button className="pp-btn" onClick={onClose}>Cancel</button>
         <button className="pp-btn primary" onClick={() => onSave([...selected])}>
           Add to portfolio
@@ -1415,7 +1439,8 @@ export function PortfolioPlanning() {
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'summary'>('epic');
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen]           = useState(false);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
   const [forkScenarios, setForkScenarios] = useState<ForkScenario[]>(loadForkScenarios);
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(loadActiveScenarioId);
   const [renamingScenarioId, setRenamingScenarioId] = useState<string | null>(null);
@@ -1456,10 +1481,29 @@ export function PortfolioPlanning() {
     const conn = state.jiraConnections.find(c => c.isActive);
     return conn?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
   }, [state.jiraConnections]);
-  const boardEpics = useMemo(
-    () => plan.boardEpicKeys.map(k => allEpics.find(e => e.jiraKey === k)).filter(Boolean) as JiraWorkItem[],
-    [plan.boardEpicKeys, allEpics]
+  const nextManualCode = useMemo(() => {
+    const nums = plan.manualEpics
+      .map(e => e.epicKey.match(/^MAN-(\d+)$/)?.[1])
+      .filter((n): n is string => n !== undefined)
+      .map(Number);
+    const max = nums.length > 0 ? Math.max(...nums) : 999;
+    return `MAN-${max + 1}`;
+  }, [plan.manualEpics]);
+
+  const manualEpicMap = useMemo(
+    () => new Map(plan.manualEpics.map(e => [e.epicKey, e])),
+    [plan.manualEpics]
   );
+
+  const boardEpics = useMemo(() => {
+    return plan.boardEpicKeys.map(k => {
+      const jira = allEpics.find(e => e.jiraKey === k);
+      if (jira) return jira;
+      const manual = manualEpicMap.get(k);
+      if (manual) return manualToJiraWorkItem(manual);
+      return null;
+    }).filter(Boolean) as JiraWorkItem[];
+  }, [plan.boardEpicKeys, allEpics, manualEpicMap]);
 
   const memberMap  = useMemo(() => new Map(state.teamMembers.map(m => [m.id, m])), [state.teamMembers]);
   const contactMap = useMemo(() => new Map(state.businessContacts.map(c => [c.id, c])), [state.businessContacts]);
@@ -2036,6 +2080,18 @@ export function PortfolioPlanning() {
           />
         )}
 
+        {/* Manual epic creation modal */}
+        {manualModalOpen && (
+          <AddManualEpicModal
+            nextCode={nextManualCode}
+            onSave={input => {
+              plan.addManualEpic(input);
+              setManualModalOpen(false);
+            }}
+            onClose={() => setManualModalOpen(false)}
+          />
+        )}
+
         {/* Drawer */}
         <PortfolioDrawer
           open={drawerOpen}
@@ -2043,6 +2099,7 @@ export function PortfolioPlanning() {
           boardEpicKeys={plan.boardEpicKeys}
           onClose={() => setDrawerOpen(false)}
           onSave={handleSaveDrawer}
+          onCreateManual={() => { setDrawerOpen(false); setManualModalOpen(true); }}
         />
 
         {/* Person / team picker popover */}

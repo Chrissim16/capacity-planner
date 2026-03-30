@@ -1003,3 +1003,72 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   color: #475569; cursor: pointer;
 }
 .ev-alloc-done:hover { background: #F1F5F9; }
+
+/* ── Add Manual Epic Modal ──────────────────────────────────────────────── */
+.pp-modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex; align-items: center; justify-content: center;
+}
+.pp-modal {
+  background: var(--white); border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(15,23,42,0.18);
+  width: 460px; max-width: calc(100vw - 32px);
+  display: flex; flex-direction: column;
+}
+.pp-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.pp-modal-title { font-size: 15px; font-weight: 600; color: var(--txt1); }
+.pp-modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.pp-modal-field { display: flex; flex-direction: column; gap: 5px; }
+.pp-modal-label { font-size: 12px; font-weight: 500; color: var(--txt2); }
+.pp-modal-required { color: #EF4444; }
+.pp-modal-code {
+  display: inline-block; font-size: 13px; font-weight: 600;
+  background: var(--offwh); border: 1px solid var(--border);
+  border-radius: 4px; padding: 4px 8px;
+}
+.pp-modal-input {
+  font-size: 13px; color: var(--txt1);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 10px; outline: none; background: var(--white);
+  transition: border-color 0.15s;
+}
+.pp-modal-input:focus { border-color: var(--blue); }
+.pp-modal-textarea {
+  font-size: 13px; color: var(--txt1);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 10px; outline: none; background: var(--white);
+  resize: vertical; font-family: inherit;
+  transition: border-color 0.15s;
+}
+.pp-modal-textarea:focus { border-color: var(--blue); }
+.pp-modal-date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pp-modal-error {
+  font-size: 12px; color: #EF4444;
+  background: #FEF2F2; border: 1px solid #FECACA;
+  border-radius: 5px; padding: 6px 10px;
+}
+.pp-modal-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 14px 20px 16px;
+  border-top: 1px solid var(--border);
+}
+.pp-btn.secondary {
+  background: var(--white); border: 1px solid var(--border);
+  color: var(--txt2); border-radius: 6px;
+  padding: 6px 14px; font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.pp-btn.secondary:hover { background: var(--offwh); border-color: #CBD5E1; }
+
+.pp-dr-footer { gap: 8px; }
+.pp-dr-create-btn {
+  margin-right: auto;
+  color: var(--blue);
+  border-color: var(--blue-lt);
+  background: var(--blue-lt);
+}
+.pp-dr-create-btn:hover { background: #d6edf9; border-color: var(--blue); }

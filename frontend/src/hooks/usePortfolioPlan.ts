@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import type {
   EpicPhasePlan, EpicPhaseAssignment, PlanningPhase,
-  AllocationMode, AllocationSegment,
+  AllocationMode, AllocationSegment, ManualEpic,
 } from '../types';
 
 const BOARD_KEY = 'pp.boardEpicKeys';
@@ -19,8 +19,10 @@ export interface UsePortfolioPlanReturn {
   boardEpicKeys:       string[];
   phasePlans:          EpicPhasePlan[];
   phaseAssignments:    EpicPhaseAssignment[];
+  manualEpics:         ManualEpic[];
   addEpicToBoard:      (epicKey: string) => void;
   removeEpicFromBoard: (epicKey: string) => void;
+  addManualEpic:       (input: { summary: string; description?: string; startDate?: string; endDate?: string }) => string;
   setPhaseStartDate:   (epicKey: string, phase: PlanningPhase, startDate: string) => Promise<void>;
   setPhaseEndDate:     (epicKey: string, phase: PlanningPhase, endDate: string) => Promise<void>;
   clearPhase:          (epicKey: string, phase: PlanningPhase) => Promise<void>;
@@ -49,6 +51,30 @@ function loadBoardKeys(): string[] {
 
 function saveBoardKeys(keys: string[]): void {
   localStorage.setItem(BOARD_KEY, JSON.stringify(keys));
+}
+
+type ManualEpicRow = {
+  epic_key: string; summary: string | null; description: string | null;
+  start_date: string | null; end_date: string | null;
+};
+
+function mapManualRow(r: ManualEpicRow): ManualEpic {
+  return {
+    epicKey:     r.epic_key,
+    summary:     r.summary ?? r.epic_key,
+    description: r.description ?? undefined,
+    startDate:   r.start_date ?? undefined,
+    endDate:     r.end_date ?? undefined,
+  };
+}
+
+function nextManualCode(existing: ManualEpic[]): string {
+  const nums = existing
+    .map(e => e.epicKey.match(/^MAN-(\d+)$/)?.[1])
+    .filter((n): n is string => n !== undefined)
+    .map(Number);
+  const max = nums.length > 0 ? Math.max(...nums) : 999;
+  return `MAN-${max + 1}`;
 }
 
 type PlanRow = {
@@ -97,6 +123,7 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
   const [boardEpicKeys, setBoardEpicKeys] = useState<string[]>(loadBoardKeys);
   const [phasePlans, setPhasePlans]       = useState<EpicPhasePlan[]>([]);
   const [phaseAssignments, setPhaseAssignments] = useState<EpicPhaseAssignment[]>([]);
+  const [manualEpics, setManualEpics]     = useState<ManualEpic[]>([]);
   const [loading, setLoading]             = useState(false);
 
   // ── Load from Supabase on mount ──────────────────────────────────────────
@@ -105,7 +132,7 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     setLoading(true);
 
     Promise.all([
-      supabase.from('portfolio_epics').select('epic_key'),
+      supabase.from('portfolio_epics').select('epic_key, summary, description, is_manual, start_date, end_date'),
       supabase.from('epic_phase_plans').select('*'),
       supabase.from('epic_phase_assignments').select('*'),
       // Graceful degradation: returns empty data if migration 040 not yet applied
@@ -115,9 +142,11 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
       })),
     ]).then(([boardRes, plansRes, assignRes, segsRes]) => {
       if (boardRes.data && boardRes.data.length > 0) {
-        const keys = (boardRes.data as Array<{ epic_key: string }>).map(r => r.epic_key);
+        const rows = boardRes.data as Array<{ epic_key: string; is_manual: boolean | null } & ManualEpicRow>;
+        const keys = rows.map(r => r.epic_key);
         setBoardEpicKeys(keys);
         saveBoardKeys(keys);
+        setManualEpics(rows.filter(r => r.is_manual).map(mapManualRow));
       }
       if (plansRes.data) {
         setPhasePlans((plansRes.data as PlanRow[]).map(mapPlanRow));
@@ -166,6 +195,44 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
         .then(({ error }) => { if (error) console.warn('[Portfolio] removeEpicFromBoard:', error.message); });
     }
   }, []);
+
+  // ── Manual epic creation ─────────────────────────────────────────────────
+  const addManualEpic = useCallback((input: {
+    summary: string;
+    description?: string;
+    startDate?: string;
+    endDate?: string;
+  }): string => {
+    const epicKey = nextManualCode(manualEpics);
+    const newEpic: ManualEpic = {
+      epicKey,
+      summary:     input.summary,
+      description: input.description,
+      startDate:   input.startDate,
+      endDate:     input.endDate,
+    };
+    setManualEpics(prev => [...prev, newEpic]);
+    setBoardEpicKeys(prev => {
+      if (prev.includes(epicKey)) return prev;
+      const next = [...prev, epicKey];
+      saveBoardKeys(next);
+      return next;
+    });
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('portfolio_epics')
+        .upsert({
+          epic_key:    epicKey,
+          summary:     input.summary,
+          description: input.description ?? null,
+          is_manual:   true,
+          start_date:  input.startDate ?? null,
+          end_date:    input.endDate ?? null,
+        }, { onConflict: 'epic_key' })
+        .then(({ error }) => { if (error) console.warn('[Portfolio] addManualEpic:', error.message); });
+    }
+    return epicKey;
+  }, [manualEpics]);
 
   // ── Phase start date ──────────────────────────────────────────────────────
   const setPhaseStartDate = useCallback(async (
@@ -440,8 +507,10 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     boardEpicKeys,
     phasePlans,
     phaseAssignments,
+    manualEpics,
     addEpicToBoard,
     removeEpicFromBoard,
+    addManualEpic,
     setPhaseStartDate,
     setPhaseEndDate,
     clearPhase,

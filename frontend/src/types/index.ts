@@ -558,6 +558,15 @@ export interface Scenario {
 
 export type PlanningPhase = 'design' | 'build' | 'test' | 'deploy' | 'hypercare';
 
+/** An epic created manually in Portfolio Planning (not sourced from Jira). */
+export interface ManualEpic {
+  epicKey: string;       // auto-generated, e.g. "MAN-1000"
+  summary: string;       // display name shown in the epic row
+  description?: string;  // optional longer description
+  startDate?: string;    // ISO date YYYY-MM-DD
+  endDate?: string;      // ISO date YYYY-MM-DD
+}
+
 export type AllocationMode = 'flat' | 'rate' | 'segments';
 
 export interface AllocationSegment {
