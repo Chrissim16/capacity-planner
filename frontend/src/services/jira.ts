@@ -3,6 +3,7 @@ import type {
   JiraWorkItem, 
   JiraItemType, 
   JiraSettings,
+  JiraConnectionSyncSettings,
   JiraSyncResult,
   JiraStatusFilter,
 } from '../types';
@@ -481,17 +482,18 @@ export async function diagnoseJiraKey(
     if (settings) {
       const syncJql = buildJQL(connection, settings);
       if (syncJql) jqlUsed = syncJql;
+      const effective = getEffectiveJiraConnectionSyncSettings(connection, settings);
 
       const typeName = f.issuetype.name;
       const catKey = f.status.statusCategory?.key ?? '';
 
       // Determine which filter applies to this type
       const typeFilterMap: Record<string, { enabled: boolean; filter: string }> = {
-        'Epic':    { enabled: settings.syncEpics    ?? false, filter: settings.statusFilterEpics    ?? 'all' },
-        'Feature': { enabled: settings.syncFeatures ?? false, filter: settings.statusFilterFeatures ?? 'all' },
-        'Story':   { enabled: settings.syncStories  ?? false, filter: settings.statusFilterStories  ?? 'all' },
-        'Task':    { enabled: settings.syncTasks    ?? false, filter: settings.statusFilterTasks    ?? 'all' },
-        'Bug':     { enabled: settings.syncBugs     ?? false, filter: settings.statusFilterBugs     ?? 'all' },
+        'Epic':    { enabled: effective.syncEpics    ?? false, filter: effective.statusFilterEpics    ?? 'all' },
+        'Feature': { enabled: effective.syncFeatures ?? false, filter: effective.statusFilterFeatures ?? 'all' },
+        'Story':   { enabled: effective.syncStories  ?? false, filter: effective.statusFilterStories  ?? 'all' },
+        'Task':    { enabled: effective.syncTasks    ?? false, filter: effective.statusFilterTasks    ?? 'all' },
+        'Bug':     { enabled: effective.syncBugs     ?? false, filter: effective.statusFilterBugs     ?? 'all' },
       };
 
       // Match by include() so "User Story" → story, "Sub-bug" → bug, etc.
@@ -579,6 +581,24 @@ export interface JiraIssueType {
   description?: string;
 }
 
+export function getEffectiveJiraConnectionSyncSettings(
+  connection: JiraConnection,
+  settings: JiraSettings
+): JiraConnectionSyncSettings {
+  return {
+    syncEpics: connection.syncSettingsOverride?.syncEpics ?? settings.syncEpics,
+    syncFeatures: connection.syncSettingsOverride?.syncFeatures ?? settings.syncFeatures,
+    syncStories: connection.syncSettingsOverride?.syncStories ?? settings.syncStories,
+    syncTasks: connection.syncSettingsOverride?.syncTasks ?? settings.syncTasks,
+    syncBugs: connection.syncSettingsOverride?.syncBugs ?? settings.syncBugs,
+    statusFilterEpics: connection.syncSettingsOverride?.statusFilterEpics ?? settings.statusFilterEpics,
+    statusFilterFeatures: connection.syncSettingsOverride?.statusFilterFeatures ?? settings.statusFilterFeatures,
+    statusFilterStories: connection.syncSettingsOverride?.statusFilterStories ?? settings.statusFilterStories,
+    statusFilterTasks: connection.syncSettingsOverride?.statusFilterTasks ?? settings.statusFilterTasks,
+    statusFilterBugs: connection.syncSettingsOverride?.statusFilterBugs ?? settings.statusFilterBugs,
+  };
+}
+
 /**
  * Fetches the issue types defined in a specific Jira project.
  * Used to diagnose mismatches between the hardcoded sync type names and the
@@ -629,12 +649,13 @@ function statusClause(filter: JiraStatusFilter): string {
  * Returns null when no issue types are enabled.
  */
 export function buildJQL(connection: JiraConnection, settings: JiraSettings): string | null {
+  const effective = getEffectiveJiraConnectionSyncSettings(connection, settings);
   const enabled: { name: string; filter: JiraStatusFilter }[] = [];
-  if (settings.syncEpics)    enabled.push({ name: 'Epic',    filter: settings.statusFilterEpics    ?? 'all' });
-  if (settings.syncFeatures) enabled.push({ name: 'Feature', filter: settings.statusFilterFeatures ?? 'all' });
-  if (settings.syncStories)  enabled.push({ name: 'Story',   filter: settings.statusFilterStories  ?? 'all' });
-  if (settings.syncTasks)    enabled.push({ name: 'Task',    filter: settings.statusFilterTasks    ?? 'all' });
-  if (settings.syncBugs)     enabled.push({ name: 'Bug',     filter: settings.statusFilterBugs     ?? 'all' });
+  if (effective.syncEpics)    enabled.push({ name: 'Epic',    filter: effective.statusFilterEpics    ?? 'all' });
+  if (effective.syncFeatures) enabled.push({ name: 'Feature', filter: effective.statusFilterFeatures ?? 'all' });
+  if (effective.syncStories)  enabled.push({ name: 'Story',   filter: effective.statusFilterStories  ?? 'all' });
+  if (effective.syncTasks)    enabled.push({ name: 'Task',    filter: effective.statusFilterTasks    ?? 'all' });
+  if (effective.syncBugs)     enabled.push({ name: 'Bug',     filter: effective.statusFilterBugs     ?? 'all' });
 
   if (enabled.length === 0) return null;
 

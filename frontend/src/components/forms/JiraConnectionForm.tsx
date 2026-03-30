@@ -4,10 +4,11 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { testJiraConnection, getJiraProjects, validateJiraUrl } from '../../services/jira';
-import type { JiraConnection } from '../../types';
+import type { JiraConnection, JiraConnectionSyncSettings, JiraSettings } from '../../types';
 
 interface JiraConnectionFormProps {
  connection?: JiraConnection;
+ globalSettings: JiraSettings;
  onSave: (data: Omit<JiraConnection, 'id' | 'createdAt' | 'updatedAt'>) => void;
  onCancel: () => void;
 }
@@ -21,7 +22,35 @@ function maskToken(token: string): string {
  return '••••••••' + token.slice(-4);
 }
 
-export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnectionFormProps) {
+const SYNC_OVERRIDE_ROWS: Array<{
+ syncKey: keyof JiraConnectionSyncSettings;
+ filterKey: keyof JiraConnectionSyncSettings;
+ label: string;
+ color: string;
+}> = [
+ { syncKey: 'syncEpics', filterKey: 'statusFilterEpics', label: 'Epics', color: 'text-[#1E293B]' },
+ { syncKey: 'syncFeatures', filterKey: 'statusFilterFeatures', label: 'Features', color: 'text-[#1E293B]' },
+ { syncKey: 'syncStories', filterKey: 'statusFilterStories', label: 'Stories', color: 'text-[#1E293B]' },
+ { syncKey: 'syncTasks', filterKey: 'statusFilterTasks', label: 'Tasks', color: 'text-[#1E293B]' },
+ { syncKey: 'syncBugs', filterKey: 'statusFilterBugs', label: 'Bugs', color: 'text-red-600' },
+];
+
+function createSyncOverrideFromSettings(settings: JiraSettings): JiraConnectionSyncSettings {
+ return {
+  syncEpics: settings.syncEpics,
+  syncFeatures: settings.syncFeatures,
+  syncStories: settings.syncStories,
+  syncTasks: settings.syncTasks,
+  syncBugs: settings.syncBugs,
+  statusFilterEpics: settings.statusFilterEpics,
+  statusFilterFeatures: settings.statusFilterFeatures,
+  statusFilterStories: settings.statusFilterStories,
+  statusFilterTasks: settings.statusFilterTasks,
+  statusFilterBugs: settings.statusFilterBugs,
+ };
+}
+
+export function JiraConnectionForm({ connection, globalSettings, onSave, onCancel }: JiraConnectionFormProps) {
  const isEditing = !!connection;
  const [name, setName] = useState(connection?.name || '');
  const [jiraBaseUrl, setJiraBaseUrl] = useState(connection?.jiraBaseUrl || '');
@@ -46,10 +75,15 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  const [scenarioPlannerOnly, setScenarioPlannerOnly] = useState(connection?.scenarioPlannerOnly ?? false);
  const [importBehaviourOpen, setImportBehaviourOpen] = useState(false);
  const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
+ const [syncOverrideOpen, setSyncOverrideOpen] = useState(false);
+ const [useGlobalSyncSettings, setUseGlobalSyncSettings] = useState(!connection?.syncSettingsOverride);
  const [cfEpicLink, setCfEpicLink] = useState(connection?.customFieldIds?.epicLink ?? '');
  const [cfEpicLinkAlt, setCfEpicLinkAlt] = useState(connection?.customFieldIds?.epicLinkAlt ?? '');
  const [cfStartDate, setCfStartDate] = useState(connection?.customFieldIds?.startDate ?? '');
  const [cfSprint, setCfSprint] = useState(connection?.customFieldIds?.sprint ?? '');
+ const [syncOverride, setSyncOverride] = useState<JiraConnectionSyncSettings>(
+  connection?.syncSettingsOverride ?? createSyncOverrideFromSettings(globalSettings)
+ );
 
  useEffect(() => {
  if (connectionStatus === 'success' && availableProjects.length === 0) loadProjects();
@@ -118,6 +152,7 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
  startDate: cfStartDate.trim() || undefined,
  sprint: cfSprint.trim() || undefined,
  } : undefined,
+ syncSettingsOverride: useGlobalSyncSettings ? undefined : syncOverride,
  });
  setIsSaving(false);
  };
@@ -238,9 +273,89 @@ export function JiraConnectionForm({ connection, onSave, onCancel }: JiraConnect
                </span>
              </span>
            </label>
-         </div>
-       )}
-     </div>
+       </div>
+      )}
+    </div>
+
+ <div className="border border-[#DEDFE3] rounded-lg overflow-hidden">
+ <button
+ type="button"
+ className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#1E293B] hover:bg-[#F5F8FC] transition-colors"
+ onClick={() => setSyncOverrideOpen(o => !o)}
+ >
+ <span>Per-Connection Sync Settings</span>
+ {syncOverrideOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+ </button>
+ {syncOverrideOpen && (
+ <div className="px-4 pb-4 pt-1 space-y-4 border-t border-[#DEDFE3] ">
+ <label className="flex items-start gap-3 cursor-pointer">
+ <input
+ type="checkbox"
+ checked={useGlobalSyncSettings}
+ onChange={e => setUseGlobalSyncSettings(e.target.checked)}
+ className="mt-0.5 h-4 w-4 rounded border-[#94A3B8]"
+ />
+ <span>
+ <span className="block text-sm font-medium text-[#1E293B]">Use global Jira sync settings</span>
+ <span className="block text-xs text-[#94A3B8] mt-0.5">
+ Keep this enabled for normal projects. Disable it only when this Jira project needs different issue types or status filters.
+ </span>
+ </span>
+ </label>
+
+ {!useGlobalSyncSettings && (
+ <div className="space-y-3">
+ <p className="text-xs text-[#94A3B8]">
+ These overrides apply only to this connection. The global Jira sync settings remain unchanged for the rest of the app.
+ </p>
+ <div className="border rounded-lg overflow-hidden">
+ <table className="w-full text-sm">
+ <thead>
+ <tr className="bg-[#F5F8FC] border-b border-[#DEDFE3]">
+ <th className="text-left px-4 py-2 font-medium text-[#94A3B8] w-8"></th>
+ <th className="text-left px-4 py-2 font-medium text-[#94A3B8]">Type</th>
+ <th className="text-left px-4 py-2 font-medium text-[#94A3B8]">Status filter</th>
+ </tr>
+ </thead>
+ <tbody className="divide-y divide-[#DEDFE3]">
+ {SYNC_OVERRIDE_ROWS.map(({ syncKey, filterKey, label, color }) => {
+ const enabled = syncOverride[syncKey] as boolean;
+ const filter = syncOverride[filterKey] as string;
+ return (
+ <tr key={label} className={!enabled ? 'opacity-40' : ''}>
+ <td className="px-4 py-2.5">
+ <input
+ type="checkbox"
+ checked={enabled}
+ onChange={(e) => setSyncOverride(prev => ({ ...prev, [syncKey]: e.target.checked }))}
+ className="rounded border-[#94A3B8]"
+ />
+ </td>
+ <td className={`px-4 py-2.5 font-medium ${color}`}>{label}</td>
+ <td className="px-4 py-2.5">
+ <select
+ value={filter}
+ disabled={!enabled}
+ onChange={(e) => setSyncOverride(prev => ({ ...prev, [filterKey]: e.target.value }))}
+ className="text-sm border border-input rounded px-2 py-1 bg-background disabled:cursor-not-allowed"
+ >
+ <option value="all">All statuses</option>
+ <option value="exclude_done">Exclude Done</option>
+ <option value="active_only">Active only (To Do + In Progress)</option>
+ <option value="todo_only">To Do only</option>
+ </select>
+ </td>
+ </tr>
+ );
+ })}
+ </tbody>
+ </table>
+ </div>
+ </div>
+ )}
+ </div>
+ )}
+ </div>
 
  {/* Custom Field IDs — collapsible */}
  <div className="border border-[#DEDFE3] rounded-lg overflow-hidden">

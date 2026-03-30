@@ -13,7 +13,7 @@ import {
  addJiraConnection, updateJiraConnection, deleteJiraConnection,
  toggleJiraConnectionActive, updateJiraSettings,
 } from '../../stores/actions';
-import { testJiraConnection, buildJQL, getJiraIssueTypes, diagnoseJiraKey } from '../../services/jira';
+import { testJiraConnection, buildJQL, getJiraIssueTypes, diagnoseJiraKey, getEffectiveJiraConnectionSyncSettings } from '../../services/jira';
 import type { JiraIssueType, JiraKeyDiagnostic } from '../../services/jira';
 import { fetchSyncPreview, applySync } from '../../application/jiraSync';
 import { useToast } from '../../components/ui/Toast';
@@ -332,7 +332,7 @@ export function JiraSection() {
  <Card>
  <CardHeader>
  <CardTitle>Sync Settings</CardTitle>
- <p className="text-sm text-muted-foreground">Configure how items are synced from Jira</p>
+ <p className="text-sm text-muted-foreground">Configure the default Jira sync behavior used by connections unless they opt into per-connection overrides.</p>
  </CardHeader>
  <CardContent className="space-y-6">
  <div>
@@ -416,7 +416,9 @@ export function JiraSection() {
  return (
  <div key={conn.id} className="rounded-lg border bg-[#F0F2F5] /60 p-3">
  <div className="flex items-center justify-between mb-1">
- <span className="text-xs font-medium text-[#94A3B8] ">{conn.name} ({conn.jiraProjectKey})</span>
+ <span className="text-xs font-medium text-[#94A3B8] ">
+ {conn.name} ({conn.jiraProjectKey}){conn.syncSettingsOverride ? ' · custom sync' : ''}
+ </span>
  <button
  type="button"
  onClick={() => jql && navigator.clipboard.writeText(jql)}
@@ -739,12 +741,13 @@ export function JiraSection() {
  const SYNCED_NAMES = new Set(['Epic', 'Feature', 'Story', 'Task', 'Bug']);
  const conn = jiraConnections.find(c => c.id === issueTypeCheckConnId);
  const jql = conn ? buildJQL(conn, jiraSettings) : null;
+ const effectiveSettings = conn ? getEffectiveJiraConnectionSyncSettings(conn, jiraSettings) : null;
  const enabledNames = new Set<string>();
- if (jiraSettings.syncEpics) enabledNames.add('Epic');
- if (jiraSettings.syncFeatures) enabledNames.add('Feature');
- if (jiraSettings.syncStories) enabledNames.add('Story');
- if (jiraSettings.syncTasks) enabledNames.add('Task');
- if (jiraSettings.syncBugs) enabledNames.add('Bug');
+ if (effectiveSettings?.syncEpics) enabledNames.add('Epic');
+ if (effectiveSettings?.syncFeatures) enabledNames.add('Feature');
+ if (effectiveSettings?.syncStories) enabledNames.add('Story');
+ if (effectiveSettings?.syncTasks) enabledNames.add('Task');
+ if (effectiveSettings?.syncBugs) enabledNames.add('Bug');
  return (
  <div className="space-y-3">
  <p className="text-xs text-muted-foreground">
@@ -913,6 +916,7 @@ export function JiraSection() {
  >
  <JiraConnectionForm
  connection={editingConn}
+ globalSettings={jiraSettings}
  onSave={handleSaveConn}
  onCancel={() => { setModalOpen(false); setEditingConn(undefined); }}
  />

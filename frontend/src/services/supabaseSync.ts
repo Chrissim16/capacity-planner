@@ -222,6 +222,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       jqlFilter: c.jql_filter ?? undefined,
       scenarioPlannerOnly: c.scenario_planner_only ?? false,
       customFieldIds: c.custom_field_ids ?? undefined,
+      syncSettingsOverride: c.sync_settings_override ?? undefined,
     }));
 
     const jiraWorkItems: JiraWorkItem[] = (jiraWorkItemsRes.data ?? []).map(w => ({
@@ -598,6 +599,7 @@ async function syncJiraConnections(connections: JiraConnection[]): Promise<void>
     jql_filter: c.jqlFilter ?? null,
     scenario_planner_only: c.scenarioPlannerOnly ?? false,
     custom_field_ids: c.customFieldIds ?? null,
+    sync_settings_override: c.syncSettingsOverride ?? null,
     created_at: c.createdAt,
     updated_at: c.updatedAt,
   }));

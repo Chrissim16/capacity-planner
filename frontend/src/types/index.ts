@@ -342,6 +342,7 @@ export interface JiraConnection {
     startDate?:   string;
     sprint?:      string;
   };
+  syncSettingsOverride?: JiraConnectionSyncSettings;
 }
 
 export interface JiraWorkItem {
@@ -415,6 +416,19 @@ export interface JiraSettings {
   statusFilterTasks: JiraStatusFilter;
   statusFilterBugs: JiraStatusFilter;
   defaultConfidenceLevel: ConfidenceLevel;
+}
+
+export interface JiraConnectionSyncSettings {
+  syncEpics: boolean;
+  syncFeatures: boolean;
+  syncStories: boolean;
+  syncTasks: boolean;
+  syncBugs: boolean;
+  statusFilterEpics: JiraStatusFilter;
+  statusFilterFeatures: JiraStatusFilter;
+  statusFilterStories: JiraStatusFilter;
+  statusFilterTasks: JiraStatusFilter;
+  statusFilterBugs: JiraStatusFilter;
 }
 
 export interface JiraSyncResult {
