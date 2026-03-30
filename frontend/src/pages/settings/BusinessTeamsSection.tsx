@@ -6,17 +6,30 @@ import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { useCurrentState } from '../../stores/appStore';
 import { addBusinessTeam, deleteBusinessTeam } from '../../stores/actions';
+import { useToast } from '../../components/ui/Toast';
 
 export function BusinessTeamsSection() {
   const { businessTeams } = useCurrentState();
+  const { showToast } = useToast();
   const [newName, setNewName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const handleAdd = () => {
-    if (newName.trim()) {
-      addBusinessTeam(newName.trim());
-      setNewName('');
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      showToast('Enter a business team name first.', 'warning');
+      return;
     }
+
+    const exists = businessTeams.some((team) => team.name.toLowerCase() === trimmed.toLowerCase());
+    if (exists) {
+      showToast(`"${trimmed}" already exists.`, 'warning');
+      return;
+    }
+
+    addBusinessTeam(trimmed);
+    setNewName('');
+    showToast(`Added business team "${trimmed}".`, 'success');
   };
 
   return (
@@ -36,9 +49,9 @@ export function BusinessTeamsSection() {
               placeholder="e.g. Finance, Procurement, HR, Operations"
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
             />
-            <Button onClick={handleAdd}>
+            <Button onClick={handleAdd} disabled={!newName.trim()}>
               <Plus size={16} />
-              Add
+              Add Team
             </Button>
           </div>
           <div className="space-y-2">
@@ -70,7 +83,14 @@ export function BusinessTeamsSection() {
         footer={
           <>
             <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-            <Button variant="danger" onClick={() => { deleteBusinessTeam(deleteConfirm!.id); setDeleteConfirm(null); }}>
+            <Button
+              variant="danger"
+              onClick={() => {
+                deleteBusinessTeam(deleteConfirm!.id);
+                showToast(`Deleted business team "${deleteConfirm!.name}".`, 'success');
+                setDeleteConfirm(null);
+              }}
+            >
               Delete
             </Button>
           </>

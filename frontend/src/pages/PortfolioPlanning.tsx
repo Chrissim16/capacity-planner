@@ -80,22 +80,15 @@ function saveActiveScenarioId(id: string | null): void {
   } catch {}
 }
 
-// ── Business team placeholders (used when specific person not yet known) ──────
-const BUSINESS_TEAMS = [
-  { id: 'TEAM:Treasury',        name: 'Treasury',        abbr: 'TR' },
-  { id: 'TEAM:Finance Systems', name: 'Finance Systems', abbr: 'FS' },
-  { id: 'TEAM:Reporting',       name: 'Reporting',       abbr: 'RP' },
-  { id: 'TEAM:Tax',             name: 'Tax',             abbr: 'TX' },
-  { id: 'TEAM:AP & Payments',   name: 'AP & Payments',   abbr: 'AP' },
-  { id: 'TEAM:FP&A',            name: 'FP&A',            abbr: 'FA' },
-  { id: 'TEAM:IT Platform',     name: 'IT Platform',     abbr: 'IT' },
-  { id: 'TEAM:PMO',             name: 'PMO',             abbr: 'PM' },
-];
-
 function teamEntryForId(id: string): { name: string; abbr: string } {
-  const entry = BUSINESS_TEAMS.find(t => t.id === id);
-  const name  = entry?.name ?? id.replace('TEAM:', '');
-  const abbr  = entry?.abbr ?? name.slice(0, 2).toUpperCase();
+  const name = id.replace('TEAM:', '');
+  const abbr = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || name.slice(0, 2).toUpperCase();
   return { name, abbr };
 }
 
@@ -1402,12 +1395,12 @@ function PortfolioPickerPopover({
     const biz = [...contactMap.values()]
       .filter(c => !c.excludedFromCapacity)
       .map(c => ({ id: c.id, name: c.name, sub: c.title ?? '', track: 'BIZ' as const, isTeam: false }));
-    // Business teams from configurable business teams, fallback to BUSINESS_TEAMS constant
-    const teamSrc = businessTeams.length > 0
-      ? businessTeams.map(bt => ({ id: `TEAM:${bt.name}`, name: bt.name, abbr: bt.name.slice(0, 2).toUpperCase() }))
-      : BUSINESS_TEAMS;
-    const teams = teamSrc.map(t => ({
-      id: t.id, name: t.name, sub: 'Business team', track: 'BIZ' as const, isTeam: true,
+    const teams = businessTeams.map(bt => ({
+      id: `TEAM:${bt.name}`,
+      name: bt.name,
+      sub: 'Business team',
+      track: 'BIZ' as const,
+      isTeam: true,
     }));
     return [...it, ...biz, ...teams].sort((a, b) => a.name.localeCompare(b.name));
   }, [memberMap, contactMap, businessTeams]);
