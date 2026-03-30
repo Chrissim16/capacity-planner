@@ -596,6 +596,20 @@ export interface JiraIssueType {
   description?: string;
 }
 
+export interface JiraFieldDefinition {
+  id: string;
+  name: string;
+  custom: boolean;
+  schemaType?: string;
+  schemaCustom?: string;
+}
+
+export interface JiraFieldOption {
+  id: string;
+  value: string;
+  disabled?: boolean;
+}
+
 export function getEffectiveJiraConnectionSyncSettings(
   connection: JiraConnection,
   settings: JiraSettings
@@ -678,6 +692,127 @@ export async function getJiraIssueTypes(
       subtask: t.subtask ?? false,
     }));
     return { success: true, issueTypes };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+export async function getJiraFields(
+  baseUrl: string,
+  email: string,
+  apiToken: string
+): Promise<{ success: boolean; fields?: JiraFieldDefinition[]; error?: string }> {
+  try {
+    const authHeader = createAuthHeader(email, apiToken);
+    const response = await jiraFetch(baseUrl, '/rest/api/3/field', authHeader, { method: 'GET' });
+    if (!response.ok) return { success: false, error: 'Failed: ' + response.statusText };
+    const data = await response.json() as Array<{
+      id: string;
+      name: string;
+      custom?: boolean;
+      schema?: { type?: string; custom?: string };
+    }>;
+    const fields: JiraFieldDefinition[] = (data ?? []).map(field => ({
+      id: field.id,
+      name: field.name,
+      custom: Boolean(field.custom),
+      schemaType: field.schema?.type,
+      schemaCustom: field.schema?.custom,
+    }));
+    return { success: true, fields };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+export async function getJiraProjectStatuses(
+  connection: JiraConnection
+): Promise<{ success: boolean; statuses?: string[]; error?: string }> {
+  try {
+    const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
+    const response = await jiraFetch(
+      connection.jiraBaseUrl,
+      `/rest/api/3/project/${encodeURIComponent(connection.jiraProjectKey)}/statuses`,
+      authHeader,
+      { method: 'GET' }
+    );
+    if (!response.ok) return { success: false, error: 'Failed: ' + response.statusText };
+    const data = await response.json() as Array<{ statuses?: Array<{ name: string }> }>;
+    const seen = new Set<string>();
+    const statuses: string[] = [];
+    for (const issueType of data ?? []) {
+      for (const status of issueType.statuses ?? []) {
+        const name = status.name?.trim();
+        if (!name || seen.has(name.toLowerCase())) continue;
+        seen.add(name.toLowerCase());
+        statuses.push(name);
+      }
+    }
+    return { success: true, statuses };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+export async function getJiraFieldOptions(
+  connection: JiraConnection,
+  fieldId: string
+): Promise<{ success: boolean; options?: JiraFieldOption[]; error?: string }> {
+  try {
+    const trimmedFieldId = fieldId.trim();
+    if (!trimmedFieldId) return { success: true, options: [] };
+
+    const authHeader = createAuthHeader(connection.userEmail, connection.apiToken);
+    const contextsResponse = await jiraFetch(
+      connection.jiraBaseUrl,
+      `/rest/api/3/field/${encodeURIComponent(trimmedFieldId)}/context`,
+      authHeader,
+      { method: 'GET' }
+    );
+
+    if (!contextsResponse.ok) {
+      return { success: false, error: 'Failed to load field contexts: ' + contextsResponse.statusText };
+    }
+
+    const contextsData = await contextsResponse.json() as {
+      values?: Array<{
+        id: string;
+        isGlobalContext?: boolean;
+        projectIds?: string[];
+      }>;
+    };
+
+    const contexts = contextsData.values ?? [];
+    const matchingContext = contexts.find(context =>
+      context.projectIds?.includes(connection.jiraProjectId ?? '')
+    ) ?? contexts.find(context => context.isGlobalContext) ?? contexts[0];
+
+    if (!matchingContext?.id) return { success: true, options: [] };
+
+    const optionsResponse = await jiraFetch(
+      connection.jiraBaseUrl,
+      `/rest/api/3/field/${encodeURIComponent(trimmedFieldId)}/context/${encodeURIComponent(matchingContext.id)}/option?maxResults=100`,
+      authHeader,
+      { method: 'GET' }
+    );
+
+    if (!optionsResponse.ok) {
+      return { success: false, error: 'Failed to load field options: ' + optionsResponse.statusText };
+    }
+
+    const optionsData = await optionsResponse.json() as {
+      values?: Array<{ id: string; value: string; disabled?: boolean }>;
+    };
+
+    const options = (optionsData.values ?? [])
+      .filter(option => Boolean(option.value))
+      .map(option => ({
+        id: option.id,
+        value: option.value,
+        disabled: option.disabled,
+      }));
+
+    return { success: true, options };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }

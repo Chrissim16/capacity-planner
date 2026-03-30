@@ -3,7 +3,8 @@ import { CheckCircle, AlertCircle, Loader2, ExternalLink, Eye, EyeOff, RefreshCw
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
-import { testJiraConnection, getJiraProjects, validateJiraUrl } from '../../services/jira';
+import { testJiraConnection, getJiraProjects, validateJiraUrl, getJiraIssueTypes, getJiraProjectStatuses, getJiraFields, getJiraFieldOptions } from '../../services/jira';
+import type { JiraFieldDefinition, JiraFieldOption } from '../../services/jira';
 import type { JiraConnection, JiraConnectionSyncSettings, JiraSettings, JiraDiscoveryConfig } from '../../types';
 
 interface JiraConnectionFormProps {
@@ -57,6 +58,19 @@ function parseCsvInput(value: string): string[] {
   .filter(Boolean);
 }
 
+function toggleCsvSelection(csvValue: string, nextValue: string): string {
+ const entries = parseCsvInput(csvValue);
+ const lower = nextValue.toLowerCase();
+ const exists = entries.some(entry => entry.toLowerCase() === lower);
+ return exists
+  ? entries.filter(entry => entry.toLowerCase() !== lower).join(', ')
+  : [...entries, nextValue].join(', ');
+}
+
+function findFieldByName(fields: JiraFieldDefinition[], matcher: RegExp): JiraFieldDefinition | undefined {
+ return fields.find(field => matcher.test(field.name));
+}
+
 export function JiraConnectionForm({ connection, globalSettings, onSave, onCancel }: JiraConnectionFormProps) {
  const isEditing = !!connection;
  const [name, setName] = useState(connection?.name || '');
@@ -96,6 +110,13 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  const [syncOverride, setSyncOverride] = useState<JiraConnectionSyncSettings>(
   connection?.syncSettingsOverride ?? createSyncOverrideFromSettings(globalSettings)
  );
+ const [availableIssueTypes, setAvailableIssueTypes] = useState<{ id: string; name: string }[]>([]);
+ const [availableStatuses, setAvailableStatuses] = useState<string[]>([]);
+ const [availableFields, setAvailableFields] = useState<JiraFieldDefinition[]>([]);
+ const [drivingValueStreamOptions, setDrivingValueStreamOptions] = useState<JiraFieldOption[]>([]);
+ const [loadingMetadata, setLoadingMetadata] = useState(false);
+ const [loadingDrivingValueStreamOptions, setLoadingDrivingValueStreamOptions] = useState(false);
+ const [metadataError, setMetadataError] = useState('');
 
  useEffect(() => {
   if (mode === 'discovery') {
@@ -107,6 +128,19 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  useEffect(() => {
  if (connectionStatus === 'success' && availableProjects.length === 0) loadProjects();
  }, [connectionStatus]);
+
+ useEffect(() => {
+  if (connectionStatus !== 'success' || !jiraProjectKey) return;
+  void loadJiraMetadata();
+ }, [connectionStatus, jiraProjectKey]);
+
+ useEffect(() => {
+  if (connectionStatus !== 'success' || !jiraProjectKey || !drivingValueStreamFieldId.trim()) {
+   setDrivingValueStreamOptions([]);
+   return;
+  }
+  void loadDrivingValueStreamOptions(drivingValueStreamFieldId);
+ }, [connectionStatus, jiraProjectKey, drivingValueStreamFieldId]);
 
  const handleTestConnection = async () => {
  const urlValidation = validateJiraUrl(jiraBaseUrl);
@@ -137,9 +171,130 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  setLoadingProjects(false);
  };
 
+ const loadJiraMetadata = async () => {
+  const tokenToUse = tokenChanged ? apiToken.trim() : (connection?.apiToken || '');
+  if (!jiraProjectKey || !tokenToUse) return;
+
+  setLoadingMetadata(true);
+  setMetadataError('');
+
+  const metadataConnection: JiraConnection = {
+   id: connection?.id ?? 'draft',
+   name: name.trim() || 'Draft Connection',
+   mode,
+   jiraBaseUrl: jiraBaseUrl.replace(/\/+$/, ''),
+   jiraProjectKey,
+   jiraProjectId,
+   jiraProjectName,
+   apiToken: tokenToUse,
+   userEmail: userEmail.trim(),
+   isActive: connection?.isActive ?? true,
+   lastSyncStatus: connection?.lastSyncStatus ?? 'idle',
+   createdAt: connection?.createdAt ?? new Date().toISOString(),
+   updatedAt: connection?.updatedAt ?? new Date().toISOString(),
+   defaultDaysPerItem,
+   jqlFilter: jqlFilter.trim() || undefined,
+   scenarioPlannerOnly: mode === 'discovery' ? true : scenarioPlannerOnly,
+   customFieldIds: connection?.customFieldIds,
+   syncSettingsOverride: connection?.syncSettingsOverride,
+   discoveryConfig: connection?.discoveryConfig,
+  };
+
+  const [issueTypeResult, statusResult, fieldsResult] = await Promise.all([
+   getJiraIssueTypes(metadataConnection),
+   getJiraProjectStatuses(metadataConnection),
+   getJiraFields(jiraBaseUrl, userEmail, tokenToUse),
+  ]);
+
+  if (issueTypeResult.success && issueTypeResult.issueTypes) {
+   setAvailableIssueTypes(issueTypeResult.issueTypes.map(issueType => ({ id: issueType.id, name: issueType.name })));
+  } else {
+   setAvailableIssueTypes([]);
+  }
+
+  if (statusResult.success && statusResult.statuses) {
+   setAvailableStatuses(statusResult.statuses);
+  } else {
+   setAvailableStatuses([]);
+  }
+
+  if (fieldsResult.success && fieldsResult.fields) {
+   const sortedFields = [...fieldsResult.fields].sort((a, b) => a.name.localeCompare(b.name));
+   setAvailableFields(sortedFields);
+
+   if (!cfEpicLink.trim()) {
+    const epicLinkField = findFieldByName(sortedFields, /^epic link$/i);
+    if (epicLinkField) setCfEpicLink(epicLinkField.id);
+   }
+   if (!cfStartDate.trim()) {
+    const startDateField = findFieldByName(sortedFields, /^start date$/i);
+    if (startDateField) setCfStartDate(startDateField.id);
+   }
+   if (!cfSprint.trim()) {
+    const sprintField = findFieldByName(sortedFields, /^sprint$/i);
+    if (sprintField) setCfSprint(sprintField.id);
+   }
+  } else {
+   setAvailableFields([]);
+  }
+
+  const errorsFound = [issueTypeResult, statusResult, fieldsResult]
+   .filter(result => !result.success)
+   .map(result => result.error)
+   .filter(Boolean);
+  setMetadataError(errorsFound[0] ?? '');
+  setLoadingMetadata(false);
+ };
+
+ const loadDrivingValueStreamOptions = async (fieldId: string) => {
+  const tokenToUse = tokenChanged ? apiToken.trim() : (connection?.apiToken || '');
+  if (!tokenToUse) return;
+
+  setLoadingDrivingValueStreamOptions(true);
+
+  const metadataConnection: JiraConnection = {
+   id: connection?.id ?? 'draft',
+   name: name.trim() || 'Draft Connection',
+   mode,
+   jiraBaseUrl: jiraBaseUrl.replace(/\/+$/, ''),
+   jiraProjectKey,
+   jiraProjectId,
+   jiraProjectName,
+   apiToken: tokenToUse,
+   userEmail: userEmail.trim(),
+   isActive: connection?.isActive ?? true,
+   lastSyncStatus: connection?.lastSyncStatus ?? 'idle',
+   createdAt: connection?.createdAt ?? new Date().toISOString(),
+   updatedAt: connection?.updatedAt ?? new Date().toISOString(),
+   defaultDaysPerItem,
+   jqlFilter: jqlFilter.trim() || undefined,
+   scenarioPlannerOnly: mode === 'discovery' ? true : scenarioPlannerOnly,
+   customFieldIds: connection?.customFieldIds,
+   syncSettingsOverride: connection?.syncSettingsOverride,
+   discoveryConfig: connection?.discoveryConfig,
+  };
+
+  const result = await getJiraFieldOptions(metadataConnection, fieldId);
+  if (result.success && result.options) {
+   setDrivingValueStreamOptions(result.options);
+  } else {
+   setDrivingValueStreamOptions([]);
+  }
+  setLoadingDrivingValueStreamOptions(false);
+ };
+
  const handleProjectSelect = (key: string) => {
  const p = availableProjects.find(p => p.key === key);
- if (p) { setJiraProjectKey(p.key); setJiraProjectId(p.id); setJiraProjectName(p.name); setErrors(prev => ({ ...prev, jiraProjectKey: '' })); }
+ if (p) {
+  setJiraProjectKey(p.key);
+  setJiraProjectId(p.id);
+  setJiraProjectName(p.name);
+  setAvailableIssueTypes([]);
+  setAvailableStatuses([]);
+  setAvailableFields([]);
+  setDrivingValueStreamOptions([]);
+  setErrors(prev => ({ ...prev, jiraProjectKey: '' }));
+ }
  };
 
  const handleSubmit = (e: React.FormEvent) => {
@@ -265,15 +420,36 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  <p className="text-xs text-[#94A3B8] mt-1">
   Discovery connections are visible only in Scenario Planner and Portfolio Planning.
  </p>
+ {connectionStatus === 'success' && jiraProjectKey && (
+ <p className="text-xs text-[#94A3B8] mt-2 flex items-center gap-2">
+ {loadingMetadata && <Loader2 size={12} className="animate-spin" />}
+ {loadingMetadata ? 'Loading issue types, statuses, and fields from Jira…' : metadataError ? metadataError : 'Using Jira project metadata to help fill these values.'}
+ </p>
+ )}
  </div>
+ {availableIssueTypes.length > 0 ? (
+ <Select
+  id="discovery-issue-type"
+  label="Discovery issue type"
+  value={discoveryIssueTypeName}
+  onChange={e => setDiscoveryIssueTypeName(e.target.value)}
+  options={[
+   { value: '', label: 'Select issue type' },
+   ...availableIssueTypes.map(issueType => ({ value: issueType.name, label: issueType.name })),
+  ]}
+  error={errors.discoveryIssueTypeName}
+ />
+ ) : (
  <Input
   id="discovery-issue-type"
   label="Discovery issue type"
   value={discoveryIssueTypeName}
   onChange={e => setDiscoveryIssueTypeName(e.target.value)}
   placeholder="e.g. Discovery"
+  hint="Issue types will appear here automatically after Jira metadata loads."
   error={errors.discoveryIssueTypeName}
  />
+ )}
  <Input
   id="discovery-statuses"
   label="Included statuses"
@@ -283,6 +459,42 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
   hint="Comma-separated status names as they exist in Jira."
   error={errors.discoveryStatuses}
  />
+ {availableStatuses.length > 0 && (
+ <div className="flex flex-wrap gap-2">
+ {availableStatuses.map(status => {
+ const selected = parseCsvInput(discoveryStatuses).some(entry => entry.toLowerCase() === status.toLowerCase());
+ return (
+ <button
+  key={status}
+  type="button"
+  onClick={() => setDiscoveryStatuses(prev => toggleCsvSelection(prev, status))}
+  className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+   selected
+    ? 'bg-[#0089DD] text-white border-[#0089DD]'
+    : 'bg-white text-[#1E293B] border-[#DEDFE3] hover:bg-[#E6F2FB]'
+  }`}
+ >
+  {status}
+ </button>
+ );
+ })}
+ </div>
+ )}
+ {availableFields.length > 0 ? (
+ <Select
+  id="driving-value-stream-field"
+  label="Driving value stream field ID"
+  value={drivingValueStreamFieldId}
+  onChange={e => setDrivingValueStreamFieldId(e.target.value)}
+  options={[
+   { value: '', label: 'Select Jira field' },
+   ...availableFields
+    .filter(field => field.custom)
+    .map(field => ({ value: field.id, label: `${field.name} (${field.id})` })),
+  ]}
+  error={errors.drivingValueStreamFieldId}
+ />
+ ) : (
  <Input
   id="driving-value-stream-field"
   label="Driving value stream field ID"
@@ -291,6 +503,7 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
   placeholder="e.g. customfield_12345"
   error={errors.drivingValueStreamFieldId}
  />
+ )}
  <Input
   id="driving-value-stream-values"
   label="Included driving value streams"
@@ -300,6 +513,38 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
   hint="Comma-separated field values to include."
   error={errors.drivingValueStreams}
  />
+ {drivingValueStreamFieldId && (
+ <div className="space-y-2">
+ <p className="text-xs text-[#94A3B8]">
+ {loadingDrivingValueStreamOptions
+  ? 'Loading allowed values from Jira…'
+  : drivingValueStreamOptions.length > 0
+   ? 'Pick from the values Jira exposes for this field:'
+   : 'If Jira does not expose field options here, you can still type values manually.'}
+ </p>
+ {drivingValueStreamOptions.length > 0 && (
+ <div className="flex flex-wrap gap-2">
+ {drivingValueStreamOptions.map(option => {
+ const selected = parseCsvInput(drivingValueStreams).some(entry => entry.toLowerCase() === option.value.toLowerCase());
+ return (
+ <button
+  key={option.id}
+  type="button"
+  onClick={() => setDrivingValueStreams(prev => toggleCsvSelection(prev, option.value))}
+  className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+   selected
+    ? 'bg-[#0089DD] text-white border-[#0089DD]'
+    : 'bg-white text-[#1E293B] border-[#DEDFE3] hover:bg-[#E6F2FB]'
+  }`}
+ >
+  {option.value}
+ </button>
+ );
+ })}
+ </div>
+ )}
+ </div>
+ )}
  </div>
  )}
  {/* Import Behaviour — collapsible */}
@@ -470,6 +715,56 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  Override the default Jira custom field IDs if your instance uses non-standard ones.
  Leave blank to use the Jira Cloud defaults.
  </p>
+ {availableFields.length > 0 && (
+ <div className="rounded-lg border border-[#DEDFE3] bg-white p-3 space-y-2">
+ <div className="flex items-center justify-between gap-3">
+ <p className="text-xs font-medium text-[#1E293B]">Detected Jira fields</p>
+ <p className="text-xs text-[#94A3B8]">Choose a detected field to fill the ID quickly.</p>
+ </div>
+ <div className="grid gap-3 md:grid-cols-2">
+ <Select
+  id="cf-epic-link-select"
+  label="Epic Link"
+  value={cfEpicLink}
+  onChange={e => setCfEpicLink(e.target.value)}
+  options={[
+   { value: '', label: 'Use default' },
+   ...availableFields.map(field => ({ value: field.id, label: `${field.name} (${field.id})` })),
+  ]}
+ />
+ <Select
+  id="cf-epic-link-alt-select"
+  label="Epic Link (alt)"
+  value={cfEpicLinkAlt}
+  onChange={e => setCfEpicLinkAlt(e.target.value)}
+  options={[
+   { value: '', label: 'Use default' },
+   ...availableFields.map(field => ({ value: field.id, label: `${field.name} (${field.id})` })),
+  ]}
+ />
+ <Select
+  id="cf-start-date-select"
+  label="Start Date"
+  value={cfStartDate}
+  onChange={e => setCfStartDate(e.target.value)}
+  options={[
+   { value: '', label: 'Use default' },
+   ...availableFields.map(field => ({ value: field.id, label: `${field.name} (${field.id})` })),
+  ]}
+ />
+ <Select
+  id="cf-sprint-select"
+  label="Sprint"
+  value={cfSprint}
+  onChange={e => setCfSprint(e.target.value)}
+  options={[
+   { value: '', label: 'Use default' },
+   ...availableFields.map(field => ({ value: field.id, label: `${field.name} (${field.id})` })),
+  ]}
+ />
+ </div>
+ </div>
+ )}
  {([
  ['epicLink', cfEpicLink, setCfEpicLink, 'Epic Link', 'customfield_10014'],
  ['epicLinkAlt', cfEpicLinkAlt, setCfEpicLinkAlt, 'Epic Link (alt)', 'customfield_10008'],
