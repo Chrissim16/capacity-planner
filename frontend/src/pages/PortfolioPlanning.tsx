@@ -1296,63 +1296,68 @@ function SummaryView({
           <div>
             <div className="pp-sec-hd">
               <span className="pp-sec-title">Effort by Epic</span>
-              <span className="pp-sec-sub">IT vs business effort, with business team and contact split</span>
+              <span className="pp-sec-sub">Ranked view of IT vs business effort, with top business owners</span>
             </div>
-            <div className="pp-effort-grid">
-              {epicEffortCards.map(card => (
-                <div key={card.epic.jiraKey} className="pp-effort-card">
-                  <div className="pp-effort-top">
-                    <div className="pp-effort-title">
-                      {jiraBaseUrl
-                        ? <a href={`${jiraBaseUrl}/browse/${card.epic.jiraKey}`} target="_blank" rel="noopener noreferrer" className="pp-effort-key">{card.epic.jiraKey}</a>
-                        : <span className="pp-effort-key">{card.epic.jiraKey}</span>
-                      }
-                      <span className="pp-effort-name">{card.epic.summary}</span>
-                    </div>
-                    <span className="pp-effort-total">{Math.round(card.totalDays)}d</span>
-                  </div>
+            <div className="pp-effort-list">
+              <div className="pp-effort-head">
+                <div className="pp-effort-head-cell">Epic</div>
+                <div className="pp-effort-head-cell">Effort split</div>
+                <div className="pp-effort-head-cell">Business owner</div>
+              </div>
+              {epicEffortCards.map((card, index) => {
+                const topBusinessTeam = card.businessTeams[0] ?? null;
+                const topBusinessContact = card.businessContacts[0] ?? null;
 
-                  <div className="pp-effort-bar">
-                    <div className="pp-effort-bar-it" style={{ width: `${card.itPct}%` }} />
-                    <div className="pp-effort-bar-biz" style={{ width: `${card.bizPct}%` }} />
-                  </div>
-
-                  <div className="pp-effort-stats">
-                    <div className="pp-effort-stat it">
-                      <span className="pp-effort-stat-label">IT</span>
-                      <span className="pp-effort-stat-value">{Math.round(card.itDays)}d</span>
-                    </div>
-                    <div className="pp-effort-stat biz">
-                      <span className="pp-effort-stat-label">Business</span>
-                      <span className="pp-effort-stat-value">{Math.round(card.bizDays)}d</span>
-                    </div>
-                  </div>
-
-                  <div className="pp-effort-detail">
-                    <div className="pp-effort-section">
-                      <span className="pp-effort-section-label">Business teams</span>
-                      <div className="pp-effort-chip-row">
-                        {card.businessTeams.length > 0 ? card.businessTeams.map(team => (
-                          <span key={team.name} className="pp-effort-chip team">
-                            {team.name} · {Math.round(team.days)}d
-                          </span>
-                        )) : <span className="pp-effort-empty">No business effort assigned</span>}
+                return (
+                  <div key={card.epic.jiraKey} className="pp-effort-row">
+                    <div className="pp-effort-main">
+                      <div className="pp-effort-rank">{index + 1}</div>
+                      <div className="pp-effort-title">
+                        <div className="pp-effort-title-top">
+                          <span className="pp-effort-total">{Math.round(card.totalDays)}d</span>
+                          <span className="pp-effort-total-label">total</span>
+                        </div>
+                        <div className="pp-effort-title-body">
+                          {jiraBaseUrl
+                            ? <a href={`${jiraBaseUrl}/browse/${card.epic.jiraKey}`} target="_blank" rel="noopener noreferrer" className="pp-effort-key">{card.epic.jiraKey}</a>
+                            : <span className="pp-effort-key">{card.epic.jiraKey}</span>
+                          }
+                          <span className="pp-effort-name">{card.epic.summary}</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="pp-effort-section">
-                      <span className="pp-effort-section-label">Biz contacts</span>
+                    <div className="pp-effort-split">
+                      <div className="pp-effort-bar">
+                        <div className="pp-effort-bar-it" style={{ width: `${card.itPct}%` }} />
+                        <div className="pp-effort-bar-biz" style={{ width: `${card.bizPct}%` }} />
+                      </div>
+
+                      <div className="pp-effort-stats">
+                        <div className="pp-effort-stat it">
+                          <span className="pp-effort-stat-label">IT</span>
+                          <span className="pp-effort-stat-value">{Math.round(card.itDays)}d</span>
+                        </div>
+                        <div className="pp-effort-stat biz">
+                          <span className="pp-effort-stat-label">Biz</span>
+                          <span className="pp-effort-stat-value">{Math.round(card.bizDays)}d</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pp-effort-owners">
                       <div className="pp-effort-chip-row">
-                        {card.businessContacts.length > 0 ? card.businessContacts.map(contact => (
-                          <span key={contact.name} className="pp-effort-chip contact">
-                            {contact.name} · {Math.round(contact.days)}d
-                          </span>
-                        )) : <span className="pp-effort-empty">No contacts assigned</span>}
+                        {topBusinessTeam
+                          ? <span className="pp-effort-chip team">{topBusinessTeam.name} · {Math.round(topBusinessTeam.days)}d</span>
+                          : <span className="pp-effort-empty">No business team</span>}
+                        {topBusinessContact
+                          ? <span className="pp-effort-chip contact">{topBusinessContact.name} · {Math.round(topBusinessContact.days)}d</span>
+                          : <span className="pp-effort-empty">No biz contact</span>}
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

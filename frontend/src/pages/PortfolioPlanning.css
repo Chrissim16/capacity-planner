@@ -711,35 +711,90 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-delta-value.better { color: #16A34A; }
 .pp-delta-value.same { color: var(--txt2); }
 
-.pp-effort-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 14px;
-}
-
-.pp-effort-card {
-  background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%);
+.pp-effort-list {
+  background: var(--white);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  overflow: hidden;
   box-shadow: 0 8px 24px rgba(15, 23, 42, .04);
 }
 
-.pp-effort-top {
+.pp-effort-head,
+.pp-effort-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.25fr) minmax(220px, .9fr) minmax(220px, .85fr);
+}
+
+.pp-effort-head {
+  min-height: 34px;
+  background: var(--offwh);
+  border-bottom: 1px solid var(--border);
+}
+
+.pp-effort-head-cell {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  padding: 0 14px;
+  border-right: 1px solid var(--bord-lt);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.pp-effort-head-cell:last-child { border-right: none; }
+
+.pp-effort-row {
+  min-height: 72px;
+  border-bottom: 1px solid var(--bord-lt);
+}
+
+.pp-effort-row:last-child { border-bottom: none; }
+
+.pp-effort-main,
+.pp-effort-split,
+.pp-effort-owners {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border-right: 1px solid var(--bord-lt);
+}
+
+.pp-effort-owners { border-right: none; }
+
+.pp-effort-main {
   gap: 12px;
+  min-width: 0;
+}
+
+.pp-effort-rank {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #EAF4FC;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .pp-effort-title {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+}
+
+.pp-effort-title-top,
+.pp-effort-title-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .pp-effort-key {
@@ -753,21 +808,39 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 
 .pp-effort-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--txt1);
   line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pp-effort-total {
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--txt1);
   white-space: nowrap;
 }
 
+.pp-effort-total-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.pp-effort-split {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+}
+
 .pp-effort-bar {
-  height: 12px;
+  height: 10px;
   border-radius: 999px;
   overflow: hidden;
   background: #E8EEF6;
@@ -785,16 +858,16 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-effort-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .pp-effort-stat {
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 8px;
+  padding: 8px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .pp-effort-stat.it {
@@ -816,29 +889,9 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 
 .pp-effort-stat-value {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--txt1);
-}
-
-.pp-effort-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.pp-effort-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.pp-effort-section-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--txt3);
-  text-transform: uppercase;
-  letter-spacing: .06em;
 }
 
 .pp-effort-chip-row {
@@ -869,6 +922,34 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-effort-empty {
   font-size: 11px;
   color: var(--txt3);
+}
+
+@media (max-width: 1100px) {
+  .pp-effort-head,
+  .pp-effort-row {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-effort-head { display: none; }
+
+  .pp-effort-main,
+  .pp-effort-split,
+  .pp-effort-owners {
+    border-right: none;
+  }
+
+  .pp-effort-row {
+    gap: 0;
+  }
+
+  .pp-effort-main {
+    padding-bottom: 8px;
+  }
+
+  .pp-effort-split,
+  .pp-effort-owners {
+    padding-top: 0;
+  }
 }
 
 .pp-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
