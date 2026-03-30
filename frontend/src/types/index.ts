@@ -558,11 +558,21 @@ export interface Scenario {
 
 export type PlanningPhase = 'design' | 'build' | 'test' | 'deploy' | 'hypercare';
 
+export type AllocationMode = 'flat' | 'rate' | 'segments';
+
+export interface AllocationSegment {
+  id: string;
+  startDate: string; // ISO "YYYY-MM-DD"
+  endDate: string;   // ISO "YYYY-MM-DD"
+  days: number;
+}
+
 export interface EpicPhasePlan {
   id: string;
   epicKey: string;
   phase: PlanningPhase;
   startDate: string | null;  // ISO date "YYYY-MM-DD" — absolute calendar date
+  endDate: string | null;    // ISO date "YYYY-MM-DD" — explicit phase end
   updatedAt: string;
 }
 
@@ -572,6 +582,9 @@ export interface EpicPhaseAssignment {
   phase: PlanningPhase;
   memberId: string;
   track: 'IT' | 'BIZ';
-  days: number;
+  days: number;              // flat total OR computed total for display
+  allocationMode: AllocationMode; // default 'flat'
+  daysPerWeek?: number;      // used when allocationMode = 'rate'
+  segments?: AllocationSegment[]; // used when allocationMode = 'segments'
   updatedAt: string;
 }

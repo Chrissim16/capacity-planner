@@ -21,6 +21,9 @@ import {
   dayToDateStr,
   todayDayOffset,
   calcBarWidthDays,
+  phaseBarWidthDays,
+  totalDaysFromAssignment,
+  weeksBetween,
   dateToDay,
   dayToIsoDate,
   PHASES,
@@ -37,6 +40,8 @@ import type {
   PlanningPhase,
   EpicPhasePlan,
   EpicPhaseAssignment,
+  AllocationMode,
+  AllocationSegment,
   ProcessTeam,
   BusinessTeam,
 } from '../types';
@@ -179,11 +184,111 @@ function TodayLine({ tStart, totalW, dayW }: { tStart: Date; totalW: number; day
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ALLOCATION EDITOR
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AllocEditor({
+  assign, phaseStartDate, phaseEndDate,
+  onClose, onUpdateDays, onUpdateMode, onUpsertSegment, onRemoveSegment,
+}: {
+  assign: EpicPhaseAssignment;
+  phaseStartDate: string | null;
+  phaseEndDate: string | null;
+  onClose: () => void;
+  onUpdateDays: (days: number) => void;
+  onUpdateMode: (mode: AllocationMode, daysPerWeek?: number) => void;
+  onUpsertSegment: (seg: AllocationSegment) => void;
+  onRemoveSegment: (segmentId: string) => void;
+}) {
+  const mode = assign.allocationMode ?? 'flat';
+  const segs = assign.segments ?? [];
+
+  const computedTotal = mode === 'rate' && assign.daysPerWeek && phaseStartDate && phaseEndDate
+    ? Math.round(assign.daysPerWeek * weeksBetween(phaseStartDate, phaseEndDate) * 10) / 10
+    : null;
+
+  const addSegment = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    onUpsertSegment({
+      id: `local-seg-${Date.now()}`,
+      startDate: phaseStartDate ?? today,
+      endDate:   phaseEndDate   ?? today,
+      days: 1,
+    });
+  };
+
+  return (
+    <div className="ev-alloc-editor" onClick={e => e.stopPropagation()}>
+      <div className="ev-alloc-mode-tabs">
+        <button className={`ev-alloc-tab${mode === 'flat' ? ' on' : ''}`}
+          onClick={() => onUpdateMode('flat')}>Flat</button>
+        <button className={`ev-alloc-tab${mode === 'rate' ? ' on' : ''}`}
+          onClick={() => onUpdateMode('rate', assign.daysPerWeek ?? 1)}>Rate</button>
+        <button className={`ev-alloc-tab${mode === 'segments' ? ' on' : ''}`}
+          onClick={() => onUpdateMode('segments')}>Segments</button>
+      </div>
+
+      {mode === 'flat' && (
+        <div className="ev-alloc-flat">
+          <input
+            type="number" min="0" step="0.5"
+            defaultValue={assign.days}
+            autoFocus
+            onBlur={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onUpdateDays(v); }}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') { e.currentTarget.blur(); onClose(); } }}
+          />
+          <span className="ev-alloc-unit">d total</span>
+        </div>
+      )}
+
+      {mode === 'rate' && (
+        <div className="ev-alloc-rate">
+          <input
+            type="number" min="0.5" step="0.5"
+            defaultValue={assign.daysPerWeek ?? 1}
+            autoFocus
+            onBlur={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onUpdateMode('rate', v); }}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') { e.currentTarget.blur(); onClose(); } }}
+          />
+          <span className="ev-alloc-unit">d/wk</span>
+          {computedTotal !== null && (
+            <span className="ev-alloc-computed">≈ {computedTotal}d total</span>
+          )}
+        </div>
+      )}
+
+      {mode === 'segments' && (
+        <div className="ev-alloc-segs">
+          {segs.map(seg => (
+            <div key={seg.id} className="ev-seg-row">
+              <input type="date" defaultValue={seg.startDate}
+                onBlur={e => onUpsertSegment({ ...seg, startDate: e.target.value })} />
+              <span className="ev-seg-arrow">→</span>
+              <input type="date" defaultValue={seg.endDate}
+                onBlur={e => onUpsertSegment({ ...seg, endDate: e.target.value })} />
+              <input type="number" min="0.5" step="0.5" defaultValue={seg.days}
+                onBlur={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onUpsertSegment({ ...seg, days: v }); }}
+                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+              />
+              <span className="ev-alloc-unit">d</span>
+              <button className="ev-seg-remove" onClick={() => onRemoveSegment(seg.id)}>×</button>
+            </div>
+          ))}
+          <button className="ev-seg-add" onClick={addSegment}>+ Add segment</button>
+        </div>
+      )}
+
+      <button className="ev-alloc-done" onClick={onClose}>Done</button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // EPIC VIEW
 // ─────────────────────────────────────────────────────────────────────────────
 interface EpicViewProps {
   boardEpics:    JiraWorkItem[];
-  phasePlansMap: Map<string, Map<PlanningPhase, string | null>>;  // epicKey → phase → startDate (ISO)
+  phasePlansMap: Map<string, Map<PlanningPhase, EpicPhasePlan>>;  // epicKey → phase → plan
   assignMap:     Map<string, Map<PlanningPhase, EpicPhaseAssignment[]>>;
   absenceLookup: Record<string, number>;
   memberMap:     Map<string, TeamMember>;
@@ -199,9 +304,14 @@ interface EpicViewProps {
   onRemoveEpic:  (key: string) => void;
   onSetPhaseStart: (epicKey: string, phase: PlanningPhase, weekIdx: number) => void;
   onDragPhaseStart: (epicKey: string, phase: PlanningPhase, e: React.MouseEvent) => void;
+  onDragPhaseEnd:   (epicKey: string, phase: PlanningPhase, e: React.MouseEvent) => void;
   onClearPhase:  (epicKey: string, phase: PlanningPhase) => void;
   onRemoveAssignment: (epicKey: string, phase: PlanningPhase, memberId: string) => void;
   onUpdateDays:  (epicKey: string, phase: PlanningPhase, memberId: string, days: number) => void;
+  onUpdateAllocationMode: (epicKey: string, phase: PlanningPhase, memberId: string, mode: AllocationMode, daysPerWeek?: number) => void;
+  onUpsertSegment: (epicKey: string, phase: PlanningPhase, memberId: string, seg: AllocationSegment) => void;
+  onRemoveSegment: (epicKey: string, phase: PlanningPhase, memberId: string, segmentId: string) => void;
+  onSetPhaseDates: (epicKey: string, phase: PlanningPhase, field: 'start' | 'end', date: string) => void;
   onAddPerson:   (epicKey: string, phase: PlanningPhase, rect: DOMRect) => void;
   onExpandAll:   () => void;
   onCollapseAll: () => void;
@@ -218,12 +328,15 @@ function EpicView({
   weeks, tStart, dayW, panelWidth,
   epicCollapsed, phasePersonCollapsed,
   onToggleEpic, onTogglePhasePersons, onRemoveEpic, onSetPhaseStart,
-  onDragPhaseStart, onClearPhase, onRemoveAssignment, onUpdateDays, onAddPerson,
+  onDragPhaseStart, onDragPhaseEnd, onClearPhase, onRemoveAssignment,
+  onUpdateDays, onUpdateAllocationMode, onUpsertSegment, onRemoveSegment,
+  onSetPhaseDates, onAddPerson,
   onExpandAll, onCollapseAll, onResizeMouseDown, lpRef, ganttRef,
   personOverloadMap, allJiraItems, jiraBaseUrl,
 }: EpicViewProps) {
   const totalW = weeks.length * (dayW * 5);
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editingPhaseKey, setEditingPhaseKey] = useState<string | null>(null);
 
   const syncGanttFromLp = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
@@ -254,7 +367,7 @@ function EpicView({
 
   for (const epic of boardEpics) {
     const epicKey  = epic.jiraKey;
-    const phPlans  = phasePlansMap.get(epicKey) ?? new Map<PlanningPhase, string | null>();
+    const phPlans  = phasePlansMap.get(epicKey) ?? new Map<PlanningPhase, EpicPhasePlan>();
     const phAssign = assignMap.get(epicKey)     ?? new Map<PlanningPhase, EpicPhaseAssignment[]>();
     const collapsed = epicCollapsed[epicKey] ?? false;
     const epicRequiredSkills = getEffectiveSkills(epic, allJiraItems);
@@ -285,11 +398,12 @@ function EpicView({
         <GridBg weeks={weeks} />
         <TodayLine tStart={tStart} totalW={totalW} dayW={dayW} />
         {PHASES.map(ph => {
-          const startDate = phPlans.get(ph) ?? null;
-          if (startDate === null) return null;
+          const phasePlan = phPlans.get(ph) ?? null;
+          const startDate = phasePlan?.startDate ?? null;
+          if (!startDate) return null;
           const startDay = dateToDay(startDate, tStart);
           const assignments = phAssign.get(ph) ?? [];
-          const barW = calcBarWidthDays(assignments, absenceLookup);
+          const barW = phasePlan ? (phaseBarWidthDays(phasePlan, tStart) ?? calcBarWidthDays(assignments, absenceLookup)) : calcBarWidthDays(assignments, absenceLookup);
           if (barW <= 0) return null;
           const label = barW >= 4 ? `${PH_SHORT[ph]} ${barW}d` : `${barW}d`;
           const overTier = assignments.some(a => personOverloadMap.get(a.memberId) === 'over') ? 'over'
@@ -311,38 +425,76 @@ function EpicView({
 
     if (!collapsed) {
       for (const ph of PHASES) {
-        const startDate  = phPlans.get(ph) ?? null;
+        const phasePlan  = phPlans.get(ph) ?? null;
+        const startDate  = phasePlan?.startDate ?? null;
+        const endDate    = phasePlan?.endDate ?? null;
         const startDay   = startDate !== null ? dateToDay(startDate, tStart) : null;
         const assignments = phAssign.get(ph) ?? [];
-        const barW       = calcBarWidthDays(assignments, absenceLookup);
-        const hasBar     = startDay !== null && barW > 0;
+        const barW       = phasePlan ? (phaseBarWidthDays(phasePlan, tStart) ?? calcBarWidthDays(assignments, absenceLookup)) : calcBarWidthDays(assignments, absenceLookup);
+        const hasStart   = startDay !== null;
+        const hasEnd     = endDate !== null;
+        const hasBar     = hasStart && barW > 0;
         const phKey      = `${epicKey}_${ph}`;
         const pCollapsed = phasePersonCollapsed[phKey] ?? false;
-        const totalPhDays = assignments.reduce((s, a) => s + a.days, 0);
+        const totalPhDays = assignments.reduce((s, a) => s + totalDaysFromAssignment(a, startDate, endDate), 0);
 
         let dateStr = 'No start date set';
         let durStr  = '';
         if (startDay !== null) {
-          dateStr = `${dayToDateStr(startDay, tStart)} → ${hasBar ? dayToDateStr(startDay + barW, tStart) : '…'}`;
-          durStr  = hasBar ? `${barW}d` : '';
+          const endLabel = endDate
+            ? dayToDateStr(dateToDay(endDate, tStart), tStart)
+            : hasBar ? dayToDateStr(startDay + barW, tStart) : '…';
+          dateStr = `${dayToDateStr(startDay, tStart)} → ${endLabel}`;
+          if (hasBar && startDate && endDate) {
+            const wks = weeksBetween(startDate, endDate);
+            durStr = `${wks}wk`;
+          } else if (hasBar) {
+            durStr = `${barW}d`;
+          }
         }
 
         // Phase left-panel row
         lpRows.push(
-          <div key={`p-${phKey}`} className="ev-phase" onClick={() => onTogglePhasePersons(epicKey, ph)}>
+          <div key={`p-${phKey}`} className="ev-phase" onClick={() => { if (editingPhaseKey !== phKey) onTogglePhasePersons(epicKey, ph); }}>
             <span className={`pp-chev ph-expand${pCollapsed ? '' : ' open'}`}>▶</span>
             <span className={`pp-ph-label ${PH_KEY[ph]}`}>{PH_LBL[ph]}</span>
-            <span className={`ph-dates${startDay !== null ? ' set' : ''}`}>{dateStr}</span>
-            {durStr && <span className="ph-dur">{durStr}</span>}
-            <span className="ph-total">{totalPhDays > 0 ? `${totalPhDays}d` : ''}</span>
-            {hasBar && (
+            {editingPhaseKey === phKey ? (
+              <div className="ph-date-editor" onClick={e => e.stopPropagation()}>
+                <input
+                  type="date"
+                  defaultValue={startDate ?? ''}
+                  autoFocus
+                  onBlur={e => { if (e.target.value) onSetPhaseDates(epicKey, ph, 'start', e.target.value); }}
+                  onKeyDown={e => { if (e.key === 'Escape' || e.key === 'Enter') { e.currentTarget.blur(); setEditingPhaseKey(null); } }}
+                />
+                <span className="ph-date-sep">→</span>
+                <input
+                  type="date"
+                  defaultValue={endDate ?? ''}
+                  onBlur={e => { if (e.target.value) onSetPhaseDates(epicKey, ph, 'end', e.target.value); }}
+                  onKeyDown={e => { if (e.key === 'Escape' || e.key === 'Enter') { e.currentTarget.blur(); setEditingPhaseKey(null); } }}
+                />
+                <button className="ph-date-close" onClick={e => { e.stopPropagation(); setEditingPhaseKey(null); }} title="Close">✕</button>
+              </div>
+            ) : (
+              <span
+                className={`ph-dates${hasStart ? ' set' : ''}`}
+                onClick={e => { e.stopPropagation(); setEditingPhaseKey(phKey); }}
+                title="Click to set dates"
+              >
+                {dateStr}
+              </span>
+            )}
+            {editingPhaseKey !== phKey && durStr && <span className="ph-dur">{durStr}</span>}
+            {editingPhaseKey !== phKey && <span className="ph-total">{totalPhDays > 0 ? `${Math.round(totalPhDays * 10) / 10}d` : ''}</span>}
+            {editingPhaseKey !== phKey && hasStart && (
               <button className="ph-remove" onClick={e => { e.stopPropagation(); onClearPhase(epicKey, ph); }}>×</button>
             )}
           </div>
         );
 
         // Phase Gantt row
-        if (!hasBar) {
+        if (!hasStart) {
           ganttRows.push(
             <div key={`gp-${phKey}`} className="pp-g-phase empty-phase" style={{ minWidth: totalW }}>
               <GridBg weeks={weeks} />
@@ -364,16 +516,24 @@ function EpicView({
           const overTier = assignments.some(a => personOverloadMap.get(a.memberId) === 'over') ? 'over'
             : assignments.some(a => personOverloadMap.get(a.memberId) === 'near') ? 'near'
             : null;
+          const barLabel = barW >= 4
+            ? `${PH_SHORT[ph]} ${hasEnd ? `${weeksBetween(startDate!, endDate!)}wk` : `${barW}d`}`
+            : `${barW}d`;
           ganttRows.push(
             <div key={`gp-${phKey}`} className="pp-g-phase" style={{ minWidth: totalW }}>
               <GridBg weeks={weeks} />
               <TodayLine tStart={tStart} totalW={totalW} dayW={dayW} />
               <div
-                className={`pp-pbar ${PH_KEY[ph]}${overTier === 'over' ? ' overloaded' : overTier === 'near' ? ' near-cap' : ''}`}
+                className={`pp-pbar ${PH_KEY[ph]}${overTier === 'over' ? ' overloaded' : overTier === 'near' ? ' near-cap' : ''}${!hasEnd ? ' no-end' : ''}`}
                 style={{ left: dToX(startDay!, dayW), width: dToW(barW, dayW) }}
                 onMouseDown={e => onDragPhaseStart(epicKey, ph, e)}
               >
-                {barW >= 4 ? `${PH_SHORT[ph]} ${barW}d` : `${barW}d`}
+                {barLabel}
+                <div
+                  className="pp-pbar-end-handle"
+                  onMouseDown={e => { e.stopPropagation(); onDragPhaseEnd(epicKey, ph, e); }}
+                  title="Drag to set end date"
+                />
               </div>
             </div>
           );
@@ -390,9 +550,36 @@ function EpicView({
             const rowKey   = `${phKey}_${assign.memberId}`;
             const isEditing = editingKey === rowKey;
 
+            // Person Gantt row — allocation visualization
+            const allocBarStartDay = startDay ?? 0;
             ganttRows.push(
-              <div key={`gperson-${phKey}-${assign.memberId}`} className="pp-g-person" style={{ minWidth: totalW }}>
+              <div key={`gperson-${phKey}-${assign.memberId}`} className="pp-g-person" style={{ minWidth: totalW, position: 'relative' }}>
                 <GridBg weeks={weeks} />
+                {hasStart && barW > 0 && assign.allocationMode !== 'segments' && (
+                  <div
+                    className={`pp-alloc-bar${assign.allocationMode === 'rate' ? ' rate' : ''}`}
+                    style={{ left: dToX(allocBarStartDay, dayW), width: dToW(barW, dayW) }}
+                    title={assign.allocationMode === 'rate' ? `${assign.daysPerWeek}d/wk` : `${assign.days}d`}
+                  >
+                    <span className="pp-alloc-bar-label">
+                      {assign.allocationMode === 'rate' ? `${assign.daysPerWeek}d/wk` : `${assign.days}d`}
+                    </span>
+                  </div>
+                )}
+                {assign.allocationMode === 'segments' && (assign.segments ?? []).map(seg => {
+                  const segStart = dateToDay(seg.startDate, tStart);
+                  const segEnd   = dateToDay(seg.endDate,   tStart);
+                  return (
+                    <div
+                      key={seg.id}
+                      className="pp-alloc-chip"
+                      style={{ left: dToX(segStart, dayW), width: dToW(Math.max(1, segEnd - segStart), dayW) }}
+                      title={`${seg.days}d: ${seg.startDate} → ${seg.endDate}`}
+                    >
+                      {seg.days}d
+                    </div>
+                  );
+                })}
               </div>
             );
 
@@ -437,31 +624,34 @@ function EpicView({
               );
             }
 
+            // Mode-aware days label
+            const daysLabel = assign.allocationMode === 'rate'
+              ? `${assign.daysPerWeek ?? 0}d/wk`
+              : assign.allocationMode === 'segments'
+                ? `${assign.days}d · ${(assign.segments ?? []).length}seg`
+                : `${assign.days}d`;
+
             lpRows.push(
               <div key={`person-${phKey}-${assign.memberId}`} className={`ev-person${isEditing ? ' editing' : ''}`}>
                 {avatarEl}
                 {nameEl}
-                <span
-                  className="ev-days"
-                  onClick={() => setEditingKey(rowKey)}
-                >
-                  {assign.days}d
-                </span>
-                <input
-                  className="ev-days-inp"
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  defaultValue={assign.days}
-                  ref={el => { if (el && isEditing) { el.focus(); el.select(); } }}
-                  onBlur={e => {
-                    const v = parseFloat(e.target.value);
-                    if (!isNaN(v) && v !== assign.days) onUpdateDays(epicKey, ph, assign.memberId, v);
-                    setEditingKey(null);
-                  }}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }}
-                />
-                <button className="ev-person-remove" onClick={() => onRemoveAssignment(epicKey, ph, assign.memberId)}>×</button>
+                {isEditing ? (
+                  <AllocEditor
+                    assign={assign}
+                    phaseStartDate={startDate}
+                    phaseEndDate={endDate}
+                    onClose={() => setEditingKey(null)}
+                    onUpdateDays={days => onUpdateDays(epicKey, ph, assign.memberId, days)}
+                    onUpdateMode={(mode, dpw) => onUpdateAllocationMode(epicKey, ph, assign.memberId, mode, dpw)}
+                    onUpsertSegment={seg => onUpsertSegment(epicKey, ph, assign.memberId, seg)}
+                    onRemoveSegment={segId => onRemoveSegment(epicKey, ph, assign.memberId, segId)}
+                  />
+                ) : (
+                  <span className="ev-days" onClick={() => setEditingKey(rowKey)}>{daysLabel}</span>
+                )}
+                {!isEditing && (
+                  <button className="ev-person-remove" onClick={() => onRemoveAssignment(epicKey, ph, assign.memberId)}>×</button>
+                )}
               </div>
             );
           }
@@ -719,7 +909,7 @@ function SummaryView({
   processTeams: ProcessTeam[];
   boardEpics: JiraWorkItem[];
   peopleSummaries: PersonSummary[];
-  phasePlansMap: Map<string, Map<PlanningPhase, string | null>>;
+  phasePlansMap: Map<string, Map<PlanningPhase, EpicPhasePlan>>;
   assignMap: Map<string, Map<PlanningPhase, EpicPhaseAssignment[]>>;
   absenceLookup: Record<string, number>;
   weeks: PortfolioWeek[];
@@ -834,7 +1024,7 @@ function SummaryView({
               </div>
               {boardEpics.map(epic => {
                 const epicKey  = epic.jiraKey;
-                const phPlans  = phasePlansMap.get(epicKey) ?? new Map<PlanningPhase, string | null>();
+                const phPlans  = phasePlansMap.get(epicKey) ?? new Map<PlanningPhase, EpicPhasePlan>();
                 return (
                   <div key={epicKey} className="pp-cg-epic-row">
                     <div className="pp-cg-epic-label">
@@ -852,12 +1042,13 @@ function SummaryView({
                       </div>
                       {/* Today line — positioned proportionally across flex columns */}
                       {PHASES.map(ph => {
-                        const startDate = phPlans.get(ph) ?? null;
-                        if (startDate === null) return null;
+                        const phasePlan = phPlans.get(ph) ?? null;
+                        const startDate = phasePlan?.startDate ?? null;
+                        if (!startDate) return null;
                         const tStartSv  = weeks[0]?.startDate ?? new Date();
                         const startDay  = dateToDay(startDate, tStartSv);
                         const assignments = assignMap.get(epicKey)?.get(ph) ?? [];
-                        const barW = calcBarWidthDays(assignments, absenceLookup);
+                        const barW = phasePlan ? (phaseBarWidthDays(phasePlan, tStartSv) ?? calcBarWidthDays(assignments, absenceLookup)) : calcBarWidthDays(assignments, absenceLookup);
                         if (barW <= 0) return null;
                         // Compact Gantt uses flex:1 per column, so positions are percentages of total days
                         const totalDays = nWeeks * 5;
@@ -1280,12 +1471,12 @@ export function PortfolioPlanning() {
   const activePhasePlans      = activeScenario ? activeScenario.phasePlans      : plan.phasePlans;
   const activePhaseAssignments = activeScenario ? activeScenario.phaseAssignments : plan.phaseAssignments;
 
-  // Maps epicKey → phase → startDate (ISO string)
+  // Maps epicKey → phase → EpicPhasePlan
   const phasePlansMap = useMemo(() => {
-    const m = new Map<string, Map<PlanningPhase, string | null>>();
+    const m = new Map<string, Map<PlanningPhase, EpicPhasePlan>>();
     for (const p of activePhasePlans) {
       if (!m.has(p.epicKey)) m.set(p.epicKey, new Map());
-      m.get(p.epicKey)!.set(p.phase, p.startDate);
+      m.get(p.epicKey)!.set(p.phase, p);
     }
     return m;
   }, [activePhasePlans]);
@@ -1315,9 +1506,10 @@ export function PortfolioPlanning() {
     for (const epic of boardEpics) {
       const phAssign = assignMap.get(epic.jiraKey) ?? new Map();
       for (const [phase, assignments] of phAssign.entries()) {
-        const startDate = phasePlansMap.get(epic.jiraKey)?.get(phase) ?? null;
+        const phasePlan = phasePlansMap.get(epic.jiraKey)?.get(phase) ?? null;
+        const startDate = phasePlan?.startDate ?? null;
         const startDay  = startDate !== null ? dateToDay(startDate, tStart) : null;
-        const barW     = calcBarWidthDays(assignments, absenceLookup);
+        const barW      = phasePlan ? (phaseBarWidthDays(phasePlan, tStart) ?? calcBarWidthDays(assignments, absenceLookup)) : calcBarWidthDays(assignments, absenceLookup);
         for (const a of assignments) {
           if (!map.has(a.memberId)) {
             const member  = memberMap.get(a.memberId);
@@ -1428,11 +1620,26 @@ export function PortfolioPlanning() {
         const existing = s.phasePlans.find(p => p.epicKey === epicKey && p.phase === phase);
         const newPlans = existing
           ? s.phasePlans.map(p => p.epicKey === epicKey && p.phase === phase ? { ...p, startDate, updatedAt: now } : p)
-          : [...s.phasePlans, { id: `local-${epicKey}-${phase}`, epicKey, phase, startDate, updatedAt: now }];
+          : [...s.phasePlans, { id: `local-${epicKey}-${phase}`, epicKey, phase, startDate, endDate: null, updatedAt: now }];
         return { ...s, phasePlans: newPlans };
       });
     } else {
       await plan.setPhaseStartDate(epicKey, phase, startDate);
+    }
+  }, [activeScenario, updateActiveFork, plan]);
+
+  const handleSetPhaseEndDate = useCallback(async (epicKey: string, phase: PlanningPhase, endDate: string) => {
+    if (activeScenario) {
+      const now = new Date().toISOString();
+      updateActiveFork(s => {
+        const existing = s.phasePlans.find(p => p.epicKey === epicKey && p.phase === phase);
+        const newPlans = existing
+          ? s.phasePlans.map(p => p.epicKey === epicKey && p.phase === phase ? { ...p, endDate, updatedAt: now } : p)
+          : [...s.phasePlans, { id: `local-${epicKey}-${phase}`, epicKey, phase, startDate: null, endDate, updatedAt: now }];
+        return { ...s, phasePlans: newPlans };
+      });
+    } else {
+      await plan.setPhaseEndDate(epicKey, phase, endDate);
     }
   }, [activeScenario, updateActiveFork, plan]);
 
@@ -1442,7 +1649,7 @@ export function PortfolioPlanning() {
       updateActiveFork(s => ({
         ...s,
         phasePlans: s.phasePlans.map(p =>
-          p.epicKey === epicKey && p.phase === phase ? { ...p, startDate: null, updatedAt: now } : p
+          p.epicKey === epicKey && p.phase === phase ? { ...p, startDate: null, endDate: null, updatedAt: now } : p
         ),
       }));
     } else {
@@ -1451,8 +1658,11 @@ export function PortfolioPlanning() {
   }, [activeScenario, updateActiveFork, plan]);
 
   const handleUpsertAssignment = useCallback(async (
-    epicKey: string, phase: PlanningPhase, memberId: string, days: number, track: 'IT' | 'BIZ'
+    epicKey: string, phase: PlanningPhase, memberId: string, days: number, track: 'IT' | 'BIZ',
+    options?: { allocationMode?: AllocationMode; daysPerWeek?: number }
   ) => {
+    const mode = options?.allocationMode ?? 'flat';
+    const dpw  = options?.daysPerWeek;
     if (activeScenario) {
       const now = new Date().toISOString();
       updateActiveFork(s => {
@@ -1462,13 +1672,61 @@ export function PortfolioPlanning() {
         const newAssignments = existing
           ? s.phaseAssignments.map(a =>
               a.epicKey === epicKey && a.phase === phase && a.memberId === memberId
-                ? { ...a, days, track, updatedAt: now } : a
+                ? { ...a, days, track, allocationMode: mode, daysPerWeek: dpw, updatedAt: now } : a
             )
-          : [...s.phaseAssignments, { id: `local-${epicKey}-${phase}-${memberId}`, epicKey, phase, memberId, days, track, updatedAt: now }];
+          : [...s.phaseAssignments, { id: `local-${epicKey}-${phase}-${memberId}`, epicKey, phase, memberId, days, track, allocationMode: mode, daysPerWeek: dpw, updatedAt: now }];
         return { ...s, phaseAssignments: newAssignments };
       });
     } else {
-      await plan.upsertAssignment(epicKey, phase, memberId, days, track);
+      await plan.upsertAssignment(epicKey, phase, memberId, days, track, { allocationMode: mode, daysPerWeek: dpw });
+    }
+  }, [activeScenario, updateActiveFork, plan]);
+
+  const handleUpdateAllocationMode = useCallback(async (
+    epicKey: string, phase: PlanningPhase, memberId: string, mode: AllocationMode, daysPerWeek?: number
+  ) => {
+    const existing = activePhaseAssignments.find(
+      a => a.epicKey === epicKey && a.phase === phase && a.memberId === memberId
+    );
+    if (!existing) return;
+    await handleUpsertAssignment(epicKey, phase, memberId, existing.days, existing.track, { allocationMode: mode, daysPerWeek });
+  }, [activePhaseAssignments, handleUpsertAssignment]);
+
+  const handleUpsertSegment = useCallback(async (
+    epicKey: string, phase: PlanningPhase, memberId: string, seg: AllocationSegment
+  ) => {
+    if (activeScenario) {
+      const now = new Date().toISOString();
+      updateActiveFork(s => ({
+        ...s,
+        phaseAssignments: s.phaseAssignments.map(a => {
+          if (a.epicKey !== epicKey || a.phase !== phase || a.memberId !== memberId) return a;
+          const existing = a.segments ?? [];
+          const idx = existing.findIndex(s2 => s2.id === seg.id);
+          const newSegs = idx >= 0 ? existing.map((s2, i) => (i === idx ? seg : s2)) : [...existing, seg];
+          return { ...a, segments: newSegs, days: newSegs.reduce((sum, s2) => sum + s2.days, 0), updatedAt: now };
+        }),
+      }));
+    } else {
+      await plan.upsertSegment(epicKey, phase, memberId, seg);
+    }
+  }, [activeScenario, updateActiveFork, plan]);
+
+  const handleRemoveSegment = useCallback(async (
+    epicKey: string, phase: PlanningPhase, memberId: string, segmentId: string
+  ) => {
+    if (activeScenario) {
+      const now = new Date().toISOString();
+      updateActiveFork(s => ({
+        ...s,
+        phaseAssignments: s.phaseAssignments.map(a => {
+          if (a.epicKey !== epicKey || a.phase !== phase || a.memberId !== memberId) return a;
+          const newSegs = (a.segments ?? []).filter(sg => sg.id !== segmentId);
+          return { ...a, segments: newSegs, days: newSegs.reduce((sum, sg) => sum + sg.days, 0), updatedAt: now };
+        }),
+      }));
+    } else {
+      await plan.removeSegment(epicKey, phase, memberId, segmentId);
     }
   }, [activeScenario, updateActiveFork, plan]);
 
@@ -1535,10 +1793,11 @@ export function PortfolioPlanning() {
     saveForkScenarios(forkScenarios);
   }, [forkScenarios]);
 
-  // ── Drag to reposition phase bar ──────────────────────────────────────────
+  // ── Drag to reposition / resize phase bar ────────────────────────────────
   const handleDragPhaseStart = useCallback((epicKey: string, phase: PlanningPhase, e: React.MouseEvent) => {
     e.preventDefault();
-    const startDate = phasePlansMap.get(epicKey)?.get(phase) ?? null;
+    const plan0 = phasePlansMap.get(epicKey)?.get(phase) ?? null;
+    const startDate = plan0?.startDate ?? null;
     const origDay   = startDate !== null ? dateToDay(startDate, tStart) : 0;
     dragRef.current = { epicKey, phase, startX: e.clientX, origDay };
 
@@ -1558,6 +1817,31 @@ export function PortfolioPlanning() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   }, [phasePlansMap, dayW, tStart, handleSetPhaseStartDate]);
+
+  const handleDragPhaseEnd = useCallback((epicKey: string, phase: PlanningPhase, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const plan0   = phasePlansMap.get(epicKey)?.get(phase) ?? null;
+    const endDate = plan0?.endDate ?? plan0?.startDate ?? null;
+    const origDay = endDate !== null ? dateToDay(endDate, tStart) : 0;
+    dragRef.current = { epicKey, phase, startX: e.clientX, origDay };
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      const dx     = ev.clientX - dragRef.current.startX;
+      const dDay   = Math.round(dx / dayW);
+      const newDay = Math.max(1, dragRef.current.origDay + dDay);
+      const newDate = dayToIsoDate(newDay, tStart);
+      handleSetPhaseEndDate(dragRef.current.epicKey, dragRef.current.phase, newDate);
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [phasePlansMap, dayW, tStart, handleSetPhaseEndDate]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleEpic = useCallback((key: string) => {
@@ -1699,12 +1983,20 @@ export function PortfolioPlanning() {
               handleSetPhaseStartDate(epicKey, phase, dayToIsoDate(weekIdx * 5, tStart))
             }
             onDragPhaseStart={handleDragPhaseStart}
+            onDragPhaseEnd={handleDragPhaseEnd}
             onClearPhase={handleClearPhase}
             onRemoveAssignment={handleRemoveAssignment}
             onUpdateDays={(epicKey, phase, memberId, days) => {
               const existing = activePhaseAssignments.find(a => a.epicKey === epicKey && a.phase === phase && a.memberId === memberId);
-              if (existing) handleUpsertAssignment(epicKey, phase, memberId, days, existing.track);
+              if (existing) handleUpsertAssignment(epicKey, phase, memberId, days, existing.track, { allocationMode: existing.allocationMode, daysPerWeek: existing.daysPerWeek });
             }}
+            onSetPhaseDates={(epicKey, phase, field, date) => {
+              if (field === 'start') handleSetPhaseStartDate(epicKey, phase, date);
+              else handleSetPhaseEndDate(epicKey, phase, date);
+            }}
+            onUpdateAllocationMode={handleUpdateAllocationMode}
+            onUpsertSegment={handleUpsertSegment}
+            onRemoveSegment={handleRemoveSegment}
             onAddPerson={handleAddPerson}
             onExpandAll={expandAll}
             onCollapseAll={collapseAll}

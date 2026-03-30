@@ -386,8 +386,32 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-ph-label.t { background: var(--t-bg); color: var(--t-c); }
 .pp-ph-label.p { background: var(--p-bg); color: var(--p-c); }
 .pp-ph-label.h { background: var(--h-bg); color: var(--h-c); }
-.ph-dates { font-size: 11px; color: var(--txt3); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-dates { font-size: 11px; color: var(--txt3); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; }
 .ph-dates.set { color: var(--txt2); }
+.ph-dates:hover { background: #F5F8FC; border-radius: 3px; }
+
+/* Inline phase date editor */
+.ph-date-editor {
+  display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0;
+}
+.ph-date-editor input[type="date"] {
+  width: 108px; padding: 2px 5px;
+  border: 1px solid #0089DD; border-radius: 4px;
+  font-size: 11px; font-family: inherit;
+  background: #fff; outline: none;
+}
+.ph-date-editor input[type="date"]:focus {
+  box-shadow: 0 0 0 2px rgba(0, 137, 221, .15);
+}
+.ph-date-sep { color: #94A3B8; font-size: 11px; flex-shrink: 0; }
+.ph-date-close {
+  width: 16px; height: 16px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; cursor: pointer;
+  color: var(--txt3); font-size: 10px; border-radius: 3px;
+  padding: 0;
+}
+.ph-date-close:hover { background: #F0F4F8; color: var(--txt1); }
 .ph-dur { font-size: 11px; font-weight: 600; color: var(--txt1); flex-shrink: 0; }
 .ph-total { font-size: 11px; color: var(--txt2); flex-shrink: 0; min-width: 44px; text-align: right; }
 .ph-expand { cursor: pointer; flex-shrink: 0; }
@@ -869,3 +893,113 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-picker-badge.team { background: #F0F2F5; color: #64748B; }
 .pp-picker-added { font-size: 10px; color: #94A3B8; flex-shrink: 0; }
 .pp-picker-empty { padding: 14px 12px; font-size: 12px; color: #94A3B8; text-align: center; }
+
+/* ── Phase bar — end handle & no-end state ───────────────────────────────── */
+.pp-pbar { position: relative; overflow: visible; }
+.pp-pbar.no-end { border-right: 2px dashed currentColor; opacity: .85; }
+.pp-pbar-end-handle {
+  position: absolute; right: -4px; top: 0; bottom: 0; width: 10px;
+  cursor: col-resize; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+}
+.pp-pbar-end-handle::after {
+  content: ''; display: block;
+  width: 3px; height: 14px; border-radius: 2px;
+  background: rgba(255,255,255,.7);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.15);
+}
+.pp-pbar:hover .pp-pbar-end-handle::after { background: rgba(255,255,255,.95); }
+
+/* ── Allocation bars (person Gantt row) ──────────────────────────────────── */
+.pp-alloc-bar {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  height: 8px; border-radius: 3px; min-width: 4px;
+  background: #CBD5E1; opacity: .85; overflow: hidden;
+  display: flex; align-items: center; pointer-events: none;
+}
+.pp-alloc-bar.rate {
+  background: repeating-linear-gradient(
+    -45deg, #CBD5E1 0 3px, #E2E8F0 3px 6px
+  );
+}
+.pp-alloc-bar-label {
+  font-size: 9px; color: #475569; font-weight: 500;
+  padding: 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pp-alloc-chip {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  height: 14px; border-radius: 3px; min-width: 8px;
+  background: #93C5FD; border: 1px solid #60A5FA;
+  font-size: 9px; color: #1D4ED8; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px; pointer-events: none; white-space: nowrap;
+}
+
+/* ── Allocation mode editor ──────────────────────────────────────────────── */
+.ev-alloc-editor {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 10px; background: #F8FAFC;
+  border: 1px solid #E2E8F0; border-radius: 6px;
+  margin: 2px 0; font-size: 12px; flex: 1; min-width: 0;
+}
+.ev-alloc-mode-tabs {
+  display: flex; gap: 3px;
+}
+.ev-alloc-tab {
+  flex: 1; padding: 3px 0; border: 1px solid #E2E8F0;
+  border-radius: 4px; background: #fff; font-size: 10px;
+  font-weight: 500; color: #64748B; cursor: pointer;
+  transition: background 80ms, color 80ms;
+}
+.ev-alloc-tab.on {
+  background: #0089DD; border-color: #0089DD; color: #fff;
+}
+.ev-alloc-tab:not(.on):hover { background: #F1F5F9; }
+.ev-alloc-flat, .ev-alloc-rate {
+  display: flex; align-items: center; gap: 5px;
+}
+.ev-alloc-flat input, .ev-alloc-rate input {
+  width: 52px; padding: 3px 5px; border: 1px solid #CBD5E1;
+  border-radius: 4px; font-size: 12px; font-family: inherit;
+  background: #fff; outline: none;
+}
+.ev-alloc-flat input:focus, .ev-alloc-rate input:focus {
+  border-color: #0089DD;
+}
+.ev-alloc-unit { color: #64748B; font-size: 11px; }
+.ev-alloc-computed { color: #94A3B8; font-size: 10px; margin-left: 2px; }
+.ev-alloc-segs { display: flex; flex-direction: column; gap: 4px; }
+.ev-seg-row {
+  display: flex; align-items: center; gap: 3px; font-size: 11px;
+}
+.ev-seg-row input[type="date"] {
+  width: 96px; padding: 2px 4px; border: 1px solid #CBD5E1;
+  border-radius: 4px; font-size: 10px; font-family: inherit;
+  background: #fff; outline: none;
+}
+.ev-seg-row input[type="date"]:focus { border-color: #0089DD; }
+.ev-seg-row input[type="number"] {
+  width: 36px; padding: 2px 4px; border: 1px solid #CBD5E1;
+  border-radius: 4px; font-size: 11px; font-family: inherit;
+  background: #fff; outline: none;
+}
+.ev-seg-row input[type="number"]:focus { border-color: #0089DD; }
+.ev-seg-arrow { color: #94A3B8; font-size: 10px; flex-shrink: 0; }
+.ev-seg-remove {
+  background: none; border: none; cursor: pointer;
+  color: #94A3B8; font-size: 14px; line-height: 1; padding: 0 2px;
+  flex-shrink: 0;
+}
+.ev-seg-remove:hover { color: #EF4444; }
+.ev-seg-add {
+  background: none; border: 1px dashed #CBD5E1; border-radius: 4px;
+  font-size: 10px; color: #0089DD; cursor: pointer; padding: 3px 6px;
+  align-self: flex-start;
+}
+.ev-seg-add:hover { background: #EBF5FC; border-color: #0089DD; }
+.ev-alloc-done {
+  align-self: flex-end; padding: 3px 10px; border: 1px solid #CBD5E1;
+  border-radius: 4px; background: #fff; font-size: 11px; font-weight: 500;
+  color: #475569; cursor: pointer;
+}
+.ev-alloc-done:hover { background: #F1F5F9; }

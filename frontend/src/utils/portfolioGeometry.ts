@@ -162,12 +162,24 @@ export function todayDayOffset(tStart: Date): number {
 
 // ── Bar width ──────────────────────────────────────────────────────────────────
 
-import type { EpicPhaseAssignment, PlanningPhase } from '../types';
+import type { EpicPhaseAssignment, EpicPhasePlan, PlanningPhase } from '../types';
 
 /**
- * Width in working days for a phase bar.
+ * Width in working days for a phase bar derived from explicit start/end dates.
+ * Returns null if either date is missing (caller should fall back to legacy calc).
+ */
+export function phaseBarWidthDays(plan: EpicPhasePlan, tStart: Date): number | null {
+  if (!plan.startDate || !plan.endDate) return null;
+  const start = dateToDay(plan.startDate, tStart);
+  const end   = dateToDay(plan.endDate,   tStart);
+  return Math.max(1, end - start);
+}
+
+/**
+ * Legacy fallback: width in working days for a phase bar.
  * Uses the person with the most assigned days as the anchor and adds their
  * absence days so the bar spans calendar duration (not just work duration).
+ * Used only when a phase has no explicit endDate.
  */
 export function calcBarWidthDays(
   assignments: EpicPhaseAssignment[],
@@ -176,6 +188,36 @@ export function calcBarWidthDays(
   if (!assignments.length) return 0;
   const max = assignments.reduce((a, b) => (a.days >= b.days ? a : b));
   return max.days + (absenceLookup[max.memberId] ?? 0);
+}
+
+/**
+ * Returns the number of calendar weeks between two ISO date strings.
+ * Uses calendar weeks (not working weeks) to match user mental model.
+ */
+export function weeksBetween(startIso: string, endIso: string): number {
+  const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime();
+  return Math.max(1, Math.round(diffMs / (7 * 86_400_000)));
+}
+
+/**
+ * Computes total days for an assignment based on its allocationMode:
+ *   flat     → assignment.days
+ *   rate     → assignment.daysPerWeek × weeks in phase
+ *   segments → sum of segment.days
+ */
+export function totalDaysFromAssignment(
+  a: EpicPhaseAssignment,
+  phaseStartDate: string | null,
+  phaseEndDate: string | null,
+): number {
+  if (a.allocationMode === 'rate') {
+    if (!a.daysPerWeek || !phaseStartDate || !phaseEndDate) return a.days;
+    return Math.round(a.daysPerWeek * weeksBetween(phaseStartDate, phaseEndDate) * 10) / 10;
+  }
+  if (a.allocationMode === 'segments') {
+    return (a.segments ?? []).reduce((sum, s) => sum + s.days, 0);
+  }
+  return a.days;
 }
 
 // ── Phase metadata ─────────────────────────────────────────────────────────────
