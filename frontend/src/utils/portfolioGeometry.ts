@@ -121,6 +121,30 @@ export const dToX = (days: number, dayW: number): number => days * dayW;
 export const dToW = (days: number, dayW: number): number => Math.max(dayW, days * dayW);
 export const xToD = (x: number, dayW: number): number => Math.max(0, Math.round(x / dayW));
 
+// ── Absolute date ↔ working-day offset helpers ─────────────────────────────────
+
+/**
+ * Convert an absolute ISO date string to a working-day offset from tStart.
+ * Used at render time so phase bars stay at the correct calendar position
+ * regardless of which quarter is selected.
+ */
+export function dateToDay(isoDate: string, tStart: Date): number {
+  const d = new Date(isoDate);
+  const diffMs   = d.getTime() - tStart.getTime();
+  const diffDays = Math.round(diffMs / 86_400_000);
+  return Math.round(diffDays * 5 / 7);
+}
+
+/**
+ * Convert a working-day offset from tStart to an absolute ISO date string.
+ * Used when saving a drag position so the stored value is quarter-independent.
+ */
+export function dayToIsoDate(day: number, tStart: Date): string {
+  const d = new Date(tStart);
+  d.setDate(d.getDate() + Math.round(day * 7 / 5));
+  return d.toISOString().slice(0, 10);
+}
+
 /** Convert a working-day offset from T_START to a human-readable date label. */
 export function dayToDateStr(day: number, tStart: Date): string {
   const d = new Date(tStart);

@@ -18,7 +18,7 @@ export interface UsePortfolioPlanReturn {
   phaseAssignments:    EpicPhaseAssignment[];
   addEpicToBoard:      (epicKey: string) => void;
   removeEpicFromBoard: (epicKey: string) => void;
-  setPhaseStartDay:    (epicKey: string, phase: PlanningPhase, startDay: number) => Promise<void>;
+  setPhaseStartDate:   (epicKey: string, phase: PlanningPhase, startDate: string) => Promise<void>;
   clearPhase:          (epicKey: string, phase: PlanningPhase) => Promise<void>;
   upsertAssignment:    (epicKey: string, phase: PlanningPhase, memberId: string, days: number, track: 'IT' | 'BIZ') => Promise<void>;
   removeAssignment:    (epicKey: string, phase: PlanningPhase, memberId: string) => Promise<void>;
@@ -63,12 +63,12 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
         setPhasePlans(
           (plansRes.data as Array<{
             id: string; epic_key: string; phase: string;
-            start_day: number | null; updated_at: string;
+            start_date: string | null; updated_at: string;
           }>).map(r => ({
-            id:       r.id,
-            epicKey:  r.epic_key,
-            phase:    r.phase as PlanningPhase,
-            startDay: r.start_day,
+            id:        r.id,
+            epicKey:   r.epic_key,
+            phase:     r.phase as PlanningPhase,
+            startDate: r.start_date,
             updatedAt: r.updated_at,
           }))
         );
@@ -123,11 +123,11 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     }
   }, []);
 
-  // ── Phase start day ───────────────────────────────────────────────────────
-  const setPhaseStartDay = useCallback(async (
+  // ── Phase start date ──────────────────────────────────────────────────────
+  const setPhaseStartDate = useCallback(async (
     epicKey: string,
     phase: PlanningPhase,
-    startDay: number,
+    startDate: string,
   ) => {
     const now = new Date().toISOString();
     const existing = phasePlans.find(p => p.epicKey === epicKey && p.phase === phase);
@@ -136,47 +136,47 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     if (existing) {
       setPhasePlans(prev => prev.map(p =>
         p.epicKey === epicKey && p.phase === phase
-          ? { ...p, startDay, updatedAt: now }
+          ? { ...p, startDate, updatedAt: now }
           : p
       ));
     } else {
       const tempId = `local-${epicKey}-${phase}`;
-      setPhasePlans(prev => [...prev, { id: tempId, epicKey, phase, startDay, updatedAt: now }]);
+      setPhasePlans(prev => [...prev, { id: tempId, epicKey, phase, startDate, updatedAt: now }]);
     }
 
     if (!isSupabaseConfigured()) return;
 
     const { data, error } = await supabase
       .from('epic_phase_plans')
-      .upsert({ epic_key: epicKey, phase, start_day: startDay }, { onConflict: 'epic_key,phase' })
+      .upsert({ epic_key: epicKey, phase, start_date: startDate }, { onConflict: 'epic_key,phase' })
       .select()
       .single();
 
     if (!error && data) {
-      const row = data as { id: string; epic_key: string; phase: string; start_day: number | null; updated_at: string };
+      const row = data as { id: string; epic_key: string; phase: string; start_date: string | null; updated_at: string };
       setPhasePlans(prev => {
         const without = prev.filter(p => !(p.epicKey === epicKey && p.phase === phase) || p.id === row.id);
         const alreadyHas = without.some(p => p.id === row.id);
         return alreadyHas
-          ? without.map(p => p.id === row.id ? { ...p, startDay: row.start_day, updatedAt: row.updated_at } : p)
+          ? without.map(p => p.id === row.id ? { ...p, startDate: row.start_date, updatedAt: row.updated_at } : p)
           : [...without.filter(p => !(p.epicKey === epicKey && p.phase === phase)),
-             { id: row.id, epicKey: row.epic_key, phase: row.phase as PlanningPhase, startDay: row.start_day, updatedAt: row.updated_at }];
+             { id: row.id, epicKey: row.epic_key, phase: row.phase as PlanningPhase, startDate: row.start_date, updatedAt: row.updated_at }];
       });
     }
   }, [phasePlans]);
 
-  // ── Clear phase (remove start day) ───────────────────────────────────────
+  // ── Clear phase (remove start date) ──────────────────────────────────────
   const clearPhase = useCallback(async (epicKey: string, phase: PlanningPhase) => {
     const now = new Date().toISOString();
     setPhasePlans(prev => prev.map(p =>
-      p.epicKey === epicKey && p.phase === phase ? { ...p, startDay: null, updatedAt: now } : p
+      p.epicKey === epicKey && p.phase === phase ? { ...p, startDate: null, updatedAt: now } : p
     ));
 
     if (!isSupabaseConfigured()) return;
 
     await supabase
       .from('epic_phase_plans')
-      .upsert({ epic_key: epicKey, phase, start_day: null }, { onConflict: 'epic_key,phase' });
+      .upsert({ epic_key: epicKey, phase, start_date: null }, { onConflict: 'epic_key,phase' });
   }, []);
 
   // ── Assignments ───────────────────────────────────────────────────────────
@@ -246,7 +246,7 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     phaseAssignments,
     addEpicToBoard,
     removeEpicFromBoard,
-    setPhaseStartDay,
+    setPhaseStartDate,
     clearPhase,
     upsertAssignment,
     removeAssignment,

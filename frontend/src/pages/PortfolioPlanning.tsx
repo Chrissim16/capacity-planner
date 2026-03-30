@@ -21,6 +21,8 @@ import {
   dayToDateStr,
   todayDayOffset,
   calcBarWidthDays,
+  dateToDay,
+  dayToIsoDate,
   PHASES,
   PH_KEY,
   PH_LBL,
@@ -181,7 +183,7 @@ function TodayLine({ tStart, totalW, dayW }: { tStart: Date; totalW: number; day
 // ─────────────────────────────────────────────────────────────────────────────
 interface EpicViewProps {
   boardEpics:    JiraWorkItem[];
-  phasePlansMap: Map<string, Map<PlanningPhase, number | null>>;  // epicKey → phase → startDay
+  phasePlansMap: Map<string, Map<PlanningPhase, string | null>>;  // epicKey → phase → startDate (ISO)
   assignMap:     Map<string, Map<PlanningPhase, EpicPhaseAssignment[]>>;
   absenceLookup: Record<string, number>;
   memberMap:     Map<string, TeamMember>;
@@ -252,7 +254,7 @@ function EpicView({
 
   for (const epic of boardEpics) {
     const epicKey  = epic.jiraKey;
-    const phPlans  = phasePlansMap.get(epicKey) ?? new Map<PlanningPhase, number | null>();
+    const phPlans  = phasePlansMap.get(epicKey) ?? new Map<PlanningPhase, string | null>();
     const phAssign = assignMap.get(epicKey)     ?? new Map<PlanningPhase, EpicPhaseAssignment[]>();
     const collapsed = epicCollapsed[epicKey] ?? false;
     const epicRequiredSkills = getEffectiveSkills(epic, allJiraItems);
@@ -283,8 +285,9 @@ function EpicView({
         <GridBg weeks={weeks} />
         <TodayLine tStart={tStart} totalW={totalW} dayW={dayW} />
         {PHASES.map(ph => {
-          const startDay = phPlans.get(ph) ?? null;
-          if (startDay === null) return null;
+          const startDate = phPlans.get(ph) ?? null;
+          if (startDate === null) return null;
+          const startDay = dateToDay(startDate, tStart);
           const assignments = phAssign.get(ph) ?? [];
           const barW = calcBarWidthDays(assignments, absenceLookup);
           if (barW <= 0) return null;
@@ -308,7 +311,8 @@ function EpicView({
 
     if (!collapsed) {
       for (const ph of PHASES) {
-        const startDay   = phPlans.get(ph) ?? null;
+        const startDate  = phPlans.get(ph) ?? null;
+        const startDay   = startDate !== null ? dateToDay(startDate, tStart) : null;
         const assignments = phAssign.get(ph) ?? [];
         const barW       = calcBarWidthDays(assignments, absenceLookup);
         const hasBar     = startDay !== null && barW > 0;
@@ -715,7 +719,7 @@ function SummaryView({
   processTeams: ProcessTeam[];
   boardEpics: JiraWorkItem[];
   peopleSummaries: PersonSummary[];
-  phasePlansMap: Map<string, Map<PlanningPhase, number | null>>;
+  phasePlansMap: Map<string, Map<PlanningPhase, string | null>>;
   assignMap: Map<string, Map<PlanningPhase, EpicPhaseAssignment[]>>;
   absenceLookup: Record<string, number>;
   weeks: PortfolioWeek[];
@@ -830,7 +834,7 @@ function SummaryView({
               </div>
               {boardEpics.map(epic => {
                 const epicKey  = epic.jiraKey;
-                const phPlans  = phasePlansMap.get(epicKey) ?? new Map<PlanningPhase, number | null>();
+                const phPlans  = phasePlansMap.get(epicKey) ?? new Map<PlanningPhase, string | null>();
                 return (
                   <div key={epicKey} className="pp-cg-epic-row">
                     <div className="pp-cg-epic-label">
@@ -848,8 +852,10 @@ function SummaryView({
                       </div>
                       {/* Today line — positioned proportionally across flex columns */}
                       {PHASES.map(ph => {
-                        const startDay = phPlans.get(ph) ?? null;
-                        if (startDay === null) return null;
+                        const startDate = phPlans.get(ph) ?? null;
+                        if (startDate === null) return null;
+                        const tStartSv  = weeks[0]?.startDate ?? new Date();
+                        const startDay  = dateToDay(startDate, tStartSv);
                         const assignments = assignMap.get(epicKey)?.get(ph) ?? [];
                         const barW = calcBarWidthDays(assignments, absenceLookup);
                         if (barW <= 0) return null;
@@ -1274,12 +1280,12 @@ export function PortfolioPlanning() {
   const activePhasePlans      = activeScenario ? activeScenario.phasePlans      : plan.phasePlans;
   const activePhaseAssignments = activeScenario ? activeScenario.phaseAssignments : plan.phaseAssignments;
 
-  // Maps epicKey → phase → startDay
+  // Maps epicKey → phase → startDate (ISO string)
   const phasePlansMap = useMemo(() => {
-    const m = new Map<string, Map<PlanningPhase, number | null>>();
+    const m = new Map<string, Map<PlanningPhase, string | null>>();
     for (const p of activePhasePlans) {
       if (!m.has(p.epicKey)) m.set(p.epicKey, new Map());
-      m.get(p.epicKey)!.set(p.phase, p.startDay);
+      m.get(p.epicKey)!.set(p.phase, p.startDate);
     }
     return m;
   }, [activePhasePlans]);
@@ -1309,7 +1315,8 @@ export function PortfolioPlanning() {
     for (const epic of boardEpics) {
       const phAssign = assignMap.get(epic.jiraKey) ?? new Map();
       for (const [phase, assignments] of phAssign.entries()) {
-        const startDay = phasePlansMap.get(epic.jiraKey)?.get(phase) ?? null;
+        const startDate = phasePlansMap.get(epic.jiraKey)?.get(phase) ?? null;
+        const startDay  = startDate !== null ? dateToDay(startDate, tStart) : null;
         const barW     = calcBarWidthDays(assignments, absenceLookup);
         for (const a of assignments) {
           if (!map.has(a.memberId)) {
@@ -1338,7 +1345,7 @@ export function PortfolioPlanning() {
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, quarter, state]);
+  }, [boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, quarter, state, tStart]);
 
   // Maps memberId → overload tier ('over' | 'near') for quarter-level capacity
   const personOverloadMap = useMemo((): Map<string, 'over' | 'near'> => {
@@ -1414,18 +1421,18 @@ export function PortfolioPlanning() {
     setForkScenarios(prev => prev.map(s => s.id === activeScenarioId ? updater(s) : s));
   }, [activeScenarioId]);
 
-  const handleSetPhaseStartDay = useCallback(async (epicKey: string, phase: PlanningPhase, startDay: number) => {
+  const handleSetPhaseStartDate = useCallback(async (epicKey: string, phase: PlanningPhase, startDate: string) => {
     if (activeScenario) {
       const now = new Date().toISOString();
       updateActiveFork(s => {
         const existing = s.phasePlans.find(p => p.epicKey === epicKey && p.phase === phase);
         const newPlans = existing
-          ? s.phasePlans.map(p => p.epicKey === epicKey && p.phase === phase ? { ...p, startDay, updatedAt: now } : p)
-          : [...s.phasePlans, { id: `local-${epicKey}-${phase}`, epicKey, phase, startDay, updatedAt: now }];
+          ? s.phasePlans.map(p => p.epicKey === epicKey && p.phase === phase ? { ...p, startDate, updatedAt: now } : p)
+          : [...s.phasePlans, { id: `local-${epicKey}-${phase}`, epicKey, phase, startDate, updatedAt: now }];
         return { ...s, phasePlans: newPlans };
       });
     } else {
-      await plan.setPhaseStartDay(epicKey, phase, startDay);
+      await plan.setPhaseStartDate(epicKey, phase, startDate);
     }
   }, [activeScenario, updateActiveFork, plan]);
 
@@ -1435,7 +1442,7 @@ export function PortfolioPlanning() {
       updateActiveFork(s => ({
         ...s,
         phasePlans: s.phasePlans.map(p =>
-          p.epicKey === epicKey && p.phase === phase ? { ...p, startDay: null, updatedAt: now } : p
+          p.epicKey === epicKey && p.phase === phase ? { ...p, startDate: null, updatedAt: now } : p
         ),
       }));
     } else {
@@ -1531,15 +1538,17 @@ export function PortfolioPlanning() {
   // ── Drag to reposition phase bar ──────────────────────────────────────────
   const handleDragPhaseStart = useCallback((epicKey: string, phase: PlanningPhase, e: React.MouseEvent) => {
     e.preventDefault();
-    const startDay = phasePlansMap.get(epicKey)?.get(phase) ?? 0;
-    dragRef.current = { epicKey, phase, startX: e.clientX, origDay: startDay ?? 0 };
+    const startDate = phasePlansMap.get(epicKey)?.get(phase) ?? null;
+    const origDay   = startDate !== null ? dateToDay(startDate, tStart) : 0;
+    dragRef.current = { epicKey, phase, startX: e.clientX, origDay };
 
     const onMove = (ev: MouseEvent) => {
       if (!dragRef.current) return;
-      const dx   = ev.clientX - dragRef.current.startX;
-      const dDay = Math.round(dx / dayW);
+      const dx     = ev.clientX - dragRef.current.startX;
+      const dDay   = Math.round(dx / dayW);
       const newDay = Math.max(0, dragRef.current.origDay + dDay);
-      handleSetPhaseStartDay(dragRef.current.epicKey, dragRef.current.phase, newDay);
+      const newDate = dayToIsoDate(newDay, tStart);
+      handleSetPhaseStartDate(dragRef.current.epicKey, dragRef.current.phase, newDate);
     };
     const onUp = () => {
       dragRef.current = null;
@@ -1548,7 +1557,7 @@ export function PortfolioPlanning() {
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [phasePlansMap, dayW, handleSetPhaseStartDay]);
+  }, [phasePlansMap, dayW, tStart, handleSetPhaseStartDate]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleEpic = useCallback((key: string) => {
@@ -1687,7 +1696,7 @@ export function PortfolioPlanning() {
             onTogglePhasePersons={togglePhasePersons}
             onRemoveEpic={plan.removeEpicFromBoard}
             onSetPhaseStart={(epicKey, phase, weekIdx) =>
-              handleSetPhaseStartDay(epicKey, phase, weekIdx * 5)
+              handleSetPhaseStartDate(epicKey, phase, dayToIsoDate(weekIdx * 5, tStart))
             }
             onDragPhaseStart={handleDragPhaseStart}
             onClearPhase={handleClearPhase}

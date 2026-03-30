@@ -562,7 +562,7 @@ export interface EpicPhasePlan {
   id: string;
   epicKey: string;
   phase: PlanningPhase;
-  startDay: number | null;
+  startDate: string | null;  // ISO date "YYYY-MM-DD" — absolute calendar date
   updatedAt: string;
 }
 
