@@ -1072,3 +1072,29 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   background: var(--blue-lt);
 }
 .pp-dr-create-btn:hover { background: #d6edf9; border-color: var(--blue); }
+
+/* ── Drawer: Manual Epics section ───────────────────────────────────────── */
+.pp-dr-manual-section {
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 4px;
+}
+.pp-dr-section-hd {
+  font-size: 10px; font-weight: 600; letter-spacing: .06em;
+  color: var(--txt3); text-transform: uppercase;
+  padding: 8px 16px 4px;
+}
+.pp-dr-manual-item { gap: 8px; }
+.pp-dr-manual-actions {
+  display: flex; align-items: center; gap: 4px; margin-left: auto; flex-shrink: 0;
+}
+.pp-dr-manual-dates {
+  font-size: 10px; color: var(--txt3); white-space: nowrap;
+}
+.pp-dr-manual-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; padding: 2px 4px; border-radius: 4px; line-height: 1;
+  color: var(--txt3);
+}
+.pp-dr-manual-btn:hover { background: var(--offwh); }
+.pp-dr-manual-btn.delete:hover { color: #EF4444; background: #FEF2F2; }
+.pp-dr-manual-btn.edit:hover   { color: var(--blue); background: var(--blue-lt); }

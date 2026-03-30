@@ -1,23 +1,38 @@
 /**
- * AddManualEpicModal — form for creating a manually-managed Portfolio epic.
+ * AddManualEpicModal — create or edit a manually-managed Portfolio epic.
  *
- * The code (MAN-XXXX) is auto-generated and shown as read-only.
- * Summary is required; description, start date, and end date are optional.
+ * In CREATE mode: auto-generated code (read-only), blank form, "Create Epic" CTA.
+ * In EDIT mode:   existing code shown (read-only), pre-filled form, "Save Changes" CTA.
  */
 
 import { useState } from 'react';
+import type { ManualEpic } from '../types';
 
-interface Props {
+interface CreateProps {
+  mode: 'create';
   nextCode: string;
   onSave: (input: { summary: string; description?: string; startDate?: string; endDate?: string }) => void;
   onClose: () => void;
 }
 
-export function AddManualEpicModal({ nextCode, onSave, onClose }: Props) {
-  const [summary, setSummary]         = useState('');
-  const [description, setDescription] = useState('');
-  const [startDate, setStartDate]     = useState('');
-  const [endDate, setEndDate]         = useState('');
+interface EditProps {
+  mode: 'edit';
+  epic: ManualEpic;
+  onSave: (changes: { summary: string; description?: string; startDate?: string; endDate?: string }) => void;
+  onClose: () => void;
+}
+
+type Props = CreateProps | EditProps;
+
+export function AddManualEpicModal(props: Props) {
+  const isEdit     = props.mode === 'edit';
+  const initial    = isEdit ? props.epic : null;
+  const displayCode = isEdit ? props.epic.epicKey : (props as CreateProps).nextCode;
+
+  const [summary, setSummary]         = useState(initial?.summary ?? '');
+  const [description, setDescription] = useState(initial?.description ?? '');
+  const [startDate, setStartDate]     = useState(initial?.startDate ?? '');
+  const [endDate, setEndDate]         = useState(initial?.endDate ?? '');
   const [error, setError]             = useState<string | null>(null);
 
   function handleSave() {
@@ -30,7 +45,7 @@ export function AddManualEpicModal({ nextCode, onSave, onClose }: Props) {
       setError('End date must be on or after the start date.');
       return;
     }
-    onSave({
+    props.onSave({
       summary:     trimmedSummary,
       description: description.trim() || undefined,
       startDate:   startDate || undefined,
@@ -39,22 +54,22 @@ export function AddManualEpicModal({ nextCode, onSave, onClose }: Props) {
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Escape') onClose();
+    if (e.key === 'Escape') props.onClose();
   }
 
   return (
-    <div className="pp-modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="pp-modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) props.onClose(); }}>
       <div className="pp-modal" onKeyDown={handleKeyDown}>
         <div className="pp-modal-head">
-          <span className="pp-modal-title">Create Manual Epic</span>
-          <button className="pp-dr-close" onClick={onClose}>×</button>
+          <span className="pp-modal-title">{isEdit ? 'Edit Epic' : 'Create Manual Epic'}</span>
+          <button className="pp-dr-close" onClick={props.onClose}>×</button>
         </div>
 
         <div className="pp-modal-body">
-          {/* Auto-generated code */}
+          {/* Code (always read-only) */}
           <div className="pp-modal-field">
             <label className="pp-modal-label">Code</label>
-            <span className="pp-jkey pp-modal-code">{nextCode}</span>
+            <span className="pp-jkey pp-modal-code">{displayCode}</span>
           </div>
 
           {/* Summary */}
@@ -113,8 +128,10 @@ export function AddManualEpicModal({ nextCode, onSave, onClose }: Props) {
         </div>
 
         <div className="pp-modal-footer">
-          <button className="pp-btn secondary" onClick={onClose}>Cancel</button>
-          <button className="pp-btn primary" onClick={handleSave}>Create Epic</button>
+          <button className="pp-btn secondary" onClick={props.onClose}>Cancel</button>
+          <button className="pp-btn primary" onClick={handleSave}>
+            {isEdit ? 'Save Changes' : 'Create Epic'}
+          </button>
         </div>
       </div>
     </div>

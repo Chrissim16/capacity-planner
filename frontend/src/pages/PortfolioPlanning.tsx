@@ -1136,14 +1136,17 @@ function SummaryView({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PortfolioDrawer({
-  open, allEpics, boardEpicKeys, onClose, onSave, onCreateManual,
+  open, allEpics, boardEpicKeys, manualEpics, onClose, onSave, onCreateManual, onEditManual, onDeleteManual,
 }: {
   open: boolean;
   allEpics: JiraWorkItem[];
   boardEpicKeys: string[];
+  manualEpics: ManualEpic[];
   onClose: () => void;
   onSave: (keys: string[]) => void;
   onCreateManual: () => void;
+  onEditManual: (epic: ManualEpic) => void;
+  onDeleteManual: (epicKey: string) => void;
 }) {
   const [search, setSearch]     = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set(boardEpicKeys));
@@ -1282,6 +1285,55 @@ function PortfolioDrawer({
           />
         </div>
       </div>
+      {/* ── Manual epics section ── */}
+      {manualEpics.length > 0 && (
+        <div className="pp-dr-manual-section">
+          <div className="pp-dr-section-hd">Manual Epics</div>
+          {manualEpics.map(e => (
+            <div
+              key={e.epicKey}
+              className={`pp-dr-epic-item pp-dr-manual-item${selected.has(e.epicKey) ? ' checked' : ''}`}
+              onClick={() => {
+                setSelected(prev => {
+                  const s = new Set(prev);
+                  s.has(e.epicKey) ? s.delete(e.epicKey) : s.add(e.epicKey);
+                  return s;
+                });
+              }}
+            >
+              <div className={`pp-cb${selected.has(e.epicKey) ? ' on' : ''}`} />
+              <div className="pp-dr-epic-info">
+                <div className="pp-dr-epic-key">{e.epicKey}</div>
+                <div className="pp-dr-epic-name">{e.summary}</div>
+                {e.description && <div className="pp-dr-epic-meta">{e.description}</div>}
+              </div>
+              <div className="pp-dr-manual-actions">
+                {e.startDate && (
+                  <span className="pp-dr-manual-dates">
+                    {e.startDate.slice(5)} → {e.endDate ? e.endDate.slice(5) : '?'}
+                  </span>
+                )}
+                <button
+                  className="pp-dr-manual-btn edit"
+                  title="Edit"
+                  onClick={ev => { ev.stopPropagation(); onEditManual(e); }}
+                >✎</button>
+                <button
+                  className="pp-dr-manual-btn delete"
+                  title="Delete permanently"
+                  onClick={ev => {
+                    ev.stopPropagation();
+                    if (confirm(`Delete "${e.summary}" (${e.epicKey}) permanently?`)) {
+                      onDeleteManual(e.epicKey);
+                    }
+                  }}
+                >🗑</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="pp-dr-list-head">
         <label className="pp-dr-select-all" onClick={() => {
           if (allChecked) setSelected(prev => { const s = new Set(prev); filtered.forEach(e => s.delete(e.jiraKey)); return s; });
@@ -1441,6 +1493,7 @@ export function PortfolioPlanning() {
   const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'summary'>('epic');
   const [drawerOpen, setDrawerOpen]           = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [editingManualEpic, setEditingManualEpic] = useState<ManualEpic | null>(null);
   const [forkScenarios, setForkScenarios] = useState<ForkScenario[]>(loadForkScenarios);
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(loadActiveScenarioId);
   const [renamingScenarioId, setRenamingScenarioId] = useState<string | null>(null);
@@ -2080,9 +2133,10 @@ export function PortfolioPlanning() {
           />
         )}
 
-        {/* Manual epic creation modal */}
+        {/* Manual epic create modal */}
         {manualModalOpen && (
           <AddManualEpicModal
+            mode="create"
             nextCode={nextManualCode}
             onSave={input => {
               plan.addManualEpic(input);
@@ -2092,14 +2146,30 @@ export function PortfolioPlanning() {
           />
         )}
 
+        {/* Manual epic edit modal */}
+        {editingManualEpic && (
+          <AddManualEpicModal
+            mode="edit"
+            epic={editingManualEpic}
+            onSave={changes => {
+              plan.updateManualEpic(editingManualEpic.epicKey, changes);
+              setEditingManualEpic(null);
+            }}
+            onClose={() => setEditingManualEpic(null)}
+          />
+        )}
+
         {/* Drawer */}
         <PortfolioDrawer
           open={drawerOpen}
           allEpics={allEpics}
           boardEpicKeys={plan.boardEpicKeys}
+          manualEpics={plan.manualEpics}
           onClose={() => setDrawerOpen(false)}
           onSave={handleSaveDrawer}
           onCreateManual={() => { setDrawerOpen(false); setManualModalOpen(true); }}
+          onEditManual={epic => { setEditingManualEpic(epic); setDrawerOpen(false); }}
+          onDeleteManual={epicKey => plan.deleteManualEpic(epicKey)}
         />
 
         {/* Person / team picker popover */}
