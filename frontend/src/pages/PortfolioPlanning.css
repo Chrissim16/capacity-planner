@@ -648,6 +648,69 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-sec-title { font-size: 13px; font-weight: 600; color: var(--txt1); }
 .pp-sec-sub   { font-size: 12px; color: var(--txt3); }
 
+.pp-health-grid,
+.pp-delta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.pp-health-card,
+.pp-delta-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pp-health-label,
+.pp-delta-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.pp-health-value,
+.pp-delta-value {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--txt1);
+  line-height: 1;
+}
+
+.pp-health-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pp-health-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.pp-health-chip.over { background: #FEE2E2; color: var(--util-over); }
+.pp-health-chip.near { background: #FEF3C7; color: var(--util-near); }
+.pp-health-chip.ok { background: #DCFCE7; color: #16A34A; }
+.pp-health-chip.bench { background: var(--offwh); color: var(--txt3); }
+
+.pp-health-note {
+  font-size: 11px;
+  color: var(--txt2);
+}
+
+.pp-delta-value.worse { color: var(--util-over); }
+.pp-delta-value.better { color: #16A34A; }
+.pp-delta-value.same { color: var(--txt2); }
+
 .pp-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .pp-kpi-card {
   background: var(--white); border: 1px solid var(--border); border-radius: 10px;
@@ -696,6 +759,15 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 .pp-cg-epic-key  { font-size: 10px; font-weight: 600; color: var(--blue); background: var(--blue-lt); padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
 .pp-cg-epic-name { font-size: 11px; color: var(--txt1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-cg-risk-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.pp-cg-risk-badge.high { background: #FEE2E2; color: var(--util-over); }
+.pp-cg-risk-badge.medium { background: #FEF3C7; color: #B45309; }
 .pp-cg-epic-gantt { flex: 1; height: 32px; position: relative; overflow: visible; }
 .pp-cg-grid { position: absolute; inset: 0; display: flex; pointer-events: none; }
 .pp-cg-col  { flex: 1; height: 100%; border-right: 1px solid var(--bord-lt); }
@@ -743,6 +815,77 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-pct-delta.near  { color: var(--util-near); }
 .pp-pct-delta.ok    { color: #16A34A; }
 .pp-pct-empty       { padding: 32px; text-align: center; color: var(--txt3); font-size: 13px; }
+
+.pp-risk-wrap {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.pp-risk-hd,
+.pp-risk-row {
+  display: grid;
+  grid-template-columns: 100px 80px 130px 240px 1fr;
+}
+
+.pp-risk-hd {
+  min-height: 34px;
+  border-bottom: 1px solid var(--border);
+  background: var(--offwh);
+}
+
+.pp-risk-hd-cell,
+.pp-risk-cell {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-right: 1px solid var(--bord-lt);
+}
+
+.pp-risk-hd-cell:last-child,
+.pp-risk-cell:last-child { border-right: none; }
+
+.pp-risk-hd-cell {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.pp-risk-row {
+  min-height: 44px;
+  border-bottom: 1px solid var(--bord-lt);
+}
+
+.pp-risk-row:last-child { border-bottom: none; }
+
+.pp-risk-cell {
+  font-size: 12px;
+  color: var(--txt1);
+}
+
+.pp-risk-item {
+  font-weight: 600;
+}
+
+.pp-risk-detail {
+  color: var(--txt2);
+}
+
+.pp-risk-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.pp-risk-pill.high { background: #FEE2E2; color: var(--util-over); }
+.pp-risk-pill.medium { background: #FEF3C7; color: #B45309; }
 
 /* ── Drawer ───────────────────────────────────────────────────────────────── */
 .pp-drawer {

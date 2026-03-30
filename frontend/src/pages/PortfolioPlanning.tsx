@@ -917,6 +917,7 @@ function PeopleView({
 function SummaryView({
   processTeams, boardEpics, peopleSummaries, phasePlansMap, assignMap,
   absenceLookup, weeks, quarter, state, jiraBaseUrl,
+  activeScenarioName, baselinePhasePlans, baselinePhaseAssignments,
 }: {
   processTeams: ProcessTeam[];
   boardEpics: JiraWorkItem[];
@@ -928,7 +929,190 @@ function SummaryView({
   quarter: string;
   state: ReturnType<typeof useCurrentState>;
   jiraBaseUrl: string;
+  activeScenarioName: string | null;
+  baselinePhasePlans: EpicPhasePlan[];
+  baselinePhaseAssignments: EpicPhaseAssignment[];
 }) {
+  const totalPlannedDays = useMemo(
+    () => peopleSummaries.reduce((sum, person) => sum + person.assignments.reduce((acc, a) => acc + a.days, 0), 0),
+    [peopleSummaries],
+  );
+
+  const totalAvailableDays = useMemo(() => {
+    const memberAvail = state.teamMembers
+      .filter(member => !member.excludedFromCapacity)
+      .reduce((sum, member) => sum + calculateCapacity(member.id, quarter, state).availableDays, 0);
+    const contactAvail = state.businessContacts
+      .filter(contact => !contact.archived && !contact.excludedFromCapacity)
+      .reduce((sum, contact) => sum + calculateBusinessCapacityForQuarter(
+        contact,
+        quarter,
+        state.jiraItemBizAssignments,
+        state.businessTimeOff,
+        state.publicHolidays,
+        state.jiraWorkItems,
+      ).availableDays, 0);
+    return memberAvail + contactAvail;
+  }, [quarter, state]);
+
+  const overCapacityPeopleCount = useMemo(
+    () => peopleSummaries.filter(person => person.availDays > 0 && person.assignments.reduce((sum, a) => sum + a.days, 0) / person.availDays > 1).length,
+    [peopleSummaries],
+  );
+
+  const nearCapacityPeopleCount = useMemo(
+    () => peopleSummaries.filter(person => {
+      if (person.availDays <= 0) return false;
+      const utilization = person.assignments.reduce((sum, a) => sum + a.days, 0) / person.availDays;
+      return utilization > 0.85 && utilization <= 1;
+    }).length,
+    [peopleSummaries],
+  );
+
+  const epicRiskSummary = useMemo(() => {
+    return boardEpics.map(epic => {
+      const assignmentsByPhase = assignMap.get(epic.jiraKey) ?? new Map<PlanningPhase, EpicPhaseAssignment[]>();
+      const plansByPhase = phasePlansMap.get(epic.jiraKey) ?? new Map<PlanningPhase, EpicPhasePlan>();
+      const totalAssigned = [...assignmentsByPhase.values()].flat().reduce((sum, assignment) => sum + assignment.days, 0);
+      const missingStartPhases = PHASES.filter(phase => {
+        const phaseAssignments = assignmentsByPhase.get(phase) ?? [];
+        if (phaseAssignments.length === 0) return false;
+        return !(plansByPhase.get(phase)?.startDate);
+      });
+      return {
+        epic,
+        totalAssigned,
+        isUnstaffed: totalAssigned <= 0,
+        missingStartPhases,
+      };
+    });
+  }, [assignMap, boardEpics, phasePlansMap]);
+
+  const unstaffedEpicCount = epicRiskSummary.filter(epic => epic.isUnstaffed).length;
+  const missingPhaseDateCount = epicRiskSummary.reduce((sum, epic) => sum + epic.missingStartPhases.length, 0);
+
+  const portfolioUtilization = totalAvailableDays > 0 ? totalPlannedDays / totalAvailableDays : 0;
+
+  const baselineDelta = useMemo(() => {
+    if (!activeScenarioName) return null;
+
+    const baselineAssignMap = new Map<string, Map<PlanningPhase, EpicPhaseAssignment[]>>();
+    for (const assignment of baselinePhaseAssignments) {
+      if (!baselineAssignMap.has(assignment.epicKey)) baselineAssignMap.set(assignment.epicKey, new Map());
+      const byPhase = baselineAssignMap.get(assignment.epicKey)!;
+      if (!byPhase.has(assignment.phase)) byPhase.set(assignment.phase, []);
+      byPhase.get(assignment.phase)!.push(assignment);
+    }
+
+    const baselinePlansMap = new Map<string, Map<PlanningPhase, EpicPhasePlan>>();
+    for (const plan of baselinePhasePlans) {
+      if (!baselinePlansMap.has(plan.epicKey)) baselinePlansMap.set(plan.epicKey, new Map());
+      baselinePlansMap.get(plan.epicKey)!.set(plan.phase, plan);
+    }
+
+    const baselinePlannedDays = baselinePhaseAssignments.reduce((sum, assignment) => sum + assignment.days, 0);
+
+    const baselinePeople = new Map<string, { assigned: number; available: number }>();
+    for (const person of peopleSummaries) {
+      baselinePeople.set(person.id, { assigned: 0, available: person.availDays });
+    }
+    for (const assignment of baselinePhaseAssignments) {
+      const row = baselinePeople.get(assignment.memberId);
+      if (!row) continue;
+      row.assigned += assignment.days;
+    }
+    let baselineOver = 0;
+    let baselineNear = 0;
+    baselinePeople.forEach(person => {
+      if (person.available <= 0) return;
+      const utilization = person.assigned / person.available;
+      if (utilization > 1) baselineOver += 1;
+      else if (utilization > 0.85) baselineNear += 1;
+    });
+
+    let baselineUnstaffed = 0;
+    let baselineMissingDates = 0;
+    for (const epic of boardEpics) {
+      const assignmentsByPhase = baselineAssignMap.get(epic.jiraKey) ?? new Map<PlanningPhase, EpicPhaseAssignment[]>();
+      const plansByPhase = baselinePlansMap.get(epic.jiraKey) ?? new Map<PlanningPhase, EpicPhasePlan>();
+      const totalAssigned = [...assignmentsByPhase.values()].flat().reduce((sum, assignment) => sum + assignment.days, 0);
+      if (totalAssigned <= 0) baselineUnstaffed += 1;
+      baselineMissingDates += PHASES.filter(phase => {
+        const phaseAssignments = assignmentsByPhase.get(phase) ?? [];
+        if (phaseAssignments.length === 0) return false;
+        return !(plansByPhase.get(phase)?.startDate);
+      }).length;
+    }
+
+    return {
+      plannedDays: totalPlannedDays - baselinePlannedDays,
+      overCapacityPeople: overCapacityPeopleCount - baselineOver,
+      nearCapacityPeople: nearCapacityPeopleCount - baselineNear,
+      unstaffedEpics: unstaffedEpicCount - baselineUnstaffed,
+      missingPhaseDates: missingPhaseDateCount - baselineMissingDates,
+    };
+  }, [
+    activeScenarioName,
+    baselinePhaseAssignments,
+    baselinePhasePlans,
+    boardEpics,
+    missingPhaseDateCount,
+    nearCapacityPeopleCount,
+    overCapacityPeopleCount,
+    peopleSummaries,
+    totalPlannedDays,
+    unstaffedEpicCount,
+  ]);
+
+  const portfolioRisks = useMemo(() => {
+    const peopleRisks = peopleSummaries
+      .map(person => {
+        const assigned = person.assignments.reduce((sum, a) => sum + a.days, 0);
+        const utilization = person.availDays > 0 ? assigned / person.availDays : 0;
+        if (utilization <= 0.85) return null;
+        const severity = utilization > 1 ? 'high' : 'medium';
+        return {
+          id: `person-${person.id}`,
+          severity,
+          kind: 'person',
+          label: person.name,
+          summary: utilization > 1 ? 'Over capacity this quarter' : 'Near capacity this quarter',
+          detail: `${Math.round(assigned)}d planned vs ${Math.round(person.availDays)}d available (${Math.round(utilization * 100)}%)`,
+        };
+      })
+      .filter(Boolean) as Array<{ id: string; severity: 'high' | 'medium'; kind: 'person' | 'epic'; label: string; summary: string; detail: string }>;
+
+    const epicRisks = epicRiskSummary.flatMap(({ epic, isUnstaffed, missingStartPhases, totalAssigned }) => {
+      const risks: Array<{ id: string; severity: 'high' | 'medium'; kind: 'person' | 'epic'; label: string; summary: string; detail: string }> = [];
+      if (isUnstaffed) {
+        risks.push({
+          id: `epic-${epic.jiraKey}-unstaffed`,
+          severity: 'high',
+          kind: 'epic',
+          label: epic.jiraKey,
+          summary: 'Epic has no staffing assigned',
+          detail: epic.summary,
+        });
+      }
+      if (missingStartPhases.length > 0) {
+        risks.push({
+          id: `epic-${epic.jiraKey}-dates`,
+          severity: 'medium',
+          kind: 'epic',
+          label: epic.jiraKey,
+          summary: 'Assigned phase is missing a start date',
+          detail: `${missingStartPhases.map(phase => PH_LBL[phase]).join(', ')}${totalAssigned > 0 ? ` · ${Math.round(totalAssigned)}d planned` : ''}`,
+        });
+      }
+      return risks;
+    });
+
+    return [...peopleRisks, ...epicRisks].sort((a, b) => {
+      const severityScore = { high: 0, medium: 1 };
+      return severityScore[a.severity] - severityScore[b.severity] || a.label.localeCompare(b.label);
+    });
+  }, [epicRiskSummary, peopleSummaries]);
+
   // KPI cards — one per process team
   const kpiCards = useMemo(() => {
     return processTeams.map(pt => {
@@ -990,6 +1174,73 @@ function SummaryView({
   return (
     <div className="pp-view on">
       <div className="pp-sv">
+        <div>
+          <div className="pp-sec-hd">
+            <span className="pp-sec-title">Portfolio Health</span>
+            <span className="pp-sec-sub">{quarter}</span>
+          </div>
+          <div className="pp-health-grid">
+            <div className="pp-health-card">
+              <span className="pp-health-label">Planned vs available</span>
+              <div className="pp-health-value">
+                {Math.round(totalPlannedDays)} / {Math.round(totalAvailableDays)}d
+              </div>
+              <div className="pp-health-meta">
+                <span className={`pp-health-chip ${utilTier(portfolioUtilization)}`}>
+                  {Math.round(portfolioUtilization * 100)}% utilized
+                </span>
+              </div>
+            </div>
+            <div className="pp-health-card">
+              <span className="pp-health-label">People at risk</span>
+              <div className="pp-health-value">{overCapacityPeopleCount + nearCapacityPeopleCount}</div>
+              <div className="pp-health-meta">
+                <span className="pp-health-note">{overCapacityPeopleCount} over</span>
+                <span className="pp-health-note">{nearCapacityPeopleCount} near</span>
+              </div>
+            </div>
+            <div className="pp-health-card">
+              <span className="pp-health-label">Unstaffed epics</span>
+              <div className="pp-health-value">{unstaffedEpicCount}</div>
+              <div className="pp-health-meta">
+                <span className="pp-health-note">{boardEpics.length} epics on the board</span>
+              </div>
+            </div>
+            <div className="pp-health-card">
+              <span className="pp-health-label">Missing phase dates</span>
+              <div className="pp-health-value">{missingPhaseDateCount}</div>
+              <div className="pp-health-meta">
+                <span className="pp-health-note">Assigned phases without a start date</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {baselineDelta && (
+          <div>
+            <div className="pp-sec-hd">
+              <span className="pp-sec-title">Scenario Delta</span>
+              <span className="pp-sec-sub">Compared with baseline for {activeScenarioName}</span>
+            </div>
+            <div className="pp-delta-grid">
+              {[
+                { label: 'Planned days', value: baselineDelta.plannedDays, suffix: 'd' },
+                { label: 'Over-capacity people', value: baselineDelta.overCapacityPeople },
+                { label: 'Near-capacity people', value: baselineDelta.nearCapacityPeople },
+                { label: 'Unstaffed epics', value: baselineDelta.unstaffedEpics },
+                { label: 'Missing phase dates', value: baselineDelta.missingPhaseDates },
+              ].map(item => (
+                <div key={item.label} className="pp-delta-card">
+                  <span className="pp-delta-label">{item.label}</span>
+                  <span className={`pp-delta-value ${item.value > 0 ? 'worse' : item.value < 0 ? 'better' : 'same'}`}>
+                    {item.value > 0 ? '+' : ''}{item.value}{item.suffix ?? ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* KPI cards */}
         <div>
           <div className="pp-sec-hd">
@@ -1022,6 +1273,7 @@ function SummaryView({
           <div>
             <div className="pp-sec-hd">
               <span className="pp-sec-title">Portfolio Timeline</span>
+              <span className="pp-sec-sub">Risk badges highlight epics needing attention</span>
             </div>
             <div className="pp-cg-wrap">
               <div className="pp-cg-head">
@@ -1037,6 +1289,7 @@ function SummaryView({
               {boardEpics.map(epic => {
                 const epicKey  = epic.jiraKey;
                 const phPlans  = phasePlansMap.get(epicKey) ?? new Map<PlanningPhase, EpicPhasePlan>();
+                const epicSummary = epicRiskSummary.find(item => item.epic.jiraKey === epicKey);
                 return (
                   <div key={epicKey} className="pp-cg-epic-row">
                     <div className="pp-cg-epic-label">
@@ -1045,6 +1298,10 @@ function SummaryView({
                         : <span className="pp-cg-epic-key">{epicKey}</span>
                       }
                       <span className="pp-cg-epic-name">{epic.summary}</span>
+                      {epicSummary?.isUnstaffed && <span className="pp-cg-risk-badge high">No staff</span>}
+                      {!epicSummary?.isUnstaffed && (epicSummary?.missingStartPhases.length ?? 0) > 0 && (
+                        <span className="pp-cg-risk-badge medium">Dates</span>
+                      )}
                     </div>
                     <div className="pp-cg-epic-gantt" style={{ position: 'relative' }}>
                       <div className="pp-cg-grid">
@@ -1081,6 +1338,36 @@ function SummaryView({
             </div>
           </div>
         )}
+
+        {/* Capacity alerts */}
+        <div>
+          <div className="pp-sec-hd">
+            <span className="pp-sec-title">Portfolio Risks</span>
+            <span className="pp-sec-sub">People and epics that need attention first</span>
+          </div>
+          <div className="pp-risk-wrap">
+            <div className="pp-risk-hd">
+              <div className="pp-risk-hd-cell">Severity</div>
+              <div className="pp-risk-hd-cell">Type</div>
+              <div className="pp-risk-hd-cell">Item</div>
+              <div className="pp-risk-hd-cell">Issue</div>
+              <div className="pp-risk-hd-cell">Detail</div>
+            </div>
+            {portfolioRisks.length === 0 ? (
+              <div className="pp-pct-empty">No over-allocated or near-capacity team members — looking good!</div>
+            ) : portfolioRisks.map(risk => (
+              <div key={risk.id} className="pp-risk-row">
+                <div className="pp-risk-cell">
+                  <span className={`pp-risk-pill ${risk.severity}`}>{risk.severity === 'high' ? 'High' : 'Medium'}</span>
+                </div>
+                <div className="pp-risk-cell">{risk.kind === 'person' ? 'Person' : 'Epic'}</div>
+                <div className="pp-risk-cell pp-risk-item">{risk.label}</div>
+                <div className="pp-risk-cell">{risk.summary}</div>
+                <div className="pp-risk-cell pp-risk-detail">{risk.detail}</div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Capacity alerts */}
         <div>
@@ -2123,6 +2410,9 @@ export function PortfolioPlanning() {
             quarter={quarter}
             state={state}
             jiraBaseUrl={jiraBaseUrl}
+            activeScenarioName={activeScenario?.name ?? null}
+            baselinePhasePlans={plan.phasePlans}
+            baselinePhaseAssignments={plan.phaseAssignments}
           />
         )}
 
