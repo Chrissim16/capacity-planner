@@ -532,7 +532,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 
 /* Overload tint — overlaid via ::after so phase colour is preserved */
 .pp-pbar.overloaded,
-.pp-pbar.near-cap { position: relative; overflow: hidden; }
+.pp-pbar.near-cap { overflow: hidden; }
 .pp-pbar.overloaded::after,
 .pp-pbar.near-cap::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
