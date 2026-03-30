@@ -2160,9 +2160,9 @@ export function PortfolioPlanning() {
   const handleClearPhase = useCallback(async (epicKey: string, phase: PlanningPhase) => {
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveScenario(s => ({
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
         ...s,
-        phasePlans: s.phasePlans.map(p =>
+        phasePlans: s.phasePlans.map((p: EpicPhasePlan) =>
           p.epicKey === epicKey && p.phase === phase ? { ...p, startDate: null, endDate: null, updatedAt: now } : p
         ),
       }));
@@ -2179,12 +2179,12 @@ export function PortfolioPlanning() {
     const dpw  = options?.daysPerWeek;
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveScenario(s => {
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => {
         const existing = s.phaseAssignments.find(
-          a => a.epicKey === epicKey && a.phase === phase && a.memberId === memberId
+          (a: EpicPhaseAssignment) => a.epicKey === epicKey && a.phase === phase && a.memberId === memberId
         );
         const newAssignments = existing
-          ? s.phaseAssignments.map(a =>
+          ? s.phaseAssignments.map((a: EpicPhaseAssignment) =>
               a.epicKey === epicKey && a.phase === phase && a.memberId === memberId
                 ? { ...a, days, track, allocationMode: mode, daysPerWeek: dpw, updatedAt: now } : a
             )
@@ -2211,14 +2211,14 @@ export function PortfolioPlanning() {
   ) => {
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveScenario(s => ({
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
         ...s,
-        phaseAssignments: s.phaseAssignments.map(a => {
+        phaseAssignments: s.phaseAssignments.map((a: EpicPhaseAssignment) => {
           if (a.epicKey !== epicKey || a.phase !== phase || a.memberId !== memberId) return a;
           const existing = a.segments ?? [];
-          const idx = existing.findIndex(s2 => s2.id === seg.id);
-          const newSegs = idx >= 0 ? existing.map((s2, i) => (i === idx ? seg : s2)) : [...existing, seg];
-          return { ...a, segments: newSegs, days: newSegs.reduce((sum, s2) => sum + s2.days, 0), updatedAt: now };
+          const idx = existing.findIndex((s2: AllocationSegment) => s2.id === seg.id);
+          const newSegs = idx >= 0 ? existing.map((s2: AllocationSegment, i: number) => (i === idx ? seg : s2)) : [...existing, seg];
+          return { ...a, segments: newSegs, days: newSegs.reduce((sum: number, s2: AllocationSegment) => sum + s2.days, 0), updatedAt: now };
         }),
       }));
     } else {
@@ -2231,12 +2231,12 @@ export function PortfolioPlanning() {
   ) => {
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveScenario(s => ({
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
         ...s,
-        phaseAssignments: s.phaseAssignments.map(a => {
+        phaseAssignments: s.phaseAssignments.map((a: EpicPhaseAssignment) => {
           if (a.epicKey !== epicKey || a.phase !== phase || a.memberId !== memberId) return a;
-          const newSegs = (a.segments ?? []).filter(sg => sg.id !== segmentId);
-          return { ...a, segments: newSegs, days: newSegs.reduce((sum, sg) => sum + sg.days, 0), updatedAt: now };
+          const newSegs = (a.segments ?? []).filter((sg: AllocationSegment) => sg.id !== segmentId);
+          return { ...a, segments: newSegs, days: newSegs.reduce((sum: number, sg: AllocationSegment) => sum + sg.days, 0), updatedAt: now };
         }),
       }));
     } else {
@@ -2246,10 +2246,10 @@ export function PortfolioPlanning() {
 
   const handleRemoveAssignment = useCallback(async (epicKey: string, phase: PlanningPhase, memberId: string) => {
     if (activeScenario) {
-      updateActiveScenario(s => ({
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
         ...s,
         phaseAssignments: s.phaseAssignments.filter(
-          a => !(a.epicKey === epicKey && a.phase === phase && a.memberId === memberId)
+          (a: EpicPhaseAssignment) => !(a.epicKey === epicKey && a.phase === phase && a.memberId === memberId)
         ),
       }));
     } else {
@@ -2259,11 +2259,11 @@ export function PortfolioPlanning() {
 
   const handleRemoveEpic = useCallback((epicKey: string) => {
     if (activeScenario) {
-      updateActiveScenario(s => ({
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
         ...s,
-        boardEpicKeys: s.boardEpicKeys.filter(k => k !== epicKey),
-        phasePlans: s.phasePlans.filter(p => p.epicKey !== epicKey),
-        phaseAssignments: s.phaseAssignments.filter(a => a.epicKey !== epicKey),
+        boardEpicKeys: s.boardEpicKeys.filter((k: string) => k !== epicKey),
+        phasePlans: s.phasePlans.filter((p: EpicPhasePlan) => p.epicKey !== epicKey),
+        phaseAssignments: s.phaseAssignments.filter((a: EpicPhaseAssignment) => a.epicKey !== epicKey),
       }));
       return;
     }
@@ -2285,7 +2285,7 @@ export function PortfolioPlanning() {
         startDate: input.startDate,
         endDate: input.endDate,
       };
-      updateActiveScenario(s => ({
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
         ...s,
         manualEpics: [...s.manualEpics, manualEpic],
         boardEpicKeys: s.boardEpicKeys.includes(epicKey) ? s.boardEpicKeys : [...s.boardEpicKeys, epicKey],
@@ -2300,9 +2300,9 @@ export function PortfolioPlanning() {
     changes: { summary?: string; description?: string; startDate?: string; endDate?: string },
   ) => {
     if (activeScenario) {
-      updateActiveScenario(s => ({
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
         ...s,
-        manualEpics: s.manualEpics.map(epic => epic.epicKey === epicKey ? { ...epic, ...changes } : epic),
+        manualEpics: s.manualEpics.map((epic: ManualEpic) => epic.epicKey === epicKey ? { ...epic, ...changes } : epic),
       }));
       return;
     }
@@ -2311,12 +2311,12 @@ export function PortfolioPlanning() {
 
   const handleDeleteManualEpic = useCallback((epicKey: string) => {
     if (activeScenario) {
-      updateActiveScenario(s => ({
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
         ...s,
-        boardEpicKeys: s.boardEpicKeys.filter(k => k !== epicKey),
-        manualEpics: s.manualEpics.filter(epic => epic.epicKey !== epicKey),
-        phasePlans: s.phasePlans.filter(planItem => planItem.epicKey !== epicKey),
-        phaseAssignments: s.phaseAssignments.filter(assignment => assignment.epicKey !== epicKey),
+        boardEpicKeys: s.boardEpicKeys.filter((k: string) => k !== epicKey),
+        manualEpics: s.manualEpics.filter((epic: ManualEpic) => epic.epicKey !== epicKey),
+        phasePlans: s.phasePlans.filter((planItem: EpicPhasePlan) => planItem.epicKey !== epicKey),
+        phaseAssignments: s.phaseAssignments.filter((assignment: EpicPhaseAssignment) => assignment.epicKey !== epicKey),
       }));
       return;
     }
