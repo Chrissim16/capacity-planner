@@ -221,6 +221,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       updatedAt: c.updated_at,
       defaultDaysPerItem: c.default_days_per_item ?? 1,
       jqlFilter: c.jql_filter ?? undefined,
+      labelFilter: Array.isArray(c.label_filter) ? c.label_filter : [],
       scenarioPlannerOnly: c.scenario_planner_only ?? false,
       customFieldIds: c.custom_field_ids ?? undefined,
       syncSettingsOverride: c.sync_settings_override ?? undefined,
@@ -275,6 +276,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       lastEditedBy: s.last_edited_by ?? undefined,
       basedOnSyncAt: s.based_on_sync_at ?? undefined,
       isBaseline: s.is_baseline ?? false,
+      isPortfolioScenario: s.is_portfolio_scenario ?? false,
       archived: s.archived ?? false,
       jiraWorkItems: Array.isArray(s.jira_work_items) ? s.jira_work_items : [],
       jiraItemBizAssignments: Array.isArray(s.jira_item_biz_assignments) ? s.jira_item_biz_assignments : [],
@@ -285,6 +287,10 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       plannerLayout: migratePlannerLayout(
         Array.isArray(s.planner_layout) ? s.planner_layout : []
       ),
+      portfolioBoardEpicKeys: Array.isArray(s.portfolio_board_epic_keys) ? s.portfolio_board_epic_keys : [],
+      portfolioManualEpics: Array.isArray(s.portfolio_manual_epics) ? s.portfolio_manual_epics : [],
+      portfolioPhasePlans: Array.isArray(s.portfolio_phase_plans) ? s.portfolio_phase_plans : [],
+      portfolioPhaseAssignments: Array.isArray(s.portfolio_phase_assignments) ? s.portfolio_phase_assignments : [],
       skillsMatchingEnabled: s.skills_matching_enabled ?? true,
     }));
 
@@ -600,6 +606,7 @@ async function syncJiraConnections(connections: JiraConnection[]): Promise<void>
     sync_history: c.syncHistory ?? [],
     default_days_per_item: c.defaultDaysPerItem ?? 1,
     jql_filter: c.jqlFilter ?? null,
+    label_filter: c.labelFilter ?? [],
     scenario_planner_only: c.scenarioPlannerOnly ?? false,
     custom_field_ids: c.customFieldIds ?? null,
     sync_settings_override: c.syncSettingsOverride ?? null,
@@ -659,12 +666,17 @@ async function syncScenarios(scenarios: Scenario[]): Promise<void> {
     updated_at: s.updatedAt,
     based_on_sync_at: s.basedOnSyncAt ?? null,
     is_baseline: s.isBaseline,
+    is_portfolio_scenario: s.isPortfolioScenario ?? false,
     archived: s.archived ?? false,
     jira_work_items: s.jiraWorkItems,
     jira_item_biz_assignments: s.jiraItemBizAssignments,
     team_members: s.teamMembers,
     time_off: s.timeOff,
     planner_layout: s.plannerLayout != null ? s.plannerLayout : null,
+    portfolio_board_epic_keys: s.portfolioBoardEpicKeys ?? [],
+    portfolio_manual_epics: s.portfolioManualEpics ?? [],
+    portfolio_phase_plans: s.portfolioPhasePlans ?? [],
+    portfolio_phase_assignments: s.portfolioPhaseAssignments ?? [],
     last_edited_by: s.lastEditedBy ?? null,
     skills_matching_enabled: s.skillsMatchingEnabled ?? true,
   }));

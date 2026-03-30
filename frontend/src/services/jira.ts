@@ -610,6 +610,38 @@ export interface JiraFieldOption {
   disabled?: boolean;
 }
 
+export async function getJiraLabels(
+  baseUrl: string,
+  email: string,
+  apiToken: string
+): Promise<{ success: boolean; labels?: string[]; error?: string }> {
+  try {
+    const authHeader = createAuthHeader(email, apiToken);
+    const labels: string[] = [];
+    let startAt = 0;
+    const maxResults = 100;
+
+    for (;;) {
+      const response = await jiraFetch(
+        baseUrl,
+        `/rest/api/3/label?startAt=${startAt}&maxResults=${maxResults}`,
+        authHeader,
+        { method: 'GET' }
+      );
+      if (!response.ok) return { success: false, error: 'Failed: ' + response.statusText };
+      const data = await response.json() as { values?: string[]; isLast?: boolean };
+      labels.push(...(data.values ?? []).filter(Boolean));
+      if (data.isLast !== false || (data.values ?? []).length < maxResults) break;
+      startAt += maxResults;
+      if (startAt > 5000) break;
+    }
+
+    return { success: true, labels: [...new Set(labels)].sort((a, b) => a.localeCompare(b)) };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 export function getEffectiveJiraConnectionSyncSettings(
   connection: JiraConnection,
   settings: JiraSettings
@@ -647,6 +679,12 @@ function quoteJqlString(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
+function buildLabelFilterClause(labels?: string[]): string {
+  const cleaned = (labels ?? []).map(label => label.trim()).filter(Boolean);
+  if (cleaned.length === 0) return '';
+  return `labels IN (${cleaned.map(quoteJqlString).join(', ')})`;
+}
+
 function toJqlFieldRef(fieldId: string): string {
   const trimmed = fieldId.trim();
   const match = trimmed.match(/^customfield_(\d+)$/i);
@@ -663,8 +701,9 @@ function buildDiscoveryJQL(connection: JiraConnection): string | null {
   const issueType = `issuetype = ${quoteJqlString(config.issueTypeName)}`;
   const statuses = `status IN (${config.includedStatuses.map(quoteJqlString).join(', ')})`;
   const dvsField = `${toJqlFieldRef(config.drivingValueStreamFieldId)} IN (${config.includedDrivingValueStreams.map(quoteJqlString).join(', ')})`;
+  const labelClause = buildLabelFilterClause(connection.labelFilter);
   const extra = connection.jqlFilter?.trim();
-  const base = `${project} AND ${issueType} AND ${statuses} AND ${dvsField}`;
+  const base = [project, issueType, statuses, dvsField, labelClause].filter(Boolean).join(' AND ');
   return `${extra ? `${base} AND (${extra})` : base} ORDER BY created DESC`;
 }
 
@@ -853,6 +892,7 @@ export function buildJQL(connection: JiraConnection, settings: JiraSettings): st
   if (enabled.length === 0) return null;
 
   const project = `project = "${connection.jiraProjectKey}"`;
+  const labelClause = buildLabelFilterClause(connection.labelFilter);
 
   // Group types by their filter so we can emit compact clauses
   const groups = new Map<JiraStatusFilter, string[]>();
@@ -866,8 +906,8 @@ export function buildJQL(connection: JiraConnection, settings: JiraSettings): st
     const [filter, types] = [...groups.entries()][0];
     const typeList = types.join(', ');
     const extra = connection.jqlFilter?.trim();
-    const base = `${project} AND issuetype IN (${typeList})${statusClause(filter)} ORDER BY created DESC`;
-    return extra ? `${project} AND issuetype IN (${typeList})${statusClause(filter)} AND (${extra}) ORDER BY created DESC` : base;
+    const filters = [project, `issuetype IN (${typeList})${statusClause(filter)}`, labelClause].filter(Boolean).join(' AND ');
+    return extra ? `${filters} AND (${extra}) ORDER BY created DESC` : `${filters} ORDER BY created DESC`;
   }
 
   // Types have different filters — build a compound OR inside parentheses
@@ -878,9 +918,9 @@ export function buildJQL(connection: JiraConnection, settings: JiraSettings): st
     return `(${typeExpr}${statusClause(filter)})`;
   });
 
-  const base = `${project} AND (${clauses.join(' OR ')}) ORDER BY created DESC`;
+  const base = [project, `(${clauses.join(' OR ')})`, labelClause].filter(Boolean).join(' AND ');
   const extra = connection.jqlFilter?.trim();
-  return extra ? `${project} AND (${clauses.join(' OR ')}) AND (${extra}) ORDER BY created DESC` : base;
+  return extra ? `${base} AND (${extra}) ORDER BY created DESC` : `${base} ORDER BY created DESC`;
 }
 
 // Fetch only the fields we actually use — drastically reduces response size

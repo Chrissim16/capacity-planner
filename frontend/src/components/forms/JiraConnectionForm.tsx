@@ -3,7 +3,7 @@ import { CheckCircle, AlertCircle, Loader2, ExternalLink, Eye, EyeOff, RefreshCw
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
-import { testJiraConnection, getJiraProjects, validateJiraUrl, getJiraIssueTypes, getJiraProjectStatuses, getJiraFields, getJiraFieldOptions } from '../../services/jira';
+import { testJiraConnection, getJiraProjects, validateJiraUrl, getJiraIssueTypes, getJiraProjectStatuses, getJiraFields, getJiraFieldOptions, getJiraLabels } from '../../services/jira';
 import type { JiraFieldDefinition, JiraFieldOption } from '../../services/jira';
 import type { JiraConnection, JiraConnectionSyncSettings, JiraSettings, JiraDiscoveryConfig } from '../../types';
 
@@ -94,6 +94,7 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  const [defaultDaysPerItem, setDefaultDaysPerItem] = useState(connection?.defaultDaysPerItem ?? 1);
  const [mode, setMode] = useState<'standard' | 'discovery'>(connection?.mode ?? 'standard');
  const [jqlFilter, setJqlFilter] = useState(connection?.jqlFilter || '');
+ const [labelFilter, setLabelFilter] = useState<string[]>(connection?.labelFilter ?? []);
  const [scenarioPlannerOnly, setScenarioPlannerOnly] = useState(connection?.scenarioPlannerOnly ?? false);
  const [importBehaviourOpen, setImportBehaviourOpen] = useState(false);
  const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
@@ -113,6 +114,7 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  const [availableIssueTypes, setAvailableIssueTypes] = useState<{ id: string; name: string }[]>([]);
  const [availableStatuses, setAvailableStatuses] = useState<string[]>([]);
  const [availableFields, setAvailableFields] = useState<JiraFieldDefinition[]>([]);
+ const [availableLabels, setAvailableLabels] = useState<string[]>([]);
  const [drivingValueStreamOptions, setDrivingValueStreamOptions] = useState<JiraFieldOption[]>([]);
  const [loadingMetadata, setLoadingMetadata] = useState(false);
  const [loadingDrivingValueStreamOptions, setLoadingDrivingValueStreamOptions] = useState(false);
@@ -200,10 +202,11 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
    discoveryConfig: connection?.discoveryConfig,
   };
 
-  const [issueTypeResult, statusResult, fieldsResult] = await Promise.all([
+  const [issueTypeResult, statusResult, fieldsResult, labelsResult] = await Promise.all([
    getJiraIssueTypes(metadataConnection),
    getJiraProjectStatuses(metadataConnection),
    getJiraFields(jiraBaseUrl, userEmail, tokenToUse),
+   getJiraLabels(jiraBaseUrl, userEmail, tokenToUse),
   ]);
 
   if (issueTypeResult.success && issueTypeResult.issueTypes) {
@@ -238,7 +241,13 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
    setAvailableFields([]);
   }
 
-  const errorsFound = [issueTypeResult, statusResult, fieldsResult]
+  if (labelsResult.success && labelsResult.labels) {
+   setAvailableLabels(labelsResult.labels);
+  } else {
+   setAvailableLabels([]);
+  }
+
+  const errorsFound = [issueTypeResult, statusResult, fieldsResult, labelsResult]
    .filter(result => !result.success)
    .map(result => result.error)
    .filter(Boolean);
@@ -292,6 +301,7 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
   setAvailableIssueTypes([]);
   setAvailableStatuses([]);
   setAvailableFields([]);
+  setAvailableLabels([]);
   setDrivingValueStreamOptions([]);
   setErrors(prev => ({ ...prev, jiraProjectKey: '' }));
  }
@@ -334,6 +344,7 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  defaultDaysPerItem,
  jqlFilter: jqlFilter.trim() || undefined,
  scenarioPlannerOnly: mode === 'discovery' ? true : scenarioPlannerOnly,
+ labelFilter: labelFilter.filter(Boolean),
  customFieldIds: (cfEpicLink || cfEpicLinkAlt || cfStartDate || cfSprint) ? {
  epicLink: cfEpicLink.trim() || undefined,
  epicLinkAlt: cfEpicLinkAlt.trim() || undefined,
@@ -594,6 +605,48 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
              <p className="text-xs text-[#94A3B8] mt-1">
                Appended to every sync query with AND. Use this to narrow scope and avoid Jira's 5,000-item limit — e.g. limit to recent updates or open sprints.
              </p>
+           </div>
+
+           <div>
+             <label className="block text-sm font-medium text-[#1E293B] mb-1">
+               Jira labels <span className="font-normal text-[#94A3B8]">(optional)</span>
+             </label>
+             <p className="text-xs text-[#94A3B8] mb-2">
+               If selected, the sync will include issues that have any of these labels.
+             </p>
+             <Input
+               id="label-filter"
+               value={labelFilter.join(', ')}
+               onChange={e => setLabelFilter(parseCsvInput(e.target.value))}
+               placeholder="e.g. finance, in-scope"
+               hint="You can type labels manually, or click from the Jira list below."
+             />
+             {availableLabels.length > 0 && (
+               <div className="flex flex-wrap gap-2 mt-2 max-h-32 overflow-y-auto">
+                 {availableLabels.map(label => {
+                   const selected = labelFilter.some(entry => entry.toLowerCase() === label.toLowerCase());
+                   return (
+                     <button
+                       key={label}
+                       type="button"
+                       onClick={() => setLabelFilter(prev => {
+                         const exists = prev.some(entry => entry.toLowerCase() === label.toLowerCase());
+                         return exists
+                           ? prev.filter(entry => entry.toLowerCase() !== label.toLowerCase())
+                           : [...prev, label];
+                       })}
+                       className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                         selected
+                           ? 'bg-[#0089DD] text-white border-[#0089DD]'
+                           : 'bg-white text-[#1E293B] border-[#DEDFE3] hover:bg-[#E6F2FB]'
+                       }`}
+                     >
+                       {label}
+                     </button>
+                   );
+                 })}
+               </div>
+             )}
            </div>
 
            {/* Scenario Planner only */}

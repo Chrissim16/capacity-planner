@@ -336,6 +336,7 @@ export interface JiraConnection {
   updatedAt: string;
   defaultDaysPerItem: number;
   jqlFilter?: string;
+  labelFilter?: string[];
   scenarioPlannerOnly?: boolean;
   customFieldIds?: {
     epicLink?:    string;
@@ -559,6 +560,8 @@ export interface Scenario {
   lastEditedBy?: string;
   basedOnSyncAt?: string;
   isBaseline: boolean;
+  /** Marks scenarios created from Portfolio Planning rather than the main Scenario Planner. */
+  isPortfolioScenario?: boolean;
   /** When true, scenario is hidden from the default home list until "Show archived" is on */
   archived?: boolean;
   // Scenario-specific data (copied from baseline, then editable)
@@ -571,6 +574,14 @@ export interface Scenario {
   assignments: Assignment[];
   /** Planner timeline layout — only populated for scenarios created or edited in the Scenario Planner */
   plannerLayout?: PlannerItem[];
+  /** Portfolio Planning board membership for this scenario. Omitted for non-portfolio scenarios. */
+  portfolioBoardEpicKeys?: string[];
+  /** Manual epics created inside Portfolio Planning for this scenario. */
+  portfolioManualEpics?: ManualEpic[];
+  /** Phase date overrides for Portfolio Planning. */
+  portfolioPhasePlans?: EpicPhasePlan[];
+  /** Assignment overrides for Portfolio Planning. */
+  portfolioPhaseAssignments?: EpicPhaseAssignment[];
   /** When true, skill matching UI (badges, chips, tier ranking) is active. Default: true. */
   skillsMatchingEnabled?: boolean;
 }
