@@ -9,7 +9,8 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useCurrentState } from '../stores/appStore';
+import { useCurrentState, useAppStore } from '../stores/appStore';
+import { useShallow } from 'zustand/react/shallow';
 import { calculateCapacity, calculateBusinessCapacityForQuarter } from '../utils/capacity';
 import { getEffectiveSkills } from '../utils/workItemSkills';
 import {
@@ -33,6 +34,12 @@ import {
   type PortfolioWeek,
 } from '../utils/portfolioGeometry';
 import { usePortfolioPlan } from '../hooks/usePortfolioPlan';
+import {
+  createPortfolioScenario,
+  updatePortfolioScenario,
+  deleteScenario,
+  type PortfolioScenarioSnapshot,
+} from '../stores/actions';
 import { AddManualEpicModal } from './AddManualEpicModal';
 import type {
   JiraWorkItem,
@@ -46,30 +53,13 @@ import type {
   ProcessTeam,
   BusinessTeam,
   ManualEpic,
+  Scenario,
 } from '../types';
 import './PortfolioPlanning.css';
 
-// ── Fork scenarios (what-if plans) ────────────────────────────────────────────
-interface ForkScenario {
-  id: string;
-  name: string;
-  phasePlans: EpicPhasePlan[];
-  phaseAssignments: EpicPhaseAssignment[];
-  createdAt: string;
-}
-
-const FORK_SCENARIOS_KEY = 'pp.forkScenarios';
+// ── Portfolio scenarios (what-if plans) ──────────────────────────────────────
 const ACTIVE_SCENARIO_KEY = 'pp.activeScenarioId';
 
-function loadForkScenarios(): ForkScenario[] {
-  try {
-    const raw = localStorage.getItem(FORK_SCENARIOS_KEY);
-    return raw ? (JSON.parse(raw) as ForkScenario[]) : [];
-  } catch { return []; }
-}
-function saveForkScenarios(scenarios: ForkScenario[]): void {
-  try { localStorage.setItem(FORK_SCENARIOS_KEY, JSON.stringify(scenarios)); } catch {}
-}
 function loadActiveScenarioId(): string | null {
   try { return localStorage.getItem(ACTIVE_SCENARIO_KEY) ?? null; } catch { return null; }
 }
@@ -78,6 +68,10 @@ function saveActiveScenarioId(id: string | null): void {
     if (id === null) localStorage.removeItem(ACTIVE_SCENARIO_KEY);
     else localStorage.setItem(ACTIVE_SCENARIO_KEY, id);
   } catch {}
+}
+
+function isPortfolioScenario(scenario: Scenario): boolean {
+  return scenario.isPortfolioScenario === true;
 }
 
 function teamEntryForId(id: string): { name: string; abbr: string } {
@@ -1728,7 +1722,7 @@ function PortfolioDrawer({
           <div className={`pp-cb${allChecked ? ' on' : ''}`} />
           Select all visible
         </label>
-        <span className="pp-dr-count">{filtered.length} epic{filtered.length !== 1 ? 's' : ''}</span>
+          <span className="pp-dr-count">{filtered.length} epic{filtered.length !== 1 ? 's' : ''}</span>
       </div>
       <div className="pp-dr-list" onClick={() => setOpenDd(null)}>
         {filtered.map(e => (
@@ -1874,13 +1868,13 @@ function PortfolioPickerPopover({
 export function PortfolioPlanning() {
   const state = useCurrentState();
   const plan  = usePortfolioPlan();
+  const scenarios = useAppStore(useShallow(s => s.data.scenarios));
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'summary'>('epic');
   const [drawerOpen, setDrawerOpen]           = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [editingManualEpic, setEditingManualEpic] = useState<ManualEpic | null>(null);
-  const [forkScenarios, setForkScenarios] = useState<ForkScenario[]>(loadForkScenarios);
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(loadActiveScenarioId);
   const [renamingScenarioId, setRenamingScenarioId] = useState<string | null>(null);
   const [activeQIdx, setActiveQIdx] = useState(0);
@@ -1915,42 +1909,69 @@ export function PortfolioPlanning() {
     ? `Full Year ${qOpts[activeQIdx].year}`
     : `Q${qOpts[activeQIdx].q + 1} ${qOpts[activeQIdx].year}`;
 
-  const allEpics  = useMemo(() => state.jiraWorkItems.filter(i => i.type === 'epic'), [state.jiraWorkItems]);
+  const portfolioCandidateConnectionIds = useMemo(
+    () => new Set(
+      state.jiraConnections
+        .filter(connection => connection.scenarioPlannerOnly)
+        .map(connection => connection.id)
+    ),
+    [state.jiraConnections]
+  );
+  const allEpics = useMemo(
+    () => state.jiraWorkItems.filter(item =>
+      item.type === 'epic' || portfolioCandidateConnectionIds.has(item.connectionId)
+    ),
+    [state.jiraWorkItems, portfolioCandidateConnectionIds]
+  );
   const jiraBaseUrl = useMemo(() => {
     const conn = state.jiraConnections.find(c => c.isActive);
     return conn?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
   }, [state.jiraConnections]);
+  const portfolioScenarios = useMemo(
+    () => scenarios.filter(isPortfolioScenario),
+    [scenarios]
+  );
+
+  // Active scenario (null = live base plan)
+  const activeScenario = portfolioScenarios.find(s => s.id === activeScenarioId) ?? null;
+  const activeBoardEpicKeys = activeScenario?.portfolioBoardEpicKeys ?? plan.boardEpicKeys;
+  const activeManualEpics = activeScenario?.portfolioManualEpics ?? plan.manualEpics;
+  const activePhasePlans = activeScenario?.portfolioPhasePlans ?? plan.phasePlans;
+  const activePhaseAssignments = activeScenario?.portfolioPhaseAssignments ?? plan.phaseAssignments;
+
+  useEffect(() => {
+    if (activeScenarioId !== null && !activeScenario) {
+      setActiveScenarioId(null);
+      saveActiveScenarioId(null);
+    }
+  }, [activeScenarioId, activeScenario]);
+
   const nextManualCode = useMemo(() => {
-    const nums = plan.manualEpics
+    const nums = activeManualEpics
       .map(e => e.epicKey.match(/^MAN-(\d+)$/)?.[1])
       .filter((n): n is string => n !== undefined)
       .map(Number);
     const max = nums.length > 0 ? Math.max(...nums) : 999;
     return `MAN-${max + 1}`;
-  }, [plan.manualEpics]);
+  }, [activeManualEpics]);
 
   const manualEpicMap = useMemo(
-    () => new Map(plan.manualEpics.map(e => [e.epicKey, e])),
-    [plan.manualEpics]
+    () => new Map(activeManualEpics.map(e => [e.epicKey, e])),
+    [activeManualEpics]
   );
 
   const boardEpics = useMemo(() => {
-    return plan.boardEpicKeys.map(k => {
+    return activeBoardEpicKeys.map(k => {
       const jira = allEpics.find(e => e.jiraKey === k);
       if (jira) return jira;
       const manual = manualEpicMap.get(k);
       if (manual) return manualToJiraWorkItem(manual);
       return null;
     }).filter(Boolean) as JiraWorkItem[];
-  }, [plan.boardEpicKeys, allEpics, manualEpicMap]);
+  }, [activeBoardEpicKeys, allEpics, manualEpicMap]);
 
   const memberMap  = useMemo(() => new Map(state.teamMembers.map(m => [m.id, m])), [state.teamMembers]);
   const contactMap = useMemo(() => new Map(state.businessContacts.map(c => [c.id, c])), [state.businessContacts]);
-
-  // Active scenario (null = live base plan)
-  const activeScenario = forkScenarios.find(s => s.id === activeScenarioId) ?? null;
-  const activePhasePlans      = activeScenario ? activeScenario.phasePlans      : plan.phasePlans;
-  const activePhaseAssignments = activeScenario ? activeScenario.phaseAssignments : plan.phaseAssignments;
 
   // Maps epicKey → phase → EpicPhasePlan
   const phasePlansMap = useMemo(() => {
@@ -2088,16 +2109,28 @@ export function PortfolioPlanning() {
 
   // ── Mutation helpers (route to fork state or base plan) ───────────────────
 
-  const updateActiveFork = useCallback((
-    updater: (s: ForkScenario) => ForkScenario
+  const updateActiveScenario = useCallback((
+    updater: (snapshot: PortfolioScenarioSnapshot) => PortfolioScenarioSnapshot
   ) => {
-    setForkScenarios(prev => prev.map(s => s.id === activeScenarioId ? updater(s) : s));
-  }, [activeScenarioId]);
+    if (!activeScenario) return;
+    const next = updater({
+      boardEpicKeys: activeScenario.portfolioBoardEpicKeys ?? [],
+      manualEpics: activeScenario.portfolioManualEpics ?? [],
+      phasePlans: activeScenario.portfolioPhasePlans ?? [],
+      phaseAssignments: activeScenario.portfolioPhaseAssignments ?? [],
+    });
+    updatePortfolioScenario(activeScenario.id, {
+      portfolioBoardEpicKeys: next.boardEpicKeys,
+      portfolioManualEpics: next.manualEpics,
+      portfolioPhasePlans: next.phasePlans,
+      portfolioPhaseAssignments: next.phaseAssignments,
+    });
+  }, [activeScenario]);
 
   const handleSetPhaseStartDate = useCallback(async (epicKey: string, phase: PlanningPhase, startDate: string) => {
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveFork(s => {
+      updateActiveScenario(s => {
         const existing = s.phasePlans.find(p => p.epicKey === epicKey && p.phase === phase);
         const newPlans = existing
           ? s.phasePlans.map(p => p.epicKey === epicKey && p.phase === phase ? { ...p, startDate, updatedAt: now } : p)
@@ -2107,12 +2140,12 @@ export function PortfolioPlanning() {
     } else {
       await plan.setPhaseStartDate(epicKey, phase, startDate);
     }
-  }, [activeScenario, updateActiveFork, plan]);
+  }, [activeScenario, updateActiveScenario, plan]);
 
   const handleSetPhaseEndDate = useCallback(async (epicKey: string, phase: PlanningPhase, endDate: string) => {
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveFork(s => {
+      updateActiveScenario(s => {
         const existing = s.phasePlans.find(p => p.epicKey === epicKey && p.phase === phase);
         const newPlans = existing
           ? s.phasePlans.map(p => p.epicKey === epicKey && p.phase === phase ? { ...p, endDate, updatedAt: now } : p)
@@ -2122,12 +2155,12 @@ export function PortfolioPlanning() {
     } else {
       await plan.setPhaseEndDate(epicKey, phase, endDate);
     }
-  }, [activeScenario, updateActiveFork, plan]);
+  }, [activeScenario, updateActiveScenario, plan]);
 
   const handleClearPhase = useCallback(async (epicKey: string, phase: PlanningPhase) => {
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveFork(s => ({
+      updateActiveScenario(s => ({
         ...s,
         phasePlans: s.phasePlans.map(p =>
           p.epicKey === epicKey && p.phase === phase ? { ...p, startDate: null, endDate: null, updatedAt: now } : p
@@ -2136,7 +2169,7 @@ export function PortfolioPlanning() {
     } else {
       await plan.clearPhase(epicKey, phase);
     }
-  }, [activeScenario, updateActiveFork, plan]);
+  }, [activeScenario, updateActiveScenario, plan]);
 
   const handleUpsertAssignment = useCallback(async (
     epicKey: string, phase: PlanningPhase, memberId: string, days: number, track: 'IT' | 'BIZ',
@@ -2146,7 +2179,7 @@ export function PortfolioPlanning() {
     const dpw  = options?.daysPerWeek;
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveFork(s => {
+      updateActiveScenario(s => {
         const existing = s.phaseAssignments.find(
           a => a.epicKey === epicKey && a.phase === phase && a.memberId === memberId
         );
@@ -2161,7 +2194,7 @@ export function PortfolioPlanning() {
     } else {
       await plan.upsertAssignment(epicKey, phase, memberId, days, track, { allocationMode: mode, daysPerWeek: dpw });
     }
-  }, [activeScenario, updateActiveFork, plan]);
+  }, [activeScenario, updateActiveScenario, plan]);
 
   const handleUpdateAllocationMode = useCallback(async (
     epicKey: string, phase: PlanningPhase, memberId: string, mode: AllocationMode, daysPerWeek?: number
@@ -2178,7 +2211,7 @@ export function PortfolioPlanning() {
   ) => {
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveFork(s => ({
+      updateActiveScenario(s => ({
         ...s,
         phaseAssignments: s.phaseAssignments.map(a => {
           if (a.epicKey !== epicKey || a.phase !== phase || a.memberId !== memberId) return a;
@@ -2191,14 +2224,14 @@ export function PortfolioPlanning() {
     } else {
       await plan.upsertSegment(epicKey, phase, memberId, seg);
     }
-  }, [activeScenario, updateActiveFork, plan]);
+  }, [activeScenario, updateActiveScenario, plan]);
 
   const handleRemoveSegment = useCallback(async (
     epicKey: string, phase: PlanningPhase, memberId: string, segmentId: string
   ) => {
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveFork(s => ({
+      updateActiveScenario(s => ({
         ...s,
         phaseAssignments: s.phaseAssignments.map(a => {
           if (a.epicKey !== epicKey || a.phase !== phase || a.memberId !== memberId) return a;
@@ -2209,11 +2242,11 @@ export function PortfolioPlanning() {
     } else {
       await plan.removeSegment(epicKey, phase, memberId, segmentId);
     }
-  }, [activeScenario, updateActiveFork, plan]);
+  }, [activeScenario, updateActiveScenario, plan]);
 
   const handleRemoveAssignment = useCallback(async (epicKey: string, phase: PlanningPhase, memberId: string) => {
     if (activeScenario) {
-      updateActiveFork(s => ({
+      updateActiveScenario(s => ({
         ...s,
         phaseAssignments: s.phaseAssignments.filter(
           a => !(a.epicKey === epicKey && a.phase === phase && a.memberId === memberId)
@@ -2222,41 +2255,93 @@ export function PortfolioPlanning() {
     } else {
       await plan.removeAssignment(epicKey, phase, memberId);
     }
-  }, [activeScenario, updateActiveFork, plan]);
+  }, [activeScenario, updateActiveScenario, plan]);
+
+  const handleRemoveEpic = useCallback((epicKey: string) => {
+    if (activeScenario) {
+      updateActiveScenario(s => ({
+        ...s,
+        boardEpicKeys: s.boardEpicKeys.filter(k => k !== epicKey),
+        phasePlans: s.phasePlans.filter(p => p.epicKey !== epicKey),
+        phaseAssignments: s.phaseAssignments.filter(a => a.epicKey !== epicKey),
+      }));
+      return;
+    }
+    plan.removeEpicFromBoard(epicKey);
+  }, [activeScenario, updateActiveScenario, plan]);
+
+  const handleCreateManualEpic = useCallback((input: {
+    summary: string;
+    description?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    if (activeScenario) {
+      const epicKey = nextManualCode;
+      const manualEpic: ManualEpic = {
+        epicKey,
+        summary: input.summary,
+        description: input.description,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      };
+      updateActiveScenario(s => ({
+        ...s,
+        manualEpics: [...s.manualEpics, manualEpic],
+        boardEpicKeys: s.boardEpicKeys.includes(epicKey) ? s.boardEpicKeys : [...s.boardEpicKeys, epicKey],
+      }));
+      return epicKey;
+    }
+    return plan.addManualEpic(input);
+  }, [activeScenario, nextManualCode, updateActiveScenario, plan]);
+
+  const handleUpdateManualEpic = useCallback((
+    epicKey: string,
+    changes: { summary?: string; description?: string; startDate?: string; endDate?: string },
+  ) => {
+    if (activeScenario) {
+      updateActiveScenario(s => ({
+        ...s,
+        manualEpics: s.manualEpics.map(epic => epic.epicKey === epicKey ? { ...epic, ...changes } : epic),
+      }));
+      return;
+    }
+    plan.updateManualEpic(epicKey, changes);
+  }, [activeScenario, updateActiveScenario, plan]);
+
+  const handleDeleteManualEpic = useCallback((epicKey: string) => {
+    if (activeScenario) {
+      updateActiveScenario(s => ({
+        ...s,
+        boardEpicKeys: s.boardEpicKeys.filter(k => k !== epicKey),
+        manualEpics: s.manualEpics.filter(epic => epic.epicKey !== epicKey),
+        phasePlans: s.phasePlans.filter(planItem => planItem.epicKey !== epicKey),
+        phaseAssignments: s.phaseAssignments.filter(assignment => assignment.epicKey !== epicKey),
+      }));
+      return;
+    }
+    plan.deleteManualEpic(epicKey);
+  }, [activeScenario, updateActiveScenario, plan]);
 
   // ── Scenario management ────────────────────────────────────────────────────
 
   const forkCurrentPlan = useCallback((name: string) => {
-    const id = `fork-${Date.now()}`;
-    const newFork: ForkScenario = {
-      id, name,
-      phasePlans: activePhasePlans.map(p => ({ ...p })),
-      phaseAssignments: activePhaseAssignments.map(a => ({ ...a })),
-      createdAt: new Date().toISOString(),
-    };
-    setForkScenarios(prev => {
-      const next = [...prev, newFork];
-      saveForkScenarios(next);
-      return next;
+    const created = createPortfolioScenario(name, {
+      boardEpicKeys: activeBoardEpicKeys,
+      manualEpics: activeManualEpics,
+      phasePlans: activePhasePlans,
+      phaseAssignments: activePhaseAssignments,
     });
-    setActiveScenarioId(id);
-    saveActiveScenarioId(id);
-  }, [activePhasePlans, activePhaseAssignments]);
+    setActiveScenarioId(created.id);
+    saveActiveScenarioId(created.id);
+  }, [activeBoardEpicKeys, activeManualEpics, activePhasePlans, activePhaseAssignments]);
 
   const renameScenario = useCallback((id: string, name: string) => {
-    setForkScenarios(prev => {
-      const next = prev.map(s => s.id === id ? { ...s, name } : s);
-      saveForkScenarios(next);
-      return next;
-    });
+    updatePortfolioScenario(id, { name });
   }, []);
 
-  const deleteScenario = useCallback((id: string) => {
-    setForkScenarios(prev => {
-      const next = prev.filter(s => s.id !== id);
-      saveForkScenarios(next);
-      return next;
-    });
+  const handleDeleteScenario = useCallback((id: string) => {
+    deleteScenario(id);
     if (activeScenarioId === id) {
       setActiveScenarioId(null);
       saveActiveScenarioId(null);
@@ -2268,11 +2353,6 @@ export function PortfolioPlanning() {
     saveActiveScenarioId(id);
     setRenamingScenarioId(null);
   }, []);
-
-  // Persist fork scenarios whenever they change
-  useEffect(() => {
-    saveForkScenarios(forkScenarios);
-  }, [forkScenarios]);
 
   // ── Drag to reposition / resize phase bar ────────────────────────────────
   const handleDragPhaseStart = useCallback((epicKey: string, phase: PlanningPhase, e: React.MouseEvent) => {
@@ -2335,12 +2415,17 @@ export function PortfolioPlanning() {
   }, []);
 
   const handleSaveDrawer = useCallback((keys: string[]) => {
+    if (activeScenario) {
+      updateActiveScenario(s => ({ ...s, boardEpicKeys: keys }));
+      setDrawerOpen(false);
+      return;
+    }
     const removed = plan.boardEpicKeys.filter(k => !keys.includes(k));
     const added   = keys.filter(k => !plan.boardEpicKeys.includes(k));
     removed.forEach(k => plan.removeEpicFromBoard(k));
     added.forEach(k => plan.addEpicToBoard(k));
     setDrawerOpen(false);
-  }, [plan]);
+  }, [activeScenario, updateActiveScenario, plan]);
 
   const expandAll = useCallback(() => {
     const ec: Record<string, boolean> = {};
@@ -2393,7 +2478,7 @@ export function PortfolioPlanning() {
         >
           Main Plan
         </button>
-        {forkScenarios.map(s => (
+        {portfolioScenarios.map(s => (
           <span key={s.id} className={`pp-scenario-pill-wrap${activeScenarioId === s.id ? ' on' : ''}`}>
             {renamingScenarioId === s.id ? (
               <input
@@ -2418,7 +2503,7 @@ export function PortfolioPlanning() {
             )}
             <button
               className="pp-scenario-delete"
-              onClick={() => deleteScenario(s.id)}
+              onClick={() => handleDeleteScenario(s.id)}
               title="Delete scenario"
             >
               ×
@@ -2427,7 +2512,7 @@ export function PortfolioPlanning() {
         ))}
         <button
           className="pp-scenario-fork-btn"
-          onClick={() => forkCurrentPlan(`Plan ${forkScenarios.length + 2}`)}
+          onClick={() => forkCurrentPlan(`Plan ${portfolioScenarios.length + 2}`)}
           title="Duplicate current plan as a new scenario"
         >
           + Duplicate
@@ -2459,7 +2544,7 @@ export function PortfolioPlanning() {
             phasePersonCollapsed={phasePersonCollapsed}
             onToggleEpic={toggleEpic}
             onTogglePhasePersons={togglePhasePersons}
-            onRemoveEpic={plan.removeEpicFromBoard}
+            onRemoveEpic={handleRemoveEpic}
             onSetPhaseStart={(epicKey, phase, weekIdx) =>
               handleSetPhaseStartDate(epicKey, phase, dayToIsoDate(weekIdx * 5, tStart))
             }
@@ -2525,10 +2610,10 @@ export function PortfolioPlanning() {
         {/* Manual epic create modal */}
         {manualModalOpen && (
           <AddManualEpicModal
-            mode="create"
-            nextCode={nextManualCode}
-            onSave={input => {
-              plan.addManualEpic(input);
+              mode="create"
+              nextCode={nextManualCode}
+              onSave={input => {
+              handleCreateManualEpic(input);
               setManualModalOpen(false);
             }}
             onClose={() => setManualModalOpen(false)}
@@ -2541,7 +2626,7 @@ export function PortfolioPlanning() {
             mode="edit"
             epic={editingManualEpic}
             onSave={changes => {
-              plan.updateManualEpic(editingManualEpic.epicKey, changes);
+              handleUpdateManualEpic(editingManualEpic.epicKey, changes);
               setEditingManualEpic(null);
             }}
             onClose={() => setEditingManualEpic(null)}
@@ -2552,13 +2637,13 @@ export function PortfolioPlanning() {
         <PortfolioDrawer
           open={drawerOpen}
           allEpics={allEpics}
-          boardEpicKeys={plan.boardEpicKeys}
-          manualEpics={plan.manualEpics}
+          boardEpicKeys={activeBoardEpicKeys}
+          manualEpics={activeManualEpics}
           onClose={() => setDrawerOpen(false)}
           onSave={handleSaveDrawer}
           onCreateManual={() => { setDrawerOpen(false); setManualModalOpen(true); }}
           onEditManual={epic => { setEditingManualEpic(epic); setDrawerOpen(false); }}
-          onDeleteManual={epicKey => plan.deleteManualEpic(epicKey)}
+          onDeleteManual={handleDeleteManualEpic}
         />
 
         {/* Person / team picker popover */}
