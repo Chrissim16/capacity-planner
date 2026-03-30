@@ -554,6 +554,62 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  })}
  </div>
  )}
+ <div>
+ <label className="block text-sm font-medium text-[#1E293B] mb-1">
+ Additional JQL filter <span className="font-normal text-[#94A3B8]">(optional)</span>
+ </label>
+ <input
+  type="text"
+  value={jqlFilter}
+  onChange={e => setJqlFilter(e.target.value)}
+  placeholder='e.g. created >= -10d OR updatedDate >= -90d'
+  className="w-full px-3 py-2 text-sm border border-[#94A3B8] rounded-lg bg-white text-[#1E293B] placeholder-[#94A3B8] font-mono"
+ />
+ <p className="text-xs text-[#94A3B8] mt-1">
+  Appended to the discovery sync query with AND. Remove `created &gt;= -10d` here if you no longer want that limit.
+ </p>
+ </div>
+ <div>
+ <label className="block text-sm font-medium text-[#1E293B] mb-1">
+ Jira labels <span className="font-normal text-[#94A3B8]">(optional)</span>
+ </label>
+ <p className="text-xs text-[#94A3B8] mb-2">
+  If selected, discovery sync will include issues that have any of these labels.
+ </p>
+ <Input
+  id="discovery-label-filter"
+  value={labelFilter.join(', ')}
+  onChange={e => setLabelFilter(parseCsvInput(e.target.value))}
+  placeholder="e.g. finance, in-scope"
+  hint="You can type labels manually, or click from the Jira list below."
+ />
+ {availableLabels.length > 0 && (
+ <div className="flex flex-wrap gap-2 mt-2 max-h-32 overflow-y-auto">
+ {availableLabels.map(label => {
+ const selected = labelFilter.some(entry => entry.toLowerCase() === label.toLowerCase());
+ return (
+ <button
+  key={`discovery-${label}`}
+  type="button"
+  onClick={() => setLabelFilter(prev => {
+   const exists = prev.some(entry => entry.toLowerCase() === label.toLowerCase());
+   return exists
+    ? prev.filter(entry => entry.toLowerCase() !== label.toLowerCase())
+    : [...prev, label];
+  })}
+  className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+   selected
+    ? 'bg-[#0089DD] text-white border-[#0089DD]'
+    : 'bg-white text-[#1E293B] border-[#DEDFE3] hover:bg-[#E6F2FB]'
+  }`}
+ >
+  {label}
+ </button>
+ );
+ })}
+ </div>
+ )}
+ </div>
  </div>
  )}
  </div>
