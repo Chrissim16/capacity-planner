@@ -1113,6 +1113,57 @@ function SummaryView({
     });
   }, [epicRiskSummary, peopleSummaries]);
 
+  const epicEffortCards = useMemo(() => {
+    const businessTeamMap = new Map(state.businessTeams.map(team => [team.id, team.name]));
+
+    return boardEpics.map(epic => {
+      const assignmentsByPhase = assignMap.get(epic.jiraKey) ?? new Map<PlanningPhase, EpicPhaseAssignment[]>();
+      let itDays = 0;
+      let bizDays = 0;
+      const businessTeams = new Map<string, number>();
+      const businessContacts = new Map<string, number>();
+
+      for (const phaseAssignments of assignmentsByPhase.values()) {
+        for (const assignment of phaseAssignments) {
+          if (assignment.track === 'IT') {
+            itDays += assignment.days;
+            continue;
+          }
+
+          bizDays += assignment.days;
+          const contact = state.businessContacts.find(item => item.id === assignment.memberId);
+          const contactName = contact?.name ?? assignment.memberId;
+          businessContacts.set(contactName, (businessContacts.get(contactName) ?? 0) + assignment.days);
+
+          const primaryBusinessTeamId = contact?.businessTeamIds?.[0];
+          const businessTeamName = primaryBusinessTeamId
+            ? businessTeamMap.get(primaryBusinessTeamId) ?? 'Unmapped team'
+            : 'Unmapped team';
+          businessTeams.set(businessTeamName, (businessTeams.get(businessTeamName) ?? 0) + assignment.days);
+        }
+      }
+
+      const totalDays = itDays + bizDays;
+      const itPct = totalDays > 0 ? (itDays / totalDays) * 100 : 0;
+      const bizPct = totalDays > 0 ? (bizDays / totalDays) * 100 : 0;
+
+      return {
+        epic,
+        totalDays,
+        itDays,
+        bizDays,
+        itPct,
+        bizPct,
+        businessTeams: [...businessTeams.entries()]
+          .map(([name, days]) => ({ name, days }))
+          .sort((a, b) => b.days - a.days),
+        businessContacts: [...businessContacts.entries()]
+          .map(([name, days]) => ({ name, days }))
+          .sort((a, b) => b.days - a.days),
+      };
+    }).sort((a, b) => b.totalDays - a.totalDays || a.epic.jiraKey.localeCompare(b.epic.jiraKey));
+  }, [assignMap, boardEpics, state.businessContacts, state.businessTeams]);
+
   // KPI cards — one per process team
   const kpiCards = useMemo(() => {
     return processTeams.map(pt => {
@@ -1235,6 +1286,71 @@ function SummaryView({
                   <span className={`pp-delta-value ${item.value > 0 ? 'worse' : item.value < 0 ? 'better' : 'same'}`}>
                     {item.value > 0 ? '+' : ''}{item.value}{item.suffix ?? ''}
                   </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {epicEffortCards.length > 0 && (
+          <div>
+            <div className="pp-sec-hd">
+              <span className="pp-sec-title">Effort by Epic</span>
+              <span className="pp-sec-sub">IT vs business effort, with business team and contact split</span>
+            </div>
+            <div className="pp-effort-grid">
+              {epicEffortCards.map(card => (
+                <div key={card.epic.jiraKey} className="pp-effort-card">
+                  <div className="pp-effort-top">
+                    <div className="pp-effort-title">
+                      {jiraBaseUrl
+                        ? <a href={`${jiraBaseUrl}/browse/${card.epic.jiraKey}`} target="_blank" rel="noopener noreferrer" className="pp-effort-key">{card.epic.jiraKey}</a>
+                        : <span className="pp-effort-key">{card.epic.jiraKey}</span>
+                      }
+                      <span className="pp-effort-name">{card.epic.summary}</span>
+                    </div>
+                    <span className="pp-effort-total">{Math.round(card.totalDays)}d</span>
+                  </div>
+
+                  <div className="pp-effort-bar">
+                    <div className="pp-effort-bar-it" style={{ width: `${card.itPct}%` }} />
+                    <div className="pp-effort-bar-biz" style={{ width: `${card.bizPct}%` }} />
+                  </div>
+
+                  <div className="pp-effort-stats">
+                    <div className="pp-effort-stat it">
+                      <span className="pp-effort-stat-label">IT</span>
+                      <span className="pp-effort-stat-value">{Math.round(card.itDays)}d</span>
+                    </div>
+                    <div className="pp-effort-stat biz">
+                      <span className="pp-effort-stat-label">Business</span>
+                      <span className="pp-effort-stat-value">{Math.round(card.bizDays)}d</span>
+                    </div>
+                  </div>
+
+                  <div className="pp-effort-detail">
+                    <div className="pp-effort-section">
+                      <span className="pp-effort-section-label">Business teams</span>
+                      <div className="pp-effort-chip-row">
+                        {card.businessTeams.length > 0 ? card.businessTeams.map(team => (
+                          <span key={team.name} className="pp-effort-chip team">
+                            {team.name} · {Math.round(team.days)}d
+                          </span>
+                        )) : <span className="pp-effort-empty">No business effort assigned</span>}
+                      </div>
+                    </div>
+
+                    <div className="pp-effort-section">
+                      <span className="pp-effort-section-label">Biz contacts</span>
+                      <div className="pp-effort-chip-row">
+                        {card.businessContacts.length > 0 ? card.businessContacts.map(contact => (
+                          <span key={contact.name} className="pp-effort-chip contact">
+                            {contact.name} · {Math.round(contact.days)}d
+                          </span>
+                        )) : <span className="pp-effort-empty">No contacts assigned</span>}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

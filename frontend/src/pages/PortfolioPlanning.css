@@ -711,6 +711,166 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-delta-value.better { color: #16A34A; }
 .pp-delta-value.same { color: var(--txt2); }
 
+.pp-effort-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.pp-effort-card {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .04);
+}
+
+.pp-effort-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pp-effort-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pp-effort-key {
+  width: fit-content;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--blue);
+  background: var(--blue-lt);
+  padding: 3px 7px;
+  border-radius: 999px;
+}
+
+.pp-effort-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--txt1);
+  line-height: 1.35;
+}
+
+.pp-effort-total {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--txt1);
+  white-space: nowrap;
+}
+
+.pp-effort-bar {
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #E8EEF6;
+  display: flex;
+}
+
+.pp-effort-bar-it {
+  background: linear-gradient(90deg, #0089DD 0%, #3BA9F0 100%);
+}
+
+.pp-effort-bar-biz {
+  background: linear-gradient(90deg, #F59E0B 0%, #FBBF24 100%);
+}
+
+.pp-effort-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pp-effort-stat {
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pp-effort-stat.it {
+  background: #EEF7FF;
+  border: 1px solid #CFE8FA;
+}
+
+.pp-effort-stat.biz {
+  background: #FFF8EB;
+  border: 1px solid #FDE3A7;
+}
+
+.pp-effort-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--txt2);
+}
+
+.pp-effort-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--txt1);
+}
+
+.pp-effort-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pp-effort-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pp-effort-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.pp-effort-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pp-effort-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pp-effort-chip.team {
+  background: #FFF4DB;
+  color: #9A6700;
+}
+
+.pp-effort-chip.contact {
+  background: #F3F4F6;
+  color: #475569;
+}
+
+.pp-effort-empty {
+  font-size: 11px;
+  color: var(--txt3);
+}
+
 .pp-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .pp-kpi-card {
   background: var(--white); border: 1px solid var(--border); border-radius: 10px;
