@@ -2183,7 +2183,7 @@ export function PortfolioPlanning() {
         const existing = s.phaseAssignments.find(
           (a: EpicPhaseAssignment) => a.epicKey === epicKey && a.phase === phase && a.memberId === memberId
         );
-        const newAssignments = existing
+        const newAssignments: EpicPhaseAssignment[] = existing
           ? s.phaseAssignments.map((a: EpicPhaseAssignment) =>
               a.epicKey === epicKey && a.phase === phase && a.memberId === memberId
                 ? { ...a, days, track, allocationMode: mode, daysPerWeek: dpw, updatedAt: now } : a
@@ -2200,7 +2200,7 @@ export function PortfolioPlanning() {
     epicKey: string, phase: PlanningPhase, memberId: string, mode: AllocationMode, daysPerWeek?: number
   ) => {
     const existing = activePhaseAssignments.find(
-      a => a.epicKey === epicKey && a.phase === phase && a.memberId === memberId
+      (a: EpicPhaseAssignment) => a.epicKey === epicKey && a.phase === phase && a.memberId === memberId
     );
     if (!existing) return;
     await handleUpsertAssignment(epicKey, phase, memberId, existing.days, existing.track, { allocationMode: mode, daysPerWeek });
@@ -2215,9 +2215,9 @@ export function PortfolioPlanning() {
         ...s,
         phaseAssignments: s.phaseAssignments.map((a: EpicPhaseAssignment) => {
           if (a.epicKey !== epicKey || a.phase !== phase || a.memberId !== memberId) return a;
-          const existing = a.segments ?? [];
+          const existing: AllocationSegment[] = a.segments ?? [];
           const idx = existing.findIndex((s2: AllocationSegment) => s2.id === seg.id);
-          const newSegs = idx >= 0 ? existing.map((s2: AllocationSegment, i: number) => (i === idx ? seg : s2)) : [...existing, seg];
+          const newSegs: AllocationSegment[] = idx >= 0 ? existing.map((s2: AllocationSegment, i: number) => (i === idx ? seg : s2)) : [...existing, seg];
           return { ...a, segments: newSegs, days: newSegs.reduce((sum: number, s2: AllocationSegment) => sum + s2.days, 0), updatedAt: now };
         }),
       }));
@@ -2235,7 +2235,7 @@ export function PortfolioPlanning() {
         ...s,
         phaseAssignments: s.phaseAssignments.map((a: EpicPhaseAssignment) => {
           if (a.epicKey !== epicKey || a.phase !== phase || a.memberId !== memberId) return a;
-          const newSegs = (a.segments ?? []).filter((sg: AllocationSegment) => sg.id !== segmentId);
+          const newSegs: AllocationSegment[] = (a.segments ?? []).filter((sg: AllocationSegment) => sg.id !== segmentId);
           return { ...a, segments: newSegs, days: newSegs.reduce((sum: number, sg: AllocationSegment) => sum + sg.days, 0), updatedAt: now };
         }),
       }));
