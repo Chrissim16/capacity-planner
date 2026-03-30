@@ -516,9 +516,7 @@ function EpicView({
           const overTier = assignments.some(a => personOverloadMap.get(a.memberId) === 'over') ? 'over'
             : assignments.some(a => personOverloadMap.get(a.memberId) === 'near') ? 'near'
             : null;
-          const barLabel = barW >= 4
-            ? `${PH_SHORT[ph]} ${hasEnd ? `${weeksBetween(startDate!, endDate!)}wk` : `${barW}d`}`
-            : `${barW}d`;
+          const barLabel = barW >= 4 ? `${PH_SHORT[ph]} ${barW}d` : `${barW}d`;
           ganttRows.push(
             <div key={`gp-${phKey}`} className="pp-g-phase" style={{ minWidth: totalW }}>
               <GridBg weeks={weeks} />

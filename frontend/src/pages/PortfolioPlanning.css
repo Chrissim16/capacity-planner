@@ -895,7 +895,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-picker-empty { padding: 14px 12px; font-size: 12px; color: #94A3B8; text-align: center; }
 
 /* ── Phase bar — end handle & no-end state ───────────────────────────────── */
-.pp-pbar { position: relative; overflow: visible; }
+.pp-pbar { overflow: visible; }
 .pp-pbar.no-end { border-right: 2px dashed currentColor; opacity: .85; }
 .pp-pbar-end-handle {
   position: absolute; right: -4px; top: 0; bottom: 0; width: 10px;
