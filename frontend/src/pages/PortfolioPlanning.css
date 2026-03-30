@@ -722,7 +722,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-effort-head,
 .pp-effort-row {
   display: grid;
-  grid-template-columns: minmax(280px, 1.25fr) minmax(220px, .9fr) minmax(220px, .85fr);
+  grid-template-columns: minmax(280px, 1.35fr) minmax(240px, 1fr);
 }
 
 .pp-effort-head {
@@ -746,35 +746,34 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-effort-head-cell:last-child { border-right: none; }
 
 .pp-effort-row {
-  min-height: 72px;
+  min-height: 48px;
   border-bottom: 1px solid var(--bord-lt);
 }
 
 .pp-effort-row:last-child { border-bottom: none; }
 
 .pp-effort-main,
-.pp-effort-split,
-.pp-effort-owners {
+.pp-effort-split {
   display: flex;
   align-items: center;
-  padding: 12px 14px;
+  padding: 8px 14px;
   border-right: 1px solid var(--bord-lt);
 }
 
-.pp-effort-owners { border-right: none; }
+.pp-effort-split { border-right: none; }
 
 .pp-effort-main {
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
 .pp-effort-rank {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   background: #EAF4FC;
   color: var(--blue);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -786,14 +785,14 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .pp-effort-title-top,
 .pp-effort-title-body {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -808,24 +807,24 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 
 .pp-effort-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--txt1);
-  line-height: 1.35;
+  line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .pp-effort-total {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--txt1);
   white-space: nowrap;
 }
 
 .pp-effort-total-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   color: var(--txt3);
   text-transform: uppercase;
@@ -836,11 +835,11 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .pp-effort-bar {
-  height: 10px;
+  height: 8px;
   border-radius: 999px;
   overflow: hidden;
   background: #E8EEF6;
@@ -858,16 +857,16 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-effort-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .pp-effort-stat {
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 6px;
+  padding: 5px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
 .pp-effort-stat.it {
@@ -881,7 +880,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 
 .pp-effort-stat-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .06em;
@@ -889,39 +888,9 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 
 .pp-effort-stat-value {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--txt1);
-}
-
-.pp-effort-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.pp-effort-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 9px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.pp-effort-chip.team {
-  background: #FFF4DB;
-  color: #9A6700;
-}
-
-.pp-effort-chip.contact {
-  background: #F3F4F6;
-  color: #475569;
-}
-
-.pp-effort-empty {
-  font-size: 11px;
-  color: var(--txt3);
 }
 
 @media (max-width: 1100px) {
@@ -933,8 +902,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   .pp-effort-head { display: none; }
 
   .pp-effort-main,
-  .pp-effort-split,
-  .pp-effort-owners {
+  .pp-effort-split {
     border-right: none;
   }
 
@@ -946,10 +914,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
     padding-bottom: 8px;
   }
 
-  .pp-effort-split,
-  .pp-effort-owners {
-    padding-top: 0;
-  }
+  .pp-effort-split { padding-top: 0; }
 }
 
 .pp-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }

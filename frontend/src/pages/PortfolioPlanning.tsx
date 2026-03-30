@@ -1296,18 +1296,14 @@ function SummaryView({
           <div>
             <div className="pp-sec-hd">
               <span className="pp-sec-title">Effort by Epic</span>
-              <span className="pp-sec-sub">Ranked view of IT vs business effort, with top business owners</span>
+              <span className="pp-sec-sub">Ranked view of IT vs business effort</span>
             </div>
             <div className="pp-effort-list">
               <div className="pp-effort-head">
                 <div className="pp-effort-head-cell">Epic</div>
                 <div className="pp-effort-head-cell">Effort split</div>
-                <div className="pp-effort-head-cell">Business owner</div>
               </div>
               {epicEffortCards.map((card, index) => {
-                const topBusinessTeam = card.businessTeams[0] ?? null;
-                const topBusinessContact = card.businessContacts[0] ?? null;
-
                 return (
                   <div key={card.epic.jiraKey} className="pp-effort-row">
                     <div className="pp-effort-main">
@@ -1342,17 +1338,6 @@ function SummaryView({
                           <span className="pp-effort-stat-label">Biz</span>
                           <span className="pp-effort-stat-value">{Math.round(card.bizDays)}d</span>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="pp-effort-owners">
-                      <div className="pp-effort-chip-row">
-                        {topBusinessTeam
-                          ? <span className="pp-effort-chip team">{topBusinessTeam.name} · {Math.round(topBusinessTeam.days)}d</span>
-                          : <span className="pp-effort-empty">No business team</span>}
-                        {topBusinessContact
-                          ? <span className="pp-effort-chip contact">{topBusinessContact.name} · {Math.round(topBusinessContact.days)}d</span>
-                          : <span className="pp-effort-empty">No biz contact</span>}
                       </div>
                     </div>
                   </div>
