@@ -108,7 +108,11 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
       supabase.from('portfolio_epics').select('epic_key'),
       supabase.from('epic_phase_plans').select('*'),
       supabase.from('epic_phase_assignments').select('*'),
-      supabase.from('epic_phase_allocation_segments').select('*'),
+      // Graceful degradation: returns empty data if migration 040 not yet applied
+      supabase.from('epic_phase_allocation_segments').select('*').then(res => ({
+        data: res.error ? [] : res.data,
+        error: null,
+      })),
     ]).then(([boardRes, plansRes, assignRes, segsRes]) => {
       if (boardRes.data && boardRes.data.length > 0) {
         const keys = (boardRes.data as Array<{ epic_key: string }>).map(r => r.epic_key);
