@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { testJiraConnection, getJiraProjects, validateJiraUrl } from '../../services/jira';
-import type { JiraConnection, JiraConnectionSyncSettings, JiraSettings } from '../../types';
+import type { JiraConnection, JiraConnectionSyncSettings, JiraSettings, JiraDiscoveryConfig } from '../../types';
 
 interface JiraConnectionFormProps {
  connection?: JiraConnection;
@@ -50,6 +50,13 @@ function createSyncOverrideFromSettings(settings: JiraSettings): JiraConnectionS
  };
 }
 
+function parseCsvInput(value: string): string[] {
+ return value
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter(Boolean);
+}
+
 export function JiraConnectionForm({ connection, globalSettings, onSave, onCancel }: JiraConnectionFormProps) {
  const isEditing = !!connection;
  const [name, setName] = useState(connection?.name || '');
@@ -71,6 +78,7 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  const [isSaving, setIsSaving] = useState(false);
 
  const [defaultDaysPerItem, setDefaultDaysPerItem] = useState(connection?.defaultDaysPerItem ?? 1);
+ const [mode, setMode] = useState<'standard' | 'discovery'>(connection?.mode ?? 'standard');
  const [jqlFilter, setJqlFilter] = useState(connection?.jqlFilter || '');
  const [scenarioPlannerOnly, setScenarioPlannerOnly] = useState(connection?.scenarioPlannerOnly ?? false);
  const [importBehaviourOpen, setImportBehaviourOpen] = useState(false);
@@ -81,9 +89,20 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  const [cfEpicLinkAlt, setCfEpicLinkAlt] = useState(connection?.customFieldIds?.epicLinkAlt ?? '');
  const [cfStartDate, setCfStartDate] = useState(connection?.customFieldIds?.startDate ?? '');
  const [cfSprint, setCfSprint] = useState(connection?.customFieldIds?.sprint ?? '');
+ const [discoveryIssueTypeName, setDiscoveryIssueTypeName] = useState(connection?.discoveryConfig?.issueTypeName ?? '');
+ const [discoveryStatuses, setDiscoveryStatuses] = useState((connection?.discoveryConfig?.includedStatuses ?? []).join(', '));
+ const [drivingValueStreamFieldId, setDrivingValueStreamFieldId] = useState(connection?.discoveryConfig?.drivingValueStreamFieldId ?? '');
+ const [drivingValueStreams, setDrivingValueStreams] = useState((connection?.discoveryConfig?.includedDrivingValueStreams ?? []).join(', '));
  const [syncOverride, setSyncOverride] = useState<JiraConnectionSyncSettings>(
   connection?.syncSettingsOverride ?? createSyncOverrideFromSettings(globalSettings)
  );
+
+ useEffect(() => {
+  if (mode === 'discovery') {
+   setScenarioPlannerOnly(true);
+   setUseGlobalSyncSettings(true);
+  }
+ }, [mode]);
 
  useEffect(() => {
  if (connectionStatus === 'success' && availableProjects.length === 0) loadProjects();
@@ -131,13 +150,27 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  if (connectionStatus !== 'success') newErrors.general = 'Test connection first';
  // US-010: if editing and token not changed, we must have an existing token stored
  if (tokenChanged && !apiToken.trim()) newErrors.apiToken = 'Required';
+ if (mode === 'discovery') {
+  if (!discoveryIssueTypeName.trim()) newErrors.discoveryIssueTypeName = 'Required';
+  if (parseCsvInput(discoveryStatuses).length === 0) newErrors.discoveryStatuses = 'Add at least one status';
+  if (!drivingValueStreamFieldId.trim()) newErrors.drivingValueStreamFieldId = 'Required';
+  if (parseCsvInput(drivingValueStreams).length === 0) newErrors.drivingValueStreams = 'Add at least one driving value stream';
+ }
  setErrors(newErrors);
  if (Object.keys(newErrors).length > 0) return;
  setIsSaving(true);
  // US-010: use existing token if not changed
  const finalToken = tokenChanged ? apiToken.trim() : (connection?.apiToken || '');
+ const discoveryConfig: JiraDiscoveryConfig | undefined = mode === 'discovery'
+  ? {
+    issueTypeName: discoveryIssueTypeName.trim(),
+    includedStatuses: parseCsvInput(discoveryStatuses),
+    drivingValueStreamFieldId: drivingValueStreamFieldId.trim(),
+    includedDrivingValueStreams: parseCsvInput(drivingValueStreams),
+   }
+  : undefined;
  onSave({
- name: name.trim(), jiraBaseUrl: jiraBaseUrl.replace(/\/+$/, ''), jiraProjectKey, jiraProjectId, jiraProjectName,
+ name: name.trim(), mode, jiraBaseUrl: jiraBaseUrl.replace(/\/+$/, ''), jiraProjectKey, jiraProjectId, jiraProjectName,
  apiToken: finalToken,
  apiTokenMasked: maskToken(finalToken),
  userEmail: userEmail.trim(), isActive: connection?.isActive ?? true,
@@ -145,14 +178,15 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  syncHistory: connection?.syncHistory,
  defaultDaysPerItem,
  jqlFilter: jqlFilter.trim() || undefined,
- scenarioPlannerOnly,
+ scenarioPlannerOnly: mode === 'discovery' ? true : scenarioPlannerOnly,
  customFieldIds: (cfEpicLink || cfEpicLinkAlt || cfStartDate || cfSprint) ? {
  epicLink: cfEpicLink.trim() || undefined,
  epicLinkAlt: cfEpicLinkAlt.trim() || undefined,
  startDate: cfStartDate.trim() || undefined,
  sprint: cfSprint.trim() || undefined,
  } : undefined,
- syncSettingsOverride: useGlobalSyncSettings ? undefined : syncOverride,
+ syncSettingsOverride: mode === 'standard' && !useGlobalSyncSettings ? syncOverride : undefined,
+ discoveryConfig,
  });
  setIsSaving(false);
  };
@@ -162,6 +196,21 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  return (
  <form onSubmit={handleSubmit} className="space-y-6">
  <Input id="name" label="Connection Name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g., Main Project" required error={errors.name} />
+ <div>
+ <label className="block text-sm font-medium text-[#1E293B] mb-1">Connection Mode</label>
+ <Select
+  id="mode"
+  value={mode}
+  onChange={e => setMode(e.target.value as 'standard' | 'discovery')}
+  options={[
+   { value: 'standard', label: 'Standard delivery sync' },
+   { value: 'discovery', label: 'Discovery board sync' },
+  ]}
+ />
+ <p className="text-xs text-[#94A3B8] mt-1">
+  Discovery mode is intended for planner-only intake boards with custom statuses and driving value stream filters.
+ </p>
+ </div>
  <div>
  <Input id="url" label="Jira URL" value={jiraBaseUrl} onChange={e => { setJiraBaseUrl(e.target.value); setConnectionStatus('idle'); setAvailableProjects([]); }} placeholder="https://company.atlassian.net" required error={errors.jiraBaseUrl} />
  <p className="text-xs text-[#94A3B8] mt-1">Your Atlassian Cloud URL</p>
@@ -209,7 +258,52 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  </div>}
  </div>
  {connectionStatus === 'success' && <div className="pt-4 border-t"><Select id="project" label="Jira Project" value={jiraProjectKey} onChange={e => handleProjectSelect(e.target.value)} options={projectOptions} disabled={loadingProjects} required error={errors.jiraProjectKey} /></div>}
+ {mode === 'discovery' && (
+ <div className="rounded-lg border border-[#DEDFE3] bg-[#F5F8FC] px-4 py-3 space-y-4">
+ <div>
+ <p className="text-sm font-medium text-[#1E293B]">Discovery Filters</p>
+ <p className="text-xs text-[#94A3B8] mt-1">
+  Discovery connections are visible only in Scenario Planner and Portfolio Planning.
+ </p>
+ </div>
+ <Input
+  id="discovery-issue-type"
+  label="Discovery issue type"
+  value={discoveryIssueTypeName}
+  onChange={e => setDiscoveryIssueTypeName(e.target.value)}
+  placeholder="e.g. Discovery"
+  error={errors.discoveryIssueTypeName}
+ />
+ <Input
+  id="discovery-statuses"
+  label="Included statuses"
+  value={discoveryStatuses}
+  onChange={e => setDiscoveryStatuses(e.target.value)}
+  placeholder="e.g. New, Discovery, Refinement"
+  hint="Comma-separated status names as they exist in Jira."
+  error={errors.discoveryStatuses}
+ />
+ <Input
+  id="driving-value-stream-field"
+  label="Driving value stream field ID"
+  value={drivingValueStreamFieldId}
+  onChange={e => setDrivingValueStreamFieldId(e.target.value)}
+  placeholder="e.g. customfield_12345"
+  error={errors.drivingValueStreamFieldId}
+ />
+ <Input
+  id="driving-value-stream-values"
+  label="Included driving value streams"
+  value={drivingValueStreams}
+  onChange={e => setDrivingValueStreams(e.target.value)}
+  placeholder="e.g. Finance, Operations"
+  hint="Comma-separated field values to include."
+  error={errors.drivingValueStreams}
+ />
+ </div>
+ )}
  {/* Import Behaviour — collapsible */}
+ {mode === 'standard' && (
  <div className="border border-[#DEDFE3] rounded-lg overflow-hidden">
  <button
  type="button"
@@ -276,7 +370,9 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
        </div>
       )}
     </div>
+ )}
 
+ {mode === 'standard' && (
  <div className="border border-[#DEDFE3] rounded-lg overflow-hidden">
  <button
  type="button"
@@ -356,6 +452,7 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  </div>
  )}
  </div>
+ )}
 
  {/* Custom Field IDs — collapsible */}
  <div className="border border-[#DEDFE3] rounded-lg overflow-hidden">

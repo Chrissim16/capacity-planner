@@ -10,11 +10,17 @@ import { useProcessTeamCapacitySummaries } from '../hooks/useProcessTeamCapacity
 import { getEpicStaffingRisks } from '../utils/reportRisks';
 import { getWarnings } from '../utils/capacity';
 import { getCurrentQuarter, generateQuarters, getNextQuarter, getQuartersBetween } from '../utils/calendar';
+import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
 
 export function Report() {
   const state = useCurrentState();
   const activeScenario = useActiveScenario();
   const [exporting, setExporting] = useState(false);
+  const jiraWorkItems = useMemo(
+    () => globalJiraWorkItems(state.jiraWorkItems ?? [], state.jiraConnections ?? []),
+    [state.jiraWorkItems, state.jiraConnections],
+  );
+  const reportState = useMemo(() => ({ ...state, jiraWorkItems }), [state, jiraWorkItems]);
 
   // Quarter picker options — derived from sprint definitions or a fallback window
   const quarterOptions = useMemo(() => {
@@ -52,19 +58,19 @@ export function Report() {
 
   // Epic staffing risks
   const epicRisks = useMemo(
-    () => getEpicStaffingRisks(plannerItems, state.jiraWorkItems),
-    [plannerItems, state.jiraWorkItems],
+    () => getEpicStaffingRisks(plannerItems, jiraWorkItems),
+    [plannerItems, jiraWorkItems],
   );
 
   // Overbooked members for the selected quarter
   const overbookedMembers = useMemo(() => {
-    const warnings = getWarnings(state, selectedQuarter);
+    const warnings = getWarnings(reportState, selectedQuarter);
     return warnings.overallocated.map(w => ({
       member: w.member,
       usedPercent: w.totalDays > 0 ? Math.round((w.usedDays / w.totalDays) * 100) : 0,
       quarter: w.quarter,
     }));
-  }, [state, selectedQuarter]);
+  }, [reportState, selectedQuarter]);
 
   // Process team capacity for the selected quarter
   const processTeamSummaries = useProcessTeamCapacitySummaries(selectedQuarter);
@@ -83,7 +89,7 @@ export function Report() {
           scenarioName={scenarioName}
           quarter={selectedQuarter}
           plannerItems={plannerItems}
-          jiraItems={state.jiraWorkItems}
+          jiraItems={jiraWorkItems}
           teamMembers={state.teamMembers}
           sprints={state.sprints}
           ganttQuarters={ganttQuarters}
@@ -157,7 +163,7 @@ export function Report() {
             </h2>
             <ReportGantt
               plannerItems={plannerItems}
-              jiraItems={state.jiraWorkItems}
+              jiraItems={jiraWorkItems}
               quarters={ganttQuarters}
               teamMembers={state.teamMembers}
               sprints={state.sprints}

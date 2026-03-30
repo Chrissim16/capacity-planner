@@ -21,6 +21,7 @@ import { Badge } from '../components/ui/Badge';
 import { JiraHierarchyTree } from '../components/JiraHierarchyTree';
 import { useCurrentState, useAppStore } from '../stores/appStore';
 import type { JiraItemType } from '../types';
+import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
 
 // ─── type-badge colours — neutral slate for everything, red for bugs ────────
 const TYPE_COUNT_COLORS: Record<JiraItemType, string> = {
@@ -35,7 +36,8 @@ const TYPE_COUNT_COLORS: Record<JiraItemType, string> = {
 
 export function Jira() {
   const state = useCurrentState();
-  const { jiraWorkItems, jiraConnections, jiraSettings } = state;
+  const { jiraConnections, jiraSettings } = state;
+  const jiraWorkItems = globalJiraWorkItems(state.jiraWorkItems ?? [], jiraConnections ?? []);
  const setView = useAppStore(s => s.setCurrentView);
 
   const [expandedEpics, setExpandedEpics] = useState<Set<string>>(new Set());

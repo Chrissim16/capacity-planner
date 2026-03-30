@@ -13,7 +13,7 @@ import {
  addJiraConnection, updateJiraConnection, deleteJiraConnection,
  toggleJiraConnectionActive, updateJiraSettings,
 } from '../../stores/actions';
-import { testJiraConnection, buildJQL, getJiraIssueTypes, diagnoseJiraKey, getEffectiveJiraConnectionSyncSettings } from '../../services/jira';
+import { testJiraConnection, buildJQL, getJiraIssueTypes, diagnoseJiraKey, getEffectiveJiraConnectionSyncSettings, getEffectiveJiraConnectionMode, normalizeDiscoveryConfig } from '../../services/jira';
 import type { JiraIssueType, JiraKeyDiagnostic } from '../../services/jira';
 import { fetchSyncPreview, applySync } from '../../application/jiraSync';
 import { useToast } from '../../components/ui/Toast';
@@ -417,7 +417,7 @@ export function JiraSection() {
  <div key={conn.id} className="rounded-lg border bg-[#F0F2F5] /60 p-3">
  <div className="flex items-center justify-between mb-1">
  <span className="text-xs font-medium text-[#94A3B8] ">
- {conn.name} ({conn.jiraProjectKey}){conn.syncSettingsOverride ? ' · custom sync' : ''}
+ {conn.name} ({conn.jiraProjectKey}){conn.mode === 'discovery' ? ' · discovery' : conn.syncSettingsOverride ? ' · custom sync' : ''}
  </span>
  <button
  type="button"
@@ -741,13 +741,19 @@ export function JiraSection() {
  const SYNCED_NAMES = new Set(['Epic', 'Feature', 'Story', 'Task', 'Bug']);
  const conn = jiraConnections.find(c => c.id === issueTypeCheckConnId);
  const jql = conn ? buildJQL(conn, jiraSettings) : null;
- const effectiveSettings = conn ? getEffectiveJiraConnectionSyncSettings(conn, jiraSettings) : null;
+ const mode = conn ? getEffectiveJiraConnectionMode(conn) : 'standard';
+ const effectiveSettings = conn && mode === 'standard' ? getEffectiveJiraConnectionSyncSettings(conn, jiraSettings) : null;
+ const discoveryConfig = conn && mode === 'discovery' ? normalizeDiscoveryConfig(conn.discoveryConfig) : null;
  const enabledNames = new Set<string>();
+ if (mode === 'discovery') {
+ if (discoveryConfig?.issueTypeName) enabledNames.add(discoveryConfig.issueTypeName);
+ } else {
  if (effectiveSettings?.syncEpics) enabledNames.add('Epic');
  if (effectiveSettings?.syncFeatures) enabledNames.add('Feature');
  if (effectiveSettings?.syncStories) enabledNames.add('Story');
  if (effectiveSettings?.syncTasks) enabledNames.add('Task');
  if (effectiveSettings?.syncBugs) enabledNames.add('Bug');
+ }
  return (
  <div className="space-y-3">
  <p className="text-xs text-muted-foreground">
@@ -765,13 +771,17 @@ export function JiraSection() {
  <tbody className="divide-y">
  {issueTypeCheckResult.map(t => {
  const inEnabled = enabledNames.has(t.name);
- const inSupported = SYNCED_NAMES.has(t.name);
+ const inSupported = mode === 'discovery' ? inEnabled : SYNCED_NAMES.has(t.name);
  return (
  <tr key={t.id}>
  <td className="px-4 py-2.5 font-mono text-xs font-medium">{t.name}</td>
  <td className="px-4 py-2.5 text-xs text-muted-foreground">{t.subtask ? 'Yes' : 'No'}</td>
  <td className="px-4 py-2.5">
- {inEnabled
+ {mode === 'discovery'
+ ? inEnabled
+ ? <span className="flex items-center gap-1 text-[#16A34A] text-xs"><CheckCircle size={12} /> Matches discovery issue type</span>
+ : <span className="flex items-center gap-1 text-red-500 text-xs"><AlertCircle size={12} /> Not synced by discovery issue type filter</span>
+ : inEnabled
  ? <span className="flex items-center gap-1 text-[#16A34A] text-xs"><CheckCircle size={12} /> Will be synced</span>
  : inSupported
  ? <span className="flex items-center gap-1 text-amber-600 text-xs"><AlertCircle size={12} /> Supported but disabled (turn on in settings)</span>
@@ -784,11 +794,18 @@ export function JiraSection() {
  </tbody>
  </table>
  </div>
- {issueTypeCheckResult.some(t => !SYNCED_NAMES.has(t.name)) && (
- <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
- <strong>Types not matching the 5 supported names will never be synced.</strong>
- {' '}Use the <em>Additional JQL filter</em> field in your connection settings to narrow scope,
+ {mode === 'standard' && issueTypeCheckResult.some(t => !SYNCED_NAMES.has(t.name)) && (
+<div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+<strong>Types not matching the 5 supported names will never be synced.</strong>
+{' '}Use the <em>Additional JQL filter</em> field in your connection settings to narrow scope,
  or check in Jira what exact type ERP-3423, ERP-2841, ERP-3647 are assigned.
+</div>
+)}
+ {mode === 'discovery' && discoveryConfig && (
+ <div className="bg-[#F5F8FC] border border-[#DEDFE3] rounded-lg p-3 text-xs text-[#1E293B]">
+ <strong>Discovery filters:</strong> issue type <code className="bg-white px-1 rounded">{discoveryConfig.issueTypeName || '(none)'}</code>,
+ statuses <code className="bg-white px-1 rounded">{discoveryConfig.includedStatuses.join(', ') || '(none)'}</code>,
+ driving value stream field <code className="bg-white px-1 rounded">{discoveryConfig.drivingValueStreamFieldId || '(none)'}</code>.
  </div>
  )}
  {jql && (

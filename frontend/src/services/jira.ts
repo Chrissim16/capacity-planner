@@ -4,6 +4,7 @@ import type {
   JiraItemType, 
   JiraSettings,
   JiraConnectionSyncSettings,
+  JiraDiscoveryConfig,
   JiraSyncResult,
   JiraStatusFilter,
 } from '../types';
@@ -482,56 +483,70 @@ export async function diagnoseJiraKey(
     if (settings) {
       const syncJql = buildJQL(connection, settings);
       if (syncJql) jqlUsed = syncJql;
-      const effective = getEffectiveJiraConnectionSyncSettings(connection, settings);
-
       const typeName = f.issuetype.name;
       const catKey = f.status.statusCategory?.key ?? '';
-
-      // Determine which filter applies to this type
-      const typeFilterMap: Record<string, { enabled: boolean; filter: string }> = {
-        'Epic':    { enabled: effective.syncEpics    ?? false, filter: effective.statusFilterEpics    ?? 'all' },
-        'Feature': { enabled: effective.syncFeatures ?? false, filter: effective.statusFilterFeatures ?? 'all' },
-        'Story':   { enabled: effective.syncStories  ?? false, filter: effective.statusFilterStories  ?? 'all' },
-        'Task':    { enabled: effective.syncTasks    ?? false, filter: effective.statusFilterTasks    ?? 'all' },
-        'Bug':     { enabled: effective.syncBugs     ?? false, filter: effective.statusFilterBugs     ?? 'all' },
-      };
-
-      // Match by include() so "User Story" → story, "Sub-bug" → bug, etc.
-      const lowerType = typeName.toLowerCase();
-      const matchedEntry = Object.entries(typeFilterMap).find(([k]) => lowerType.includes(k.toLowerCase()));
-
-      if (!matchedEntry) {
-        typeEnabled = false;
-        statusPasses = undefined;
-        statusFilterUsed = undefined;
-        exclusionReason = `Type "${typeName}" is not one of the 5 supported types (Epic, Feature, Story, Task, Bug)`;
-      } else {
-        const [, { enabled, filter }] = matchedEntry;
-        typeEnabled = enabled;
-        statusFilterUsed = filter;
-
-        if (!enabled) {
+      if (getEffectiveJiraConnectionMode(connection) === 'discovery') {
+        const config = normalizeDiscoveryConfig(connection.discoveryConfig);
+        typeEnabled = typeName.toLowerCase() === config.issueTypeName.toLowerCase();
+        statusFilterUsed = config.includedStatuses.join(', ');
+        if (!typeEnabled) {
           statusPasses = undefined;
-          exclusionReason = `Type "${typeName}" is disabled in Sync Settings`;
+          exclusionReason = `Type "${typeName}" does not match discovery issue type "${config.issueTypeName}"`;
         } else {
-          // Check status category against filter
-          // catKey: 'new' = To Do, 'indeterminate' = In Progress, 'done' = Done
-          switch (filter) {
-            case 'exclude_done':
-              statusPasses = catKey !== 'done';
-              exclusionReason = catKey === 'done' ? `Status "${f.status.name}" is "Done" — excluded by "Exclude Done" filter` : null;
-              break;
-            case 'active_only':
-              statusPasses = catKey === 'new' || catKey === 'indeterminate';
-              exclusionReason = statusPasses ? null : `Status "${f.status.name}" is not "To Do" or "In Progress" — excluded by "Active only" filter`;
-              break;
-            case 'todo_only':
-              statusPasses = catKey === 'new';
-              exclusionReason = statusPasses ? null : `Status "${f.status.name}" is not "To Do" — excluded by "To Do only" filter`;
-              break;
-            default: // 'all'
-              statusPasses = true;
-              exclusionReason = null;
+          statusPasses = config.includedStatuses.some(status => status.toLowerCase() === f.status.name.toLowerCase());
+          exclusionReason = statusPasses
+            ? null
+            : `Status "${f.status.name}" is not included in the discovery status filter`;
+        }
+      } else {
+        const effective = getEffectiveJiraConnectionSyncSettings(connection, settings);
+
+        // Determine which filter applies to this type
+        const typeFilterMap: Record<string, { enabled: boolean; filter: string }> = {
+          'Epic':    { enabled: effective.syncEpics    ?? false, filter: effective.statusFilterEpics    ?? 'all' },
+          'Feature': { enabled: effective.syncFeatures ?? false, filter: effective.statusFilterFeatures ?? 'all' },
+          'Story':   { enabled: effective.syncStories  ?? false, filter: effective.statusFilterStories  ?? 'all' },
+          'Task':    { enabled: effective.syncTasks    ?? false, filter: effective.statusFilterTasks    ?? 'all' },
+          'Bug':     { enabled: effective.syncBugs     ?? false, filter: effective.statusFilterBugs     ?? 'all' },
+        };
+
+        // Match by include() so "User Story" → story, "Sub-bug" → bug, etc.
+        const lowerType = typeName.toLowerCase();
+        const matchedEntry = Object.entries(typeFilterMap).find(([k]) => lowerType.includes(k.toLowerCase()));
+
+        if (!matchedEntry) {
+          typeEnabled = false;
+          statusPasses = undefined;
+          statusFilterUsed = undefined;
+          exclusionReason = `Type "${typeName}" is not one of the 5 supported types (Epic, Feature, Story, Task, Bug)`;
+        } else {
+          const [, { enabled, filter }] = matchedEntry;
+          typeEnabled = enabled;
+          statusFilterUsed = filter;
+
+          if (!enabled) {
+            statusPasses = undefined;
+            exclusionReason = `Type "${typeName}" is disabled in Sync Settings`;
+          } else {
+            // Check status category against filter
+            // catKey: 'new' = To Do, 'indeterminate' = In Progress, 'done' = Done
+            switch (filter) {
+              case 'exclude_done':
+                statusPasses = catKey !== 'done';
+                exclusionReason = catKey === 'done' ? `Status "${f.status.name}" is "Done" — excluded by "Exclude Done" filter` : null;
+                break;
+              case 'active_only':
+                statusPasses = catKey === 'new' || catKey === 'indeterminate';
+                exclusionReason = statusPasses ? null : `Status "${f.status.name}" is not "To Do" or "In Progress" — excluded by "Active only" filter`;
+                break;
+              case 'todo_only':
+                statusPasses = catKey === 'new';
+                exclusionReason = statusPasses ? null : `Status "${f.status.name}" is not "To Do" — excluded by "To Do only" filter`;
+                break;
+              default: // 'all'
+                statusPasses = true;
+                exclusionReason = null;
+            }
           }
         }
       }
@@ -599,6 +614,46 @@ export function getEffectiveJiraConnectionSyncSettings(
   };
 }
 
+export function getEffectiveJiraConnectionMode(connection: JiraConnection): 'standard' | 'discovery' {
+  return connection.mode ?? 'standard';
+}
+
+export function normalizeDiscoveryConfig(
+  config?: JiraDiscoveryConfig
+): JiraDiscoveryConfig {
+  return {
+    issueTypeName: config?.issueTypeName?.trim() ?? '',
+    includedStatuses: (config?.includedStatuses ?? []).map(v => v.trim()).filter(Boolean),
+    drivingValueStreamFieldId: config?.drivingValueStreamFieldId?.trim() ?? '',
+    includedDrivingValueStreams: (config?.includedDrivingValueStreams ?? []).map(v => v.trim()).filter(Boolean),
+  };
+}
+
+function quoteJqlString(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function toJqlFieldRef(fieldId: string): string {
+  const trimmed = fieldId.trim();
+  const match = trimmed.match(/^customfield_(\d+)$/i);
+  return match ? `cf[${match[1]}]` : trimmed;
+}
+
+function buildDiscoveryJQL(connection: JiraConnection): string | null {
+  const config = normalizeDiscoveryConfig(connection.discoveryConfig);
+  if (!config.issueTypeName || config.includedStatuses.length === 0 || !config.drivingValueStreamFieldId || config.includedDrivingValueStreams.length === 0) {
+    return null;
+  }
+
+  const project = `project = ${quoteJqlString(connection.jiraProjectKey)}`;
+  const issueType = `issuetype = ${quoteJqlString(config.issueTypeName)}`;
+  const statuses = `status IN (${config.includedStatuses.map(quoteJqlString).join(', ')})`;
+  const dvsField = `${toJqlFieldRef(config.drivingValueStreamFieldId)} IN (${config.includedDrivingValueStreams.map(quoteJqlString).join(', ')})`;
+  const extra = connection.jqlFilter?.trim();
+  const base = `${project} AND ${issueType} AND ${statuses} AND ${dvsField}`;
+  return `${extra ? `${base} AND (${extra})` : base} ORDER BY created DESC`;
+}
+
 /**
  * Fetches the issue types defined in a specific Jira project.
  * Used to diagnose mismatches between the hardcoded sync type names and the
@@ -649,6 +704,9 @@ function statusClause(filter: JiraStatusFilter): string {
  * Returns null when no issue types are enabled.
  */
 export function buildJQL(connection: JiraConnection, settings: JiraSettings): string | null {
+  if (getEffectiveJiraConnectionMode(connection) === 'discovery') {
+    return buildDiscoveryJQL(connection);
+  }
   const effective = getEffectiveJiraConnectionSyncSettings(connection, settings);
   const enabled: { name: string; filter: JiraStatusFilter }[] = [];
   if (effective.syncEpics)    enabled.push({ name: 'Epic',    filter: effective.statusFilterEpics    ?? 'all' });

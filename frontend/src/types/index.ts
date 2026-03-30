@@ -319,6 +319,7 @@ export interface JiraSyncHistoryEntry {
 export interface JiraConnection {
   id: string;
   name: string;
+  mode?: 'standard' | 'discovery';
   jiraBaseUrl: string;
   jiraProjectKey: string;
   jiraProjectId?: string;
@@ -343,6 +344,7 @@ export interface JiraConnection {
     sprint?:      string;
   };
   syncSettingsOverride?: JiraConnectionSyncSettings;
+  discoveryConfig?: JiraDiscoveryConfig;
 }
 
 export interface JiraWorkItem {
@@ -429,6 +431,13 @@ export interface JiraConnectionSyncSettings {
   statusFilterStories: JiraStatusFilter;
   statusFilterTasks: JiraStatusFilter;
   statusFilterBugs: JiraStatusFilter;
+}
+
+export interface JiraDiscoveryConfig {
+  issueTypeName: string;
+  includedStatuses: string[];
+  drivingValueStreamFieldId: string;
+  includedDrivingValueStreams: string[];
 }
 
 export interface JiraSyncResult {

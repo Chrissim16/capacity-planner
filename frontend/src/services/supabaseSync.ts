@@ -204,6 +204,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
     const jiraConnections: JiraConnection[] = (jiraConnectionsRes.data ?? []).map(c => ({
       id: c.id,
       name: c.name,
+      mode: (c.mode as JiraConnection['mode']) ?? 'standard',
       jiraBaseUrl: c.jira_base_url,
       jiraProjectKey: c.jira_project_key,
       jiraProjectId: c.jira_project_id ?? undefined,
@@ -223,6 +224,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       scenarioPlannerOnly: c.scenario_planner_only ?? false,
       customFieldIds: c.custom_field_ids ?? undefined,
       syncSettingsOverride: c.sync_settings_override ?? undefined,
+      discoveryConfig: c.discovery_config ?? undefined,
     }));
 
     const jiraWorkItems: JiraWorkItem[] = (jiraWorkItemsRes.data ?? []).map(w => ({
@@ -583,6 +585,7 @@ async function syncJiraConnections(connections: JiraConnection[]): Promise<void>
   await upsertAndPrune('jira_connections', connections, c => ({
     id: c.id,
     name: c.name,
+    mode: c.mode ?? 'standard',
     jira_base_url: c.jiraBaseUrl,
     jira_project_key: c.jiraProjectKey,
     jira_project_id: c.jiraProjectId ?? null,
@@ -600,6 +603,7 @@ async function syncJiraConnections(connections: JiraConnection[]): Promise<void>
     scenario_planner_only: c.scenarioPlannerOnly ?? false,
     custom_field_ids: c.customFieldIds ?? null,
     sync_settings_override: c.syncSettingsOverride ?? null,
+    discovery_config: c.discoveryConfig ?? null,
     created_at: c.createdAt,
     updated_at: c.updatedAt,
   }));
