@@ -950,6 +950,7 @@ function PeopleView({
   jiraBaseUrl: string;
 }) {
   const totalW = weeks.length * (dayW * 5);
+  const [sortBy, setSortBy] = useState<'name' | 'utilization'>('name');
 
   const syncGanttFromLp = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
@@ -958,6 +959,25 @@ function PeopleView({
     if (lpRef.current) lpRef.current.scrollTop = e.currentTarget.scrollTop;
     onTimelineScroll(e.currentTarget);
   }, [lpRef, onTimelineScroll]);
+
+  const sortedPeopleSummaries = useMemo(() => {
+    const getDisplayName = (ps: PersonSummary) => {
+      const pid = ps.member?.id ?? ps.contact?.id ?? ps.name;
+      return pid.startsWith('TEAM:') ? `${teamEntryForId(pid).name} Team` : ps.name;
+    };
+
+    return [...peopleSummaries].sort((a, b) => {
+      if (sortBy === 'utilization') {
+        const assignedA = a.assignments.reduce((sum, assignment) => sum + assignment.days, 0);
+        const assignedB = b.assignments.reduce((sum, assignment) => sum + assignment.days, 0);
+        const utilA = a.availDays > 0 ? assignedA / a.availDays : -1;
+        const utilB = b.availDays > 0 ? assignedB / b.availDays : -1;
+        if (utilB !== utilA) return utilB - utilA;
+      }
+
+      return getDisplayName(a).localeCompare(getDisplayName(b));
+    });
+  }, [peopleSummaries, sortBy]);
 
   if (!peopleSummaries.length) {
     return (
@@ -976,7 +996,7 @@ function PeopleView({
   const lpRows:    React.ReactNode[] = [];
   const ganttRows: React.ReactNode[] = [];
 
-  for (const ps of peopleSummaries) {
+  for (const ps of sortedPeopleSummaries) {
     const pid       = ps.member?.id ?? ps.contact?.id ?? ps.name;
     const expanded  = pvExpanded[pid] ?? false;
     const estDays   = ps.assignments.reduce((s, a) => s + a.days, 0);
@@ -1090,6 +1110,18 @@ function PeopleView({
       <div className="pp-lp" style={{ width: panelWidth }}>
         <div className="pp-lp-hd">
           <span className="pp-lp-hd-label">Person · Epic assignments</span>
+          <label className="pv-sort">
+            <span className="pv-sort-label">Sort</span>
+            <select
+              className="pv-sort-select"
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as 'name' | 'utilization')}
+              aria-label="Sort people view"
+            >
+              <option value="name">Name</option>
+              <option value="utilization">Utilization</option>
+            </select>
+          </label>
         </div>
         <div className="pp-lp-body" ref={lpRef} onScroll={syncGanttFromLp}>
           {lpRows}
