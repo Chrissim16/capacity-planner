@@ -308,14 +308,28 @@
 .pp-rp-scroll-epic { overflow-x: hidden; }
 .pp-bottom-scroll {
   flex-shrink: 0;
-  height: 16px;
+  height: 14px;
   overflow-x: auto;
   overflow-y: hidden;
   border-top: 1px solid var(--border);
   background: var(--white);
+  scrollbar-color: var(--txt3) var(--offwh);
 }
 .pp-bottom-scroll-inner {
   height: 1px;
+}
+.pp-bottom-scroll::-webkit-scrollbar {
+  height: 14px;
+}
+.pp-bottom-scroll::-webkit-scrollbar-track {
+  background: var(--offwh);
+}
+.pp-bottom-scroll::-webkit-scrollbar-thumb {
+  background: var(--txt3);
+  border-radius: 999px;
+}
+.pp-bottom-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--txt2);
 }
 
 /* Inner wrapper that lets gantt rows expand to their natural width */
