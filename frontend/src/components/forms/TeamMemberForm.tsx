@@ -28,6 +28,9 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  const [squadId, setSquadId] = useState('');
  const [selectedProcessTeamIds, setSelectedProcessTeamIds] = useState<string[]>([]);
  const [maxConcurrentProjects, setMaxConcurrentProjects] = useState(2);
+ const [workingDaysPerWeek, setWorkingDaysPerWeek] = useState('5');
+ const [bauOverride, setBauOverride] = useState(false);
+ const [bauReserveDays, setBauReserveDays] = useState(String(state.settings.bauReserveDays || 5));
  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
  const [excludedFromCapacity, setExcludedFromCapacity] = useState(false);
  const [errors, setErrors] = useState<Record<string, string>>({});
@@ -45,6 +48,9 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  setSquadId(member.squadId || '');
  setSelectedProcessTeamIds(member.processTeamIds || []);
  setMaxConcurrentProjects(member.maxConcurrentProjects);
+ setWorkingDaysPerWeek(String(member.workingDaysPerWeek ?? 5));
+ setBauOverride(member.bauOverride ?? false);
+ setBauReserveDays(String(member.bauReserveDays ?? state.settings.bauReserveDays ?? 5));
  setSelectedSkills(member.skillIds || []);
  setExcludedFromCapacity(member.excludedFromCapacity ?? false);
  } else {
@@ -55,6 +61,9 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  setSquadId('');
  setSelectedProcessTeamIds([]);
  setMaxConcurrentProjects(2);
+ setWorkingDaysPerWeek('5');
+ setBauOverride(false);
+ setBauReserveDays(String(state.settings.bauReserveDays || 5));
  setSelectedSkills([]);
  setExcludedFromCapacity(false);
  }
@@ -94,6 +103,9 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  email: email.trim() || undefined,
  role,
  countryId,
+ workingDaysPerWeek: Math.min(5, Math.max(0.5, parseFloat(workingDaysPerWeek) || 5)),
+ bauOverride,
+ bauReserveDays: bauOverride ? Math.max(0, parseFloat(bauReserveDays) || 0) : undefined,
  squadId: squadId || undefined,
  processTeamIds: selectedProcessTeamIds,
  maxConcurrentProjects,
@@ -250,6 +262,54 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  value={maxConcurrentProjects}
  onChange={(e) => setMaxConcurrentProjects(parseInt(e.target.value) || 2)}
  />
+
+ <div className="grid grid-cols-2 gap-4">
+ <Input
+ id="working-days-per-week"
+ label="Working Days / Week"
+ type="number"
+ min={0.5}
+ max={5}
+ step={0.5}
+ value={workingDaysPerWeek}
+ onChange={(e) => setWorkingDaysPerWeek(e.target.value)}
+ hint="Use this to make someone part-time."
+ />
+ <div className="space-y-1.5">
+ <label className="block text-xs font-semibold text-[#94A3B8] mb-1.5">
+ BAU Reserve
+ </label>
+ <label className="flex items-start justify-between gap-3 rounded-lg border border-[#DEDFE3] bg-white px-3 py-2.5 cursor-pointer">
+ <div>
+ <span className="block text-sm font-medium text-[#1E293B]">Override BAU number of days</span>
+ <p className="text-xs text-[#94A3B8] mt-1">
+ {bauOverride
+ ? 'This member uses a custom BAU reserve.'
+ : `Using global setting: ${state.settings.bauReserveDays || 5} days per quarter.`}
+ </p>
+ </div>
+ <input
+ type="checkbox"
+ checked={bauOverride}
+ onChange={e => setBauOverride(e.target.checked)}
+ className="mt-0.5 w-4 h-4 rounded border-[#94A3B8] text-blue-600 focus:ring-[#0089DD] cursor-pointer"
+ />
+ </label>
+ </div>
+ </div>
+
+ {bauOverride && (
+ <Input
+ id="bau-reserve-days"
+ label="BAU Reserve (days per quarter)"
+ type="number"
+ min={0}
+ max={65}
+ step={1}
+ value={bauReserveDays}
+ onChange={(e) => setBauReserveDays(e.target.value)}
+ />
+ )}
 
  <label className="flex items-center justify-between gap-3 py-1 cursor-pointer select-none">
  <div>

@@ -63,6 +63,9 @@ export interface TeamMember {
   countryId: string;
   skillIds: string[];
   maxConcurrentProjects: number;
+  workingDaysPerWeek?: number;
+  bauOverride?: boolean;
+  bauReserveDays?: number;
   squadId?: string;
   processTeamIds?: string[];
   email?: string;

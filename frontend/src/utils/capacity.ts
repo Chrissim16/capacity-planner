@@ -220,13 +220,16 @@ export function calculateCapacity(
     member.countryId || state.settings.defaultCountryId,
     state.publicHolidays
   );
-  const totalWorkdays = getWorkdaysInQuarter(quarter, memberHolidays);
+  const capacityScale = (member.workingDaysPerWeek ?? 5) / 5;
+  const totalWorkdays = getWorkdaysInQuarter(quarter, memberHolidays) * capacityScale;
 
   let usedDays = 0;
   const breakdown: CapacityBreakdownItem[] = [];
 
   // BAU Reserve
-  const bauDays = state.settings.bauReserveDays || 5;
+  const bauDays = member.bauOverride
+    ? (member.bauReserveDays ?? 0)
+    : (state.settings.bauReserveDays || 5);
   usedDays += bauDays;
   breakdown.push({ type: 'bau', days: bauDays });
 
@@ -236,7 +239,7 @@ export function calculateCapacity(
   for (const to of memberTimeOff) {
     totalTimeOffDays += getWorkdaysInDateRangeForQuarter(
       to.startDate, to.endDate, quarter, memberHolidays
-    );
+    ) * capacityScale;
   }
   if (totalTimeOffDays > 0) {
     usedDays += totalTimeOffDays;
@@ -523,9 +526,12 @@ export function calculateSprintCapacity(
     state.publicHolidays,
   );
 
-  const totalWorkdays = getWorkdaysInDateRange(sprint.startDate, sprint.endDate, holidays);
+  const capacityScale = (member.workingDaysPerWeek ?? 5) / 5;
+  const totalWorkdays = getWorkdaysInDateRange(sprint.startDate, sprint.endDate, holidays) * capacityScale;
 
-  const bauPerQuarter = state.settings.bauReserveDays || 5;
+  const bauPerQuarter = member.bauOverride
+    ? (member.bauReserveDays ?? 0)
+    : (state.settings.bauReserveDays || 5);
   const weeksInQuarter = 13;
   const sprintWeeks = state.settings.sprintDurationWeeks || 3;
   const bauProrated = Math.round(((bauPerQuarter / weeksInQuarter) * sprintWeeks) * 10) / 10;
@@ -535,7 +541,7 @@ export function calculateSprintCapacity(
     .reduce((sum, t) => {
       const sprintStart = new Date(sprint.startDate + 'T00:00:00');
       const sprintEnd = new Date(sprint.endDate + 'T00:00:00');
-      return sum + getWorkdaysInDateRange(t.startDate, t.endDate, holidays, sprintStart, sprintEnd);
+      return sum + (getWorkdaysInDateRange(t.startDate, t.endDate, holidays, sprintStart, sprintEnd) * capacityScale);
     }, 0);
 
   let allocatedDays = 0;

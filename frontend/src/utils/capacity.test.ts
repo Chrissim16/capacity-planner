@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   calculateCapacity,
   calculateBusinessCapacity,
+  calculateSprintCapacity,
   sprintNameToQuarter,
   getWarnings,
 } from './capacity';
@@ -122,6 +123,45 @@ describe('calculateCapacity', () => {
     const timeOffItem = result.breakdown.find(b => b.type === 'timeoff');
     expect(timeOffItem).toBeDefined();
     expect(timeOffItem!.days).toBe(5); // Mon–Fri = 5 workdays
+  });
+
+  it('uses the global BAU by default but allows a per-member override', () => {
+    const baseMember = {
+      id: 'm1',
+      name: 'Alice',
+      role: 'Dev',
+      countryId: 'country-nl',
+      skillIds: [],
+      maxConcurrentProjects: 3,
+    };
+    const defaultState = makeState({ teamMembers: [baseMember] });
+    const overrideState = makeState({
+      teamMembers: [{ ...baseMember, bauOverride: true, bauReserveDays: 2 }],
+    });
+
+    const defaultResult = calculateCapacity('m1', 'Q1 2026', defaultState);
+    const overrideResult = calculateCapacity('m1', 'Q1 2026', overrideState);
+
+    expect(defaultResult.breakdown.find(b => b.type === 'bau')?.days).toBe(5);
+    expect(overrideResult.breakdown.find(b => b.type === 'bau')?.days).toBe(2);
+  });
+
+  it('scales IT capacity by workingDaysPerWeek', () => {
+    const fullTimeState = makeState({
+      teamMembers: [{
+        id: 'm1', name: 'Alice', role: 'Dev', countryId: 'country-nl', skillIds: [], maxConcurrentProjects: 3, bauOverride: true, bauReserveDays: 0,
+      }],
+    });
+    const partTimeState = makeState({
+      teamMembers: [{
+        id: 'm1', name: 'Alice', role: 'Dev', countryId: 'country-nl', skillIds: [], maxConcurrentProjects: 3, workingDaysPerWeek: 3, bauOverride: true, bauReserveDays: 0,
+      }],
+    });
+
+    const fullResult = calculateCapacity('m1', 'Q1 2026', fullTimeState);
+    const partResult = calculateCapacity('m1', 'Q1 2026', partTimeState);
+
+    expect(partResult.totalWorkdays).toBeCloseTo(fullResult.totalWorkdays * 0.6, 1);
   });
 });
 
@@ -299,6 +339,32 @@ describe('getWarnings', () => {
     const q3Warnings = getWarnings(state, 'Q3 2026');
     expect(q3Warnings.overallocated).toHaveLength(1);
     expect(q3Warnings.overallocated[0].quarter).toBe('Q3 2026');
+  });
+});
+
+describe('calculateSprintCapacity', () => {
+  it('scales sprint availability for part-time IT members', () => {
+    const sprint: Sprint = {
+      id: 's1', name: 'Sprint 1', number: 1, year: 2026,
+      startDate: '2026-01-05', endDate: '2026-01-23', quarter: 'Q1 2026',
+    };
+    const fullTimeState = makeState({
+      teamMembers: [{
+        id: 'm1', name: 'Alice', role: 'Dev', countryId: 'country-nl', skillIds: [], maxConcurrentProjects: 3, bauOverride: true, bauReserveDays: 0,
+      }],
+      sprints: [sprint],
+    });
+    const partTimeState = makeState({
+      teamMembers: [{
+        id: 'm1', name: 'Alice', role: 'Dev', countryId: 'country-nl', skillIds: [], maxConcurrentProjects: 3, workingDaysPerWeek: 3, bauOverride: true, bauReserveDays: 0,
+      }],
+      sprints: [sprint],
+    });
+
+    const fullResult = calculateSprintCapacity('m1', sprint, [], fullTimeState);
+    const partResult = calculateSprintCapacity('m1', sprint, [], partTimeState);
+
+    expect(partResult.availableDays).toBeCloseTo(fullResult.availableDays * 0.6, 1);
   });
 });
 
