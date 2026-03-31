@@ -433,7 +433,7 @@ function PhaseEditorPopover({
       className="ph-editor-popover"
       onClick={e => e.stopPropagation()}
       onBlur={e => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onClose();
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) commitAndClose();
       }}
       onKeyDown={e => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
