@@ -377,6 +377,17 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   transition: background 100ms;
 }
 .ev-phase:hover { background: var(--offwh); }
+.ev-phase.duplicate { padding-left: 40px; }
+.ph-add {
+  width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999px; cursor: pointer;
+  color: var(--txt3); font-size: 14px; font-weight: 600;
+  border: 1px dashed var(--border); background: var(--white);
+  flex-shrink: 0; padding: 0; font-family: inherit;
+  transition: all 100ms;
+}
+.ph-add:hover { color: var(--blue); border-color: var(--blue); background: var(--blue-lt); }
 .pp-ph-label {
   font-size: 11px; font-weight: 600;
   padding: 2px 8px; border-radius: 4px; flex-shrink: 0;

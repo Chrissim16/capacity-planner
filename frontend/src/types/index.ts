@@ -614,6 +614,8 @@ export interface EpicPhasePlan {
   id: string;
   epicKey: string;
   phase: PlanningPhase;
+  phaseInstanceId: string;
+  phaseOrder: number;
   startDate: string | null;  // ISO date "YYYY-MM-DD" — absolute calendar date
   endDate: string | null;    // ISO date "YYYY-MM-DD" — explicit phase end
   updatedAt: string;
@@ -623,6 +625,7 @@ export interface EpicPhaseAssignment {
   id: string;
   epicKey: string;
   phase: PlanningPhase;
+  phaseInstanceId: string;
   memberId: string;
   track: 'IT' | 'BIZ';
   days: number;              // flat total OR computed total for display
