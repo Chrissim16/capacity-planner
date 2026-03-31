@@ -662,7 +662,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-g-epic   { height: var(--row-epic);   border-bottom: 1px solid var(--border);  position: relative; background: var(--offwh); overflow: visible; }
 .pp-g-phase  { height: var(--row-phase);  border-bottom: 1px solid var(--bord-lt); position: relative; background: var(--white); }
 .pp-g-person { height: var(--row-person); border-bottom: 1px solid var(--bord-lt); position: relative; background: var(--white); }
-.pp-g-add    { height: var(--row-add);    border-bottom: 1px solid var(--bord-lt); background: var(--white); }
+.pp-g-add    { height: var(--row-add);    border-bottom: 1px solid var(--bord-lt); position: relative; background: var(--white); }
 
 .pp-g-phase.empty-phase { cursor: pointer; }
 .pp-g-phase.empty-phase:hover { background: #F0F7FF; }

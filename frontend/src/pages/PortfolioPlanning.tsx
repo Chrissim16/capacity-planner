@@ -896,7 +896,10 @@ function EpicView({
               </div>
             );
             ganttRows.push(
-              <div key={`gadd-${phKey}`} className="pp-g-add" style={{ minWidth: totalW }} />
+              <div key={`gadd-${phKey}`} className="pp-g-add" style={{ minWidth: totalW }}>
+                <GridBg weeks={weeks} />
+                <TodayLine tStart={tStart} totalW={totalW} dayW={dayW} />
+              </div>
             );
           }
         }
