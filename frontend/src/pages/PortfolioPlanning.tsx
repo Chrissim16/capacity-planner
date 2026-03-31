@@ -832,7 +832,7 @@ function EpicView({
       <div className="pp-lp-resize" onMouseDown={onResizeMouseDown} />
       <div className="pp-rp">
         <div className="pp-rp-scroll" ref={ganttRef} onScroll={syncLpFromGantt}>
-          <div style={{ minWidth: totalW }}>
+          <div className="pp-gantt-inner" style={{ minWidth: totalW }}>
             <GanttHeader weeks={weeks} totalW={totalW} />
             {ganttRows}
           </div>
@@ -1033,7 +1033,7 @@ function PeopleView({
       <div className="pp-lp-resize" onMouseDown={onResizeMouseDown} />
       <div className="pp-rp">
         <div className="pp-rp-scroll" ref={ganttRef} onScroll={syncLpFromGantt}>
-          <div style={{ minWidth: totalW }}>
+          <div className="pp-gantt-inner" style={{ minWidth: totalW }}>
             <GanttHeader weeks={weeks} totalW={totalW} />
             {ganttRows}
           </div>

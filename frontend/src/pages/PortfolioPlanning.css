@@ -249,8 +249,10 @@
   overflow: hidden;
   display: flex;
   position: relative;
+  min-width: 0;
+  min-height: 0;
 }
-.pp-view { display: none; width: 100%; height: 100%; }
+.pp-view { display: none; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .pp-view.on { display: flex; }
 
 /* ── Left panel ──────────────────────────────────────────────────────────── */
@@ -263,6 +265,7 @@
   flex-direction: column;
   overflow: hidden;
   z-index: 10;
+  min-height: 0;
 }
 
 /* Resize handle between left panel and gantt */
@@ -293,9 +296,21 @@
   text-transform: uppercase;
   letter-spacing: .06em;
 }
-.pp-lp-body { flex: 1; overflow-y: auto; overflow-x: hidden; }
-.pp-rp { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-.pp-rp-scroll { flex: 1; overflow: auto; }
+.pp-lp-body { flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+.pp-rp { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.pp-rp-scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-gutter: stable;
+}
+
+/* Inner wrapper that lets gantt rows expand to their natural width */
+.pp-gantt-inner {
+  width: max-content;
+  min-width: 100%;
+}
 .pp-collapse-btn {
   font-size: 11px;
   font-weight: 500;
