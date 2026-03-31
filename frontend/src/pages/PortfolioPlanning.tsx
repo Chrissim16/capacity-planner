@@ -358,6 +358,71 @@ function AllocEditor({
   );
 }
 
+function PhaseDateEditor({
+  startDate,
+  endDate,
+  onCommit,
+  onClose,
+}: {
+  startDate: string | null;
+  endDate: string | null;
+  onCommit: (changes: { startDate?: string; endDate?: string }) => void;
+  onClose: () => void;
+}) {
+  const [draftStartDate, setDraftStartDate] = useState(startDate ?? '');
+  const [draftEndDate, setDraftEndDate] = useState(endDate ?? '');
+
+  const commitAndClose = useCallback(() => {
+    const changes: { startDate?: string; endDate?: string } = {};
+    if (draftStartDate && draftStartDate !== (startDate ?? '')) changes.startDate = draftStartDate;
+    if (draftEndDate && draftEndDate !== (endDate ?? '')) changes.endDate = draftEndDate;
+    if (changes.startDate || changes.endDate) onCommit(changes);
+    onClose();
+  }, [draftEndDate, draftStartDate, endDate, onClose, onCommit, startDate]);
+
+  return (
+    <div
+      className="ph-date-editor"
+      onClick={e => e.stopPropagation()}
+      onBlur={e => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) commitAndClose();
+      }}
+      onKeyDown={e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commitAndClose();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+    >
+      <input
+        type="date"
+        value={draftStartDate}
+        autoFocus
+        onChange={e => setDraftStartDate(e.target.value)}
+      />
+      <span className="ph-date-sep">→</span>
+      <input
+        type="date"
+        value={draftEndDate}
+        onChange={e => setDraftEndDate(e.target.value)}
+      />
+      <button
+        className="ph-date-close"
+        onClick={e => {
+          e.stopPropagation();
+          commitAndClose();
+        }}
+        title="Close"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // EPIC VIEW
 // ─────────────────────────────────────────────────────────────────────────────
@@ -538,23 +603,15 @@ function EpicView({
             <span className={`pp-chev ph-expand${pCollapsed ? '' : ' open'}`}>▶</span>
             <span className={`pp-ph-label ${PH_KEY[ph]}`}>{getPhaseDisplayLabel(ph, row.phaseOrder)}</span>
             {editingPhaseKey === phKey ? (
-              <div className="ph-date-editor" onClick={e => e.stopPropagation()}>
-                <input
-                  type="date"
-                  defaultValue={startDate ?? ''}
-                  autoFocus
-                  onBlur={e => { if (e.target.value) onSetPhaseDates(epicKey, ph, row.phaseInstanceId, 'start', e.target.value); }}
-                  onKeyDown={e => { if (e.key === 'Escape' || e.key === 'Enter') { e.currentTarget.blur(); setEditingPhaseKey(null); } }}
-                />
-                <span className="ph-date-sep">→</span>
-                <input
-                  type="date"
-                  defaultValue={endDate ?? ''}
-                  onBlur={e => { if (e.target.value) onSetPhaseDates(epicKey, ph, row.phaseInstanceId, 'end', e.target.value); }}
-                  onKeyDown={e => { if (e.key === 'Escape' || e.key === 'Enter') { e.currentTarget.blur(); setEditingPhaseKey(null); } }}
-                />
-                <button className="ph-date-close" onClick={e => { e.stopPropagation(); setEditingPhaseKey(null); }} title="Close">✕</button>
-              </div>
+              <PhaseDateEditor
+                startDate={startDate}
+                endDate={endDate}
+                onCommit={({ startDate: nextStartDate, endDate: nextEndDate }) => {
+                  if (nextStartDate) onSetPhaseDates(epicKey, ph, row.phaseInstanceId, 'start', nextStartDate);
+                  if (nextEndDate) onSetPhaseDates(epicKey, ph, row.phaseInstanceId, 'end', nextEndDate);
+                }}
+                onClose={() => setEditingPhaseKey(null)}
+              />
             ) : (
               <span
                 className={`ph-dates${hasStart ? ' set' : ''}`}
