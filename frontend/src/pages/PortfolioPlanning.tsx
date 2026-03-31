@@ -14,7 +14,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { calculateCapacity, calculateBusinessCapacityForQuarter } from '../utils/capacity';
 import { getEffectiveSkills } from '../utils/workItemSkills';
 import {
-  getPortfolioQuarterOpts,
+  getRollingPortfolioQuarterOpts,
   genWeeksForQOpt,
   calcWeekW,
   dToX,
@@ -460,6 +460,7 @@ interface EpicViewProps {
   onResizeMouseDown: (e: React.MouseEvent) => void;
   lpRef:         React.RefObject<HTMLDivElement | null>;
   ganttRef:      React.RefObject<HTMLDivElement | null>;
+  onTimelineScroll: (el: HTMLDivElement) => void;
   personOverloadMap: Map<string, 'over' | 'near'>;
   allJiraItems: JiraWorkItem[];
   jiraBaseUrl: string;
@@ -474,6 +475,7 @@ function EpicView({
   onUpdateDays, onUpdateAllocationMode, onUpsertSegment, onRemoveSegment,
   onSetPhaseDates, onAddPerson,
   onExpandAll, onCollapseAll, onResizeMouseDown, lpRef, ganttRef,
+  onTimelineScroll,
   personOverloadMap, allJiraItems, jiraBaseUrl,
 }: EpicViewProps) {
   const totalW = weeks.length * (dayW * 5);
@@ -485,7 +487,8 @@ function EpicView({
   }, [ganttRef]);
   const syncLpFromGantt = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (lpRef.current) lpRef.current.scrollTop = e.currentTarget.scrollTop;
-  }, [lpRef]);
+    onTimelineScroll(e.currentTarget);
+  }, [lpRef, onTimelineScroll]);
 
   if (!boardEpics.length) {
     return (
@@ -866,7 +869,7 @@ interface PersonSummary {
 function PeopleView({
   peopleSummaries, weeks, tStart, dayW, panelWidth,
   pvExpanded, onTogglePerson,
-  onResizeMouseDown, lpRef, ganttRef, jiraBaseUrl,
+  onResizeMouseDown, lpRef, ganttRef, onTimelineScroll, jiraBaseUrl,
 }: {
   peopleSummaries: PersonSummary[];
   weeks: PortfolioWeek[];
@@ -878,6 +881,7 @@ function PeopleView({
   onResizeMouseDown: (e: React.MouseEvent) => void;
   lpRef: React.RefObject<HTMLDivElement | null>;
   ganttRef: React.RefObject<HTMLDivElement | null>;
+  onTimelineScroll: (el: HTMLDivElement) => void;
   jiraBaseUrl: string;
 }) {
   const totalW = weeks.length * (dayW * 5);
@@ -887,7 +891,8 @@ function PeopleView({
   }, [ganttRef]);
   const syncLpFromGantt = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (lpRef.current) lpRef.current.scrollTop = e.currentTarget.scrollTop;
-  }, [lpRef]);
+    onTimelineScroll(e.currentTarget);
+  }, [lpRef, onTimelineScroll]);
 
   if (!peopleSummaries.length) {
     return (
@@ -2021,7 +2026,7 @@ export function PortfolioPlanning() {
   const [editingManualEpic, setEditingManualEpic] = useState<ManualEpic | null>(null);
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(loadActiveScenarioId);
   const [renamingScenarioId, setRenamingScenarioId] = useState<string | null>(null);
-  const [activeQIdx, setActiveQIdx] = useState(0);
+  const [activeQIdx, setActiveQIdx] = useState(1);
   const [epicCollapsed, setEpicCollapsed]   = useState<Record<string, boolean>>({});
   const [phasePersonCollapsed, setPhasePersonCollapsed] = useState<Record<string, boolean>>({});
   const [pvExpanded, setPvExpanded] = useState<Record<string, boolean>>({});
@@ -2043,15 +2048,38 @@ export function PortfolioPlanning() {
   const epicGanttRef = useRef<HTMLDivElement>(null);
   const pvLpRef      = useRef<HTMLDivElement>(null);
   const pvGanttRef   = useRef<HTMLDivElement>(null);
+  const pendingQuarterScrollRef = useRef<number | null>(1);
+  const ganttWeekOffsetRef = useRef(0);
 
   // ── Derived data ───────────────────────────────────────────────────────────
-  const qOpts = useMemo(() => getPortfolioQuarterOpts(), []);
-  const weeks  = useMemo(() => genWeeksForQOpt(qOpts[activeQIdx]), [qOpts, activeQIdx]);
+  const quarterIndicatorOpts = useMemo(() => getRollingPortfolioQuarterOpts(), []);
+  const quarterWeeks = useMemo(
+    () => quarterIndicatorOpts.map(q => genWeeksForQOpt(q)),
+    [quarterIndicatorOpts],
+  );
+  const quarterSegments = useMemo(() => {
+    let startWeekIdx = 0;
+    return quarterIndicatorOpts.map((q, idx) => {
+      const weekCount = quarterWeeks[idx]?.length ?? 0;
+      const segment = { ...q, startWeekIdx, weekCount };
+      startWeekIdx += weekCount;
+      return segment;
+    });
+  }, [quarterIndicatorOpts, quarterWeeks]);
+  const weeks = useMemo(() => {
+    let idxOffset = 0;
+    return quarterWeeks.flatMap(group => {
+      const normalized = group.map(week => ({ ...week, idx: idxOffset + week.idx }));
+      idxOffset += group.length;
+      return normalized;
+    });
+  }, [quarterWeeks]);
   const dayW   = weekW / 5;
   const tStart = weeks[0]?.startDate ?? new Date();
-  const quarter = qOpts[activeQIdx].q === -1
-    ? `Full Year ${qOpts[activeQIdx].year}`
-    : `Q${qOpts[activeQIdx].q + 1} ${qOpts[activeQIdx].year}`;
+  const activeQuarterOpt = quarterIndicatorOpts[activeQIdx] ?? quarterIndicatorOpts[1];
+  const quarter = activeQuarterOpt.q === -1
+    ? `Full Year ${activeQuarterOpt.year}`
+    : `Q${activeQuarterOpt.q + 1} ${activeQuarterOpt.year}`;
 
   const portfolioCandidateConnectionIds = useMemo(
     () => new Set(
@@ -2216,17 +2244,58 @@ export function PortfolioPlanning() {
     return m;
   }, [peopleSummaries]);
 
+  const handleTimelineScroll = useCallback((el: HTMLDivElement) => {
+    ganttWeekOffsetRef.current = weekW > 0 ? el.scrollLeft / weekW : 0;
+
+    const viewportLeft = el.scrollLeft;
+    const viewportRight = viewportLeft + el.clientWidth;
+    const tolerance = Math.max(12, weekW * 0.35);
+
+    let nextActiveIdx: number | null = null;
+    for (let i = 0; i < quarterSegments.length; i++) {
+      const segment = quarterSegments[i];
+      const startPx = segment.startWeekIdx * weekW;
+      const endPx = (segment.startWeekIdx + segment.weekCount) * weekW;
+      const visibleWidth = Math.max(0, Math.min(endPx, viewportRight) - Math.max(startPx, viewportLeft));
+      if (visibleWidth >= (endPx - startPx) - tolerance) {
+        nextActiveIdx = i;
+        break;
+      }
+    }
+
+    if (nextActiveIdx !== null && nextActiveIdx !== activeQIdx) {
+      setActiveQIdx(nextActiveIdx);
+    }
+  }, [activeQIdx, quarterSegments, weekW]);
+
   // ── Week width (recalculates when panel resizes or drawer opens) ───────────
   useEffect(() => {
     const apply = () => {
-      const w = calcWeekW(weeks.length, drawerOpen, panelWidth);
+      const visibleQuarterWeeks = quarterSegments[activeQIdx]?.weekCount ?? 1;
+      const w = calcWeekW(visibleQuarterWeeks, drawerOpen, panelWidth);
       setWeekW(w);
       ppRootRef.current?.style.setProperty('--week-w', w + 'px');
     };
     apply();
     window.addEventListener('resize', apply);
     return () => window.removeEventListener('resize', apply);
-  }, [weeks.length, drawerOpen, panelWidth]);
+  }, [activeQIdx, drawerOpen, panelWidth, quarterSegments]);
+
+  useEffect(() => {
+    if (activeTab === 'summary') return;
+
+    const ganttEl = activeTab === 'epic' ? epicGanttRef.current : pvGanttRef.current;
+    if (!ganttEl) return;
+
+    const targetWeekOffset = pendingQuarterScrollRef.current !== null
+      ? quarterSegments[pendingQuarterScrollRef.current]?.startWeekIdx ?? ganttWeekOffsetRef.current
+      : ganttWeekOffsetRef.current;
+    const targetScrollLeft = targetWeekOffset * weekW;
+
+    ganttEl.scrollLeft = targetScrollLeft;
+    ganttWeekOffsetRef.current = targetWeekOffset;
+    pendingQuarterScrollRef.current = null;
+  }, [activeTab, quarterSegments, weekW]);
 
   // ── Sync --left-w CSS variable when panel width changes ────────────────────
   useEffect(() => {
@@ -2261,6 +2330,17 @@ export function PortfolioPlanning() {
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
   }, [panelWidth]);
+
+  const handleQuarterIndicatorClick = useCallback((idx: number) => {
+    pendingQuarterScrollRef.current = idx;
+    setActiveQIdx(idx);
+
+    const targetWeekOffset = quarterSegments[idx]?.startWeekIdx ?? 0;
+    ganttWeekOffsetRef.current = targetWeekOffset;
+
+    const ganttEl = activeTab === 'epic' ? epicGanttRef.current : activeTab === 'people' ? pvGanttRef.current : null;
+    if (ganttEl) ganttEl.scrollTo({ left: targetWeekOffset * weekW, behavior: 'smooth' });
+  }, [activeTab, quarterSegments, weekW]);
 
   // ── Person / team picker ───────────────────────────────────────────────────
   const handleAddPerson = useCallback((epicKey: string, phase: PlanningPhase, phaseInstanceId: string, rect: DOMRect) => {
@@ -2650,11 +2730,11 @@ export function PortfolioPlanning() {
           <span className="pp-tb-badge">VS Finance · {quarter}</span>
         </div>
         <div className="pp-seg">
-          {qOpts.map((q, i) => (
+          {quarterIndicatorOpts.map((q, i) => (
             <button
               key={i}
               className={`pp-seg-btn${i === activeQIdx ? ' on' : ''}`}
-              onClick={() => setActiveQIdx(i)}
+              onClick={() => handleQuarterIndicatorClick(i)}
             >
               {q.label}
             </button>
@@ -2767,6 +2847,7 @@ export function PortfolioPlanning() {
             onResizeMouseDown={handleResizeMouseDown}
             lpRef={epicLpRef}
             ganttRef={epicGanttRef}
+            onTimelineScroll={handleTimelineScroll}
             personOverloadMap={personOverloadMap}
             allJiraItems={state.jiraWorkItems}
             jiraBaseUrl={jiraBaseUrl}
@@ -2784,6 +2865,7 @@ export function PortfolioPlanning() {
             onResizeMouseDown={handleResizeMouseDown}
             lpRef={pvLpRef}
             ganttRef={pvGanttRef}
+            onTimelineScroll={handleTimelineScroll}
             jiraBaseUrl={jiraBaseUrl}
           />
         )}

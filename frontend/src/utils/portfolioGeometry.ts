@@ -45,6 +45,31 @@ export function getPortfolioQuarterOpts(): QOpt[] {
   return opts;
 }
 
+export function shiftPortfolioQuarter(qOpt: QOpt, delta: number): QOpt {
+  if (qOpt.q === -1) {
+    return { label: `Full Year ${qOpt.year + delta}`, q: -1, year: qOpt.year + delta };
+  }
+
+  const absoluteQuarter = qOpt.year * 4 + qOpt.q + delta;
+  const year = Math.floor(absoluteQuarter / 4);
+  const q = ((absoluteQuarter % 4) + 4) % 4;
+  return { label: `Q${q + 1} ${year}`, q, year };
+}
+
+/** Returns a rolling strip of quarters around the current quarter for horizontal timeline scrolling. */
+export function getRollingPortfolioQuarterOpts(before = 1, after = 2): QOpt[] {
+  const now = new Date();
+  const current: QOpt = {
+    label: `Q${Math.floor(now.getMonth() / 3) + 1} ${now.getFullYear()}`,
+    q: Math.floor(now.getMonth() / 3),
+    year: now.getFullYear(),
+  };
+
+  const opts: QOpt[] = [];
+  for (let i = -before; i <= after; i++) opts.push(shiftPortfolioQuarter(current, i));
+  return opts;
+}
+
 // ── Week generation ────────────────────────────────────────────────────────────
 
 function firstMonday(date: Date): Date {
