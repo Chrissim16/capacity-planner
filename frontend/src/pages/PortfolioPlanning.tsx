@@ -784,6 +784,7 @@ function EpicView({
             ganttRows.push(
               <div key={`gperson-${phKey}-${assign.memberId}`} className="pp-g-person" style={{ minWidth: totalW, position: 'relative' }}>
                 <GridBg weeks={weeks} />
+                <TodayLine tStart={tStart} totalW={totalW} dayW={dayW} />
                 {hasStart && barW > 0 && assign.allocationMode !== 'segments' && (
                   <div
                     className={`pp-alloc-bar${assign.allocationMode === 'rate' ? ' rate' : ''}`}
