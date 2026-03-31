@@ -39,6 +39,12 @@ export interface UsePortfolioPlanReturn {
   deleteManualEpic:    (epicKey: string) => void;
   addPhaseInstance:    (epicKey: string, phase: PlanningPhase) => Promise<string>;
   removePhaseInstance: (epicKey: string, phaseInstanceId: string) => Promise<void>;
+  updatePhasePlan:     (
+    epicKey: string,
+    phase: PlanningPhase,
+    changes: { startDate?: string | null; endDate?: string | null; description?: string | null },
+    phaseInstanceId?: string,
+  ) => Promise<void>;
   setPhaseStartDate:   (epicKey: string, phase: PlanningPhase, startDate: string, phaseInstanceId?: string) => Promise<void>;
   setPhaseEndDate:     (epicKey: string, phase: PlanningPhase, endDate: string, phaseInstanceId?: string) => Promise<void>;
   clearPhase:          (epicKey: string, phase: PlanningPhase, phaseInstanceId?: string) => Promise<void>;
@@ -98,7 +104,7 @@ type PlanRow = {
   id: string; epic_key: string; phase: string;
   phase_instance_id?: string | null;
   phase_order?: number | null;
-  start_date: string | null; end_date: string | null; updated_at: string;
+  start_date: string | null; end_date: string | null; description?: string | null; updated_at: string;
 };
 
 type AssignRow = {
@@ -123,6 +129,7 @@ function mapPlanRow(r: PlanRow): EpicPhasePlan {
     phaseOrder: r.phase_order ?? 0,
     startDate: r.start_date,
     endDate:   r.end_date ?? null,
+    description: r.description ?? null,
     updatedAt: r.updated_at,
   };
 }
@@ -327,14 +334,14 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
 
     setPhasePlans(prev => [
       ...prev,
-      { id: tempId, epicKey, phase, phaseInstanceId, phaseOrder, startDate: null, endDate: null, updatedAt: now },
+      { id: tempId, epicKey, phase, phaseInstanceId, phaseOrder, startDate: null, endDate: null, description: null, updatedAt: now },
     ]);
 
     if (!isSupabaseConfigured()) return phaseInstanceId;
 
     const { data, error } = await supabase
       .from('epic_phase_plans')
-      .insert({ epic_key: epicKey, phase, phase_instance_id: phaseInstanceId, phase_order: phaseOrder, start_date: null, end_date: null })
+      .insert({ epic_key: epicKey, phase, phase_instance_id: phaseInstanceId, phase_order: phaseOrder, start_date: null, end_date: null, description: null })
       .select()
       .single();
 
@@ -357,49 +364,71 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
       .match({ epic_key: epicKey, phase_instance_id: phaseInstanceId });
   }, []);
 
+  const updatePhasePlan = useCallback(async (
+    epicKey: string,
+    phase: PlanningPhase,
+    changes: { startDate?: string | null; endDate?: string | null; description?: string | null },
+    phaseInstanceId: string = defaultPhaseInstanceId(phase),
+  ) => {
+    const now = new Date().toISOString();
+    const existing = phasePlans.find(p => p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId);
+    const phaseOrder = existing?.phaseOrder ?? phasePlans.filter(p => p.epicKey === epicKey && p.phase === phase).length;
+    const nextPlan: EpicPhasePlan = existing
+      ? {
+          ...existing,
+          ...changes,
+          updatedAt: now,
+        }
+      : {
+          id: `local-${epicKey}-${phaseInstanceId}`,
+          epicKey,
+          phase,
+          phaseInstanceId,
+          phaseOrder,
+          startDate: changes.startDate ?? null,
+          endDate: changes.endDate ?? null,
+          description: changes.description ?? null,
+          updatedAt: now,
+        };
+
+    setPhasePlans(prev => {
+      const next = prev.filter(p => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId));
+      return [...next, nextPlan];
+    });
+
+    if (!isSupabaseConfigured()) return;
+
+    const { data, error } = await supabase
+      .from('epic_phase_plans')
+      .upsert({
+        epic_key: epicKey,
+        phase,
+        phase_instance_id: phaseInstanceId,
+        phase_order: phaseOrder,
+        start_date: nextPlan.startDate,
+        end_date: nextPlan.endDate,
+        description: nextPlan.description,
+      }, { onConflict: 'epic_key,phase_instance_id' })
+      .select()
+      .single();
+
+    if (!error && data) {
+      const row = mapPlanRow(data as PlanRow);
+      setPhasePlans(prev => {
+        const filtered = prev.filter(p => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId));
+        return [...filtered, row];
+      });
+    }
+  }, [phasePlans]);
+
   const setPhaseStartDate = useCallback(async (
     epicKey: string,
     phase: PlanningPhase,
     startDate: string,
     phaseInstanceId: string = defaultPhaseInstanceId(phase),
   ) => {
-    const now = new Date().toISOString();
-    const existing = phasePlans.find(p => p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId);
-    const phaseOrder = existing?.phaseOrder ?? phasePlans.filter(p => p.epicKey === epicKey && p.phase === phase).length;
-
-    if (existing) {
-      setPhasePlans(prev => prev.map(p =>
-        p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId
-          ? { ...p, startDate, updatedAt: now }
-          : p
-      ));
-    } else {
-      const tempId = `local-${epicKey}-${phaseInstanceId}`;
-      setPhasePlans(prev => [
-        ...prev,
-        { id: tempId, epicKey, phase, phaseInstanceId, phaseOrder, startDate, endDate: null, updatedAt: now },
-      ]);
-    }
-
-    if (!isSupabaseConfigured()) return;
-
-    const { data, error } = await supabase
-      .from('epic_phase_plans')
-      .upsert({ epic_key: epicKey, phase, phase_instance_id: phaseInstanceId, phase_order: phaseOrder, start_date: startDate }, { onConflict: 'epic_key,phase_instance_id' })
-      .select()
-      .single();
-
-    if (!error && data) {
-      const row = data as PlanRow;
-      setPhasePlans(prev => {
-        const without = prev.filter(p => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId) || p.id === row.id);
-        const alreadyHas = without.some(p => p.id === row.id);
-        return alreadyHas
-          ? without.map(p => p.id === row.id ? { ...p, startDate: row.start_date, updatedAt: row.updated_at } : p)
-          : [...without.filter(p => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId)), mapPlanRow(row)];
-      });
-    }
-  }, [phasePlans]);
+    await updatePhasePlan(epicKey, phase, { startDate }, phaseInstanceId);
+  }, [updatePhasePlan]);
 
   const setPhaseEndDate = useCallback(async (
     epicKey: string,
@@ -407,68 +436,16 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     endDate: string,
     phaseInstanceId: string = defaultPhaseInstanceId(phase),
   ) => {
-    const now = new Date().toISOString();
-    const existing = phasePlans.find(p => p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId);
-    const phaseOrder = existing?.phaseOrder ?? phasePlans.filter(p => p.epicKey === epicKey && p.phase === phase).length;
-
-    if (existing) {
-      setPhasePlans(prev => prev.map(p =>
-        p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId
-          ? { ...p, endDate, updatedAt: now }
-          : p
-      ));
-    } else {
-      const tempId = `local-${epicKey}-${phaseInstanceId}`;
-      setPhasePlans(prev => [
-        ...prev,
-        { id: tempId, epicKey, phase, phaseInstanceId, phaseOrder, startDate: null, endDate, updatedAt: now },
-      ]);
-    }
-
-    if (!isSupabaseConfigured()) return;
-
-    const { data, error } = await supabase
-      .from('epic_phase_plans')
-      .upsert({ epic_key: epicKey, phase, phase_instance_id: phaseInstanceId, phase_order: phaseOrder, end_date: endDate }, { onConflict: 'epic_key,phase_instance_id' })
-      .select()
-      .single();
-
-    if (!error && data) {
-      const row = data as PlanRow;
-      setPhasePlans(prev => {
-        const without = prev.filter(p => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId) || p.id === row.id);
-        const alreadyHas = without.some(p => p.id === row.id);
-        return alreadyHas
-          ? without.map(p => p.id === row.id ? { ...p, endDate: row.end_date, updatedAt: row.updated_at } : p)
-          : [...without.filter(p => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId)), mapPlanRow(row)];
-      });
-    }
-  }, [phasePlans]);
+    await updatePhasePlan(epicKey, phase, { endDate }, phaseInstanceId);
+  }, [updatePhasePlan]);
 
   const clearPhase = useCallback(async (
     epicKey: string,
     phase: PlanningPhase,
     phaseInstanceId: string = defaultPhaseInstanceId(phase),
   ) => {
-    const now = new Date().toISOString();
-    const existing = phasePlans.find(p => p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId);
-    const phaseOrder = existing?.phaseOrder ?? 0;
-
-    setPhasePlans(prev => prev.map(p =>
-      p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId
-        ? { ...p, startDate: null, endDate: null, updatedAt: now }
-        : p
-    ));
-
-    if (!isSupabaseConfigured()) return;
-
-    await supabase
-      .from('epic_phase_plans')
-      .upsert(
-        { epic_key: epicKey, phase, phase_instance_id: phaseInstanceId, phase_order: phaseOrder, start_date: null, end_date: null },
-        { onConflict: 'epic_key,phase_instance_id' }
-      );
-  }, [phasePlans]);
+    await updatePhasePlan(epicKey, phase, { startDate: null, endDate: null }, phaseInstanceId);
+  }, [updatePhasePlan]);
 
   // ── Assignments ───────────────────────────────────────────────────────────
   const upsertAssignment = useCallback(async (
@@ -630,6 +607,7 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     deleteManualEpic,
     addPhaseInstance,
     removePhaseInstance,
+    updatePhasePlan,
     setPhaseStartDate,
     setPhaseEndDate,
     clearPhase,

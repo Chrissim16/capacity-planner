@@ -618,6 +618,7 @@ export interface EpicPhasePlan {
   phaseOrder: number;
   startDate: string | null;  // ISO date "YYYY-MM-DD" — absolute calendar date
   endDate: string | null;    // ISO date "YYYY-MM-DD" — explicit phase end
+  description: string | null;
   updatedAt: string;
 }
 
