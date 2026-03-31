@@ -14,6 +14,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { calculateCapacity, calculateBusinessCapacityForQuarter } from '../utils/capacity';
 import { getEffectiveSkills } from '../utils/workItemSkills';
 import {
+  getPortfolioQuarterOpts,
   getRollingPortfolioQuarterOpts,
   genWeeksForQOpt,
   calcWeekW,
@@ -31,6 +32,7 @@ import {
   PH_KEY,
   PH_LBL,
   PH_SHORT,
+  type QOpt,
   type PortfolioWeek,
 } from '../utils/portfolioGeometry';
 import { usePortfolioPlan } from '../hooks/usePortfolioPlan';
@@ -194,18 +196,53 @@ function getPhaseInstanceRows(
   return rows;
 }
 
-// ── Absence lookup (time-off days in quarter) ──────────────────────────────────
+function getCapacityQuarters(qOpt: QOpt): string[] {
+  if (qOpt.q === -1) {
+    return [0, 1, 2, 3].map(q => `Q${q + 1} ${qOpt.year}`);
+  }
+  return [`Q${qOpt.q + 1} ${qOpt.year}`];
+}
+
+function calculateMemberAvailableDays(
+  memberId: string,
+  qOpt: QOpt,
+  state: ReturnType<typeof useCurrentState>,
+): number {
+  return getCapacityQuarters(qOpt)
+    .reduce((sum, quarter) => sum + calculateCapacity(memberId, quarter, state).availableDays, 0);
+}
+
+function calculateBusinessAvailableDays(
+  contact: BusinessContact,
+  qOpt: QOpt,
+  state: ReturnType<typeof useCurrentState>,
+): number {
+  return getCapacityQuarters(qOpt).reduce((sum, quarter) => (
+    sum + calculateBusinessCapacityForQuarter(
+      contact,
+      quarter,
+      state.jiraItemBizAssignments,
+      state.businessTimeOff,
+      state.publicHolidays,
+      state.jiraWorkItems,
+    ).availableDays
+  ), 0);
+}
+
+// ── Absence lookup (time-off days in visible period) ───────────────────────────
 function buildAbsenceLookup(
-  quarter: string,
+  qOpt: QOpt,
   members: TeamMember[],
   state: ReturnType<typeof useCurrentState>,
 ): Record<string, number> {
   const lookup: Record<string, number> = {};
   for (const m of members) {
-    const cap = calculateCapacity(m.id, quarter, state);
-    const toDays = cap.breakdown
-      .filter(b => b.type === 'timeoff')
-      .reduce((s, b) => s + b.days, 0);
+    const toDays = getCapacityQuarters(qOpt).reduce((sum, quarter) => {
+      const cap = calculateCapacity(m.id, quarter, state);
+      return sum + cap.breakdown
+        .filter(b => b.type === 'timeoff')
+        .reduce((s, b) => s + b.days, 0);
+    }, 0);
     lookup[m.id] = toDays;
   }
   return lookup;
@@ -1077,7 +1114,7 @@ function PeopleView({
 
 function SummaryView({
   processTeams, boardEpics, peopleSummaries, phasePlansMap, assignMap,
-  absenceLookup, weeks, quarter, state, jiraBaseUrl,
+  absenceLookup, weeks, quarter, quarterOpt, state, jiraBaseUrl,
   activeScenarioName, baselinePhasePlans, baselinePhaseAssignments,
 }: {
   processTeams: ProcessTeam[];
@@ -1088,12 +1125,14 @@ function SummaryView({
   absenceLookup: Record<string, number>;
   weeks: PortfolioWeek[];
   quarter: string;
+  quarterOpt: QOpt;
   state: ReturnType<typeof useCurrentState>;
   jiraBaseUrl: string;
   activeScenarioName: string | null;
   baselinePhasePlans: EpicPhasePlan[];
   baselinePhaseAssignments: EpicPhaseAssignment[];
 }) {
+  const periodLabel = quarterOpt.q === -1 ? 'year' : 'quarter';
   const totalPlannedDays = useMemo(
     () => peopleSummaries.reduce((sum, person) => sum + person.assignments.reduce((acc, a) => acc + a.days, 0), 0),
     [peopleSummaries],
@@ -1102,19 +1141,12 @@ function SummaryView({
   const totalAvailableDays = useMemo(() => {
     const memberAvail = state.teamMembers
       .filter(member => !member.excludedFromCapacity)
-      .reduce((sum, member) => sum + calculateCapacity(member.id, quarter, state).availableDays, 0);
+      .reduce((sum, member) => sum + calculateMemberAvailableDays(member.id, quarterOpt, state), 0);
     const contactAvail = state.businessContacts
       .filter(contact => !contact.archived && !contact.excludedFromCapacity)
-      .reduce((sum, contact) => sum + calculateBusinessCapacityForQuarter(
-        contact,
-        quarter,
-        state.jiraItemBizAssignments,
-        state.businessTimeOff,
-        state.publicHolidays,
-        state.jiraWorkItems,
-      ).availableDays, 0);
+      .reduce((sum, contact) => sum + calculateBusinessAvailableDays(contact, quarterOpt, state), 0);
     return memberAvail + contactAvail;
-  }, [quarter, state]);
+  }, [quarterOpt, state]);
 
   const overCapacityPeopleCount = useMemo(
     () => peopleSummaries.filter(person => person.availDays > 0 && person.assignments.reduce((sum, a) => sum + a.days, 0) / person.availDays > 1).length,
@@ -1243,7 +1275,7 @@ function SummaryView({
           severity,
           kind: 'person',
           label: person.name,
-          summary: utilization > 1 ? 'Over capacity this quarter' : 'Near capacity this quarter',
+          summary: utilization > 1 ? `Over capacity this ${periodLabel}` : `Near capacity this ${periodLabel}`,
           detail: `${Math.round(assigned)}d planned vs ${Math.round(person.availDays)}d available (${Math.round(utilization * 100)}%)`,
         };
       })
@@ -1335,18 +1367,10 @@ function SummaryView({
   const kpiCards = useMemo(() => {
     return processTeams.map(pt => {
       const members = state.teamMembers.filter(m => m.processTeamIds?.includes(pt.id) && !m.excludedFromCapacity);
-      const availDays = members.reduce((s, m) => {
-        const cap = calculateCapacity(m.id, quarter, state);
-        return s + cap.availableDays;
-      }, 0);
+      const availDays = members.reduce((s, m) => s + calculateMemberAvailableDays(m.id, quarterOpt, state), 0);
       // Also BIZ contacts
       const contacts = state.businessContacts.filter(c => c.processTeamIds?.includes(pt.id) && !c.excludedFromCapacity);
-      const bizAvail = contacts.reduce((s, c) => {
-        const cap = calculateBusinessCapacityForQuarter(
-          c, quarter, state.jiraItemBizAssignments, state.businessTimeOff, state.publicHolidays, state.jiraWorkItems
-        );
-        return s + cap.availableDays;
-      }, 0);
+      const bizAvail = contacts.reduce((s, c) => s + calculateBusinessAvailableDays(c, quarterOpt, state), 0);
       const totalAvail = availDays + bizAvail;
 
       // Estimate days = sum of assignments for members/contacts in this team
@@ -1365,7 +1389,7 @@ function SummaryView({
       const tier    = utilTier(utilPct);
       return { id: pt.id, name: pt.name, estDays, totalAvail, utilPct, tier, memberCount: allIds.size };
     });
-  }, [processTeams, boardEpics, assignMap, quarter, state]);
+  }, [assignMap, boardEpics, processTeams, quarterOpt, state]);
 
   // Capacity alerts — people over or near capacity (exclude team placeholders)
   const alertRows = useMemo(() => {
@@ -2076,24 +2100,40 @@ export function PortfolioPlanning() {
   const epicGanttRef = useRef<HTMLDivElement>(null);
   const pvLpRef      = useRef<HTMLDivElement>(null);
   const pvGanttRef   = useRef<HTMLDivElement>(null);
-  const pendingQuarterScrollRef = useRef<number | null>(1);
-  const ganttWeekOffsetRef = useRef(0);
 
   // ── Derived data ───────────────────────────────────────────────────────────
-  const quarterIndicatorOpts = useMemo(() => getRollingPortfolioQuarterOpts(), []);
+  const rollingQuarterOpts = useMemo(() => getRollingPortfolioQuarterOpts(), []);
+  const fullYearOpt = useMemo(
+    () => getPortfolioQuarterOpts().find(opt => opt.q === -1) ?? {
+      label: `Full Year ${new Date().getFullYear()}`,
+      q: -1,
+      year: new Date().getFullYear(),
+    },
+    [],
+  );
+  const quarterIndicatorOpts = useMemo(
+    () => [...rollingQuarterOpts, fullYearOpt],
+    [fullYearOpt, rollingQuarterOpts],
+  );
+  const activeQuarterOpt = quarterIndicatorOpts[activeQIdx] ?? quarterIndicatorOpts[1] ?? fullYearOpt;
+  const isFullYearActive = activeQuarterOpt.q === -1;
+  const timelineOpts = useMemo(
+    () => (isFullYearActive ? [activeQuarterOpt] : rollingQuarterOpts),
+    [activeQuarterOpt, isFullYearActive, rollingQuarterOpts],
+  );
   const quarterWeeks = useMemo(
-    () => quarterIndicatorOpts.map(q => genWeeksForQOpt(q)),
-    [quarterIndicatorOpts],
+    () => timelineOpts.map(q => genWeeksForQOpt(q)),
+    [timelineOpts],
   );
   const quarterSegments = useMemo(() => {
     let startWeekIdx = 0;
-    return quarterIndicatorOpts.map((q, idx) => {
+    return timelineOpts.map((q, idx) => {
       const weekCount = quarterWeeks[idx]?.length ?? 0;
       const segment = { ...q, startWeekIdx, weekCount };
       startWeekIdx += weekCount;
       return segment;
     });
-  }, [quarterIndicatorOpts, quarterWeeks]);
+  }, [quarterWeeks, timelineOpts]);
   const weeks = useMemo(() => {
     let idxOffset = 0;
     return quarterWeeks.flatMap(group => {
@@ -2102,12 +2142,25 @@ export function PortfolioPlanning() {
       return normalized;
     });
   }, [quarterWeeks]);
+  const visibleSegmentIdx = isFullYearActive ? 0 : Math.max(0, Math.min(activeQIdx, quarterSegments.length - 1));
   const dayW   = weekW / 5;
   const tStart = weeks[0]?.startDate ?? new Date();
-  const activeQuarterOpt = quarterIndicatorOpts[activeQIdx] ?? quarterIndicatorOpts[1];
   const quarter = activeQuarterOpt.q === -1
     ? `Full Year ${activeQuarterOpt.year}`
     : `Q${activeQuarterOpt.q + 1} ${activeQuarterOpt.year}`;
+  const initialTimelineWeekOffset = useMemo(() => {
+    if (weeks.length === 0) return 0;
+    const targetDate = new Date();
+    targetDate.setMonth(targetDate.getMonth() - 1);
+    let weekOffset = 0;
+    for (const week of weeks) {
+      if (week.startDate > targetDate) break;
+      weekOffset = week.idx;
+    }
+    return weekOffset;
+  }, [weeks]);
+  const pendingQuarterScrollRef = useRef<number | null>(null);
+  const ganttWeekOffsetRef = useRef(initialTimelineWeekOffset);
 
   const portfolioCandidateConnectionIds = useMemo(
     () => new Set(
@@ -2209,9 +2262,8 @@ export function PortfolioPlanning() {
   }, [activePhaseAssignments]);
 
   const absenceLookup = useMemo(
-    () => buildAbsenceLookup(quarter, state.teamMembers, state),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [quarter, state.teamMembers, state.timeOff]
+    () => buildAbsenceLookup(activeQuarterOpt, state.teamMembers, state),
+    [activeQuarterOpt, state]
   );
 
   // People summaries for People View and Summary View
@@ -2238,13 +2290,9 @@ export function PortfolioPlanning() {
             const role    = member?.role ?? contact?.title ?? '';
             let availDays = 0;
             if (member) {
-              const cap = calculateCapacity(member.id, quarter, state);
-              availDays = cap.availableDays;
+              availDays = calculateMemberAvailableDays(member.id, activeQuarterOpt, state);
             } else if (contact) {
-              const cap = calculateBusinessCapacityForQuarter(
-                contact, quarter, state.jiraItemBizAssignments, state.businessTimeOff, state.publicHolidays, state.jiraWorkItems
-              );
-              availDays = cap.availableDays;
+              availDays = calculateBusinessAvailableDays(contact, activeQuarterOpt, state);
             }
             map.set(a.memberId, { id: a.memberId, member, contact, name, role, availDays, assignments: [] });
           }
@@ -2257,7 +2305,7 @@ export function PortfolioPlanning() {
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, quarter, state, tStart]);
+  }, [activeQuarterOpt, boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, state, tStart]);
 
   // Maps memberId → overload tier ('over' | 'near') for quarter-level capacity
   const personOverloadMap = useMemo((): Map<string, 'over' | 'near'> => {
@@ -2274,6 +2322,7 @@ export function PortfolioPlanning() {
 
   const handleTimelineScroll = useCallback((el: HTMLDivElement) => {
     ganttWeekOffsetRef.current = weekW > 0 ? el.scrollLeft / weekW : 0;
+    if (isFullYearActive) return;
 
     const viewportLeft = el.scrollLeft;
     const viewportRight = viewportLeft + el.clientWidth;
@@ -2294,12 +2343,12 @@ export function PortfolioPlanning() {
     if (nextActiveIdx !== null && nextActiveIdx !== activeQIdx) {
       setActiveQIdx(nextActiveIdx);
     }
-  }, [activeQIdx, quarterSegments, weekW]);
+  }, [activeQIdx, isFullYearActive, quarterSegments, weekW]);
 
   // ── Week width (recalculates when panel resizes or drawer opens) ───────────
   useEffect(() => {
     const apply = () => {
-      const visibleQuarterWeeks = quarterSegments[activeQIdx]?.weekCount ?? 1;
+      const visibleQuarterWeeks = quarterSegments[visibleSegmentIdx]?.weekCount ?? 1;
       const w = calcWeekW(visibleQuarterWeeks, drawerOpen, panelWidth);
       setWeekW(w);
       ppRootRef.current?.style.setProperty('--week-w', w + 'px');
@@ -2307,7 +2356,7 @@ export function PortfolioPlanning() {
     apply();
     window.addEventListener('resize', apply);
     return () => window.removeEventListener('resize', apply);
-  }, [activeQIdx, drawerOpen, panelWidth, quarterSegments]);
+  }, [drawerOpen, panelWidth, quarterSegments, visibleSegmentIdx]);
 
   useEffect(() => {
     if (activeTab === 'summary') return;
@@ -2360,15 +2409,21 @@ export function PortfolioPlanning() {
   }, [panelWidth]);
 
   const handleQuarterIndicatorClick = useCallback((idx: number) => {
-    pendingQuarterScrollRef.current = idx;
+    const nextOpt = quarterIndicatorOpts[idx];
+    if (!nextOpt) return;
+
+    const nextIsFullYear = nextOpt.q === -1;
+    const targetSegmentIdx = nextIsFullYear ? 0 : idx;
+    pendingQuarterScrollRef.current = targetSegmentIdx;
     setActiveQIdx(idx);
 
-    const targetWeekOffset = quarterSegments[idx]?.startWeekIdx ?? 0;
-    ganttWeekOffsetRef.current = targetWeekOffset;
-
     const ganttEl = activeTab === 'epic' ? epicGanttRef.current : activeTab === 'people' ? pvGanttRef.current : null;
-    if (ganttEl) ganttEl.scrollTo({ left: targetWeekOffset * weekW, behavior: 'smooth' });
-  }, [activeTab, quarterSegments, weekW]);
+    if (!ganttEl || isFullYearActive !== nextIsFullYear) return;
+
+    const targetWeekOffset = quarterSegments[targetSegmentIdx]?.startWeekIdx ?? 0;
+    ganttWeekOffsetRef.current = targetWeekOffset;
+    ganttEl.scrollTo({ left: targetWeekOffset * weekW, behavior: 'smooth' });
+  }, [activeTab, isFullYearActive, quarterIndicatorOpts, quarterSegments, weekW]);
 
   // ── Person / team picker ───────────────────────────────────────────────────
   const handleAddPerson = useCallback((epicKey: string, phase: PlanningPhase, phaseInstanceId: string, rect: DOMRect) => {
@@ -2907,6 +2962,7 @@ export function PortfolioPlanning() {
             absenceLookup={absenceLookup}
             weeks={weeks}
             quarter={quarter}
+            quarterOpt={activeQuarterOpt}
             state={state}
             jiraBaseUrl={jiraBaseUrl}
             activeScenarioName={activeScenario?.name ?? null}
