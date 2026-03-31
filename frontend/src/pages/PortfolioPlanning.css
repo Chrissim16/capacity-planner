@@ -305,6 +305,18 @@
   min-height: 0;
   scrollbar-gutter: stable;
 }
+.pp-rp-scroll-epic { overflow-x: hidden; }
+.pp-bottom-scroll {
+  flex-shrink: 0;
+  height: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-top: 1px solid var(--border);
+  background: var(--white);
+}
+.pp-bottom-scroll-inner {
+  height: 1px;
+}
 
 /* Inner wrapper that lets gantt rows expand to their natural width */
 .pp-gantt-inner {

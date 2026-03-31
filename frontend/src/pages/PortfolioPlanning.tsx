@@ -481,14 +481,39 @@ function EpicView({
   const totalW = weeks.length * (dayW * 5);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingPhaseKey, setEditingPhaseKey] = useState<string | null>(null);
+  const bottomScrollbarRef = useRef<HTMLDivElement | null>(null);
+  const horizontalScrollSyncRef = useRef<'gantt' | 'bottom' | null>(null);
 
   const syncGanttFromLp = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
   }, [ganttRef]);
   const syncLpFromGantt = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (horizontalScrollSyncRef.current === 'bottom') {
+      horizontalScrollSyncRef.current = null;
+    } else if (bottomScrollbarRef.current && bottomScrollbarRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+      horizontalScrollSyncRef.current = 'gantt';
+      bottomScrollbarRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
     if (lpRef.current) lpRef.current.scrollTop = e.currentTarget.scrollTop;
     onTimelineScroll(e.currentTarget);
-  }, [lpRef, onTimelineScroll]);
+  }, [ganttRef, lpRef, onTimelineScroll]);
+  const syncGanttFromBottomScrollbar = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (horizontalScrollSyncRef.current === 'gantt') {
+      horizontalScrollSyncRef.current = null;
+      return;
+    }
+    if (ganttRef.current && ganttRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+      horizontalScrollSyncRef.current = 'bottom';
+      ganttRef.current.scrollLeft = e.currentTarget.scrollLeft;
+      onTimelineScroll(ganttRef.current);
+    }
+  }, [ganttRef, onTimelineScroll]);
+
+  useEffect(() => {
+    if (ganttRef.current && bottomScrollbarRef.current && bottomScrollbarRef.current.scrollLeft !== ganttRef.current.scrollLeft) {
+      bottomScrollbarRef.current.scrollLeft = ganttRef.current.scrollLeft;
+    }
+  }, [ganttRef, totalW]);
 
   if (!boardEpics.length) {
     return (
@@ -830,12 +855,15 @@ function EpicView({
         </div>
       </div>
       <div className="pp-lp-resize" onMouseDown={onResizeMouseDown} />
-      <div className="pp-rp">
-        <div className="pp-rp-scroll" ref={ganttRef} onScroll={syncLpFromGantt}>
+      <div className="pp-rp pp-rp-epic">
+        <div className="pp-rp-scroll pp-rp-scroll-epic" ref={ganttRef} onScroll={syncLpFromGantt}>
           <div className="pp-gantt-inner" style={{ minWidth: totalW }}>
             <GanttHeader weeks={weeks} totalW={totalW} />
             {ganttRows}
           </div>
+        </div>
+        <div className="pp-bottom-scroll" ref={bottomScrollbarRef} onScroll={syncGanttFromBottomScrollbar}>
+          <div className="pp-bottom-scroll-inner" style={{ width: totalW }} />
         </div>
       </div>
     </div>
