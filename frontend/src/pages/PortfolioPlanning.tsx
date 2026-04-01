@@ -837,7 +837,7 @@ interface EpicViewProps {
     epicKey: string,
     phase: PlanningPhase,
     phaseInstanceId: string,
-    mode: 'move' | 'resize-start' | 'resize-end',
+    mode: 'move' | 'auto',
     e: React.PointerEvent<HTMLDivElement>,
   ) => void;
   onPhasePointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
@@ -1296,36 +1296,14 @@ function EpicView({
               <div
                 className={`pp-pbar ${PH_KEY[ph]}${overTier === 'over' ? ' overloaded' : overTier === 'near' ? ' near-cap' : ''}${!hasEnd ? ' no-end' : ''}${activeInteractionClass}`}
                 style={{ left: dToX(startDay!, dayW), width: dToW(barW, dayW) }}
-                onPointerDown={e => onPhasePointerDown(epicKey, ph, row.phaseInstanceId, 'move', e)}
+                onPointerDown={e => onPhasePointerDown(epicKey, ph, row.phaseInstanceId, 'auto', e)}
                 onPointerMove={onPhasePointerMove}
                 onPointerUp={onPhasePointerUp}
                 onPointerCancel={onPhasePointerUp}
               >
                 {barLabel}
-                {hasEnd && (
-                  <div
-                    className="pp-pbar-start-handle"
-                    onPointerDown={e => {
-                      e.stopPropagation();
-                      onPhasePointerDown(epicKey, ph, row.phaseInstanceId, 'resize-start', e);
-                    }}
-                    onPointerMove={onPhasePointerMove}
-                    onPointerUp={onPhasePointerUp}
-                    onPointerCancel={onPhasePointerUp}
-                    title="Drag to adjust start date"
-                  />
-                )}
-                <div
-                  className="pp-pbar-end-handle"
-                  onPointerDown={e => {
-                    e.stopPropagation();
-                    onPhasePointerDown(epicKey, ph, row.phaseInstanceId, 'resize-end', e);
-                  }}
-                  onPointerMove={onPhasePointerMove}
-                  onPointerUp={onPhasePointerUp}
-                  onPointerCancel={onPhasePointerUp}
-                  title="Drag to set end date"
-                />
+                {hasEnd && <div className="pp-pbar-start-handle" aria-hidden="true" />}
+                <div className="pp-pbar-end-handle" aria-hidden="true" />
               </div>
             </div>
           );
@@ -4246,7 +4224,7 @@ export function PortfolioPlanning() {
     epicKey: string,
     phase: PlanningPhase,
     phaseInstanceId: string,
-    mode: 'move' | 'resize-start' | 'resize-end',
+    mode: 'move' | 'auto',
     e: React.PointerEvent<HTMLDivElement>,
   ) => {
     e.preventDefault();
@@ -4257,11 +4235,19 @@ export function PortfolioPlanning() {
     const startDay = dateToDay(startDate, tStart);
     const endDay = plan0?.endDate ? dateToDay(plan0.endDate, tStart) : null;
 
+    let resolvedMode: 'move' | 'resize-start' | 'resize-end' = 'move';
+    if (mode === 'auto' && plan0?.endDate) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const edgeZone = Math.min(8, Math.max(5, rect.width * 0.18));
+      if (e.clientX <= rect.left + edgeZone) resolvedMode = 'resize-start';
+      else if (e.clientX >= rect.right - edgeZone) resolvedMode = 'resize-end';
+    }
+
     phaseInteractionRef.current = {
       epicKey,
       phase,
       phaseInstanceId,
-      mode,
+      mode: resolvedMode,
       startX: e.clientX,
       lastClientX: e.clientX,
       startScrollLeft: epicGanttRef.current?.scrollLeft ?? 0,
@@ -4269,7 +4255,7 @@ export function PortfolioPlanning() {
       origStartDay: startDay,
       origEndDay: endDay,
     };
-    setActivePhaseInteraction({ epicKey, phaseInstanceId, mode });
+    setActivePhaseInteraction({ epicKey, phaseInstanceId, mode: resolvedMode });
     const initialPreview = {
       epicKey,
       phaseInstanceId,

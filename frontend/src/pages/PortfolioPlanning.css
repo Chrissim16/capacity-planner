@@ -1931,13 +1931,13 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-pbar.no-end { border-right: 2px dashed currentColor; opacity: .85; }
 .pp-pbar-start-handle,
 .pp-pbar-end-handle {
-  position: absolute; top: -2px; bottom: -2px; width: 14px;
+  position: absolute; top: -2px; bottom: -2px; width: 10px;
   cursor: ew-resize; z-index: 10;
   display: flex; align-items: center; justify-content: center;
-  touch-action: none;
+  pointer-events: none;
 }
-.pp-pbar-start-handle { left: -6px; }
-.pp-pbar-end-handle { right: -6px; }
+.pp-pbar-start-handle { left: -4px; }
+.pp-pbar-end-handle { right: -4px; }
 .pp-pbar-start-handle::after,
 .pp-pbar-end-handle::after {
   content: ''; display: block;
