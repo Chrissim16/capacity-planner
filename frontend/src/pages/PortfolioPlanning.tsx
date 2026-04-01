@@ -8,7 +8,8 @@
  * All styling lives in PortfolioPlanning.css, scoped under .pp-root.
  */
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useCurrentState, useAppStore } from '../stores/appStore';
 import { useShallow } from 'zustand/react/shallow';
 import { calculateCapacity, calculateBusinessCapacityForQuarter } from '../utils/capacity';
@@ -533,9 +534,11 @@ function TodayLine({ tStart, totalW, dayW }: { tStart: Date; totalW: number; day
 // ─────────────────────────────────────────────────────────────────────────────
 
 function AllocEditor({
+  anchorEl,
   assign, phaseStartDate, phaseEndDate,
   onClose, onUpdateDays, onUpdateMode, onUpsertSegment, onRemoveSegment,
 }: {
+  anchorEl: HTMLElement | null;
   assign: EpicPhaseAssignment;
   phaseStartDate: string | null;
   phaseEndDate: string | null;
@@ -545,6 +548,8 @@ function AllocEditor({
   onUpsertSegment: (seg: AllocationSegment) => void;
   onRemoveSegment: (segmentId: string) => void;
 }) {
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
   const mode = assign.allocationMode ?? 'flat';
   const segs = assign.segments ?? [];
 
@@ -562,8 +567,71 @@ function AllocEditor({
     });
   };
 
-  return (
-    <div className="ev-alloc-editor" onClick={e => e.stopPropagation()}>
+  const updatePopoverPosition = useCallback(() => {
+    if (!anchorEl?.isConnected) {
+      onClose();
+      return;
+    }
+
+    const anchorRect = anchorEl.getBoundingClientRect();
+    const popoverEl = popoverRef.current;
+    const viewportPadding = 12;
+    const gap = 6;
+    const width = Math.min(360, window.innerWidth - viewportPadding * 2);
+    const height = popoverEl?.offsetHeight ?? (mode === 'segments' ? 260 : 156);
+    const fitsBelow = anchorRect.bottom + gap + height <= window.innerHeight - viewportPadding;
+    const top = fitsBelow
+      ? anchorRect.bottom + gap
+      : Math.max(viewportPadding, anchorRect.top - height - gap);
+    const unclampedLeft = anchorRect.right - width;
+    const left = Math.min(
+      Math.max(viewportPadding, unclampedLeft),
+      window.innerWidth - width - viewportPadding,
+    );
+
+    setPopoverStyle({ top, left, width });
+  }, [anchorEl, mode, onClose]);
+
+  useLayoutEffect(() => {
+    updatePopoverPosition();
+  }, [updatePopoverPosition, segs.length]);
+
+  useEffect(() => {
+    const handleViewportChange = () => updatePopoverPosition();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [updatePopoverPosition]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (popoverRef.current?.contains(target)) return;
+      if (anchorEl?.contains(target)) return;
+      onClose();
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [anchorEl, onClose]);
+
+  return createPortal(
+    <div
+      ref={popoverRef}
+      className="ev-alloc-popover"
+      style={popoverStyle}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+    >
+      <div className="ev-alloc-editor">
       <div className="ev-alloc-mode-tabs">
         <button className={`ev-alloc-tab${mode === 'flat' ? ' on' : ''}`}
           onClick={() => onUpdateMode('flat')}>Flat</button>
@@ -638,7 +706,9 @@ function AllocEditor({
       )}
 
       <button className="ev-alloc-done" onClick={onClose}>Done</button>
-    </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -800,6 +870,7 @@ function EpicView({
   const horizontalScrollSyncRef = useRef<'gantt' | 'bottom' | null>(null);
   const draggingPhaseRef = useRef<{ epicKey: string; phaseInstanceId: string } | null>(null);
   const dragAutoScrollRef = useRef<{ direction: -1 | 0 | 1; frameId: number | null }>({ direction: 0, frameId: null });
+  const daysButtonRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const syncGanttFromLp = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
@@ -1267,11 +1338,25 @@ function EpicView({
                 : `${assign.days}d`;
 
             lpRows.push(
-              <div key={`person-${phKey}-${assign.memberId}`} className={`ev-person${isEditing ? ' editing' : ''}`}>
+              <div key={`person-${phKey}-${assign.memberId}`} className="ev-person">
                 {avatarEl}
                 {nameEl}
-                {isEditing ? (
+                <button
+                  ref={el => {
+                    if (el) daysButtonRefs.current.set(rowKey, el);
+                    else daysButtonRefs.current.delete(rowKey);
+                  }}
+                  type="button"
+                  className={`ev-days ev-days-btn${isEditing ? ' open' : ''}`}
+                  onClick={() => {
+                    setEditingKey(current => current === rowKey ? null : rowKey);
+                  }}
+                >
+                  {daysLabel}
+                </button>
+                {isEditing && (
                   <AllocEditor
+                    anchorEl={daysButtonRefs.current.get(rowKey) ?? null}
                     assign={assign}
                     phaseStartDate={startDate}
                     phaseEndDate={endDate}
@@ -1281,8 +1366,6 @@ function EpicView({
                     onUpsertSegment={seg => onUpsertSegment(epicKey, ph, row.phaseInstanceId, assign.memberId, seg)}
                     onRemoveSegment={segId => onRemoveSegment(epicKey, ph, row.phaseInstanceId, assign.memberId, segId)}
                   />
-                ) : (
-                  <span className="ev-days" onClick={() => setEditingKey(rowKey)}>{daysLabel}</span>
                 )}
                 {!isEditing && (
                   <button className="ev-person-remove" onClick={() => onRemoveAssignment(epicKey, ph, row.phaseInstanceId, assign.memberId)}>×</button>

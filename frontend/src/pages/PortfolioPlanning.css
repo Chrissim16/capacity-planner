@@ -815,6 +815,19 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 .ev-person:hover .ev-days { background: #F5F8FC; }
 .ev-days:hover { background: #E8F0F8 !important; color: var(--blue); }
+.ev-days-btn {
+  border: none;
+  background: transparent;
+  font: inherit;
+}
+.ev-days-btn.open {
+  background: #E8F0F8;
+  color: var(--blue);
+}
+.ev-days-btn:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
 
 .ev-days-inp {
   width: 52px; border: 1px solid #0089DD; border-radius: 4px;
@@ -1924,11 +1937,17 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 
 /* ── Allocation mode editor ──────────────────────────────────────────────── */
+.ev-alloc-popover {
+  position: fixed;
+  z-index: 9100;
+}
 .ev-alloc-editor {
+  position: relative;
   display: flex; flex-direction: column; gap: 6px;
-  padding: 8px 10px; background: #F8FAFC;
-  border: 1px solid #E2E8F0; border-radius: 6px;
-  margin: 2px 0; font-size: 12px; flex: 1; min-width: 0;
+  padding: 10px 12px; background: #fff;
+  border: 1px solid #E2E8F0; border-radius: 10px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
+  font-size: 12px; min-width: 0;
 }
 .ev-alloc-mode-tabs {
   display: flex; gap: 3px;
