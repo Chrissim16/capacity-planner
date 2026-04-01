@@ -221,6 +221,18 @@ export function dayToDateStr(day: number, tStart: Date): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+export function shiftIsoDateByWorkingDays(isoDate: string, workingDays: number): string {
+  return formatIsoDateLocal(addWorkingDays(parseIsoDateLocal(isoDate), workingDays));
+}
+
+export function storedPhaseEndDateToDisplayDate(endDate: string): string {
+  return shiftIsoDateByWorkingDays(endDate, -1);
+}
+
+export function displayPhaseEndDateToStoredDate(endDate: string): string {
+  return shiftIsoDateByWorkingDays(endDate, 1);
+}
+
 /** Working-day offset of today from the first week's Monday. */
 export function todayDayOffset(tStart: Date): number {
   return Math.max(0, dateToDay(formatIsoDateLocal(new Date()), tStart));

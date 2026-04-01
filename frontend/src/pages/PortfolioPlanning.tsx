@@ -31,6 +31,8 @@ import {
   dateToDay,
   dayToIsoDate,
   formatIsoDateLocal,
+  storedPhaseEndDateToDisplayDate,
+  displayPhaseEndDateToStoredDate,
   PHASES,
   PH_KEY,
   PH_LBL,
@@ -726,7 +728,8 @@ function PhaseEditorPopover({
   onClose: () => void;
 }) {
   const [draftStartDate, setDraftStartDate] = useState(startDate ?? '');
-  const [draftEndDate, setDraftEndDate] = useState(endDate ?? '');
+  const initialDisplayEndDate = endDate ? storedPhaseEndDateToDisplayDate(endDate) : '';
+  const [draftEndDate, setDraftEndDate] = useState(initialDisplayEndDate);
   const [draftDescription, setDraftDescription] = useState(description ?? '');
   const dateRangeError = useMemo(() => {
     if (!draftStartDate || !draftEndDate) return '';
@@ -738,11 +741,11 @@ function PhaseEditorPopover({
     const changes: PhasePlanChanges = {};
     const normalizedDescription = draftDescription.trim();
     if (draftStartDate !== (startDate ?? '')) changes.startDate = draftStartDate || null;
-    if (draftEndDate !== (endDate ?? '')) changes.endDate = draftEndDate || null;
+    if (draftEndDate !== initialDisplayEndDate) changes.endDate = draftEndDate ? displayPhaseEndDateToStoredDate(draftEndDate) : null;
     if (normalizedDescription !== (description ?? '')) changes.description = normalizedDescription || null;
     if ('startDate' in changes || 'endDate' in changes || 'description' in changes) onCommit(changes);
     onClose();
-  }, [dateRangeError, description, draftDescription, draftEndDate, draftStartDate, endDate, onClose, onCommit, startDate]);
+  }, [dateRangeError, description, draftDescription, draftEndDate, draftStartDate, initialDisplayEndDate, onClose, onCommit, startDate]);
 
   return (
     <div
@@ -1172,8 +1175,8 @@ function EpicView({
         let durStr  = '';
         if (startDay !== null) {
           const endLabel = endDate
-            ? dayToDateStr(dateToDay(endDate, tStart), tStart)
-            : hasBar ? dayToDateStr(startDay + barW, tStart) : '…';
+            ? dayToDateStr(Math.max(startDay, dateToDay(endDate, tStart) - 1), tStart)
+            : hasBar ? dayToDateStr(startDay + Math.max(0, barW - 1), tStart) : '…';
           dateStr = `${dayToDateStr(startDay, tStart)} → ${endLabel}`;
           if (hasBar && startDate && endDate) {
             const wks = weeksBetween(startDate, endDate);
