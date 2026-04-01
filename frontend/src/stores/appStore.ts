@@ -135,6 +135,27 @@ const defaultAppState: AppState = {
   assignments: [],
 };
 
+function sanitizeActiveScenarioId(
+  activeScenarioId: string | null | undefined,
+  scenarios: AppState['scenarios'],
+): string | null {
+  if (!activeScenarioId) return null;
+  const activeScenario = scenarios.find((scenario) => scenario.id === activeScenarioId);
+  if (!activeScenario || activeScenario.isPortfolioScenario) return null;
+  return activeScenarioId;
+}
+
+function getOverlayScenario(data: AppState) {
+  const activeScenarioId = sanitizeActiveScenarioId(data.activeScenarioId, data.scenarios);
+  if (!activeScenarioId) return null;
+  return data.scenarios.find((scenario) => scenario.id === activeScenarioId) ?? null;
+}
+
+function sanitizeAppState(data: AppState): AppState {
+  const activeScenarioId = sanitizeActiveScenarioId(data.activeScenarioId, data.scenarios);
+  return activeScenarioId === data.activeScenarioId ? data : { ...data, activeScenarioId };
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
@@ -180,7 +201,8 @@ const defaultUIState: UIState = {
 
 function migrate(data: Partial<AppState>): AppState {
   const d = { ...data } as Partial<AppState> & Record<string, unknown>;
-  return {
+  const scenarios = Array.isArray(d.scenarios) ? d.scenarios as AppState['scenarios'] : [];
+  return sanitizeAppState({
     ...defaultAppState,
     ...d,
     settings: mergeSettingsWithDefaults((d.settings as Partial<Settings>) ?? {}),
@@ -198,8 +220,8 @@ function migrate(data: Partial<AppState>): AppState {
     jiraWorkItems: Array.isArray(d.jiraWorkItems)
       ? d.jiraWorkItems as AppState['jiraWorkItems']
       : [],
-    scenarios: Array.isArray(d.scenarios) ? d.scenarios as AppState['scenarios'] : [],
-    activeScenarioId: (d.activeScenarioId as string | null | undefined) ?? null,
+    scenarios,
+    activeScenarioId: sanitizeActiveScenarioId((d.activeScenarioId as string | null | undefined) ?? null, scenarios),
     businessContacts: Array.isArray(d.businessContacts)
       ? d.businessContacts as AppState['businessContacts']
       : [],
@@ -211,7 +233,7 @@ function migrate(data: Partial<AppState>): AppState {
       : [],
     projects: Array.isArray(d.projects) ? d.projects as AppState['projects'] : [],
     assignments: Array.isArray(d.assignments) ? d.assignments as AppState['assignments'] : [],
-  };
+  });
 }
 
 /** Returns true when localStorage already contains meaningful app data. */
@@ -294,11 +316,14 @@ const customStorage = {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) return null;
       const parsed = JSON.parse(stored);
-      if (parsed.state?.data) return stored;
-      const mergedSettings = mergeSettingsWithDefaults(parsed.settings || {});
+      if (parsed.state?.data) {
+        parsed.state.data = sanitizeAppState(migrate(parsed.state.data));
+        return JSON.stringify(parsed);
+      }
+      const migrated = migrate(parsed);
       const converted = {
         state: {
-          data: { ...defaultAppState, ...parsed, settings: mergedSettings },
+          data: migrated,
           ui: defaultUIState,
         },
         version: 0,
@@ -351,6 +376,7 @@ export const useAppStore = create<AppStore>()(
         try {
           const cloudData = await withTimeout(loadFromSupabase(), 15000, 'Supabase initial load');
           if (cloudData) {
+            const scenarios = cloudData.scenarios || [];
             const hydratedData: AppState = {
               ...defaultAppState,
               ...cloudData,
@@ -360,13 +386,14 @@ export const useAppStore = create<AppStore>()(
               sprints: cloudData.sprints || [],
               jiraConnections: cloudData.jiraConnections || [],
               jiraWorkItems: cloudData.jiraWorkItems || [],
-              scenarios: cloudData.scenarios || [],
+              scenarios,
               activeScenarioId: hasPlannerSession()
-                ? (cloudData.activeScenarioId ?? null)
+                ? sanitizeActiveScenarioId(cloudData.activeScenarioId ?? null, scenarios)
                 : null,
             };
-            set({ data: hydratedData });
-            safeSetItem(STORAGE_KEY, JSON.stringify(hydratedData));
+            const nextData = sanitizeAppState(hydratedData);
+            set({ data: nextData });
+            safeSetItem(STORAGE_KEY, JSON.stringify(nextData));
             set({ isInitializing: false, syncStatus: 'saved' });
           } else {
             set({ isInitializing: false, syncStatus: 'idle' });
@@ -400,8 +427,9 @@ export const useAppStore = create<AppStore>()(
         const scenarioFields = ['jiraWorkItems', 'jiraItemBizAssignments', 'teamMembers', 'timeOff', 'projects', 'assignments'] as const;
         const hasScenarioFieldUpdates = scenarioFields.some(field => field in updates);
 
-        if (data.activeScenarioId && hasScenarioFieldUpdates) {
-          const scenarioIndex = data.scenarios.findIndex(s => s.id === data.activeScenarioId);
+        const overlayScenario = getOverlayScenario(data);
+        if (overlayScenario && hasScenarioFieldUpdates) {
+          const scenarioIndex = data.scenarios.findIndex(s => s.id === overlayScenario.id);
           if (scenarioIndex !== -1) {
             const updatedScenario = {
               ...data.scenarios[scenarioIndex],
@@ -420,12 +448,12 @@ export const useAppStore = create<AppStore>()(
             }
             const updatedScenarios = [...data.scenarios];
             updatedScenarios[scenarioIndex] = updatedScenario;
-            const newData = {
+            const newData = sanitizeAppState({
               ...data,
               ...baselineUpdates,
               scenarios: updatedScenarios,
               lastModified: new Date().toISOString(),
-            };
+            });
             set({ data: newData });
             safeSetItem(STORAGE_KEY, JSON.stringify(newData));
             scheduleSyncToSupabase(newData, (status, error) =>
@@ -435,11 +463,11 @@ export const useAppStore = create<AppStore>()(
           }
         }
 
-        const newData = {
+        const newData = sanitizeAppState({
           ...data,
           ...updates,
           lastModified: new Date().toISOString(),
-        };
+        });
         set({ data: newData });
         safeSetItem(STORAGE_KEY, JSON.stringify(newData));
         scheduleSyncToSupabase(newData, (status, error) =>
@@ -497,19 +525,18 @@ export const useAppStore = create<AppStore>()(
       getCurrentState: () => {
         const state = get();
         const data = state.data;
-        if (data.activeScenarioId) {
-          const activeScenario = data.scenarios.find(s => s.id === data.activeScenarioId);
-          if (activeScenario) {
-            return {
-              ...data,
-              jiraWorkItems: activeScenario.jiraWorkItems,
-              jiraItemBizAssignments: activeScenario.jiraItemBizAssignments,
-              teamMembers: activeScenario.teamMembers,
-              timeOff: activeScenario.timeOff,
-              projects: activeScenario.projects ?? [],
-              assignments: activeScenario.assignments ?? [],
-            };
-          }
+        const activeScenario = getOverlayScenario(data);
+        if (activeScenario) {
+          return {
+            ...data,
+            activeScenarioId: activeScenario.id,
+            jiraWorkItems: activeScenario.jiraWorkItems,
+            jiraItemBizAssignments: activeScenario.jiraItemBizAssignments,
+            teamMembers: activeScenario.teamMembers,
+            timeOff: activeScenario.timeOff,
+            projects: activeScenario.projects ?? [],
+            assignments: activeScenario.assignments ?? [],
+          };
         }
         return data;
       },

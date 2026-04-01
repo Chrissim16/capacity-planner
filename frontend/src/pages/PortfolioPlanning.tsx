@@ -665,11 +665,10 @@ function EpicView({
     event: React.MouseEvent<HTMLDivElement>,
   ) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const scrollLeft = ganttRef.current?.scrollLeft ?? 0;
-    const relativeX = Math.max(0, scrollLeft + event.clientX - rect.left);
+    const relativeX = Math.max(0, event.clientX - rect.left);
     const weekIdx = Math.max(0, Math.min(weeks.length - 1, Math.floor(relativeX / (dayW * 5))));
     onSetPhaseStart(epicKey, phase, phaseInstanceId, weekIdx);
-  }, [dayW, ganttRef, onSetPhaseStart, weeks.length]);
+  }, [dayW, onSetPhaseStart, weeks.length]);
 
   useEffect(() => {
     if (ganttRef.current && bottomScrollbarRef.current && bottomScrollbarRef.current.scrollLeft !== ganttRef.current.scrollLeft) {
@@ -879,7 +878,7 @@ function EpicView({
               <TodayLine tStart={tStart} totalW={totalW} dayW={dayW} />
               <div className="pp-g-click-cols">
                 {weeks.map((_, i) => (
-                  <div key={i} className="pp-g-click-col" onClick={() => onSetPhaseStart(epicKey, ph, row.phaseInstanceId, i)} />
+                  <div key={i} className="pp-g-click-col" />
                 ))}
               </div>
               <div className="pp-set-start-hint">
@@ -2935,7 +2934,7 @@ function PortfolioPickerPopover({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function PortfolioPlanning() {
-  const state = useCurrentState();
+  const baselineState = useAppStore(useShallow(s => s.data));
   const plan  = usePortfolioPlan();
   const scenarios = useAppStore(useShallow(s => s.data.scenarios));
 
@@ -3032,22 +3031,22 @@ export function PortfolioPlanning() {
 
   const portfolioCandidateConnectionIds = useMemo(
     () => new Set(
-      state.jiraConnections
+      baselineState.jiraConnections
         .filter(connection => connection.scenarioPlannerOnly)
         .map(connection => connection.id)
     ),
-    [state.jiraConnections]
+    [baselineState.jiraConnections]
   );
   const allEpics = useMemo(
-    () => state.jiraWorkItems.filter(item =>
+    () => baselineState.jiraWorkItems.filter(item =>
       item.type === 'epic' || portfolioCandidateConnectionIds.has(item.connectionId)
     ),
-    [state.jiraWorkItems, portfolioCandidateConnectionIds]
+    [baselineState.jiraWorkItems, portfolioCandidateConnectionIds]
   );
   const jiraBaseUrl = useMemo(() => {
-    const conn = state.jiraConnections.find(c => c.isActive);
+    const conn = baselineState.jiraConnections.find(c => c.isActive);
     return conn?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
-  }, [state.jiraConnections]);
+  }, [baselineState.jiraConnections]);
   const portfolioScenarios = useMemo(
     () => scenarios.filter(isPortfolioScenario),
     [scenarios]
@@ -3104,8 +3103,8 @@ export function PortfolioPlanning() {
     }).filter(Boolean) as JiraWorkItem[];
   }, [activeBoardEpicKeys, allEpics, manualEpicMap]);
 
-  const memberMap  = useMemo(() => new Map(state.teamMembers.map(m => [m.id, m])), [state.teamMembers]);
-  const contactMap = useMemo(() => new Map(state.businessContacts.map(c => [c.id, c])), [state.businessContacts]);
+  const memberMap  = useMemo(() => new Map(baselineState.teamMembers.map(m => [m.id, m])), [baselineState.teamMembers]);
+  const contactMap = useMemo(() => new Map(baselineState.businessContacts.map(c => [c.id, c])), [baselineState.businessContacts]);
 
   // Maps epicKey → phase → phase instances[]
   const phasePlansMap = useMemo(() => {
@@ -3135,8 +3134,8 @@ export function PortfolioPlanning() {
   }, [activePhaseAssignments]);
 
   const absenceLookup = useMemo(
-    () => buildAbsenceLookup(activeQuarterOpt, state.teamMembers, state),
-    [activeQuarterOpt, state]
+    () => buildAbsenceLookup(activeQuarterOpt, baselineState.teamMembers, baselineState),
+    [activeQuarterOpt, baselineState]
   );
 
   // People summaries for People View and Summary View
@@ -3164,11 +3163,11 @@ export function PortfolioPlanning() {
             let availDays = 0;
             let totalCapacityDays = 0;
             if (member) {
-              availDays = calculateMemberAvailableDays(member.id, activeQuarterOpt, state);
-              totalCapacityDays = calculateMemberTotalCapacityDays(member.id, activeQuarterOpt, state);
+              availDays = calculateMemberAvailableDays(member.id, activeQuarterOpt, baselineState);
+              totalCapacityDays = calculateMemberTotalCapacityDays(member.id, activeQuarterOpt, baselineState);
             } else if (contact) {
-              availDays = calculateBusinessAvailableDays(contact, activeQuarterOpt, state);
-              totalCapacityDays = calculateBusinessTotalCapacityDays(contact, activeQuarterOpt, state);
+              availDays = calculateBusinessAvailableDays(contact, activeQuarterOpt, baselineState);
+              totalCapacityDays = calculateBusinessTotalCapacityDays(contact, activeQuarterOpt, baselineState);
             }
             map.set(a.memberId, { id: a.memberId, member, contact, name, role, availDays, totalCapacityDays, assignments: [] });
           }
@@ -3184,7 +3183,7 @@ export function PortfolioPlanning() {
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeQuarterOpt, boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, state, tStart]);
+  }, [activeQuarterOpt, boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, baselineState, tStart]);
 
   // Maps memberId → overload tier ('over' | 'near') for quarter-level capacity
   const personOverloadMap = useMemo((): Map<string, 'over' | 'near'> => {
@@ -3886,7 +3885,7 @@ export function PortfolioPlanning() {
             ganttRef={epicGanttRef}
             onTimelineScroll={handleTimelineScroll}
             personOverloadMap={personOverloadMap}
-            allJiraItems={state.jiraWorkItems}
+            allJiraItems={baselineState.jiraWorkItems}
             jiraBaseUrl={jiraBaseUrl}
           />
         )}
@@ -3918,7 +3917,7 @@ export function PortfolioPlanning() {
         )}
         {activeTab === 'summary' && (
           <SummaryView
-            processTeams={state.processTeams}
+            processTeams={baselineState.processTeams}
             boardEpics={boardEpics}
             peopleSummaries={peopleSummaries}
             phasePlansMap={phasePlansMap}
@@ -3927,7 +3926,7 @@ export function PortfolioPlanning() {
             weeks={weeks}
             quarter={quarter}
             quarterOpt={activeQuarterOpt}
-            state={state}
+            state={baselineState}
             jiraBaseUrl={jiraBaseUrl}
             activeScenarioName={activeScenario?.name ?? null}
             baselinePhasePlans={plan.phasePlans}
@@ -3985,7 +3984,7 @@ export function PortfolioPlanning() {
             )}
             memberMap={memberMap}
             contactMap={contactMap}
-            businessTeams={state.businessTeams}
+            businessTeams={baselineState.businessTeams}
             onSelect={(memberId, track) => {
               handleUpsertAssignment(pickerTarget.epicKey, pickerTarget.phase, pickerTarget.phaseInstanceId, memberId, 0, track);
               setPickerTarget(null);
