@@ -665,13 +665,15 @@ function EpicView({
     phaseInstanceId: string,
     event: React.MouseEvent<HTMLDivElement>,
   ) => {
+    // event.currentTarget is inside the scrollable ganttRef container, so
+    // getBoundingClientRect().left already incorporates the scroll offset —
+    // subtracting it from clientX gives the position within the content directly.
     const rect = event.currentTarget.getBoundingClientRect();
-    const scrollLeft = ganttRef.current?.scrollLeft ?? 0;
-    const relativeX = Math.max(0, scrollLeft + event.clientX - rect.left);
+    const relativeX = Math.max(0, event.clientX - rect.left);
     const totalDays = weeks.length * 5;
     const dayIdx = Math.max(0, Math.min(totalDays - 1, Math.floor(relativeX / dayW)));
     onSetPhaseStart(epicKey, phase, phaseInstanceId, dayToIsoDate(dayIdx, tStart));
-  }, [dayW, ganttRef, onSetPhaseStart, weeks]);
+  }, [dayW, ganttRef, onSetPhaseStart, weeks, tStart]);
 
   useEffect(() => {
     if (ganttRef.current && bottomScrollbarRef.current && bottomScrollbarRef.current.scrollLeft !== ganttRef.current.scrollLeft) {
