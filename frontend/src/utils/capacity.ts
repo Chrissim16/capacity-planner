@@ -21,6 +21,7 @@ import type {
   PlannerItem,
 } from '../types';
 import {
+  formatDate,
   getWorkdaysInQuarter,
   getHolidaysByCountry,
   parseQuarter,
@@ -158,8 +159,8 @@ export function calculateBusinessCapacityForQuarter(
     };
   }
 
-  const weekStart = q.start.toISOString().slice(0, 10);
-  const weekEnd   = q.end.toISOString().slice(0, 10);
+  const weekStart = formatDate(q.start);
+  const weekEnd   = formatDate(q.end);
 
   return calculateBusinessCapacity(
     contact, weekStart, weekEnd,

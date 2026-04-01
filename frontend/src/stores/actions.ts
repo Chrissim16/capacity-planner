@@ -5,6 +5,7 @@
 import { useAppStore } from './appStore';
 import { buildBaselineLayout } from '../utils/plannerInit';
 import { writePlannerSession, clearPlannerSession } from '../utils/plannerSessionStorage';
+import { formatDate, parseIsoDateLocal } from '../utils/calendar';
 import type {
   TeamMember,
   TimeOff,
@@ -345,7 +346,7 @@ export function generateSprintsForYear(year: number, startDate?: string): Sprint
 
   let currentDate: Date;
   if (startDate) {
-    currentDate = new Date(startDate);
+    currentDate = parseIsoDateLocal(startDate);
   } else {
     currentDate = new Date(year, 0, 1);
     while (currentDate.getDay() !== 1) {
@@ -365,8 +366,8 @@ export function generateSprintsForYear(year: number, startDate?: string): Sprint
       name: `Sprint ${i}`,
       number: i,
       year,
-      startDate: sprintStart.toISOString().split('T')[0],
-      endDate: sprintEnd.toISOString().split('T')[0],
+      startDate: formatDate(sprintStart),
+      endDate: formatDate(sprintEnd),
       quarter: `Q${quarterNum} ${year}`,
       isByeWeek: byeWeeksAfter.includes(i),
     });

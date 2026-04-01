@@ -5,6 +5,7 @@
  */
 
 import type { Sprint, Settings, PublicHoliday } from '../types';
+import { parseIsoDateLocal } from './calendar';
 
 /**
  * Generate sprints for a given year based on settings
@@ -26,7 +27,7 @@ export function generateSprintsForYear(
   // Parse start date or use default (first Monday of year)
   let currentDate: Date;
   if (sprintStartDate) {
-    const parsedStart = new Date(sprintStartDate);
+    const parsedStart = parseIsoDateLocal(sprintStartDate);
     // Adjust to the correct year
     currentDate = new Date(year, parsedStart.getMonth(), parsedStart.getDate());
   } else {
@@ -109,8 +110,8 @@ export function getWorkdaysInSprint(
   sprint: Sprint,
   holidays: PublicHoliday[] = []
 ): number {
-  const start = new Date(sprint.startDate);
-  const end = new Date(sprint.endDate);
+  const start = parseIsoDateLocal(sprint.startDate);
+  const end = parseIsoDateLocal(sprint.endDate);
   let workdays = 0;
   
   const holidayDates = new Set(holidays.map(h => h.date));

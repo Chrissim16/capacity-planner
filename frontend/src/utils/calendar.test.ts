@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
+  formatDate,
   parseQuarter,
+  parseIsoDateLocal,
   getWorkdaysInQuarter,
   getWorkdaysInDateRange,
   getWorkdaysInDateRangeForQuarter,
@@ -48,6 +50,17 @@ describe('parseQuarter', () => {
     expect(localDate(parseQuarter('Q2 2025')!.start)).toBe('2025-04-01');
     expect(localDate(parseQuarter('Q3 2025')!.start)).toBe('2025-07-01');
     expect(localDate(parseQuarter('Q4 2025')!.end)).toBe('2025-12-31');
+  });
+});
+
+describe('local ISO helpers', () => {
+  it('parses ISO dates as local midnight', () => {
+    const date = parseIsoDateLocal('2026-01-05');
+    expect(localDate(date)).toBe('2026-01-05');
+  });
+
+  it('formats dates without UTC rollback', () => {
+    expect(formatDate(new Date(2026, 0, 1))).toBe('2026-01-01');
   });
 });
 

@@ -10,6 +10,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { ChevronRight, ExternalLink, X } from 'lucide-react';
 import { generateSprints, getSprintsForQuarter, parseSprint, formatDateRange } from '../utils/sprints';
+import { formatDate as formatIsoDateLocal } from '../utils/calendar';
 import type {
  JiraWorkItem, JiraItemBizAssignment, BusinessContact, Settings, Sprint,
 } from '../types';
@@ -394,7 +395,7 @@ export function JiraGantt({
 
  const [viewMode, setViewMode] = useState<'quarter' | 'year'>('quarter');
  const [qtrIdx, setQtrIdx] = useState(() => {
- const today = new Date().toISOString().slice(0, 10);
+const today = formatIsoDateLocal(new Date());
  const idx = quarters.findIndex(q => {
  const qs = allSprints.filter(s => s.quarter === q).sort((a, b) => a.startDate.localeCompare(b.startDate));
  return qs.length > 0 && today >= qs[0].startDate && today <= qs[qs.length - 1].endDate;
@@ -504,7 +505,7 @@ export function JiraGantt({
  return { label: q, sub: qs.length >= 2 ? `${qs[0].name}–${qs[qs.length - 1].name}` : '', isCurrent: i === qtrIdx };
  });
  }
- const today = new Date().toISOString().slice(0, 10);
+const today = formatIsoDateLocal(new Date());
  if (jiraSprintCols) {
  return jiraSprintCols.map(sp => ({
  label: sp.name,
@@ -534,7 +535,7 @@ export function JiraGantt({
  // Current sprint highlight (quarter mode only)
  const sprintHighlight = useMemo(() => {
  if (viewMode !== 'quarter') return null;
- const today = new Date().toISOString().slice(0, 10);
+const today = formatIsoDateLocal(new Date());
  if (jiraSprintCols) {
  const idx = jiraSprintCols.findIndex(s => today >= s.start && today <= s.end);
  if (idx < 0) return null;

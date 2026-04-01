@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
+import { parseIsoDateLocal } from '../../utils/calendar';
 import { getEffectiveSkills } from '../../utils/workItemSkills';
 import type { JiraWorkItem, JiraItemType, PlannerItem } from '../../types';
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -767,7 +768,7 @@ export function BacklogItem({ item, indent = 0, hasChildren = false, isExpanded 
   const sprintLabel = (() => {
     if (item.sprintName) return item.sprintName;
     if (item.startDate && item.dueDate) {
-      const fmt = (d: string) => new Date(d).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+      const fmt = (d: string) => parseIsoDateLocal(d).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
       return `${fmt(item.startDate)}–${fmt(item.dueDate)}`;
     }
     return null;

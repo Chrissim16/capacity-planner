@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import { formatDate, parseIsoDateLocal } from '../../utils/calendar';
 import type { Sprint } from '../../types';
 
 interface SprintFormProps {
@@ -25,7 +26,7 @@ export function SprintForm({ sprint, onSave, onCancel }: SprintFormProps) {
  // Auto-calculate quarter from start date
  const calculateQuarter = (dateStr: string): string => {
  if (!dateStr) return '';
- const date = new Date(dateStr);
+ const date = parseIsoDateLocal(dateStr);
  const month = date.getMonth();
  const yr = date.getFullYear();
  let q: number;
@@ -39,13 +40,13 @@ export function SprintForm({ sprint, onSave, onCancel }: SprintFormProps) {
  // Auto-calculate end date when start date changes (3 weeks by default)
  useEffect(() => {
  if (startDate && !sprint?.endDate) {
- const start = new Date(startDate);
+ const start = parseIsoDateLocal(startDate);
  start.setDate(start.getDate() + 20); // 3 weeks - 1 day
- setEndDate(start.toISOString().split('T')[0]);
+ setEndDate(formatDate(start));
  }
  // Update year from startDate
  if (startDate) {
- setYear(new Date(startDate).getFullYear());
+ setYear(parseIsoDateLocal(startDate).getFullYear());
  }
  }, [startDate, sprint?.endDate]);
 
@@ -54,7 +55,7 @@ export function SprintForm({ sprint, onSave, onCancel }: SprintFormProps) {
  if (!name.trim()) newErrors.name = 'Sprint name is required';
  if (!startDate) newErrors.startDate = 'Start date is required';
  if (!endDate) newErrors.endDate = 'End date is required';
- if (startDate && endDate && new Date(endDate) <= new Date(startDate)) {
+ if (startDate && endDate && parseIsoDateLocal(endDate) <= parseIsoDateLocal(startDate)) {
  newErrors.endDate = 'End date must be after start date';
  }
  if (number < 1) newErrors.number = 'Sprint number must be positive';

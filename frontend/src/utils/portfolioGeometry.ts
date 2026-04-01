@@ -9,6 +9,54 @@ import { parseQuarter } from './calendar';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+function parseIsoDateLocal(isoDate: string): Date {
+  return new Date(`${isoDate}T00:00:00`);
+}
+
+export function formatIsoDateLocal(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isWorkingDay(date: Date): boolean {
+  const day = date.getDay();
+  return day >= 1 && day <= 5;
+}
+
+function addWorkingDays(startDate: Date, workingDays: number): Date {
+  const date = new Date(startDate);
+  if (workingDays === 0) return date;
+
+  const direction = workingDays > 0 ? 1 : -1;
+  let remaining = Math.abs(workingDays);
+
+  while (remaining > 0) {
+    date.setDate(date.getDate() + direction);
+    if (isWorkingDay(date)) remaining -= 1;
+  }
+
+  return date;
+}
+
+function getWorkingDayOffset(targetDate: Date, startDate: Date): number {
+  const target = new Date(targetDate);
+  const start = new Date(startDate);
+  if (target.getTime() === start.getTime()) return 0;
+
+  const direction = target > start ? 1 : -1;
+  let offset = 0;
+  const cursor = new Date(start);
+
+  while ((direction > 0 && cursor < target) || (direction < 0 && cursor > target)) {
+    cursor.setDate(cursor.getDate() + direction);
+    if (isWorkingDay(cursor)) offset += direction;
+  }
+
+  return offset;
+}
+
 export interface PortfolioWeek {
   idx:          number;
   num:          number;       // ISO week number
@@ -154,10 +202,9 @@ export const xToD = (x: number, dayW: number): number => Math.max(0, Math.round(
  * regardless of which quarter is selected.
  */
 export function dateToDay(isoDate: string, tStart: Date): number {
-  const d = new Date(isoDate);
-  const diffMs   = d.getTime() - tStart.getTime();
-  const diffDays = Math.round(diffMs / 86_400_000);
-  return Math.round(diffDays * 5 / 7);
+  const d = parseIsoDateLocal(isoDate);
+  const dayOffset = getWorkingDayOffset(d, tStart);
+  return Object.is(dayOffset, -0) ? 0 : dayOffset;
 }
 
 /**
@@ -165,24 +212,18 @@ export function dateToDay(isoDate: string, tStart: Date): number {
  * Used when saving a drag position so the stored value is quarter-independent.
  */
 export function dayToIsoDate(day: number, tStart: Date): string {
-  const d = new Date(tStart);
-  d.setDate(d.getDate() + Math.round(day * 7 / 5));
-  return d.toISOString().slice(0, 10);
+  return formatIsoDateLocal(addWorkingDays(tStart, day));
 }
 
 /** Convert a working-day offset from T_START to a human-readable date label. */
 export function dayToDateStr(day: number, tStart: Date): string {
-  const d = new Date(tStart);
-  d.setDate(d.getDate() + Math.round((day * 7) / 5));
+  const d = addWorkingDays(tStart, day);
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
 /** Working-day offset of today from the first week's Monday. */
 export function todayDayOffset(tStart: Date): number {
-  const today  = new Date();
-  const diffMs = today.getTime() - tStart.getTime();
-  const diffDays = Math.floor(diffMs / 86_400_000);
-  return Math.max(0, Math.round(diffDays * 5 / 7));
+  return Math.max(0, dateToDay(formatIsoDateLocal(new Date()), tStart));
 }
 
 // ── Bar width ──────────────────────────────────────────────────────────────────
@@ -220,7 +261,7 @@ export function calcBarWidthDays(
  * Uses calendar weeks (not working weeks) to match user mental model.
  */
 export function weeksBetween(startIso: string, endIso: string): number {
-  const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime();
+  const diffMs = parseIsoDateLocal(endIso).getTime() - parseIsoDateLocal(startIso).getTime();
   return Math.max(1, Math.round(diffMs / (7 * 86_400_000)));
 }
 

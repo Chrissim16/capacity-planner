@@ -7,6 +7,7 @@ import {
   getCurrentSprint,
   parseSprint,
 } from './sprints';
+import { formatDate } from './calendar';
 import type { Settings, Sprint } from '../types';
 
 const BASE_SETTINGS: Settings = {
@@ -134,15 +135,14 @@ describe('getCurrentSprint', () => {
     const today = new Date();
     const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
     const tomorrow  = new Date(today); tomorrow.setDate(today.getDate() + 1);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
     const sprint: Sprint = {
       id: 'current',
       name: 'Sprint X',
       number: 99,
       year: today.getFullYear(),
-      startDate: fmt(yesterday),
-      endDate:   fmt(tomorrow),
+      startDate: formatDate(yesterday),
+      endDate:   formatDate(tomorrow),
       quarter:   'Q1 2026',
     };
     expect(getCurrentSprint([sprint])).toEqual(sprint);

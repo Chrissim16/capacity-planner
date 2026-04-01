@@ -9,6 +9,10 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  dateToDay,
+  dayToDateStr,
+  dayToIsoDate,
+  genWeeksForQOpt,
   phaseBarWidthDays,
   weeksBetween,
   totalDaysFromAssignment,
@@ -59,6 +63,42 @@ function makeSegment(overrides: Partial<AllocationSegment> = {}): AllocationSegm
  * 2026-01-05 is a Monday.
  */
 const T_START = new Date('2026-01-05');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// date helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('date helpers', () => {
+  it('formats day offsets as local ISO dates without crossing into December', () => {
+    const janStart = new Date(2026, 0, 5);
+    expect(dayToIsoDate(0, janStart)).toBe('2026-01-05');
+  });
+
+  it('parses ISO dates as local dates for day offsets and labels', () => {
+    expect(dateToDay('2026-01-05', T_START)).toBe(0);
+    expect(dayToDateStr(0, T_START)).toBe('5 Jan');
+  });
+
+  it('maps working-day offsets to weekdays exactly', () => {
+    expect(dayToIsoDate(4, T_START)).toBe('2026-01-09');
+    expect(dayToIsoDate(5, T_START)).toBe('2026-01-12');
+    expect(dayToDateStr(4, T_START)).toBe('9 Jan');
+    expect(dayToDateStr(5, T_START)).toBe('12 Jan');
+  });
+
+  it('maps weekday dates back to working-day offsets exactly', () => {
+    expect(dateToDay('2026-01-09', T_START)).toBe(4);
+    expect(dateToDay('2026-01-12', T_START)).toBe(5);
+  });
+});
+
+describe('genWeeksForQOpt', () => {
+  it('starts generated weeks on Monday', () => {
+    const weeks = genWeeksForQOpt({ label: 'Q1 2026', q: 0, year: 2026 });
+    expect(weeks[0]?.startDate.getDay()).toBe(1);
+    expect(weeks[0]?.label).toBe('5 Jan');
+  });
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // weeksBetween

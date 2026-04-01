@@ -5,6 +5,10 @@
 
 import type { QuarterRange, PublicHoliday } from '../types';
 
+export function parseIsoDateLocal(isoDate: string): Date {
+  return new Date(`${isoDate}T00:00:00`);
+}
+
 /**
  * Parse a quarter string (e.g., "Q1 2026") to a date range
  */
@@ -39,7 +43,7 @@ export function isWeekend(date: Date): boolean {
  * Check if a date is a public holiday
  */
 export function isPublicHoliday(date: Date, holidays: PublicHoliday[]): boolean {
-  const dateStr = date.toISOString().split('T')[0];
+  const dateStr = formatDate(date);
   return holidays.some(h => h.date === dateStr);
 }
 
@@ -88,8 +92,8 @@ export function getWorkdaysInDateRange(
   clampStart?: Date,
   clampEnd?: Date
 ): number {
-  let from = new Date(startDateStr + 'T00:00:00');
-  let to   = new Date(endDateStr   + 'T00:00:00');
+  let from = parseIsoDateLocal(startDateStr);
+  let to   = parseIsoDateLocal(endDateStr);
 
   if (clampStart && from < clampStart) from = new Date(clampStart);
   if (clampEnd   && to   > clampEnd)   to   = new Date(clampEnd);
@@ -146,7 +150,7 @@ export function getHolidaysInQuarter(
   const countryHolidays = getHolidaysByCountry(countryId, publicHolidays);
   
   return countryHolidays.filter(holiday => {
-    const holidayDate = new Date(holiday.date);
+    const holidayDate = parseIsoDateLocal(holiday.date);
     return holidayDate >= range.start && holidayDate <= range.end;
   });
 }
@@ -279,7 +283,10 @@ export function getPreviousQuarter(quarterStr: string): string {
  * Format a date as YYYY-MM-DD (ISO, used internally / for DB)
  */
 export function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**

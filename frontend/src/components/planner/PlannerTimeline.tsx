@@ -36,6 +36,7 @@ import type {
 } from '../../types';
 import { generateId } from '../../stores/actions';
 import { useCurrentState, usePlannerTimelineViewMode } from '../../stores/appStore';
+import { parseIsoDateLocal } from '../../utils/calendar';
 import { resolveItemAssignees } from '../../utils/plannerInit';
 import { computeSkillGaps, computeRollupGaps, type SkillGapInfo } from '../../utils/skillGap';
 import { usePlannerCapacityTicker } from './PlannerCapacityTicker';
@@ -326,7 +327,7 @@ function sprintNumFrom(colId: string): number {
 
 function formatSprintRange(startDate: string, endDate: string): string {
   const fmt = (d: string) =>
-    new Date(d).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+    parseIsoDateLocal(d).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
   return `${fmt(startDate)}–${fmt(endDate)}`;
 }
 

@@ -17,6 +17,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
+import { parseIsoDateLocal } from '../../utils/calendar';
 import { stripJiraMarkup } from '../../utils/markup';
 import { SkillMultiSelect } from './SkillMultiSelect';
 import { getEffectiveSkills } from '../../utils/workItemSkills';
@@ -43,7 +44,7 @@ function initials(name: string): string {
 
 function formatDate(iso?: string): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return parseIsoDateLocal(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 const TYPE_PILL: Record<string, { bg: string; text: string; label: string }> = {

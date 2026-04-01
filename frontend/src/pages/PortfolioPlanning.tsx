@@ -29,6 +29,7 @@ import {
   weeksBetween,
   dateToDay,
   dayToIsoDate,
+  formatIsoDateLocal,
   PHASES,
   PH_KEY,
   PH_LBL,
@@ -320,7 +321,7 @@ function AllocEditor({
     : null;
 
   const addSegment = () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = formatIsoDateLocal(new Date());
     onUpsertSegment({
       id: `local-seg-${Date.now()}`,
       startDate: phaseStartDate ?? today,
@@ -502,7 +503,7 @@ interface EpicViewProps {
     targetPhaseInstanceId: string,
     position: 'before' | 'after',
   ) => void;
-  onSetPhaseStart: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, weekIdx: number) => void;
+  onSetPhaseStart: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, startDate: string) => void;
   onDragPhaseStart: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, e: React.MouseEvent) => void;
   onDragPhaseEnd:   (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, e: React.MouseEvent) => void;
   onClearPhase:  (epicKey: string, phase: PlanningPhase, phaseInstanceId: string) => void;
@@ -668,8 +669,10 @@ function EpicView({
     const scrollLeft = ganttRef.current?.scrollLeft ?? 0;
     const relativeX = Math.max(0, scrollLeft + event.clientX - rect.left);
     const weekIdx = Math.max(0, Math.min(weeks.length - 1, Math.floor(relativeX / (dayW * 5))));
-    onSetPhaseStart(epicKey, phase, phaseInstanceId, weekIdx);
-  }, [dayW, ganttRef, onSetPhaseStart, weeks.length]);
+    const weekStart = weeks[weekIdx]?.startDate;
+    if (!weekStart) return;
+    onSetPhaseStart(epicKey, phase, phaseInstanceId, formatIsoDateLocal(weekStart));
+  }, [dayW, ganttRef, onSetPhaseStart, weeks]);
 
   useEffect(() => {
     if (ganttRef.current && bottomScrollbarRef.current && bottomScrollbarRef.current.scrollLeft !== ganttRef.current.scrollLeft) {
@@ -3863,8 +3866,8 @@ export function PortfolioPlanning() {
             onAddPhaseInstance={handleAddPhaseInstance}
             onRemovePhaseInstance={handleRemovePhaseInstance}
             onReorderPhaseInstances={handleReorderPhaseInstances}
-            onSetPhaseStart={(epicKey, phase, phaseInstanceId, weekIdx) =>
-              handleSetPhaseStartDate(epicKey, phase, dayToIsoDate(weekIdx * 5, tStart), phaseInstanceId)
+            onSetPhaseStart={(epicKey, phase, phaseInstanceId, startDate) =>
+              handleSetPhaseStartDate(epicKey, phase, startDate, phaseInstanceId)
             }
             onDragPhaseStart={handleDragPhaseStart}
             onDragPhaseEnd={handleDragPhaseEnd}
