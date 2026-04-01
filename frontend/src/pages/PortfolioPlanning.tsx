@@ -1036,6 +1036,9 @@ function EpicView({
     const phaseRows = getPhaseInstanceRows(phPlans, phAssign);
     const collapsed = epicCollapsed[epicKey] ?? false;
     const epicRequiredSkills = getEffectiveSkills(epic, allJiraItems);
+    const allPhaseDetailsCollapsed = phaseRows.every(
+      (row) => phasePersonCollapsed[`${epicKey}_${row.phaseInstanceId}`] ?? false,
+    );
 
     const totalDays = phaseRows.reduce((sum, row) => sum + row.assignments.reduce((acc, assignment) => acc + assignment.days, 0), 0);
 
@@ -1054,22 +1057,14 @@ function EpicView({
           type="button"
           onClick={e => {
             e.stopPropagation();
-            onExpandEpicPhases(epicKey);
+            if (allPhaseDetailsCollapsed) onExpandEpicPhases(epicKey);
+            else onCollapseEpicPhases(epicKey);
           }}
-          title="Expand all phases in this epic"
+          title={allPhaseDetailsCollapsed ? 'Expand all phase details in this epic' : 'Collapse all phase details in this epic'}
+          aria-label={allPhaseDetailsCollapsed ? 'Expand all phase details in this epic' : 'Collapse all phase details in this epic'}
+          aria-pressed={!allPhaseDetailsCollapsed}
         >
-          Expand phases
-        </button>
-        <button
-          className="ev-epic-phase-toggle"
-          type="button"
-          onClick={e => {
-            e.stopPropagation();
-            onCollapseEpicPhases(epicKey);
-          }}
-          title="Collapse all phases in this epic"
-        >
-          Collapse phases
+          <span aria-hidden="true">{allPhaseDetailsCollapsed ? '▸' : '▾'}</span>
         </button>
         <button className="ev-epic-remove" onClick={e => { e.stopPropagation(); onRemoveEpic(epicKey); }}>×</button>
       </div>

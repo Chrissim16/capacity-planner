@@ -398,17 +398,21 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .ev-epic-name { font-size: 13px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ev-epic-total { font-size: 11px; color: var(--txt2); flex-shrink: 0; }
 .ev-epic-phase-toggle {
-  height: 22px;
-  border: 1px solid var(--border);
-  background: var(--white);
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
   color: var(--txt2);
-  border-radius: 999px;
-  padding: 0 8px;
-  font-size: 11px;
+  border-radius: 4px;
+  padding: 0;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
   transition: all 100ms;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .ev-epic-phase-toggle:hover {
   background: var(--offwh);
