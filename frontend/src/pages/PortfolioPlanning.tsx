@@ -668,10 +668,9 @@ function EpicView({
     const rect = event.currentTarget.getBoundingClientRect();
     const scrollLeft = ganttRef.current?.scrollLeft ?? 0;
     const relativeX = Math.max(0, scrollLeft + event.clientX - rect.left);
-    const weekIdx = Math.max(0, Math.min(weeks.length - 1, Math.floor(relativeX / (dayW * 5))));
-    const weekStart = weeks[weekIdx]?.startDate;
-    if (!weekStart) return;
-    onSetPhaseStart(epicKey, phase, phaseInstanceId, formatIsoDateLocal(weekStart));
+    const totalDays = weeks.length * 5;
+    const dayIdx = Math.max(0, Math.min(totalDays - 1, Math.floor(relativeX / dayW)));
+    onSetPhaseStart(epicKey, phase, phaseInstanceId, dayToIsoDate(dayIdx, tStart));
   }, [dayW, ganttRef, onSetPhaseStart, weeks]);
 
   useEffect(() => {
