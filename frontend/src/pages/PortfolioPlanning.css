@@ -935,9 +935,19 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   display: flex; align-items: center; padding: 0 10px;
   font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   z-index: 3; user-select: none; transition: box-shadow 100ms; cursor: grab; min-width: 10px;
+  touch-action: none;
 }
 .pp-pbar:hover    { box-shadow: 0 2px 10px rgba(0, 0, 0, .14); }
+.pp-pbar:active   { cursor: grabbing; }
 .pp-pbar.dragging { cursor: grabbing !important; box-shadow: 0 4px 18px rgba(0, 0, 0, .18) !important; z-index: 100; opacity: .9; transition: none; }
+.pp-pbar.is-active {
+  z-index: 30;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .18), 0 0 0 2px rgba(0, 137, 221, .22);
+  opacity: .98;
+  transition: none;
+}
+.pp-pbar.is-moving { cursor: grabbing; transform: translateY(-1px); }
+.pp-pbar.is-resizing { box-shadow: 0 10px 24px rgba(15, 23, 42, .16), 0 0 0 2px rgba(14, 165, 233, .28); }
 .pp-pbar.d { background: var(--d-bg); color: var(--d-c); border-color: var(--d-bd); }
 .pp-pbar.b { background: var(--b-bg); color: var(--b-c); border-color: var(--b-bd); }
 .pp-pbar.t { background: var(--t-bg); color: var(--t-c); border-color: var(--t-bd); }
@@ -1919,17 +1929,30 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 /* ── Phase bar — end handle & no-end state ───────────────────────────────── */
 .pp-pbar { overflow: visible; }
 .pp-pbar.no-end { border-right: 2px dashed currentColor; opacity: .85; }
+.pp-pbar-start-handle,
 .pp-pbar-end-handle {
-  position: absolute; right: -4px; top: 0; bottom: 0; width: 10px;
-  cursor: col-resize; z-index: 10;
+  position: absolute; top: -2px; bottom: -2px; width: 14px;
+  cursor: ew-resize; z-index: 10;
   display: flex; align-items: center; justify-content: center;
+  touch-action: none;
 }
+.pp-pbar-start-handle { left: -6px; }
+.pp-pbar-end-handle { right: -6px; }
+.pp-pbar-start-handle::after,
 .pp-pbar-end-handle::after {
   content: ''; display: block;
   width: 3px; height: 14px; border-radius: 2px;
   background: rgba(255,255,255,.7);
   box-shadow: 0 0 0 1px rgba(0,0,0,.15);
 }
+.pp-pbar.is-active .pp-pbar-start-handle::after,
+.pp-pbar.is-active .pp-pbar-end-handle::after {
+  background: rgba(255,255,255,.98);
+  box-shadow: 0 0 0 1px rgba(15,23,42,.2), 0 0 0 4px rgba(255,255,255,.18);
+}
+.pp-pbar-start-handle::after { transform: translateX(-2px); }
+.pp-pbar-end-handle::after { transform: translateX(2px); }
+.pp-pbar:hover .pp-pbar-start-handle::after,
 .pp-pbar:hover .pp-pbar-end-handle::after { background: rgba(255,255,255,.95); }
 
 /* ── Allocation bars (person Gantt row) ──────────────────────────────────── */

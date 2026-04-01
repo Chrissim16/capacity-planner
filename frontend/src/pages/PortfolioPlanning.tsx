@@ -830,8 +830,15 @@ interface EpicViewProps {
     position: 'before' | 'after',
   ) => void;
   onSetPhaseStart: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, startDate: string) => void;
-  onDragPhaseStart: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, e: React.MouseEvent) => void;
-  onDragPhaseEnd:   (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, e: React.MouseEvent) => void;
+  onPhasePointerDown: (
+    epicKey: string,
+    phase: PlanningPhase,
+    phaseInstanceId: string,
+    mode: 'move' | 'resize-start' | 'resize-end',
+    e: React.PointerEvent<HTMLDivElement>,
+  ) => void;
+  onPhasePointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onPhasePointerUp:   (e: React.PointerEvent<HTMLDivElement>) => void;
   onClearPhase:  (epicKey: string, phase: PlanningPhase, phaseInstanceId: string) => void;
   onRemoveAssignment: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string) => void;
   onUpdateDays:  (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, days: number) => void;
@@ -849,6 +856,8 @@ interface EpicViewProps {
   personOverloadMap: Map<string, 'over' | 'near'>;
   allJiraItems: JiraWorkItem[];
   jiraBaseUrl: string;
+  phaseDragPreview: PhaseDragPreview | null;
+  activePhaseInteraction: ActivePhaseInteractionState | null;
 }
 
 function EpicView({
@@ -857,12 +866,12 @@ function EpicView({
   epicCollapsed, phasePersonCollapsed,
   onToggleEpic, onTogglePhasePersons, onExpandEpicPhases, onCollapseEpicPhases, onRemoveEpic,
   onAddPhaseInstance, onRemovePhaseInstance, onReorderPhaseInstances, onSetPhaseStart,
-  onDragPhaseStart, onDragPhaseEnd, onClearPhase, onRemoveAssignment,
+  onPhasePointerDown, onPhasePointerMove, onPhasePointerUp, onClearPhase, onRemoveAssignment,
   onUpdateDays, onUpdateAllocationMode, onUpsertSegment, onRemoveSegment,
   onUpdatePhasePlan, onAddPerson,
   onExpandAll, onCollapseAll, onResizeMouseDown, lpRef, ganttRef,
   onTimelineScroll,
-  personOverloadMap, allJiraItems, jiraBaseUrl,
+  personOverloadMap, allJiraItems, jiraBaseUrl, phaseDragPreview, activePhaseInteraction,
 }: EpicViewProps) {
   const totalW = weeks.length * (dayW * 5);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -1078,23 +1087,43 @@ function EpicView({
         {phaseRows.map(row => {
           const phasePlan = row.plan;
           const ph = row.phase;
-          const startDate = phasePlan?.startDate ?? null;
+          const preview = phaseDragPreview?.epicKey === epicKey && phaseDragPreview.phaseInstanceId === row.phaseInstanceId
+            ? phaseDragPreview
+            : null;
+          const startDate = preview?.startDate ?? phasePlan?.startDate ?? null;
+          const previewEndDate = preview?.endDate ?? null;
           if (!startDate) return null;
           const startDay = dateToDay(startDate, tStart);
           const assignments = row.assignments;
-          const barW = phasePlan ? (phaseBarWidthDays(phasePlan, tStart) ?? calcBarWidthDays(assignments, absenceLookup)) : calcBarWidthDays(assignments, absenceLookup);
+          const barW = preview
+            ? (
+              previewEndDate
+                ? Math.max(1, dateToDay(previewEndDate, tStart) - startDay)
+                : calcBarWidthDays(assignments, absenceLookup)
+            )
+            : phasePlan
+              ? (phaseBarWidthDays(phasePlan, tStart) ?? calcBarWidthDays(assignments, absenceLookup))
+              : calcBarWidthDays(assignments, absenceLookup);
           if (barW <= 0) return null;
           const shortLabel = row.phaseOrdinal > 1 ? `${PH_SHORT[ph]} ${row.phaseOrdinal}` : PH_SHORT[ph];
           const label = barW >= 4 ? `${shortLabel} ${barW}d` : `${barW}d`;
           const overTier = assignments.some(a => personOverloadMap.get(a.memberId) === 'over') ? 'over'
             : assignments.some(a => personOverloadMap.get(a.memberId) === 'near') ? 'near'
             : null;
+          const isActiveInteraction = activePhaseInteraction?.epicKey === epicKey
+            && activePhaseInteraction.phaseInstanceId === row.phaseInstanceId;
+          const activeInteractionClass = isActiveInteraction
+            ? ` is-active ${activePhaseInteraction?.mode === 'move' ? 'is-moving' : 'is-resizing'}`
+            : '';
           return (
             <div
               key={row.phaseInstanceId}
-              className={`pp-pbar ${PH_KEY[ph]}${overTier === 'over' ? ' overloaded' : overTier === 'near' ? ' near-cap' : ''}`}
+              className={`pp-pbar ${PH_KEY[ph]}${overTier === 'over' ? ' overloaded' : overTier === 'near' ? ' near-cap' : ''}${activeInteractionClass}`}
               style={{ left: dToX(startDay, dayW), width: dToW(barW, dayW) }}
-              onMouseDown={e => onDragPhaseStart(epicKey, ph, row.phaseInstanceId, e)}
+              onPointerDown={e => onPhasePointerDown(epicKey, ph, row.phaseInstanceId, 'move', e)}
+              onPointerMove={onPhasePointerMove}
+              onPointerUp={onPhasePointerUp}
+              onPointerCancel={onPhasePointerUp}
             >
               {label}
             </div>
@@ -1107,11 +1136,22 @@ function EpicView({
       for (const row of phaseRows) {
         const ph = row.phase;
         const phasePlan  = row.plan;
-        const startDate  = phasePlan?.startDate ?? null;
-        const endDate    = phasePlan?.endDate ?? null;
+        const preview = phaseDragPreview?.epicKey === epicKey && phaseDragPreview.phaseInstanceId === row.phaseInstanceId
+          ? phaseDragPreview
+          : null;
+        const startDate  = preview?.startDate ?? phasePlan?.startDate ?? null;
+        const endDate    = preview ? preview.endDate : (phasePlan?.endDate ?? null);
         const startDay   = startDate !== null ? dateToDay(startDate, tStart) : null;
         const assignments = row.assignments;
-        const barW       = phasePlan ? (phaseBarWidthDays(phasePlan, tStart) ?? calcBarWidthDays(assignments, absenceLookup)) : calcBarWidthDays(assignments, absenceLookup);
+        const barW       = preview
+          ? (
+            endDate
+              ? Math.max(1, dateToDay(endDate, tStart) - (startDay ?? 0))
+              : calcBarWidthDays(assignments, absenceLookup)
+          )
+          : phasePlan
+            ? (phaseBarWidthDays(phasePlan, tStart) ?? calcBarWidthDays(assignments, absenceLookup))
+            : calcBarWidthDays(assignments, absenceLookup);
         const hasStart   = startDay !== null;
         const hasEnd     = endDate !== null;
         const hasBar     = hasStart && barW > 0;
@@ -1241,19 +1281,46 @@ function EpicView({
             : assignments.some(a => personOverloadMap.get(a.memberId) === 'near') ? 'near'
             : null;
           const barLabel = barW >= 4 ? `${PH_SHORT[ph]} ${barW}d` : `${barW}d`;
+          const isActiveInteraction = activePhaseInteraction?.epicKey === epicKey
+            && activePhaseInteraction.phaseInstanceId === row.phaseInstanceId;
+          const activeInteractionClass = isActiveInteraction
+            ? ` is-active ${activePhaseInteraction?.mode === 'move' ? 'is-moving' : 'is-resizing'}`
+            : '';
           ganttRows.push(
             <div key={`gp-${phKey}`} className="pp-g-phase" style={{ minWidth: totalW }}>
               <GridBg weeks={weeks} />
               <TodayLine tStart={tStart} totalW={totalW} dayW={dayW} />
               <div
-                className={`pp-pbar ${PH_KEY[ph]}${overTier === 'over' ? ' overloaded' : overTier === 'near' ? ' near-cap' : ''}${!hasEnd ? ' no-end' : ''}`}
+                className={`pp-pbar ${PH_KEY[ph]}${overTier === 'over' ? ' overloaded' : overTier === 'near' ? ' near-cap' : ''}${!hasEnd ? ' no-end' : ''}${activeInteractionClass}`}
                 style={{ left: dToX(startDay!, dayW), width: dToW(barW, dayW) }}
-                onMouseDown={e => onDragPhaseStart(epicKey, ph, row.phaseInstanceId, e)}
+                onPointerDown={e => onPhasePointerDown(epicKey, ph, row.phaseInstanceId, 'move', e)}
+                onPointerMove={onPhasePointerMove}
+                onPointerUp={onPhasePointerUp}
+                onPointerCancel={onPhasePointerUp}
               >
                 {barLabel}
+                {hasEnd && (
+                  <div
+                    className="pp-pbar-start-handle"
+                    onPointerDown={e => {
+                      e.stopPropagation();
+                      onPhasePointerDown(epicKey, ph, row.phaseInstanceId, 'resize-start', e);
+                    }}
+                    onPointerMove={onPhasePointerMove}
+                    onPointerUp={onPhasePointerUp}
+                    onPointerCancel={onPhasePointerUp}
+                    title="Drag to adjust start date"
+                  />
+                )}
                 <div
                   className="pp-pbar-end-handle"
-                  onMouseDown={e => { e.stopPropagation(); onDragPhaseEnd(epicKey, ph, row.phaseInstanceId, e); }}
+                  onPointerDown={e => {
+                    e.stopPropagation();
+                    onPhasePointerDown(epicKey, ph, row.phaseInstanceId, 'resize-end', e);
+                  }}
+                  onPointerMove={onPhasePointerMove}
+                  onPointerUp={onPhasePointerUp}
+                  onPointerCancel={onPhasePointerUp}
                   title="Drag to set end date"
                 />
               </div>
@@ -1469,6 +1536,32 @@ interface PersonSummary {
   availDays: number;
   totalCapacityDays: number;
   assignments: PersonAssignEntry[];
+}
+
+interface PhaseDragPreview {
+  epicKey: string;
+  phaseInstanceId: string;
+  startDate: string;
+  endDate: string | null;
+}
+
+interface ActivePhaseInteractionState {
+  epicKey: string;
+  phaseInstanceId: string;
+  mode: 'move' | 'resize-start' | 'resize-end';
+}
+
+interface ActivePhaseInteraction {
+  epicKey: string;
+  phase: PlanningPhase;
+  phaseInstanceId: string;
+  mode: 'move' | 'resize-start' | 'resize-end';
+  startX: number;
+  lastClientX: number;
+  startScrollLeft: number;
+  pointerId: number;
+  origStartDay: number;
+  origEndDay: number | null;
 }
 
 function isTeamEntryId(id: string): boolean {
@@ -3363,7 +3456,11 @@ export function PortfolioPlanning() {
   } | null>(null);
 
   // ── Drag state (phase bars) ────────────────────────────────────────────────
-  const dragRef = useRef<{ epicKey: string; phase: PlanningPhase; phaseInstanceId: string; startX: number; origDay: number } | null>(null);
+  const [phaseDragPreview, setPhaseDragPreview] = useState<PhaseDragPreview | null>(null);
+  const [activePhaseInteraction, setActivePhaseInteraction] = useState<ActivePhaseInteractionState | null>(null);
+  const phaseDragPreviewRef = useRef<PhaseDragPreview | null>(null);
+  const phaseInteractionRef = useRef<ActivePhaseInteraction | null>(null);
+  const phaseAutoScrollRef = useRef<{ direction: -1 | 0 | 1; frameId: number | null }>({ direction: 0, frameId: null });
 
   // ── Resize state (left panel) ──────────────────────────────────────────────
   const resizeRef = useRef<{ startX: number; startW: number } | null>(null);
@@ -3879,10 +3976,6 @@ export function PortfolioPlanning() {
     await handleUpdatePhasePlan(epicKey, phase, phaseInstanceId, { startDate });
   }, [handleUpdatePhasePlan]);
 
-  const handleSetPhaseEndDate = useCallback(async (epicKey: string, phase: PlanningPhase, endDate: string, phaseInstanceId: string = getDefaultPhaseInstanceId(phase)) => {
-    await handleUpdatePhasePlan(epicKey, phase, phaseInstanceId, { endDate });
-  }, [handleUpdatePhasePlan]);
-
   const handleClearPhase = useCallback(async (epicKey: string, phase: PlanningPhase, phaseInstanceId: string = getDefaultPhaseInstanceId(phase)) => {
     await handleUpdatePhasePlan(epicKey, phase, phaseInstanceId, { startDate: null, endDate: null });
   }, [handleUpdatePhasePlan]);
@@ -4071,54 +4164,159 @@ export function PortfolioPlanning() {
   }, []);
 
   // ── Drag to reposition / resize phase bar ────────────────────────────────
-  const handleDragPhaseStart = useCallback((epicKey: string, phase: PlanningPhase, phaseInstanceId: string, e: React.MouseEvent) => {
+  const updatePhasePreviewFromClientX = useCallback((interaction: ActivePhaseInteraction, clientX: number) => {
+    const ganttScrollLeft = epicGanttRef.current?.scrollLeft ?? interaction.startScrollLeft;
+    const deltaPx = (clientX - interaction.startX) + (ganttScrollLeft - interaction.startScrollLeft);
+    const deltaDays = Math.round(deltaPx / dayW);
+    let nextStartDay = interaction.origStartDay;
+    let nextEndDay = interaction.origEndDay;
+
+    if (interaction.mode === 'move') {
+      const appliedDelta = Math.max(-interaction.origStartDay, deltaDays);
+      nextStartDay = interaction.origStartDay + appliedDelta;
+      nextEndDay = interaction.origEndDay !== null ? interaction.origEndDay + appliedDelta : null;
+    } else if (interaction.mode === 'resize-start') {
+      const maxStartDay = interaction.origEndDay !== null ? interaction.origEndDay - 1 : Number.POSITIVE_INFINITY;
+      nextStartDay = Math.max(0, Math.min(maxStartDay, interaction.origStartDay + deltaDays));
+    } else {
+      const baseEndDay = interaction.origEndDay ?? (interaction.origStartDay + 1);
+      nextEndDay = Math.max(interaction.origStartDay + 1, baseEndDay + deltaDays);
+    }
+
+    const nextPreview = {
+      epicKey: interaction.epicKey,
+      phaseInstanceId: interaction.phaseInstanceId,
+      startDate: dayToIsoDate(nextStartDay, tStart),
+      endDate: nextEndDay !== null ? dayToIsoDate(nextEndDay, tStart) : null,
+    };
+    phaseDragPreviewRef.current = nextPreview;
+    setPhaseDragPreview(nextPreview);
+  }, [dayW, tStart]);
+
+  const stopPhaseAutoScroll = useCallback(() => {
+    if (phaseAutoScrollRef.current.frameId !== null) {
+      window.cancelAnimationFrame(phaseAutoScrollRef.current.frameId);
+    }
+    phaseAutoScrollRef.current = { direction: 0, frameId: null };
+  }, []);
+
+  const startPhaseAutoScroll = useCallback((direction: -1 | 1) => {
+    if (!epicGanttRef.current) return;
+    if (
+      phaseAutoScrollRef.current.direction === direction
+      && phaseAutoScrollRef.current.frameId !== null
+    ) return;
+
+    stopPhaseAutoScroll();
+    phaseAutoScrollRef.current.direction = direction;
+
+    const step = () => {
+      const ganttEl = epicGanttRef.current;
+      const interaction = phaseInteractionRef.current;
+      if (!ganttEl || !interaction || phaseAutoScrollRef.current.direction === 0) {
+        stopPhaseAutoScroll();
+        return;
+      }
+
+      const nextLeft = Math.max(
+        0,
+        Math.min(
+          ganttEl.scrollWidth - ganttEl.clientWidth,
+          ganttEl.scrollLeft + (18 * phaseAutoScrollRef.current.direction),
+        ),
+      );
+
+      if (nextLeft === ganttEl.scrollLeft) {
+        stopPhaseAutoScroll();
+        return;
+      }
+
+      ganttEl.scrollLeft = nextLeft;
+      updatePhasePreviewFromClientX(interaction, interaction.lastClientX);
+      phaseAutoScrollRef.current.frameId = window.requestAnimationFrame(step);
+    };
+
+    phaseAutoScrollRef.current.frameId = window.requestAnimationFrame(step);
+  }, [stopPhaseAutoScroll, updatePhasePreviewFromClientX]);
+
+  const handlePhasePointerDown = useCallback((
+    epicKey: string,
+    phase: PlanningPhase,
+    phaseInstanceId: string,
+    mode: 'move' | 'resize-start' | 'resize-end',
+    e: React.PointerEvent<HTMLDivElement>,
+  ) => {
     e.preventDefault();
     const plan0 = (phasePlansMap.get(epicKey)?.get(phase) ?? []).find(plan => plan.phaseInstanceId === phaseInstanceId) ?? null;
     const startDate = plan0?.startDate ?? null;
-    const origDay   = startDate !== null ? dateToDay(startDate, tStart) : 0;
-    dragRef.current = { epicKey, phase, phaseInstanceId, startX: e.clientX, origDay };
+    if (!startDate) return;
 
-    const onMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      const dx     = ev.clientX - dragRef.current.startX;
-      const dDay   = Math.round(dx / dayW);
-      const newDay = Math.max(0, dragRef.current.origDay + dDay);
-      const newDate = dayToIsoDate(newDay, tStart);
-      handleSetPhaseStartDate(dragRef.current.epicKey, dragRef.current.phase, newDate, dragRef.current.phaseInstanceId);
-    };
-    const onUp = () => {
-      dragRef.current = null;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [phasePlansMap, dayW, tStart, handleSetPhaseStartDate]);
+    const startDay = dateToDay(startDate, tStart);
+    const endDay = plan0?.endDate ? dateToDay(plan0.endDate, tStart) : null;
 
-  const handleDragPhaseEnd = useCallback((epicKey: string, phase: PlanningPhase, phaseInstanceId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const plan0   = (phasePlansMap.get(epicKey)?.get(phase) ?? []).find(plan => plan.phaseInstanceId === phaseInstanceId) ?? null;
-    const endDate = plan0?.endDate ?? plan0?.startDate ?? null;
-    const origDay = endDate !== null ? dateToDay(endDate, tStart) : 0;
-    dragRef.current = { epicKey, phase, phaseInstanceId, startX: e.clientX, origDay };
+    phaseInteractionRef.current = {
+      epicKey,
+      phase,
+      phaseInstanceId,
+      mode,
+      startX: e.clientX,
+      lastClientX: e.clientX,
+      startScrollLeft: epicGanttRef.current?.scrollLeft ?? 0,
+      pointerId: e.pointerId,
+      origStartDay: startDay,
+      origEndDay: endDay,
+    };
+    setActivePhaseInteraction({ epicKey, phaseInstanceId, mode });
+    const initialPreview = {
+      epicKey,
+      phaseInstanceId,
+      startDate,
+      endDate: plan0?.endDate ?? null,
+    };
+    phaseDragPreviewRef.current = initialPreview;
+    setPhaseDragPreview(initialPreview);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [phasePlansMap, tStart]);
 
-    const onMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      const dx     = ev.clientX - dragRef.current.startX;
-      const dDay   = Math.round(dx / dayW);
-      const newDay = Math.max(1, dragRef.current.origDay + dDay);
-      const newDate = dayToIsoDate(newDay, tStart);
-      handleSetPhaseEndDate(dragRef.current.epicKey, dragRef.current.phase, newDate, dragRef.current.phaseInstanceId);
-    };
-    const onUp = () => {
-      dragRef.current = null;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [phasePlansMap, dayW, tStart, handleSetPhaseEndDate]);
+  const handlePhasePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const interaction = phaseInteractionRef.current;
+    if (!interaction || interaction.pointerId !== e.pointerId) return;
+    interaction.lastClientX = e.clientX;
+
+    const ganttRect = epicGanttRef.current?.getBoundingClientRect();
+    if (ganttRect) {
+      const edgeThreshold = 72;
+      if (e.clientX < ganttRect.left + edgeThreshold) startPhaseAutoScroll(-1);
+      else if (e.clientX > ganttRect.right - edgeThreshold) startPhaseAutoScroll(1);
+      else stopPhaseAutoScroll();
+    }
+
+    updatePhasePreviewFromClientX(interaction, e.clientX);
+  }, [startPhaseAutoScroll, stopPhaseAutoScroll, updatePhasePreviewFromClientX]);
+
+  const handlePhasePointerUp = useCallback(async (e: React.PointerEvent<HTMLDivElement>) => {
+    const interaction = phaseInteractionRef.current;
+    if (!interaction || interaction.pointerId !== e.pointerId) return;
+
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+
+    phaseInteractionRef.current = null;
+    setActivePhaseInteraction(null);
+    stopPhaseAutoScroll();
+    const preview = phaseDragPreviewRef.current;
+    phaseDragPreviewRef.current = null;
+    setPhaseDragPreview(null);
+    if (!preview) return;
+
+    const changes: PhasePlanChanges = {};
+    changes.startDate = preview.startDate;
+    changes.endDate = preview.endDate;
+    await handleUpdatePhasePlan(interaction.epicKey, interaction.phase, interaction.phaseInstanceId, changes);
+  }, [handleUpdatePhasePlan, stopPhaseAutoScroll]);
+
+  useEffect(() => () => stopPhaseAutoScroll(), [stopPhaseAutoScroll]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleEpic = useCallback((key: string) => {
@@ -4300,8 +4498,9 @@ export function PortfolioPlanning() {
             onSetPhaseStart={(epicKey, phase, phaseInstanceId, startDate) =>
               handleSetPhaseStartDate(epicKey, phase, startDate, phaseInstanceId)
             }
-            onDragPhaseStart={handleDragPhaseStart}
-            onDragPhaseEnd={handleDragPhaseEnd}
+            onPhasePointerDown={handlePhasePointerDown}
+            onPhasePointerMove={handlePhasePointerMove}
+            onPhasePointerUp={handlePhasePointerUp}
             onClearPhase={handleClearPhase}
             onRemoveAssignment={handleRemoveAssignment}
             onUpdateDays={(epicKey, phase, phaseInstanceId, memberId, days) => {
@@ -4322,6 +4521,8 @@ export function PortfolioPlanning() {
             personOverloadMap={personOverloadMap}
             allJiraItems={baselineState.jiraWorkItems}
             jiraBaseUrl={jiraBaseUrl}
+            phaseDragPreview={phaseDragPreview}
+            activePhaseInteraction={activePhaseInteraction}
           />
         )}
         {activeTab === 'people' && (
