@@ -10,6 +10,7 @@ import type { JiraConnection, JiraSettings, JiraSyncDiff } from '../types';
 import { fetchJiraIssues } from '../services/jira';
 import {
   computeSyncDiff,
+  safeguardPortfolioScenariosForRemovedItems,
   syncJiraWorkItems,
   setJiraConnectionSyncStatus,
   syncTeamMembersFromJira,
@@ -65,6 +66,7 @@ export interface ApplySyncResult {
  */
 export function applySync(diff: JiraSyncDiff): ApplySyncResult {
   const { connectionId, fetchedItems } = diff;
+  const safeguardResult = safeguardPortfolioScenariosForRemovedItems(diff.toRemove);
 
   const syncResult = syncJiraWorkItems(connectionId, fetchedItems);
   const teamSyncResult = syncTeamMembersFromJira();
@@ -82,6 +84,9 @@ export function applySync(diff: JiraSyncDiff): ApplySyncResult {
   if (syncResult.itemsRemoved > 0) message += `, ${syncResult.itemsRemoved} removed`;
   message += `)`;
   if (teamSyncResult.created > 0) message += ` · ${teamSyncResult.created} team member(s) imported`;
+  if (safeguardResult.scenariosUpdated > 0) {
+    message += ` · safeguarded ${safeguardResult.scenariosUpdated} portfolio plan snapshot(s)`;
+  }
 
   return { message };
 }

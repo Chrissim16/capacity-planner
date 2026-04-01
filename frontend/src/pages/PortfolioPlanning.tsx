@@ -3559,6 +3559,12 @@ export function PortfolioPlanning() {
   const activeManualEpics = activeScenario?.portfolioManualEpics ?? plan.manualEpics;
   const activePhasePlansRaw = activeScenario?.portfolioPhasePlans ?? plan.phasePlans;
   const activePhaseAssignmentsRaw = activeScenario?.portfolioPhaseAssignments ?? plan.phaseAssignments;
+  const activeJiraItems = useMemo(
+    () => (activeScenario?.jiraWorkItems && activeScenario.jiraWorkItems.length > 0
+      ? activeScenario.jiraWorkItems
+      : baselineState.jiraWorkItems),
+    [activeScenario?.jiraWorkItems, baselineState.jiraWorkItems],
+  );
   const activePhasePlans = useMemo(
     () => activePhasePlansRaw.map(item => ({
       ...item,
@@ -3596,13 +3602,13 @@ export function PortfolioPlanning() {
 
   const boardEpics = useMemo(() => {
     return activeBoardEpicKeys.map(k => {
-      const jira = allEpics.find(e => e.jiraKey === k);
+      const jira = activeJiraItems.find(e => e.jiraKey === k);
       if (jira) return jira;
       const manual = manualEpicMap.get(k);
       if (manual) return manualToJiraWorkItem(manual);
       return null;
     }).filter(Boolean) as JiraWorkItem[];
-  }, [activeBoardEpicKeys, allEpics, manualEpicMap]);
+  }, [activeBoardEpicKeys, activeJiraItems, manualEpicMap]);
 
   const memberMap  = useMemo(() => new Map(baselineState.teamMembers.map(m => [m.id, m])), [baselineState.teamMembers]);
   const contactMap = useMemo(() => new Map(baselineState.businessContacts.map(c => [c.id, c])), [baselineState.businessContacts]);
@@ -4591,7 +4597,7 @@ export function PortfolioPlanning() {
             ganttRef={epicGanttRef}
             onTimelineScroll={handleTimelineScroll}
             personOverloadMap={personOverloadMap}
-            allJiraItems={baselineState.jiraWorkItems}
+            allJiraItems={activeJiraItems}
             jiraBaseUrl={jiraBaseUrl}
             phaseDragPreviewMap={phaseDragPreviewMap}
             activePhaseInteraction={activePhaseInteraction}

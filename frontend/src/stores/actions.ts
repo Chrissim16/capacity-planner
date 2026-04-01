@@ -6,6 +6,7 @@ import { useAppStore } from './appStore';
 import { buildBaselineLayout } from '../utils/plannerInit';
 import { writePlannerSession, clearPlannerSession } from '../utils/plannerSessionStorage';
 import { formatDate, parseIsoDateLocal } from '../utils/calendar';
+import { buildPortfolioScenarioJiraSnapshot } from '../utils/portfolioScenarioSnapshot';
 import type {
   TeamMember,
   TimeOff,
@@ -693,6 +694,10 @@ export interface PortfolioScenarioSnapshot {
   phaseAssignments: EpicPhaseAssignment[];
 }
 
+function getLatestSuccessfulSyncAt(connections: JiraConnection[]): string | undefined {
+  return connections.find(c => c.lastSyncAt)?.lastSyncAt;
+}
+
 export function createPortfolioScenario(
   name: string,
   snapshot: PortfolioScenarioSnapshot,
@@ -709,8 +714,11 @@ export function createPortfolioScenario(
     isBaseline: false,
     isPortfolioScenario: true,
     archived: false,
-    basedOnSyncAt: currentState.jiraConnections.find(c => c.lastSyncAt)?.lastSyncAt,
-    jiraWorkItems: [],
+    basedOnSyncAt: getLatestSuccessfulSyncAt(currentState.jiraConnections),
+    jiraWorkItems: buildPortfolioScenarioJiraSnapshot(
+      snapshot.boardEpicKeys,
+      currentState.jiraWorkItems,
+    ),
     jiraItemBizAssignments: [],
     teamMembers: [],
     timeOff: [],
@@ -728,14 +736,80 @@ export function createPortfolioScenario(
 
 export function updatePortfolioScenario(
   scenarioId: string,
-  updates: Partial<Pick<Scenario, 'name' | 'portfolioBoardEpicKeys' | 'portfolioManualEpics' | 'portfolioPhasePlans' | 'portfolioPhaseAssignments'>>,
+  updates: Partial<Pick<
+    Scenario,
+    'name' | 'portfolioBoardEpicKeys' | 'portfolioManualEpics' | 'portfolioPhasePlans' | 'portfolioPhaseAssignments'
+  >>,
 ): void {
   const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
   state.updateData({
-    scenarios: state.getCurrentState().scenarios.map(s =>
-      s.id === scenarioId ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+    scenarios: currentState.scenarios.map(s => {
+      if (s.id !== scenarioId) return s;
+
+      const next = { ...s, ...updates };
+      return {
+        ...next,
+        updatedAt: new Date().toISOString(),
+        basedOnSyncAt: getLatestSuccessfulSyncAt(currentState.jiraConnections) ?? s.basedOnSyncAt,
+        jiraWorkItems: buildPortfolioScenarioJiraSnapshot(
+          next.portfolioBoardEpicKeys ?? [],
+          currentState.jiraWorkItems,
+          s.jiraWorkItems,
+        ),
+      };
+    }
     ),
   });
+}
+
+export interface PortfolioScenarioSafeguardResult {
+  scenariosUpdated: number;
+}
+
+export function safeguardPortfolioScenariosForRemovedItems(
+  removedItems: JiraWorkItem[],
+): PortfolioScenarioSafeguardResult {
+  if (removedItems.length === 0) return { scenariosUpdated: 0 };
+
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const removedKeys = new Set(removedItems.map(item => item.jiraKey));
+  let scenariosUpdated = 0;
+
+  const scenarios = currentState.scenarios.map((scenario) => {
+    if (!scenario.isPortfolioScenario) return scenario;
+
+    const nextSnapshot = buildPortfolioScenarioJiraSnapshot(
+      scenario.portfolioBoardEpicKeys ?? [],
+      currentState.jiraWorkItems,
+      scenario.jiraWorkItems,
+    );
+
+    const relevantRemovedKeys = nextSnapshot
+      .filter(item => removedKeys.has(item.jiraKey))
+      .map(item => item.jiraKey);
+
+    if (relevantRemovedKeys.length === 0) return scenario;
+
+    const existingSnapshotKeys = new Set((scenario.jiraWorkItems ?? []).map(item => item.jiraKey));
+    const needsSafeguard = relevantRemovedKeys.some(key => !existingSnapshotKeys.has(key));
+    if (!needsSafeguard) return scenario;
+
+    scenariosUpdated++;
+    return {
+      ...scenario,
+      updatedAt: new Date().toISOString(),
+      basedOnSyncAt: getLatestSuccessfulSyncAt(currentState.jiraConnections) ?? scenario.basedOnSyncAt,
+      jiraWorkItems: nextSnapshot,
+    };
+  });
+
+  if (scenariosUpdated > 0) {
+    state.updateData({ scenarios });
+  }
+
+  return { scenariosUpdated };
 }
 
 export function updateScenario(
