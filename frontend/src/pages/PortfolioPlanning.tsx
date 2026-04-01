@@ -1,9 +1,9 @@
 /**
  * PortfolioPlanning — phase-level effort planning for Jira Epics.
  *
- * Three tabs: Epic View (Gantt with phase bars), People View (per-person
- * utilisation + assignment bars), Summary (KPI cards + compact Gantt +
- * capacity alerts table).
+ * Four tabs: Epic View (Gantt with phase bars), People View (per-person
+ * utilisation + assignment bars), Breakdown (person/team-first table),
+ * Summary (KPI cards + compact Gantt + capacity alerts table).
  *
  * All styling lives in PortfolioPlanning.css, scoped under .pp-root.
  */
@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useCurrentState, useAppStore } from '../stores/appStore';
 import { useShallow } from 'zustand/react/shallow';
 import { calculateCapacity, calculateBusinessCapacityForQuarter } from '../utils/capacity';
+import { getWorkdaysInDateRange, parseQuarter } from '../utils/calendar';
 import { getEffectiveSkills } from '../utils/workItemSkills';
 import {
   getPortfolioQuarterOpts,
@@ -947,6 +948,9 @@ interface PersonAssignEntry {
   phaseInstanceId: string;
   phaseOrder: number;
   days: number;
+  assignment: EpicPhaseAssignment;
+  phaseStartDate: string | null;
+  phaseEndDate: string | null;
   startDay: number;
   barW: number;
 }
@@ -959,6 +963,88 @@ interface PersonSummary {
   role: string;
   availDays: number;
   assignments: PersonAssignEntry[];
+}
+
+function isTeamEntryId(id: string): boolean {
+  return id.startsWith('TEAM:');
+}
+
+function getActorDisplayName(summary: Pick<PersonSummary, 'id' | 'name'>): string {
+  return isTeamEntryId(summary.id) ? `${teamEntryForId(summary.id).name} Team` : summary.name;
+}
+
+function getActorRole(summary: Pick<PersonSummary, 'id' | 'role'>): string {
+  return isTeamEntryId(summary.id) ? 'Business team' : summary.role;
+}
+
+function getQuarterDateRange(qOpt: QOpt): { start: Date; end: Date } {
+  if (qOpt.q === -1) {
+    return {
+      start: new Date(qOpt.year, 0, 1),
+      end: new Date(qOpt.year, 11, 31),
+    };
+  }
+
+  const parsed = parseQuarter(`Q${qOpt.q + 1} ${qOpt.year}`);
+  return parsed
+    ? { start: parsed.start, end: parsed.end }
+    : { start: new Date(qOpt.year, 0, 1), end: new Date(qOpt.year, 11, 31) };
+}
+
+function roundToTenth(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function formatDays(value: number): string {
+  const rounded = roundToTenth(value);
+  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+}
+
+function getAssignmentDaysForQuarter(
+  assignmentEntry: Pick<PersonAssignEntry, 'assignment' | 'phaseStartDate' | 'phaseEndDate'>,
+  qOpt: QOpt,
+): number {
+  const { assignment, phaseStartDate, phaseEndDate } = assignmentEntry;
+  const quarterRange = getQuarterDateRange(qOpt);
+
+  if (assignment.allocationMode === 'segments') {
+    return roundToTenth((assignment.segments ?? []).reduce((sum, segment) => {
+      const segmentWorkdays = getWorkdaysInDateRange(segment.startDate, segment.endDate);
+      if (segmentWorkdays <= 0) return sum;
+
+      const overlapWorkdays = getWorkdaysInDateRange(
+        segment.startDate,
+        segment.endDate,
+        [],
+        quarterRange.start,
+        quarterRange.end,
+      );
+      if (overlapWorkdays <= 0) return sum;
+
+      return sum + (segment.days * overlapWorkdays) / segmentWorkdays;
+    }, 0));
+  }
+
+  if (!phaseStartDate || !phaseEndDate) return assignment.days;
+
+  const phaseWorkdays = getWorkdaysInDateRange(phaseStartDate, phaseEndDate);
+  if (phaseWorkdays <= 0) return 0;
+
+  const overlapWorkdays = getWorkdaysInDateRange(
+    phaseStartDate,
+    phaseEndDate,
+    [],
+    quarterRange.start,
+    quarterRange.end,
+  );
+  if (overlapWorkdays <= 0) return 0;
+
+  if (assignment.allocationMode === 'rate') {
+    return roundToTenth((assignment.daysPerWeek ?? 0) * (overlapWorkdays / 5));
+  }
+
+  const totalAssignedDays = totalDaysFromAssignment(assignment, phaseStartDate, phaseEndDate);
+  return roundToTenth((totalAssignedDays * overlapWorkdays) / phaseWorkdays);
 }
 
 function PeopleView({
@@ -991,11 +1077,6 @@ function PeopleView({
   }, [lpRef, onTimelineScroll]);
 
   const sortedPeopleSummaries = useMemo(() => {
-    const getDisplayName = (ps: PersonSummary) => {
-      const pid = ps.member?.id ?? ps.contact?.id ?? ps.name;
-      return pid.startsWith('TEAM:') ? `${teamEntryForId(pid).name} Team` : ps.name;
-    };
-
     return [...peopleSummaries].sort((a, b) => {
       if (sortBy === 'utilization') {
         const assignedA = a.assignments.reduce((sum, assignment) => sum + assignment.days, 0);
@@ -1005,7 +1086,7 @@ function PeopleView({
         if (utilB !== utilA) return utilB - utilA;
       }
 
-      return getDisplayName(a).localeCompare(getDisplayName(b));
+      return getActorDisplayName(a).localeCompare(getActorDisplayName(b));
     });
   }, [peopleSummaries, sortBy]);
 
@@ -1021,13 +1102,11 @@ function PeopleView({
     );
   }
 
-  const isTeamEntry = (pid: string) => pid.startsWith('TEAM:');
-
   const lpRows:    React.ReactNode[] = [];
   const ganttRows: React.ReactNode[] = [];
 
   for (const ps of sortedPeopleSummaries) {
-    const pid       = ps.member?.id ?? ps.contact?.id ?? ps.name;
+    const pid       = ps.id;
     const expanded  = pvExpanded[pid] ?? false;
     const estDays   = ps.assignments.reduce((s, a) => s + a.days, 0);
     const utilPct   = ps.availDays > 0 ? estDays / ps.availDays : 0;
@@ -1045,7 +1124,7 @@ function PeopleView({
       return { pct, cls: utilTier(pct) };
     });
 
-    const isTeam = isTeamEntry(pid);
+    const isTeam = isTeamEntryId(pid);
 
     // Left panel — person header
     lpRows.push(
@@ -1056,8 +1135,8 @@ function PeopleView({
           : <div className="pp-av-lg" style={{ background: avColor(pid) }}>{initials(ps.name)}</div>
         }
         <div className="pv-pinfo">
-          <div className="pv-pname">{isTeam ? `${teamEntryForId(pid).name} Team` : ps.name}</div>
-          <div className="pv-prole">{isTeam ? 'Business team' : ps.role}</div>
+          <div className="pv-pname">{getActorDisplayName(ps)}</div>
+          <div className="pv-prole">{getActorRole(ps)}</div>
         </div>
         {!isTeam && (
           <div className={`pv-util-pill ${tier}`}>
@@ -1163,6 +1242,351 @@ function PeopleView({
           <div className="pp-gantt-inner" style={{ minWidth: totalW }}>
             <GanttHeader weeks={weeks} totalW={totalW} />
             {ganttRows}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type BreakdownMode = 'people' | 'teams' | 'combined';
+type BreakdownSort = 'name' | 'totalDays';
+
+interface BreakdownPhaseGroup {
+  key: string;
+  phase: PlanningPhase;
+  phaseOrder: number;
+  days: number;
+}
+
+interface BreakdownEpicGroup {
+  epic: JiraWorkItem;
+  totalDays: number;
+  phases: BreakdownPhaseGroup[];
+}
+
+interface BreakdownActorRow {
+  id: string;
+  name: string;
+  role: string;
+  actorType: 'person' | 'team';
+  totalDays: number;
+  availDays: number;
+  epicCount: number;
+  phaseCount: number;
+  utilization: number | null;
+  epics: BreakdownEpicGroup[];
+}
+
+function BreakdownView({
+  peopleSummaries,
+  jiraBaseUrl,
+  quarterOptions,
+  quarterOpt,
+  activeQuarterIdx,
+  onQuarterChange,
+}: {
+  peopleSummaries: PersonSummary[];
+  jiraBaseUrl: string;
+  quarterOptions: QOpt[];
+  quarterOpt: QOpt;
+  activeQuarterIdx: number;
+  onQuarterChange: (idx: number) => void;
+}) {
+  const [mode, setMode] = useState<BreakdownMode>('combined');
+  const [sortBy, setSortBy] = useState<BreakdownSort>('totalDays');
+  const [search, setSearch] = useState('');
+  const [phaseFilter, setPhaseFilter] = useState<'all' | PlanningPhase>('all');
+  const [expandedActors, setExpandedActors] = useState<Record<string, boolean>>({});
+
+  const hasAssignments = peopleSummaries.some(summary => summary.assignments.length > 0);
+
+  const actorRows = useMemo((): BreakdownActorRow[] => {
+    const query = search.trim().toLowerCase();
+
+    const rows = peopleSummaries
+      .map((summary) => {
+        const actorType = isTeamEntryId(summary.id) ? 'team' as const : 'person' as const;
+        if (mode === 'people' && actorType !== 'person') return null;
+        if (mode === 'teams' && actorType !== 'team') return null;
+
+        const epicMap = new Map<string, {
+          epic: JiraWorkItem;
+          totalDays: number;
+          phases: Map<string, BreakdownPhaseGroup>;
+        }>();
+
+        for (const assignment of summary.assignments) {
+          const visibleDays = getAssignmentDaysForQuarter(assignment, quarterOpt);
+          if (visibleDays <= 0) continue;
+          if (phaseFilter !== 'all' && assignment.phase !== phaseFilter) continue;
+
+          if (!epicMap.has(assignment.epic.jiraKey)) {
+            epicMap.set(assignment.epic.jiraKey, {
+              epic: assignment.epic,
+              totalDays: 0,
+              phases: new Map(),
+            });
+          }
+
+          const epicGroup = epicMap.get(assignment.epic.jiraKey)!;
+          epicGroup.totalDays += visibleDays;
+
+          const phaseKey = `${assignment.phase}-${assignment.phaseInstanceId}`;
+          if (!epicGroup.phases.has(phaseKey)) {
+            epicGroup.phases.set(phaseKey, {
+              key: phaseKey,
+              phase: assignment.phase,
+              phaseOrder: assignment.phaseOrder,
+              days: 0,
+            });
+          }
+          epicGroup.phases.get(phaseKey)!.days += visibleDays;
+        }
+
+        let epics = [...epicMap.values()]
+          .map((epicGroup) => ({
+            epic: epicGroup.epic,
+            totalDays: epicGroup.totalDays,
+            phases: [...epicGroup.phases.values()].sort((a, b) => {
+              const phaseDiff = PHASES.indexOf(a.phase) - PHASES.indexOf(b.phase);
+              if (phaseDiff !== 0) return phaseDiff;
+              return a.phaseOrder - b.phaseOrder;
+            }),
+          }))
+          .sort((a, b) => b.totalDays - a.totalDays || a.epic.jiraKey.localeCompare(b.epic.jiraKey));
+
+        const actorName = getActorDisplayName(summary);
+        const actorRole = getActorRole(summary);
+        const actorMatches = query.length > 0
+          && (actorName.toLowerCase().includes(query) || actorRole.toLowerCase().includes(query));
+
+        if (query) {
+          epics = actorMatches
+            ? epics
+            : epics.filter((epicGroup) => (
+              epicGroup.epic.jiraKey.toLowerCase().includes(query)
+              || epicGroup.epic.summary.toLowerCase().includes(query)
+              || epicGroup.phases.some((phaseGroup) => getPhaseDisplayLabel(phaseGroup.phase, phaseGroup.phaseOrder).toLowerCase().includes(query))
+            ));
+        }
+
+        const totalDays = epics.reduce((sum, epicGroup) => sum + epicGroup.totalDays, 0);
+        if (totalDays <= 0) return null;
+
+        return {
+          id: summary.id,
+          name: actorName,
+          role: actorRole,
+          actorType,
+          totalDays,
+          availDays: summary.availDays,
+          epicCount: epics.length,
+          phaseCount: epics.reduce((sum, epicGroup) => sum + epicGroup.phases.length, 0),
+          utilization: actorType === 'team' || summary.availDays <= 0 ? null : totalDays / summary.availDays,
+          epics,
+        };
+      })
+      .filter((row): row is BreakdownActorRow => row !== null);
+
+    return rows.sort((a, b) => {
+      if (mode === 'combined' && a.actorType !== b.actorType) {
+        return a.actorType === 'person' ? -1 : 1;
+      }
+
+      if (sortBy === 'totalDays' && b.totalDays !== a.totalDays) {
+        return b.totalDays - a.totalDays;
+      }
+
+      return a.name.localeCompare(b.name);
+    });
+  }, [mode, peopleSummaries, phaseFilter, quarterOpt, search, sortBy]);
+
+  const toggleActor = useCallback((actorId: string) => {
+    setExpandedActors((prev) => ({ ...prev, [actorId]: !prev[actorId] }));
+  }, []);
+
+  const toggleAllActors = useCallback(() => {
+    const shouldExpand = actorRows.some((row) => !expandedActors[row.id]);
+    setExpandedActors((prev) => {
+      const next = { ...prev };
+      for (const row of actorRows) next[row.id] = shouldExpand;
+      return next;
+    });
+  }, [actorRows, expandedActors]);
+
+  if (!hasAssignments) {
+    return (
+      <div className="pp-view on">
+        <div className="pp-empty-state" style={{ width: '100%' }}>
+          <div className="pp-empty-icon">▤</div>
+          <div className="pp-empty-title">No breakdown data yet</div>
+          <div className="pp-empty-sub">Add people or business teams to phase rows in Epic View to build a person-led portfolio breakdown.</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pp-view on">
+      <div className="pp-breakdown">
+        <div className="pp-breakdown-toolbar">
+          <div className="pp-breakdown-toolbar-group">
+            <span className="pp-breakdown-select-label">Quarter</span>
+            <div className="pp-seg" role="tablist" aria-label="Breakdown quarter">
+              {quarterOptions.map((option, idx) => (
+                <button
+                  key={option.label}
+                  className={`pp-seg-btn${idx === activeQuarterIdx ? ' on' : ''}`}
+                  onClick={() => onQuarterChange(idx)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="pp-breakdown-search">
+            <span className="pp-breakdown-search-icon">⌕</span>
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search people, teams, epics, or phases"
+              aria-label="Search breakdown rows"
+            />
+          </div>
+
+          <div className="pp-seg" role="tablist" aria-label="Breakdown mode">
+            <button className={`pp-seg-btn${mode === 'people' ? ' on' : ''}`} onClick={() => setMode('people')}>People</button>
+            <button className={`pp-seg-btn${mode === 'teams' ? ' on' : ''}`} onClick={() => setMode('teams')}>Business Teams</button>
+            <button className={`pp-seg-btn${mode === 'combined' ? ' on' : ''}`} onClick={() => setMode('combined')}>Combined</button>
+          </div>
+
+          <label className="pp-breakdown-select-wrap">
+            <span className="pp-breakdown-select-label">Phase</span>
+            <select
+              className="pp-breakdown-select"
+              value={phaseFilter}
+              onChange={(event) => setPhaseFilter(event.target.value as 'all' | PlanningPhase)}
+              aria-label="Filter breakdown by phase"
+            >
+              <option value="all">All phases</option>
+              {PHASES.map((phase) => (
+                <option key={phase} value={phase}>{PH_LBL[phase]}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="pp-breakdown-select-wrap">
+            <span className="pp-breakdown-select-label">Sort</span>
+            <select
+              className="pp-breakdown-select"
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as BreakdownSort)}
+              aria-label="Sort breakdown rows"
+            >
+              <option value="totalDays">Total days</option>
+              <option value="name">Name</option>
+            </select>
+          </label>
+
+          <button className="pp-btn" onClick={toggleAllActors}>
+            {actorRows.every((row) => expandedActors[row.id]) ? 'Collapse all' : 'Expand all'}
+          </button>
+        </div>
+
+        <div className="pp-breakdown-wrap">
+          <div className="pp-breakdown-hd">
+            <div className="pp-breakdown-hd-cell">Person / Team</div>
+            <div className="pp-breakdown-hd-cell">Epic</div>
+            <div className="pp-breakdown-hd-cell">Phase</div>
+            <div className="pp-breakdown-hd-cell pp-breakdown-num">Days</div>
+            <div className="pp-breakdown-hd-cell pp-breakdown-num">Total Days</div>
+            <div className="pp-breakdown-hd-cell">Utilisation</div>
+          </div>
+
+          <div className="pp-breakdown-body">
+            {actorRows.length === 0 ? (
+              <div className="pp-breakdown-empty">No rows match the current filters.</div>
+            ) : actorRows.map((row) => {
+              const expanded = expandedActors[row.id] ?? false;
+              const teamEntry = row.actorType === 'team' ? teamEntryForId(row.id) : null;
+              const tier = row.utilization === null ? null : utilTier(row.utilization);
+
+              return (
+                <div key={row.id}>
+                  <div className="pp-breakdown-row actor">
+                    <div className="pp-breakdown-cell pp-breakdown-actor-cell">
+                      <button
+                        className={`pp-breakdown-toggle${expanded ? ' open' : ''}`}
+                        onClick={() => toggleActor(row.id)}
+                        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${row.name}`}
+                      >
+                        ▶
+                      </button>
+                      {row.actorType === 'team'
+                        ? <div className="pp-av team pp-breakdown-av">{teamEntry?.abbr ?? row.name.slice(0, 2).toUpperCase()}</div>
+                        : <div className="pp-av pp-breakdown-av" style={{ background: avColor(row.id) }}>{initials(row.name)}</div>
+                      }
+                      <div className="pp-breakdown-actor-meta">
+                        <div className="pp-breakdown-actor-name">{row.name}</div>
+                        <div className="pp-breakdown-actor-sub">{row.role}</div>
+                      </div>
+                    </div>
+                    <div className="pp-breakdown-cell pp-breakdown-muted">{row.epicCount} epic{row.epicCount === 1 ? '' : 's'}</div>
+                    <div className="pp-breakdown-cell pp-breakdown-muted">{row.phaseCount} phase{row.phaseCount === 1 ? '' : 's'}</div>
+                    <div className="pp-breakdown-cell pp-breakdown-num" />
+                    <div className="pp-breakdown-cell pp-breakdown-num pp-breakdown-strong">{formatDays(row.totalDays)}d</div>
+                    <div className="pp-breakdown-cell">
+                      {row.utilization === null
+                        ? <span className="pp-breakdown-na">N/A</span>
+                        : (
+                          <div className="pp-breakdown-util">
+                            <div className="pp-breakdown-util-bar">
+                              <div className={`pp-breakdown-util-fill ${tier}`} style={{ width: `${Math.min(100, row.utilization * 100)}%` }} />
+                            </div>
+                            <span className={`pp-breakdown-util-pill ${tier}`}>{Math.round(row.utilization * 100)}%</span>
+                          </div>
+                        )
+                      }
+                    </div>
+                  </div>
+
+                  {expanded && row.epics.map((epicGroup) => (
+                    <div key={`${row.id}-${epicGroup.epic.jiraKey}`}>
+                      <div className="pp-breakdown-row epic">
+                        <div className="pp-breakdown-cell" />
+                        <div className="pp-breakdown-cell pp-breakdown-epic-cell">
+                          {jiraBaseUrl
+                            ? <a href={`${jiraBaseUrl}/browse/${epicGroup.epic.jiraKey}`} target="_blank" rel="noopener noreferrer" className="pv-assign-key">{epicGroup.epic.jiraKey}</a>
+                            : <span className="pv-assign-key">{epicGroup.epic.jiraKey}</span>
+                          }
+                          <span className="pp-breakdown-epic-name">{epicGroup.epic.summary}</span>
+                        </div>
+                        <div className="pp-breakdown-cell" />
+                        <div className="pp-breakdown-cell pp-breakdown-num" />
+                        <div className="pp-breakdown-cell pp-breakdown-num">{formatDays(epicGroup.totalDays)}d</div>
+                        <div className="pp-breakdown-cell" />
+                      </div>
+
+                      {epicGroup.phases.map((phaseGroup) => (
+                        <div key={`${row.id}-${epicGroup.epic.jiraKey}-${phaseGroup.key}`} className="pp-breakdown-row phase">
+                          <div className="pp-breakdown-cell" />
+                          <div className="pp-breakdown-cell" />
+                          <div className="pp-breakdown-cell">
+                            <span className={`pp-pv-pp ${PH_KEY[phaseGroup.phase]}`}>{getPhaseDisplayLabel(phaseGroup.phase, phaseGroup.phaseOrder)}</span>
+                          </div>
+                          <div className="pp-breakdown-cell pp-breakdown-num">{formatDays(phaseGroup.days)}d</div>
+                          <div className="pp-breakdown-cell pp-breakdown-num" />
+                          <div className="pp-breakdown-cell" />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -2134,7 +2558,7 @@ export function PortfolioPlanning() {
   const scenarios = useAppStore(useShallow(s => s.data.scenarios));
 
   // ── UI state ───────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'summary'>('epic');
+  const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'breakdown' | 'summary'>('epic');
   const [drawerOpen, setDrawerOpen]           = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [editingManualEpic, setEditingManualEpic] = useState<ManualEpic | null>(null);
@@ -2365,6 +2789,9 @@ export function PortfolioPlanning() {
           }
           map.get(a.memberId)!.assignments.push({
             epic, phase, phaseInstanceId: row.phaseInstanceId, phaseOrder: row.phaseOrder, days: a.days,
+            assignment: a,
+            phaseStartDate: phasePlan?.startDate ?? null,
+            phaseEndDate: phasePlan?.endDate ?? null,
             startDay: startDay ?? 0,
             barW,
           });
@@ -2426,7 +2853,7 @@ export function PortfolioPlanning() {
   }, [drawerOpen, panelWidth, quarterSegments, visibleSegmentIdx]);
 
   useEffect(() => {
-    if (activeTab === 'summary') return;
+    if (activeTab === 'summary' || activeTab === 'breakdown') return;
 
     const ganttEl = activeTab === 'epic' ? epicGanttRef.current : pvGanttRef.current;
     if (!ganttEl) return;
@@ -2946,6 +3373,7 @@ export function PortfolioPlanning() {
       <div className="pp-tabbar">
         <button className={`pp-tab${activeTab === 'epic'    ? ' on' : ''}`} onClick={() => setActiveTab('epic')}>⬡ Epic View</button>
         <button className={`pp-tab${activeTab === 'people'  ? ' on' : ''}`} onClick={() => setActiveTab('people')}>◎ People View</button>
+        <button className={`pp-tab${activeTab === 'breakdown' ? ' on' : ''}`} onClick={() => setActiveTab('breakdown')}>▤ Breakdown</button>
         <button className={`pp-tab${activeTab === 'summary' ? ' on' : ''}`} onClick={() => setActiveTab('summary')}>▦ Summary</button>
       </div>
 
@@ -3011,6 +3439,16 @@ export function PortfolioPlanning() {
             ganttRef={pvGanttRef}
             onTimelineScroll={handleTimelineScroll}
             jiraBaseUrl={jiraBaseUrl}
+          />
+        )}
+        {activeTab === 'breakdown' && (
+          <BreakdownView
+            peopleSummaries={peopleSummaries}
+            jiraBaseUrl={jiraBaseUrl}
+            quarterOptions={quarterIndicatorOpts}
+            quarterOpt={activeQuarterOpt}
+            activeQuarterIdx={activeQIdx}
+            onQuarterChange={handleQuarterIndicatorClick}
           />
         )}
         {activeTab === 'summary' && (
