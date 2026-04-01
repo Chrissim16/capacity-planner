@@ -420,6 +420,22 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 .ev-phase:hover { background: var(--offwh); }
 .ev-phase.duplicate { padding-left: 40px; }
+.ev-phase.is-dragging {
+  opacity: 0.55;
+  background: #F0F7FF;
+}
+.ev-phase.drag-over-before::before,
+.ev-phase.drag-over-after::after {
+  content: '';
+  position: absolute;
+  left: 28px;
+  right: 10px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--blue);
+}
+.ev-phase.drag-over-before::before { top: -1px; }
+.ev-phase.drag-over-after::after { bottom: -1px; }
 .ph-add {
   width: 18px; height: 18px;
   display: flex; align-items: center; justify-content: center;
@@ -430,6 +446,34 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   transition: all 100ms;
 }
 .ph-add:hover { color: var(--blue); border-color: var(--blue); background: var(--blue-lt); }
+.ph-drag {
+  min-width: 32px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #D7E3F0; background: #F8FAFD;
+  border-radius: 999px; color: #64748B;
+  cursor: grab; flex-shrink: 0;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 0 6px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+  transition: all 100ms;
+}
+.ev-phase:hover .ph-drag,
+.ev-phase.is-dragging .ph-drag {
+  color: var(--blue);
+  border-color: #B9D8F2;
+  background: #EEF6FD;
+}
+.ph-drag:hover {
+  color: var(--blue);
+  border-color: #A7D0F2;
+  background: var(--blue-lt);
+}
+.ph-drag:active,
+.ev-phase.is-dragging .ph-drag {
+  cursor: grabbing;
+}
 .pp-ph-label {
   font-size: 11px; font-weight: 600;
   padding: 2px 8px; border-radius: 4px; flex-shrink: 0;

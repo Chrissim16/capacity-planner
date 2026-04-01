@@ -12,6 +12,11 @@ import type {
   EpicPhasePlan, EpicPhaseAssignment, PlanningPhase,
   AllocationMode, AllocationSegment, ManualEpic,
 } from '../types';
+import {
+  getOrderedActualPhaseEntries,
+  getPlaceholderInsertIndex,
+  upsertPhaseSequencePlans,
+} from '../utils/portfolioPhaseOrdering';
 
 const BOARD_KEY   = 'pp.boardEpicKeys';
 const MANUAL_KEY  = 'pp.manualEpics';
@@ -37,8 +42,12 @@ export interface UsePortfolioPlanReturn {
   addManualEpic:       (input: { summary: string; description?: string; startDate?: string; endDate?: string }) => string;
   updateManualEpic:    (epicKey: string, changes: { summary?: string; description?: string; startDate?: string; endDate?: string }) => void;
   deleteManualEpic:    (epicKey: string) => void;
-  addPhaseInstance:    (epicKey: string, phase: PlanningPhase) => Promise<string>;
+  addPhaseInstance:    (epicKey: string, phase: PlanningPhase, afterPhaseInstanceId?: string) => Promise<string>;
   removePhaseInstance: (epicKey: string, phaseInstanceId: string) => Promise<void>;
+  reorderPhaseInstances: (
+    epicKey: string,
+    orderedEntries: Array<{ phase: PlanningPhase; phaseInstanceId: string }>,
+  ) => Promise<void>;
   updatePhasePlan:     (
     epicKey: string,
     phase: PlanningPhase,
@@ -157,6 +166,43 @@ function defaultPhaseInstanceId(phase: PlanningPhase): string {
 
 function buildPhaseInstanceId(phase: PlanningPhase): string {
   return `${phase}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildOrderedEntriesForEpic(
+  phasePlans: EpicPhasePlan[],
+  phaseAssignments: EpicPhaseAssignment[],
+  epicKey: string,
+): Array<{ phase: PlanningPhase; phaseInstanceId: string }> {
+  return getOrderedActualPhaseEntries(phasePlans, phaseAssignments, epicKey).map((entry) => ({
+    phase: entry.phase,
+    phaseInstanceId: entry.phaseInstanceId,
+  }));
+}
+
+function insertPhaseEntry(
+  orderedEntries: Array<{ phase: PlanningPhase; phaseInstanceId: string }>,
+  phase: PlanningPhase,
+  phaseInstanceId: string,
+  afterPhaseInstanceId?: string,
+): Array<{ phase: PlanningPhase; phaseInstanceId: string }> {
+  const next = [...orderedEntries];
+  const afterIdx = afterPhaseInstanceId
+    ? next.findIndex((entry) => entry.phaseInstanceId === afterPhaseInstanceId)
+    : -1;
+  const insertIdx = afterIdx >= 0
+    ? afterIdx + 1
+    : getPlaceholderInsertIndex(
+        next.map((entry, index) => ({
+          phase: entry.phase,
+          phaseInstanceId: entry.phaseInstanceId,
+          phaseOrder: index,
+          plan: null,
+          assignments: [],
+        })),
+        phase,
+      );
+  next.splice(insertIdx, 0, { phase, phaseInstanceId });
+  return next;
 }
 
 export function usePortfolioPlan(): UsePortfolioPlanReturn {
@@ -326,34 +372,105 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
   }, []);
 
   // ── Phase instances + dates ───────────────────────────────────────────────
-  const addPhaseInstance = useCallback(async (epicKey: string, phase: PlanningPhase) => {
+  const reorderPhaseInstances = useCallback(async (
+    epicKey: string,
+    orderedEntries: Array<{ phase: PlanningPhase; phaseInstanceId: string }>,
+  ) => {
     const now = new Date().toISOString();
-    const phaseOrder = phasePlans.filter(p => p.epicKey === epicKey && p.phase === phase).length;
-    const phaseInstanceId = buildPhaseInstanceId(phase);
-    const tempId = `local-${epicKey}-${phaseInstanceId}`;
+    const nextPlans = upsertPhaseSequencePlans(phasePlans, orderedEntries, epicKey, now);
+    setPhasePlans(nextPlans);
 
-    setPhasePlans(prev => [
-      ...prev,
-      { id: tempId, epicKey, phase, phaseInstanceId, phaseOrder, startDate: null, endDate: null, description: null, updatedAt: now },
-    ]);
+    if (!isSupabaseConfigured()) return;
+
+    const payload = orderedEntries.map((entry, index) => {
+      const existing = phasePlans.find(
+        (plan) => plan.epicKey === epicKey && plan.phaseInstanceId === entry.phaseInstanceId,
+      );
+      return {
+        epic_key: epicKey,
+        phase: entry.phase,
+        phase_instance_id: entry.phaseInstanceId,
+        phase_order: index,
+        start_date: existing?.startDate ?? null,
+        end_date: existing?.endDate ?? null,
+        description: existing?.description ?? null,
+      };
+    });
+
+    const { data, error } = await supabase
+      .from('epic_phase_plans')
+      .upsert(payload, { onConflict: 'epic_key,phase_instance_id' })
+      .select();
+
+    if (!error && data) {
+      const returnedRows = (data as PlanRow[]).map(mapPlanRow);
+      const returnedIds = new Set(returnedRows.map((row) => row.phaseInstanceId));
+      setPhasePlans((prev) => [
+        ...prev.filter((plan) => plan.epicKey !== epicKey || !returnedIds.has(plan.phaseInstanceId)),
+        ...returnedRows,
+      ]);
+    }
+  }, [phasePlans]);
+
+  const addPhaseInstance = useCallback(async (
+    epicKey: string,
+    phase: PlanningPhase,
+    afterPhaseInstanceId: string = defaultPhaseInstanceId(phase),
+  ) => {
+    const now = new Date().toISOString();
+    const phaseInstanceId = buildPhaseInstanceId(phase);
+    const orderedEntries = insertPhaseEntry(
+      buildOrderedEntriesForEpic(phasePlans, phaseAssignments, epicKey),
+      phase,
+      phaseInstanceId,
+      afterPhaseInstanceId,
+    );
+
+    setPhasePlans(upsertPhaseSequencePlans(phasePlans, orderedEntries, epicKey, now));
 
     if (!isSupabaseConfigured()) return phaseInstanceId;
 
     const { data, error } = await supabase
       .from('epic_phase_plans')
-      .insert({ epic_key: epicKey, phase, phase_instance_id: phaseInstanceId, phase_order: phaseOrder, start_date: null, end_date: null, description: null })
+      .upsert(orderedEntries.map((entry, index) => ({
+        epic_key: epicKey,
+        phase: entry.phase,
+        phase_instance_id: entry.phaseInstanceId,
+        phase_order: index,
+        start_date: entry.phaseInstanceId === phaseInstanceId ? null : phasePlans.find(
+          (plan) => plan.epicKey === epicKey && plan.phaseInstanceId === entry.phaseInstanceId,
+        )?.startDate ?? null,
+        end_date: entry.phaseInstanceId === phaseInstanceId ? null : phasePlans.find(
+          (plan) => plan.epicKey === epicKey && plan.phaseInstanceId === entry.phaseInstanceId,
+        )?.endDate ?? null,
+        description: entry.phaseInstanceId === phaseInstanceId ? null : phasePlans.find(
+          (plan) => plan.epicKey === epicKey && plan.phaseInstanceId === entry.phaseInstanceId,
+        )?.description ?? null,
+      })), { onConflict: 'epic_key,phase_instance_id' })
       .select()
-      .single();
+      ;
 
     if (!error && data) {
-      const row = mapPlanRow(data as PlanRow);
-      setPhasePlans(prev => prev.map(p => p.id === tempId ? row : p));
+      const returnedRows = (data as PlanRow[]).map(mapPlanRow);
+      const returnedIds = new Set(returnedRows.map((row) => row.phaseInstanceId));
+      setPhasePlans((prev) => [
+        ...prev.filter((plan) => plan.epicKey !== epicKey || !returnedIds.has(plan.phaseInstanceId)),
+        ...returnedRows,
+      ]);
     }
     return phaseInstanceId;
-  }, [phasePlans]);
+  }, [phaseAssignments, phasePlans]);
 
   const removePhaseInstance = useCallback(async (epicKey: string, phaseInstanceId: string) => {
-    setPhasePlans(prev => prev.filter(p => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId)));
+    const remainingEntries = buildOrderedEntriesForEpic(phasePlans, phaseAssignments, epicKey)
+      .filter((entry) => entry.phaseInstanceId !== phaseInstanceId);
+    const now = new Date().toISOString();
+    setPhasePlans(upsertPhaseSequencePlans(
+      phasePlans.filter((plan) => !(plan.epicKey === epicKey && plan.phaseInstanceId === phaseInstanceId)),
+      remainingEntries,
+      epicKey,
+      now,
+    ));
     setPhaseAssignments(prev => prev.filter(a => !(a.epicKey === epicKey && a.phaseInstanceId === phaseInstanceId)));
 
     if (!isSupabaseConfigured()) return;
@@ -367,7 +484,7 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
       .from('epic_phase_plans')
       .delete()
       .match({ epic_key: epicKey, phase_instance_id: phaseInstanceId });
-  }, []);
+  }, [phaseAssignments, phasePlans]);
 
   const updatePhasePlan = useCallback(async (
     epicKey: string,
@@ -377,7 +494,17 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
   ) => {
     const now = new Date().toISOString();
     const existing = phasePlans.find(p => p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId);
-    const phaseOrder = existing?.phaseOrder ?? phasePlans.filter(p => p.epicKey === epicKey && p.phase === phase).length;
+    const orderedEntries = buildOrderedEntriesForEpic(phasePlans, phaseAssignments, epicKey);
+    const phaseOrder = existing
+      ? existing.phaseOrder
+      : (() => {
+          const existingIdx = orderedEntries.findIndex((entry) => entry.phaseInstanceId === phaseInstanceId);
+          if (existingIdx >= 0) return existingIdx;
+          return getPlaceholderInsertIndex(
+            getOrderedActualPhaseEntries(phasePlans, phaseAssignments, epicKey),
+            phase,
+          );
+        })();
     const nextPlan: EpicPhasePlan = existing
       ? {
           ...existing,
@@ -612,6 +739,7 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     deleteManualEpic,
     addPhaseInstance,
     removePhaseInstance,
+    reorderPhaseInstances,
     updatePhasePlan,
     setPhaseStartDate,
     setPhaseEndDate,

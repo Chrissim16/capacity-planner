@@ -36,6 +36,10 @@ import {
   type QOpt,
   type PortfolioWeek,
 } from '../utils/portfolioGeometry';
+import {
+  buildOrderedPhaseEntries,
+  upsertPhaseSequencePlans,
+} from '../utils/portfolioPhaseOrdering';
 import { usePortfolioPlan } from '../hooks/usePortfolioPlan';
 import {
   createPortfolioScenario,
@@ -137,6 +141,7 @@ interface PhaseInstanceRow {
   phase: PlanningPhase;
   phaseInstanceId: string;
   phaseOrder: number;
+  phaseOrdinal: number;
   plan: EpicPhasePlan | null;
   assignments: EpicPhaseAssignment[];
 }
@@ -151,56 +156,18 @@ function getDefaultPhaseInstanceId(phase: PlanningPhase): string {
   return phase;
 }
 
-function getPhaseDisplayLabel(phase: PlanningPhase, phaseOrder: number): string {
-  return phaseOrder > 0 ? `${PH_LBL[phase]} ${phaseOrder + 1}` : PH_LBL[phase];
+function getPhaseDisplayLabel(phase: PlanningPhase, phaseOrdinal: number): string {
+  return phaseOrdinal > 1 ? `${PH_LBL[phase]} ${phaseOrdinal}` : PH_LBL[phase];
 }
 
 function getPhaseInstanceRows(
   plansByType: PhasePlansByType,
   assignmentsByInstance: PhaseAssignmentsByInstance,
 ): PhaseInstanceRow[] {
-  const rows: PhaseInstanceRow[] = [];
-
-  for (const phase of PHASES) {
-    const plans = [...(plansByType.get(phase) ?? [])].sort((a, b) => a.phaseOrder - b.phaseOrder);
-    const instanceIds = new Set<string>(plans.map(plan => plan.phaseInstanceId));
-
-    for (const [phaseInstanceId, assignments] of assignmentsByInstance.entries()) {
-      if (assignments[0]?.phase === phase) instanceIds.add(phaseInstanceId);
-    }
-
-    if (instanceIds.size === 0) {
-      rows.push({
-        phase,
-        phaseInstanceId: getDefaultPhaseInstanceId(phase),
-        phaseOrder: 0,
-        plan: null,
-        assignments: [],
-      });
-      continue;
-    }
-
-    const sortedInstanceIds = [...instanceIds].sort((a, b) => {
-      const planA = plans.find(plan => plan.phaseInstanceId === a);
-      const planB = plans.find(plan => plan.phaseInstanceId === b);
-      const orderA = planA?.phaseOrder ?? (a === getDefaultPhaseInstanceId(phase) ? 0 : Number.MAX_SAFE_INTEGER);
-      const orderB = planB?.phaseOrder ?? (b === getDefaultPhaseInstanceId(phase) ? 0 : Number.MAX_SAFE_INTEGER);
-      return orderA - orderB || a.localeCompare(b);
-    });
-
-    for (const [idx, phaseInstanceId] of sortedInstanceIds.entries()) {
-      const plan = plans.find(item => item.phaseInstanceId === phaseInstanceId) ?? null;
-      rows.push({
-        phase,
-        phaseInstanceId,
-        phaseOrder: plan?.phaseOrder ?? idx,
-        plan,
-        assignments: assignmentsByInstance.get(phaseInstanceId) ?? [],
-      });
-    }
-  }
-
-  return rows;
+  const phasePlans = [...plansByType.values()].flat();
+  const phaseAssignments = [...assignmentsByInstance.values()].flat();
+  const epicKey = phasePlans[0]?.epicKey ?? phaseAssignments[0]?.epicKey ?? '__portfolio_epic__';
+  return buildOrderedPhaseEntries(phasePlans, phaseAssignments, epicKey);
 }
 
 function getCapacityQuarters(qOpt: QOpt): string[] {
@@ -527,8 +494,14 @@ interface EpicViewProps {
   onToggleEpic:  (key: string) => void;
   onTogglePhasePersons: (epicKey: string, phaseInstanceId: string) => void;
   onRemoveEpic:  (key: string) => void;
-  onAddPhaseInstance: (epicKey: string, phase: PlanningPhase) => void;
+  onAddPhaseInstance: (epicKey: string, phase: PlanningPhase, afterPhaseInstanceId: string) => void;
   onRemovePhaseInstance: (epicKey: string, phaseInstanceId: string) => void;
+  onReorderPhaseInstances: (
+    epicKey: string,
+    movedPhaseInstanceId: string,
+    targetPhaseInstanceId: string,
+    position: 'before' | 'after',
+  ) => void;
   onSetPhaseStart: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, weekIdx: number) => void;
   onDragPhaseStart: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, e: React.MouseEvent) => void;
   onDragPhaseEnd:   (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, e: React.MouseEvent) => void;
@@ -555,7 +528,7 @@ function EpicView({
   boardEpics, phasePlansMap, assignMap, absenceLookup, memberMap, contactMap,
   weeks, tStart, dayW, panelWidth,
   epicCollapsed, phasePersonCollapsed,
-  onToggleEpic, onTogglePhasePersons, onRemoveEpic, onAddPhaseInstance, onRemovePhaseInstance, onSetPhaseStart,
+  onToggleEpic, onTogglePhasePersons, onRemoveEpic, onAddPhaseInstance, onRemovePhaseInstance, onReorderPhaseInstances, onSetPhaseStart,
   onDragPhaseStart, onDragPhaseEnd, onClearPhase, onRemoveAssignment,
   onUpdateDays, onUpdateAllocationMode, onUpsertSegment, onRemoveSegment,
   onUpdatePhasePlan, onAddPerson,
@@ -566,8 +539,12 @@ function EpicView({
   const totalW = weeks.length * (dayW * 5);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingPhaseKey, setEditingPhaseKey] = useState<string | null>(null);
+  const [draggingPhaseKey, setDraggingPhaseKey] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ key: string; position: 'before' | 'after' } | null>(null);
   const bottomScrollbarRef = useRef<HTMLDivElement | null>(null);
   const horizontalScrollSyncRef = useRef<'gantt' | 'bottom' | null>(null);
+  const draggingPhaseRef = useRef<{ epicKey: string; phaseInstanceId: string } | null>(null);
+  const dragAutoScrollRef = useRef<{ direction: -1 | 0 | 1; frameId: number | null }>({ direction: 0, frameId: null });
 
   const syncGanttFromLp = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
@@ -593,6 +570,93 @@ function EpicView({
       onTimelineScroll(ganttRef.current);
     }
   }, [ganttRef, onTimelineScroll]);
+
+  const handlePhaseDragStart = useCallback((epicKey: string, phaseInstanceId: string) => {
+    const key = `${epicKey}_${phaseInstanceId}`;
+    draggingPhaseRef.current = { epicKey, phaseInstanceId };
+    setDraggingPhaseKey(key);
+    setDropTarget(null);
+  }, []);
+
+  const stopAutoScroll = useCallback(() => {
+    if (dragAutoScrollRef.current.frameId !== null) {
+      window.cancelAnimationFrame(dragAutoScrollRef.current.frameId);
+    }
+    dragAutoScrollRef.current = { direction: 0, frameId: null };
+  }, []);
+
+  const startAutoScroll = useCallback((direction: -1 | 1) => {
+    if (!lpRef.current || !ganttRef.current) return;
+    if (
+      dragAutoScrollRef.current.direction === direction
+      && dragAutoScrollRef.current.frameId !== null
+    ) return;
+
+    stopAutoScroll();
+    dragAutoScrollRef.current.direction = direction;
+
+    const step = () => {
+      const lpEl = lpRef.current;
+      const ganttEl = ganttRef.current;
+      if (!lpEl || !ganttEl || dragAutoScrollRef.current.direction === 0) {
+        stopAutoScroll();
+        return;
+      }
+
+      const delta = 14 * dragAutoScrollRef.current.direction;
+      lpEl.scrollTop += delta;
+      ganttEl.scrollTop += delta;
+      dragAutoScrollRef.current.frameId = window.requestAnimationFrame(step);
+    };
+
+    dragAutoScrollRef.current.frameId = window.requestAnimationFrame(step);
+  }, [ganttRef, lpRef, stopAutoScroll]);
+
+  const handlePhaseDragEnd = useCallback(() => {
+    draggingPhaseRef.current = null;
+    setDraggingPhaseKey(null);
+    setDropTarget(null);
+    stopAutoScroll();
+  }, [stopAutoScroll]);
+
+  const handlePhaseDragOver = useCallback((
+    epicKey: string,
+    phaseInstanceId: string,
+    event: React.DragEvent<HTMLDivElement>,
+  ) => {
+    const dragged = draggingPhaseRef.current;
+    if (!dragged || dragged.epicKey !== epicKey || dragged.phaseInstanceId === phaseInstanceId) return;
+    event.preventDefault();
+
+    const scrollHost = lpRef.current;
+    if (scrollHost) {
+      const hostRect = scrollHost.getBoundingClientRect();
+      const edgeThreshold = 72;
+      if (event.clientY < hostRect.top + edgeThreshold) startAutoScroll(-1);
+      else if (event.clientY > hostRect.bottom - edgeThreshold) startAutoScroll(1);
+      else stopAutoScroll();
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    setDropTarget({ key: `${epicKey}_${phaseInstanceId}`, position });
+  }, [lpRef, startAutoScroll, stopAutoScroll]);
+
+  const handlePhaseDrop = useCallback((
+    epicKey: string,
+    phaseInstanceId: string,
+    event: React.DragEvent<HTMLDivElement>,
+  ) => {
+    const dragged = draggingPhaseRef.current;
+    if (!dragged || dragged.epicKey !== epicKey || dragged.phaseInstanceId === phaseInstanceId) return;
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    onReorderPhaseInstances(epicKey, dragged.phaseInstanceId, phaseInstanceId, position);
+    handlePhaseDragEnd();
+  }, [handlePhaseDragEnd, onReorderPhaseInstances]);
+
+  useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
 
   useEffect(() => {
     if (ganttRef.current && bottomScrollbarRef.current && bottomScrollbarRef.current.scrollLeft !== ganttRef.current.scrollLeft) {
@@ -658,7 +722,7 @@ function EpicView({
           const assignments = row.assignments;
           const barW = phasePlan ? (phaseBarWidthDays(phasePlan, tStart) ?? calcBarWidthDays(assignments, absenceLookup)) : calcBarWidthDays(assignments, absenceLookup);
           if (barW <= 0) return null;
-          const shortLabel = row.phaseOrder > 0 ? `${PH_SHORT[ph]} ${row.phaseOrder + 1}` : PH_SHORT[ph];
+          const shortLabel = row.phaseOrdinal > 1 ? `${PH_SHORT[ph]} ${row.phaseOrdinal}` : PH_SHORT[ph];
           const label = barW >= 4 ? `${shortLabel} ${barW}d` : `${barW}d`;
           const overTier = assignments.some(a => personOverloadMap.get(a.memberId) === 'over') ? 'over'
             : assignments.some(a => personOverloadMap.get(a.memberId) === 'near') ? 'near'
@@ -692,7 +756,13 @@ function EpicView({
         const phKey      = `${epicKey}_${row.phaseInstanceId}`;
         const pCollapsed = phasePersonCollapsed[phKey] ?? false;
         const totalPhDays = assignments.reduce((s, a) => s + totalDaysFromAssignment(a, startDate, endDate), 0);
-        const isDuplicate = row.phaseOrder > 0;
+        const isDuplicate = row.phaseOrdinal > 1;
+        const isReorderable = phasePlan !== null || assignments.length > 0;
+        const dragStateClass = draggingPhaseKey === phKey
+          ? ' is-dragging'
+          : dropTarget?.key === phKey
+            ? ` drag-over-${dropTarget.position}`
+            : '';
         const description = phasePlan?.description?.trim() ?? '';
         const descriptionPreview = description.length > 56 ? `${description.slice(0, 56)}...` : description;
 
@@ -713,10 +783,35 @@ function EpicView({
 
         // Phase left-panel row
         lpRows.push(
-          <div key={`p-${phKey}`} className={`ev-phase${isDuplicate ? ' duplicate' : ''}`} onClick={() => { if (editingPhaseKey !== phKey) onTogglePhasePersons(epicKey, row.phaseInstanceId); }}>
-            <button className="ph-add" onClick={e => { e.stopPropagation(); onAddPhaseInstance(epicKey, ph); }} title={`Add another ${PH_LBL[ph]} phase`}>+</button>
+          <div
+            key={`p-${phKey}`}
+            className={`ev-phase${isDuplicate ? ' duplicate' : ''}${dragStateClass}`}
+            onClick={() => { if (editingPhaseKey !== phKey) onTogglePhasePersons(epicKey, row.phaseInstanceId); }}
+            onDragOver={isReorderable ? (event) => handlePhaseDragOver(epicKey, row.phaseInstanceId, event) : undefined}
+            onDrop={isReorderable ? (event) => handlePhaseDrop(epicKey, row.phaseInstanceId, event) : undefined}
+          >
+            <button className="ph-add" onClick={e => { e.stopPropagation(); onAddPhaseInstance(epicKey, ph, row.phaseInstanceId); }} title={`Add another ${PH_LBL[ph]} phase`}>+</button>
+            {isReorderable && (
+              <button
+                className="ph-drag"
+                type="button"
+                draggable
+                onClick={e => e.stopPropagation()}
+                onDragStart={(event) => {
+                  event.stopPropagation();
+                  event.dataTransfer.effectAllowed = 'move';
+                  event.dataTransfer.setData('text/plain', phKey);
+                  handlePhaseDragStart(epicKey, row.phaseInstanceId);
+                }}
+                onDragEnd={handlePhaseDragEnd}
+                title="Drag to reorder phase"
+                aria-label={`Reorder ${getPhaseDisplayLabel(ph, row.phaseOrdinal)}`}
+              >
+                drag
+              </button>
+            )}
             <span className={`pp-chev ph-expand${pCollapsed ? '' : ' open'}`}>▶</span>
-            <span className={`pp-ph-label ${PH_KEY[ph]}`}>{getPhaseDisplayLabel(ph, row.phaseOrder)}</span>
+            <span className={`pp-ph-label ${PH_KEY[ph]}`}>{getPhaseDisplayLabel(ph, row.phaseOrdinal)}</span>
             {editingPhaseKey === phKey ? (
               <PhaseEditorPopover
                 startDate={startDate}
@@ -973,6 +1068,7 @@ interface PersonAssignEntry {
   phase: PlanningPhase;
   phaseInstanceId: string;
   phaseOrder: number;
+  phaseOrdinal: number;
   days: number;
   assignment: EpicPhaseAssignment;
   phaseStartDate: string | null;
@@ -1219,7 +1315,7 @@ function PeopleView({
               : <span className="pv-assign-key">{a.epic.jiraKey}</span>
             }
             <span className="pv-assign-name">{a.epic.summary}</span>
-            <span className={`pp-pv-pp ${phK}`}>{getPhaseDisplayLabel(a.phase, a.phaseOrder)}</span>
+            <span className={`pp-pv-pp ${phK}`}>{getPhaseDisplayLabel(a.phase, a.phaseOrdinal)}</span>
             <span className="pv-assign-days">{a.days}d</span>
           </div>
         );
@@ -1284,6 +1380,7 @@ interface BreakdownPhaseGroup {
   key: string;
   phase: PlanningPhase;
   phaseOrder: number;
+  phaseOrdinal: number;
   days: number;
 }
 
@@ -1384,6 +1481,7 @@ function BreakdownView({
               key: phaseKey,
               phase: assignment.phase,
               phaseOrder: assignment.phaseOrder,
+              phaseOrdinal: assignment.phaseOrdinal,
               days: 0,
             });
           }
@@ -1394,11 +1492,7 @@ function BreakdownView({
           .map((epicGroup) => ({
             epic: epicGroup.epic,
             totalDays: roundToTenth(epicGroup.totalDays),
-            phases: [...epicGroup.phases.values()].sort((a, b) => {
-              const phaseDiff = PHASES.indexOf(a.phase) - PHASES.indexOf(b.phase);
-              if (phaseDiff !== 0) return phaseDiff;
-              return a.phaseOrder - b.phaseOrder;
-            }),
+            phases: [...epicGroup.phases.values()].sort((a, b) => a.phaseOrder - b.phaseOrder),
           }))
           .sort((a, b) => b.totalDays - a.totalDays || a.epic.jiraKey.localeCompare(b.epic.jiraKey));
 
@@ -1413,7 +1507,7 @@ function BreakdownView({
             : epics.filter((epicGroup) => (
               epicGroup.epic.jiraKey.toLowerCase().includes(query)
               || epicGroup.epic.summary.toLowerCase().includes(query)
-              || epicGroup.phases.some((phaseGroup) => getPhaseDisplayLabel(phaseGroup.phase, phaseGroup.phaseOrder).toLowerCase().includes(query))
+              || epicGroup.phases.some((phaseGroup) => getPhaseDisplayLabel(phaseGroup.phase, phaseGroup.phaseOrdinal).toLowerCase().includes(query))
             ));
         }
 
@@ -1753,7 +1847,7 @@ function BreakdownView({
                               <div className="pp-breakdown-cell" />
                               <div className="pp-breakdown-cell" />
                               <div className="pp-breakdown-cell">
-                                <span className={`pp-pv-pp ${PH_KEY[phaseGroup.phase]}`}>{getPhaseDisplayLabel(phaseGroup.phase, phaseGroup.phaseOrder)}</span>
+                                <span className={`pp-pv-pp ${PH_KEY[phaseGroup.phase]}`}>{getPhaseDisplayLabel(phaseGroup.phase, phaseGroup.phaseOrdinal)}</span>
                               </div>
                               <div className="pp-breakdown-cell pp-breakdown-num">{formatDays(phaseGroup.days)}d</div>
                               <div className="pp-breakdown-cell pp-breakdown-num" />
@@ -3054,7 +3148,7 @@ export function PortfolioPlanning() {
             map.set(a.memberId, { id: a.memberId, member, contact, name, role, availDays, totalCapacityDays, assignments: [] });
           }
           map.get(a.memberId)!.assignments.push({
-            epic, phase, phaseInstanceId: row.phaseInstanceId, phaseOrder: row.phaseOrder, days: a.days,
+            epic, phase, phaseInstanceId: row.phaseInstanceId, phaseOrder: row.phaseOrder, phaseOrdinal: row.phaseOrdinal, days: a.days,
             assignment: a,
             phaseStartDate: phasePlan?.startDate ?? null,
             phaseEndDate: phasePlan?.endDate ?? null,
@@ -3212,31 +3306,90 @@ export function PortfolioPlanning() {
     });
   }, [activeScenario]);
 
-  const handleAddPhaseInstance = useCallback(async (epicKey: string, phase: PlanningPhase) => {
+  const handleAddPhaseInstance = useCallback(async (
+    epicKey: string,
+    phase: PlanningPhase,
+    afterPhaseInstanceId: string = getDefaultPhaseInstanceId(phase),
+  ) => {
     if (activeScenario) {
       const now = new Date().toISOString();
-      const phaseOrder = activePhasePlans.filter(p => p.epicKey === epicKey && p.phase === phase).length;
       const phaseInstanceId = `${phase}-${Date.now()}`;
-      updateActiveScenario(s => ({
-        ...s,
-        phasePlans: [...s.phasePlans, { id: `local-${epicKey}-${phaseInstanceId}`, epicKey, phase, phaseInstanceId, phaseOrder, startDate: null, endDate: null, description: null, updatedAt: now }],
-      }));
+      updateActiveScenario((s) => {
+        const displayRows = buildOrderedPhaseEntries(s.phasePlans, s.phaseAssignments, epicKey);
+        const orderedEntries = displayRows
+          .filter((row) => row.plan !== null || row.assignments.length > 0)
+          .map((row) => ({ phase: row.phase, phaseInstanceId: row.phaseInstanceId }));
+        const sourceIdx = displayRows.findIndex((row) => row.phaseInstanceId === afterPhaseInstanceId);
+        const insertIdx = sourceIdx >= 0
+          ? displayRows.slice(0, sourceIdx + 1).filter((row) => row.plan !== null || row.assignments.length > 0).length
+          : orderedEntries.length;
+        orderedEntries.splice(insertIdx, 0, { phase, phaseInstanceId });
+        return {
+          ...s,
+          phasePlans: upsertPhaseSequencePlans(s.phasePlans, orderedEntries, epicKey, now),
+        };
+      });
       return;
     }
-    await plan.addPhaseInstance(epicKey, phase);
-  }, [activeScenario, activePhasePlans, updateActiveScenario, plan]);
+    await plan.addPhaseInstance(epicKey, phase, afterPhaseInstanceId);
+  }, [activeScenario, updateActiveScenario, plan]);
 
   const handleRemovePhaseInstance = useCallback(async (epicKey: string, phaseInstanceId: string) => {
     if (activeScenario) {
-      updateActiveScenario(s => ({
-        ...s,
-        phasePlans: s.phasePlans.filter(p => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId)),
-        phaseAssignments: s.phaseAssignments.filter(a => !(a.epicKey === epicKey && a.phaseInstanceId === phaseInstanceId)),
-      }));
+      const now = new Date().toISOString();
+      updateActiveScenario((s) => {
+        const phaseAssignments = s.phaseAssignments.filter((a) => !(a.epicKey === epicKey && a.phaseInstanceId === phaseInstanceId));
+        const remainingEntries = buildOrderedPhaseEntries(s.phasePlans, phaseAssignments, epicKey)
+          .filter((row) => (row.plan !== null || row.assignments.length > 0) && row.phaseInstanceId !== phaseInstanceId)
+          .map((row) => ({ phase: row.phase, phaseInstanceId: row.phaseInstanceId }));
+        return {
+          ...s,
+          phasePlans: upsertPhaseSequencePlans(
+            s.phasePlans.filter((p) => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId)),
+            remainingEntries,
+            epicKey,
+            now,
+          ),
+          phaseAssignments,
+        };
+      });
       return;
     }
     await plan.removePhaseInstance(epicKey, phaseInstanceId);
   }, [activeScenario, updateActiveScenario, plan]);
+
+  const handleReorderPhaseInstances = useCallback(async (
+    epicKey: string,
+    movedPhaseInstanceId: string,
+    targetPhaseInstanceId: string,
+    position: 'before' | 'after',
+  ) => {
+    const phaseRows = getPhaseInstanceRows(
+      phasePlansMap.get(epicKey) ?? new Map(),
+      assignMap.get(epicKey) ?? new Map(),
+    ).filter((row) => row.plan !== null || row.assignments.length > 0);
+
+    const orderedEntries = phaseRows.map((row) => ({ phase: row.phase, phaseInstanceId: row.phaseInstanceId }));
+    const fromIdx = orderedEntries.findIndex((entry) => entry.phaseInstanceId === movedPhaseInstanceId);
+    const targetIdx = orderedEntries.findIndex((entry) => entry.phaseInstanceId === targetPhaseInstanceId);
+    if (fromIdx < 0 || targetIdx < 0) return;
+
+    const [movedEntry] = orderedEntries.splice(fromIdx, 1);
+    let insertIdx = position === 'after' ? targetIdx + 1 : targetIdx;
+    if (fromIdx < insertIdx) insertIdx -= 1;
+    orderedEntries.splice(insertIdx, 0, movedEntry);
+
+    if (activeScenario) {
+      const now = new Date().toISOString();
+      updateActiveScenario((s) => ({
+        ...s,
+        phasePlans: upsertPhaseSequencePlans(s.phasePlans, orderedEntries, epicKey, now),
+      }));
+      return;
+    }
+
+    await plan.reorderPhaseInstances(epicKey, orderedEntries);
+  }, [activeScenario, assignMap, phasePlansMap, plan, updateActiveScenario]);
 
   const handleUpdatePhasePlan = useCallback(async (
     epicKey: string,
@@ -3246,10 +3399,20 @@ export function PortfolioPlanning() {
   ) => {
     if (activeScenario) {
       const now = new Date().toISOString();
-      updateActiveScenario(s => {
-        const phaseOrder = s.phasePlans.find(p => p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId)?.phaseOrder
-          ?? s.phasePlans.filter(p => p.epicKey === epicKey && p.phase === phase).length;
-        const existing = s.phasePlans.find(p => p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId);
+      updateActiveScenario((s) => {
+        const displayRows = buildOrderedPhaseEntries(s.phasePlans, s.phaseAssignments, epicKey);
+        const orderedEntries = displayRows
+          .filter((row) => row.plan !== null || row.assignments.length > 0)
+          .map((row) => ({ phase: row.phase, phaseInstanceId: row.phaseInstanceId }));
+        const existing = s.phasePlans.find((p) => p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId);
+        if (!orderedEntries.some((entry) => entry.phaseInstanceId === phaseInstanceId)) {
+          const displayIdx = displayRows.findIndex((row) => row.phaseInstanceId === phaseInstanceId);
+          const insertIdx = displayIdx >= 0
+            ? displayRows.slice(0, displayIdx).filter((row) => row.plan !== null || row.assignments.length > 0).length
+            : orderedEntries.length;
+          orderedEntries.splice(insertIdx, 0, { phase, phaseInstanceId });
+        }
+        const phaseOrder = orderedEntries.findIndex((entry) => entry.phaseInstanceId === phaseInstanceId);
         const nextPlan: EpicPhasePlan = existing
           ? { ...existing, ...changes, updatedAt: now }
           : {
@@ -3263,8 +3426,18 @@ export function PortfolioPlanning() {
               description: changes.description ?? null,
               updatedAt: now,
             };
-        const phasePlans = s.phasePlans.filter(p => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId));
-        return { ...s, phasePlans: [...phasePlans, nextPlan] };
+        return {
+          ...s,
+          phasePlans: upsertPhaseSequencePlans(
+            [
+              ...s.phasePlans.filter((p) => !(p.epicKey === epicKey && p.phaseInstanceId === phaseInstanceId)),
+              nextPlan,
+            ],
+            orderedEntries,
+            epicKey,
+            now,
+          ),
+        };
       });
       return;
     }
@@ -3664,6 +3837,7 @@ export function PortfolioPlanning() {
             onRemoveEpic={handleRemoveEpic}
             onAddPhaseInstance={handleAddPhaseInstance}
             onRemovePhaseInstance={handleRemovePhaseInstance}
+            onReorderPhaseInstances={handleReorderPhaseInstances}
             onSetPhaseStart={(epicKey, phase, phaseInstanceId, weekIdx) =>
               handleSetPhaseStartDate(epicKey, phase, dayToIsoDate(weekIdx * 5, tStart), phaseInstanceId)
             }
