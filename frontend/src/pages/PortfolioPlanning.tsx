@@ -665,10 +665,11 @@ function EpicView({
     event: React.MouseEvent<HTMLDivElement>,
   ) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const relativeX = Math.max(0, event.clientX - rect.left);
+    const scrollLeft = ganttRef.current?.scrollLeft ?? 0;
+    const relativeX = Math.max(0, scrollLeft + event.clientX - rect.left);
     const weekIdx = Math.max(0, Math.min(weeks.length - 1, Math.floor(relativeX / (dayW * 5))));
     onSetPhaseStart(epicKey, phase, phaseInstanceId, weekIdx);
-  }, [dayW, onSetPhaseStart, weeks.length]);
+  }, [dayW, ganttRef, onSetPhaseStart, weeks.length]);
 
   useEffect(() => {
     if (ganttRef.current && bottomScrollbarRef.current && bottomScrollbarRef.current.scrollLeft !== ganttRef.current.scrollLeft) {
