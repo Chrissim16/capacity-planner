@@ -113,6 +113,238 @@ function manualToJiraWorkItem(m: ManualEpic): JiraWorkItem {
   };
 }
 
+const PORTFOLIO_PICKER_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const PORTFOLIO_PICKER_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function parsePortfolioIsoDate(isoDate: string): Date | null {
+  if (!isoDate) return null;
+  const parsed = new Date(`${isoDate}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getPortfolioPickerMonthDays(year: number, month: number): Date[] {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const days: Date[] = [];
+  const startDow = (firstDay.getDay() + 6) % 7;
+
+  for (let i = startDow - 1; i >= 0; i -= 1) {
+    days.push(new Date(year, month, -i));
+  }
+  for (let day = 1; day <= lastDay.getDate(); day += 1) {
+    days.push(new Date(year, month, day));
+  }
+
+  const remainder = days.length % 7;
+  if (remainder > 0) {
+    for (let day = 1; day <= 7 - remainder; day += 1) {
+      days.push(new Date(year, month + 1, day));
+    }
+  }
+
+  return days;
+}
+
+function formatPortfolioPickerDisplay(isoDate: string): string {
+  const parsed = parsePortfolioIsoDate(isoDate);
+  if (!parsed) return '';
+  return `${String(parsed.getDate()).padStart(2, '0')}/${String(parsed.getMonth() + 1).padStart(2, '0')}/${parsed.getFullYear()}`;
+}
+
+function isPortfolioDateOutOfRange(isoDate: string, minDate?: string, maxDate?: string): boolean {
+  return (Boolean(minDate) && isoDate < minDate!) || (Boolean(maxDate) && isoDate > maxDate!);
+}
+
+interface PortfolioDatePickerProps {
+  value: string;
+  onChange: (value: string) => void;
+  minDate?: string;
+  maxDate?: string;
+  autoFocus?: boolean;
+  compact?: boolean;
+  allowClear?: boolean;
+  placeholder?: string;
+}
+
+function PortfolioDatePicker({
+  value,
+  onChange,
+  minDate,
+  maxDate,
+  autoFocus = false,
+  compact = false,
+  allowClear = true,
+  placeholder = 'DD/MM/YYYY',
+}: PortfolioDatePickerProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState(() => {
+    const initialDate = parsePortfolioIsoDate(value) ?? parsePortfolioIsoDate(minDate ?? '') ?? new Date();
+    return new Date(initialDate.getFullYear(), initialDate.getMonth(), 1);
+  });
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const anchorDate =
+      parsePortfolioIsoDate(value)
+      ?? parsePortfolioIsoDate(minDate ?? '')
+      ?? parsePortfolioIsoDate(maxDate ?? '')
+      ?? new Date();
+    setViewMonth(new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1));
+  }, [isOpen, maxDate, minDate, value]);
+
+  const todayIso = formatIsoDateLocal(new Date());
+  const monthDays = useMemo(
+    () => getPortfolioPickerMonthDays(viewMonth.getFullYear(), viewMonth.getMonth()),
+    [viewMonth],
+  );
+
+  const selectDate = useCallback((nextValue: string) => {
+    onChange(nextValue);
+    setIsOpen(false);
+  }, [onChange]);
+
+  return (
+    <div
+      ref={rootRef}
+      className={`pp-date-picker${compact ? ' compact' : ''}`}
+      onClick={event => event.stopPropagation()}
+    >
+      <div className="pp-date-picker-trigger-wrap">
+        <button
+          type="button"
+          className={`pp-date-picker-trigger${value ? '' : ' placeholder'}`}
+          onClick={() => setIsOpen(prev => !prev)}
+          autoFocus={autoFocus}
+        >
+          <span>{value ? formatPortfolioPickerDisplay(value) : placeholder}</span>
+          <span className="pp-date-picker-caret" aria-hidden="true">▾</span>
+        </button>
+        {allowClear && value && (
+          <button
+            type="button"
+            className="pp-date-picker-clear"
+            onClick={() => {
+              onChange('');
+              setIsOpen(false);
+            }}
+            aria-label="Clear date"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="pp-date-picker-popover" onMouseDown={event => event.preventDefault()}>
+          <div className="pp-date-picker-head">
+            <button
+              type="button"
+              className="pp-date-picker-nav"
+              onClick={() => setViewMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+              aria-label="Previous month"
+            >
+              ‹
+            </button>
+            <div className="pp-date-picker-title">
+              {PORTFOLIO_PICKER_MONTHS[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+            </div>
+            <button
+              type="button"
+              className="pp-date-picker-nav"
+              onClick={() => setViewMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+              aria-label="Next month"
+            >
+              ›
+            </button>
+          </div>
+
+          <div className="pp-date-picker-weekdays">
+            {PORTFOLIO_PICKER_WEEKDAYS.map(day => (
+              <span key={day}>{day}</span>
+            ))}
+          </div>
+
+          <div className="pp-date-picker-grid">
+            {monthDays.map((day) => {
+              const isoDate = formatIsoDateLocal(day);
+              const isCurrentMonth = day.getMonth() === viewMonth.getMonth();
+              const isSelected = isoDate === value;
+              const isToday = isoDate === todayIso;
+              const isDisabled = isPortfolioDateOutOfRange(isoDate, minDate, maxDate);
+
+              return (
+                <button
+                  key={isoDate}
+                  type="button"
+                  className={[
+                    'pp-date-picker-day',
+                    isCurrentMonth ? '' : 'adjacent',
+                    isSelected ? 'selected' : '',
+                    isToday ? 'today' : '',
+                  ].filter(Boolean).join(' ')}
+                  disabled={isDisabled}
+                  onClick={() => selectDate(isoDate)}
+                >
+                  {day.getDate()}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="pp-date-picker-actions">
+            <button
+              type="button"
+              className="pp-date-picker-action"
+              disabled={isPortfolioDateOutOfRange(todayIso, minDate, maxDate)}
+              onClick={() => selectDate(todayIso)}
+            >
+              Today
+            </button>
+            {allowClear && (
+              <button
+                type="button"
+                className="pp-date-picker-action subtle"
+                disabled={!value}
+                onClick={() => {
+                  onChange('');
+                  setIsOpen(false);
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Avatar color palette ───────────────────────────────────────────────────────
 const AV_PALETTE = [
   '#0089DD','#7C3AED','#D97706','#16A34A','#DB2777',
@@ -374,11 +606,25 @@ function AllocEditor({
         <div className="ev-alloc-segs">
           {segs.map(seg => (
             <div key={seg.id} className="ev-seg-row">
-              <input type="date" defaultValue={seg.startDate}
-                onBlur={e => onUpsertSegment({ ...seg, startDate: e.target.value })} />
+              <PortfolioDatePicker
+                value={seg.startDate}
+                onChange={(value) => {
+                  if (value) onUpsertSegment({ ...seg, startDate: value });
+                }}
+                maxDate={seg.endDate}
+                compact
+                allowClear={false}
+              />
               <span className="ev-seg-arrow">→</span>
-              <input type="date" defaultValue={seg.endDate}
-                onBlur={e => onUpsertSegment({ ...seg, endDate: e.target.value })} />
+              <PortfolioDatePicker
+                value={seg.endDate}
+                onChange={(value) => {
+                  if (value) onUpsertSegment({ ...seg, endDate: value });
+                }}
+                minDate={seg.startDate}
+                compact
+                allowClear={false}
+              />
               <input type="number" min="0.5" step="0.5" defaultValue={seg.days}
                 onBlur={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onUpsertSegment({ ...seg, days: v }); }}
                 onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
@@ -412,8 +658,13 @@ function PhaseEditorPopover({
   const [draftStartDate, setDraftStartDate] = useState(startDate ?? '');
   const [draftEndDate, setDraftEndDate] = useState(endDate ?? '');
   const [draftDescription, setDraftDescription] = useState(description ?? '');
+  const dateRangeError = useMemo(() => {
+    if (!draftStartDate || !draftEndDate) return '';
+    return draftEndDate < draftStartDate ? 'End date must be on or after the start date.' : '';
+  }, [draftEndDate, draftStartDate]);
 
   const commitAndClose = useCallback(() => {
+    if (dateRangeError) return;
     const changes: PhasePlanChanges = {};
     const normalizedDescription = draftDescription.trim();
     if (draftStartDate !== (startDate ?? '')) changes.startDate = draftStartDate || null;
@@ -421,7 +672,7 @@ function PhaseEditorPopover({
     if (normalizedDescription !== (description ?? '')) changes.description = normalizedDescription || null;
     if ('startDate' in changes || 'endDate' in changes || 'description' in changes) onCommit(changes);
     onClose();
-  }, [description, draftDescription, draftEndDate, draftStartDate, endDate, onClose, onCommit, startDate]);
+  }, [dateRangeError, description, draftDescription, draftEndDate, draftStartDate, endDate, onClose, onCommit, startDate]);
 
   return (
     <div
@@ -443,22 +694,25 @@ function PhaseEditorPopover({
       <div className="ph-editor-grid">
         <label className="ph-editor-field">
           <span>Start date</span>
-          <input
-            type="date"
+          <PortfolioDatePicker
             value={draftStartDate}
+            maxDate={draftEndDate || undefined}
             autoFocus
-            onChange={e => setDraftStartDate(e.target.value)}
+            onChange={setDraftStartDate}
           />
         </label>
         <label className="ph-editor-field">
           <span>End date</span>
-          <input
-            type="date"
+          <PortfolioDatePicker
             value={draftEndDate}
-            onChange={e => setDraftEndDate(e.target.value)}
+            minDate={draftStartDate || undefined}
+            onChange={setDraftEndDate}
           />
         </label>
       </div>
+      {dateRangeError && (
+        <div className="ph-editor-error" role="alert">{dateRangeError}</div>
+      )}
       <label className="ph-editor-field ph-editor-notes">
         <span>Description</span>
         <textarea
@@ -470,7 +724,7 @@ function PhaseEditorPopover({
       </label>
       <div className="ph-editor-actions">
         <button className="ph-editor-btn subtle" onClick={onClose} type="button">Cancel</button>
-        <button className="ph-editor-btn primary" onClick={commitAndClose} type="button">Save</button>
+        <button className="ph-editor-btn primary" onClick={commitAndClose} type="button" disabled={Boolean(dateRangeError)}>Save</button>
       </div>
     </div>
   );
