@@ -818,6 +818,8 @@ interface EpicViewProps {
   phasePersonCollapsed: Record<string, boolean>;
   onToggleEpic:  (key: string) => void;
   onTogglePhasePersons: (epicKey: string, phaseInstanceId: string) => void;
+  onExpandEpicPhases: (epicKey: string) => void;
+  onCollapseEpicPhases: (epicKey: string) => void;
   onRemoveEpic:  (key: string) => void;
   onAddPhaseInstance: (epicKey: string, phase: PlanningPhase, afterPhaseInstanceId: string) => void;
   onRemovePhaseInstance: (epicKey: string, phaseInstanceId: string) => void;
@@ -853,7 +855,8 @@ function EpicView({
   boardEpics, phasePlansMap, assignMap, absenceLookup, memberMap, contactMap,
   weeks, tStart, dayW, panelWidth,
   epicCollapsed, phasePersonCollapsed,
-  onToggleEpic, onTogglePhasePersons, onRemoveEpic, onAddPhaseInstance, onRemovePhaseInstance, onReorderPhaseInstances, onSetPhaseStart,
+  onToggleEpic, onTogglePhasePersons, onExpandEpicPhases, onCollapseEpicPhases, onRemoveEpic,
+  onAddPhaseInstance, onRemovePhaseInstance, onReorderPhaseInstances, onSetPhaseStart,
   onDragPhaseStart, onDragPhaseEnd, onClearPhase, onRemoveAssignment,
   onUpdateDays, onUpdateAllocationMode, onUpsertSegment, onRemoveSegment,
   onUpdatePhasePlan, onAddPerson,
@@ -1046,6 +1049,28 @@ function EpicView({
         }
         <span className="ev-epic-name">{epic.summary}</span>
         {totalDays > 0 && <span className="ev-epic-total">{totalDays}d</span>}
+        <button
+          className="ev-epic-phase-toggle"
+          type="button"
+          onClick={e => {
+            e.stopPropagation();
+            onExpandEpicPhases(epicKey);
+          }}
+          title="Expand all phases in this epic"
+        >
+          Expand phases
+        </button>
+        <button
+          className="ev-epic-phase-toggle"
+          type="button"
+          onClick={e => {
+            e.stopPropagation();
+            onCollapseEpicPhases(epicKey);
+          }}
+          title="Collapse all phases in this epic"
+        >
+          Collapse phases
+        </button>
         <button className="ev-epic-remove" onClick={e => { e.stopPropagation(); onRemoveEpic(epicKey); }}>×</button>
       </div>
     );
@@ -1150,12 +1175,9 @@ function EpicView({
                 aria-label={`Reorder ${getPhaseDisplayLabel(ph, row.phaseOrdinal)}`}
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                  <circle cx="3" cy="2.5" r="1" fill="currentColor" />
-                  <circle cx="9" cy="2.5" r="1" fill="currentColor" />
-                  <circle cx="3" cy="6" r="1" fill="currentColor" />
-                  <circle cx="9" cy="6" r="1" fill="currentColor" />
-                  <circle cx="3" cy="9.5" r="1" fill="currentColor" />
-                  <circle cx="9" cy="9.5" r="1" fill="currentColor" />
+                  <path d="M2 3.25h8" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+                  <path d="M2 6h8" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+                  <path d="M2 8.75h8" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
                 </svg>
               </button>
             )}
@@ -4065,6 +4087,32 @@ export function PortfolioPlanning() {
     setPhasePersonCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
+  const expandEpicPhases = useCallback((epicKey: string) => {
+    const phaseRows = getPhaseInstanceRows(
+      phasePlansMap.get(epicKey) ?? new Map(),
+      assignMap.get(epicKey) ?? new Map(),
+    );
+    setEpicCollapsed(prev => ({ ...prev, [epicKey]: false }));
+    setPhasePersonCollapsed(prev => {
+      const next = { ...prev };
+      for (const row of phaseRows) next[`${epicKey}_${row.phaseInstanceId}`] = false;
+      return next;
+    });
+  }, [phasePlansMap, assignMap]);
+
+  const collapseEpicPhases = useCallback((epicKey: string) => {
+    const phaseRows = getPhaseInstanceRows(
+      phasePlansMap.get(epicKey) ?? new Map(),
+      assignMap.get(epicKey) ?? new Map(),
+    );
+    setEpicCollapsed(prev => ({ ...prev, [epicKey]: false }));
+    setPhasePersonCollapsed(prev => {
+      const next = { ...prev };
+      for (const row of phaseRows) next[`${epicKey}_${row.phaseInstanceId}`] = true;
+      return next;
+    });
+  }, [phasePlansMap, assignMap]);
+
   const handleSaveDrawer = useCallback((keys: string[]) => {
     if (activeScenario) {
       updateActiveScenario(s => ({ ...s, boardEpicKeys: keys }));
@@ -4200,6 +4248,8 @@ export function PortfolioPlanning() {
             phasePersonCollapsed={phasePersonCollapsed}
             onToggleEpic={toggleEpic}
             onTogglePhasePersons={togglePhasePersons}
+            onExpandEpicPhases={expandEpicPhases}
+            onCollapseEpicPhases={collapseEpicPhases}
             onRemoveEpic={handleRemoveEpic}
             onAddPhaseInstance={handleAddPhaseInstance}
             onRemovePhaseInstance={handleRemovePhaseInstance}
