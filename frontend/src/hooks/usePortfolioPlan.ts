@@ -359,6 +359,11 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     if (!isSupabaseConfigured()) return;
 
     await supabase
+      .from('epic_phase_assignments')
+      .delete()
+      .match({ epic_key: epicKey, phase_instance_id: phaseInstanceId });
+
+    await supabase
       .from('epic_phase_plans')
       .delete()
       .match({ epic_key: epicKey, phase_instance_id: phaseInstanceId });
