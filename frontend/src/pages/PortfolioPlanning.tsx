@@ -1553,10 +1553,20 @@ function getAssignmentDaysForQuarter(
   return roundToTenth((totalAssignedDays * overlapWorkdays) / phaseWorkdays);
 }
 
+function getVisibleAssignedDaysForEntries(
+  assignments: Array<Pick<PersonAssignEntry, 'assignment' | 'phaseStartDate' | 'phaseEndDate'>>,
+  qOpt: QOpt,
+): number {
+  return roundToTenth(assignments.reduce(
+    (sum, assignment) => sum + getAssignmentDaysForQuarter(assignment, qOpt),
+    0,
+  ));
+}
+
 function PeopleView({
   peopleSummaries, weeks, tStart, dayW, panelWidth,
   pvExpanded, onTogglePerson,
-  onResizeMouseDown, lpRef, ganttRef, onTimelineScroll, jiraBaseUrl,
+  onResizeMouseDown, lpRef, ganttRef, onTimelineScroll, jiraBaseUrl, quarterOpt,
 }: {
   peopleSummaries: PersonSummary[];
   weeks: PortfolioWeek[];
@@ -1570,9 +1580,15 @@ function PeopleView({
   ganttRef: React.RefObject<HTMLDivElement | null>;
   onTimelineScroll: (el: HTMLDivElement) => void;
   jiraBaseUrl: string;
+  quarterOpt: QOpt;
 }) {
   const totalW = weeks.length * (dayW * 5);
   const [sortBy, setSortBy] = useState<'name' | 'utilization'>('name');
+  const getVisibleAssignedDays = useCallback(
+    (assignments: Array<Pick<PersonAssignEntry, 'assignment' | 'phaseStartDate' | 'phaseEndDate'>>) =>
+      getVisibleAssignedDaysForEntries(assignments, quarterOpt),
+    [quarterOpt],
+  );
 
   const syncGanttFromLp = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
@@ -1585,8 +1601,8 @@ function PeopleView({
   const sortedPeopleSummaries = useMemo(() => {
     return [...peopleSummaries].sort((a, b) => {
       if (sortBy === 'utilization') {
-        const assignedA = a.assignments.reduce((sum, assignment) => sum + assignment.days, 0);
-        const assignedB = b.assignments.reduce((sum, assignment) => sum + assignment.days, 0);
+        const assignedA = getVisibleAssignedDays(a.assignments);
+        const assignedB = getVisibleAssignedDays(b.assignments);
         const utilA = a.availDays > 0 ? assignedA / a.availDays : -1;
         const utilB = b.availDays > 0 ? assignedB / b.availDays : -1;
         if (utilB !== utilA) return utilB - utilA;
@@ -1594,7 +1610,7 @@ function PeopleView({
 
       return getActorDisplayName(a).localeCompare(getActorDisplayName(b));
     });
-  }, [peopleSummaries, sortBy]);
+  }, [getVisibleAssignedDays, peopleSummaries, sortBy]);
 
   if (!peopleSummaries.length) {
     return (
@@ -1614,7 +1630,7 @@ function PeopleView({
   for (const ps of sortedPeopleSummaries) {
     const pid       = ps.id;
     const expanded  = pvExpanded[pid] ?? false;
-    const estDays   = ps.assignments.reduce((s, a) => s + a.days, 0);
+    const estDays   = getVisibleAssignedDays(ps.assignments);
     const utilPct   = ps.availDays > 0 ? estDays / ps.availDays : 0;
     const tier      = utilTier(utilPct);
 
@@ -2359,9 +2375,14 @@ function SummaryView({
   baselinePhaseAssignments: EpicPhaseAssignment[];
 }) {
   const periodLabel = quarterOpt.q === -1 ? 'year' : 'quarter';
+  const getVisibleAssignedDays = useCallback(
+    (assignments: Array<Pick<PersonAssignEntry, 'assignment' | 'phaseStartDate' | 'phaseEndDate'>>) =>
+      getVisibleAssignedDaysForEntries(assignments, quarterOpt),
+    [quarterOpt],
+  );
   const totalPlannedDays = useMemo(
-    () => peopleSummaries.reduce((sum, person) => sum + person.assignments.reduce((acc, a) => acc + a.days, 0), 0),
-    [peopleSummaries],
+    () => peopleSummaries.reduce((sum, person) => sum + getVisibleAssignedDays(person.assignments), 0),
+    [getVisibleAssignedDays, peopleSummaries],
   );
 
   const totalAvailableDays = useMemo(() => {
@@ -2375,17 +2396,17 @@ function SummaryView({
   }, [quarterOpt, state]);
 
   const overCapacityPeopleCount = useMemo(
-    () => peopleSummaries.filter(person => person.availDays > 0 && person.assignments.reduce((sum, a) => sum + a.days, 0) / person.availDays > 1).length,
-    [peopleSummaries],
+    () => peopleSummaries.filter(person => person.availDays > 0 && getVisibleAssignedDays(person.assignments) / person.availDays > 1).length,
+    [getVisibleAssignedDays, peopleSummaries],
   );
 
   const nearCapacityPeopleCount = useMemo(
     () => peopleSummaries.filter(person => {
       if (person.availDays <= 0) return false;
-      const utilization = person.assignments.reduce((sum, a) => sum + a.days, 0) / person.availDays;
+      const utilization = getVisibleAssignedDays(person.assignments) / person.availDays;
       return utilization > 0.85 && utilization <= 1;
     }).length,
-    [peopleSummaries],
+    [getVisibleAssignedDays, peopleSummaries],
   );
 
   const epicRiskSummary = useMemo(() => {
@@ -2433,7 +2454,19 @@ function SummaryView({
       byPhase.get(plan.phase)!.push(plan);
     }
 
-    const baselinePlannedDays = baselinePhaseAssignments.reduce((sum, assignment) => sum + assignment.days, 0);
+    const baselinePlanByInstanceId = new Map<string, EpicPhasePlan>();
+    for (const plan of baselinePhasePlans) {
+      baselinePlanByInstanceId.set(plan.id, plan);
+    }
+
+    const baselinePlannedDays = roundToTenth(baselinePhaseAssignments.reduce((sum, assignment) => {
+      const plan = baselinePlanByInstanceId.get(assignment.phaseInstanceId);
+      return sum + getAssignmentDaysForQuarter({
+        assignment,
+        phaseStartDate: plan?.startDate ?? null,
+        phaseEndDate: plan?.endDate ?? null,
+      }, quarterOpt);
+    }, 0));
 
     const baselinePeople = new Map<string, { assigned: number; available: number }>();
     for (const person of peopleSummaries) {
@@ -2442,7 +2475,12 @@ function SummaryView({
     for (const assignment of baselinePhaseAssignments) {
       const row = baselinePeople.get(assignment.memberId);
       if (!row) continue;
-      row.assigned += assignment.days;
+      const plan = baselinePlanByInstanceId.get(assignment.phaseInstanceId);
+      row.assigned += getAssignmentDaysForQuarter({
+        assignment,
+        phaseStartDate: plan?.startDate ?? null,
+        phaseEndDate: plan?.endDate ?? null,
+      }, quarterOpt);
     }
     let baselineOver = 0;
     let baselineNear = 0;
@@ -2481,6 +2519,7 @@ function SummaryView({
     baselinePhaseAssignments,
     baselinePhasePlans,
     boardEpics,
+    quarterOpt,
     missingPhaseDateCount,
     nearCapacityPeopleCount,
     overCapacityPeopleCount,
@@ -2492,7 +2531,7 @@ function SummaryView({
   const portfolioRisks = useMemo(() => {
     const peopleRisks = peopleSummaries
       .map(person => {
-        const assigned = person.assignments.reduce((sum, a) => sum + a.days, 0);
+        const assigned = getVisibleAssignedDays(person.assignments);
         const utilization = person.availDays > 0 ? assigned / person.availDays : 0;
         if (utilization <= 0.85) return null;
         const severity = utilization > 1 ? 'high' : 'medium';
@@ -2536,7 +2575,7 @@ function SummaryView({
       const severityScore = { high: 0, medium: 1 };
       return severityScore[a.severity] - severityScore[b.severity] || a.label.localeCompare(b.label);
     });
-  }, [epicRiskSummary, peopleSummaries]);
+  }, [epicRiskSummary, getVisibleAssignedDays, peopleSummaries]);
 
   const epicEffortCards = useMemo(() => {
     const businessTeamMap = new Map(state.businessTeams.map(team => [team.id, team.name]));
@@ -2604,9 +2643,18 @@ function SummaryView({
       let estDays = 0;
       for (const epic of boardEpics) {
         const phAssign = assignMap.get(epic.jiraKey) ?? new Map();
-        for (const assignments of phAssign.values()) {
-          for (const a of assignments) {
-            if (allIds.has(a.memberId)) estDays += a.days;
+        const phaseRows = getPhaseInstanceRows(
+          phasePlansMap.get(epic.jiraKey) ?? new Map(),
+          phAssign,
+        );
+        for (const row of phaseRows) {
+          for (const a of row.assignments) {
+            if (!allIds.has(a.memberId)) continue;
+            estDays += getAssignmentDaysForQuarter({
+              assignment: a,
+              phaseStartDate: row.plan?.startDate ?? null,
+              phaseEndDate: row.plan?.endDate ?? null,
+            }, quarterOpt);
           }
         }
       }
@@ -2615,7 +2663,7 @@ function SummaryView({
       const tier    = utilTier(utilPct);
       return { id: pt.id, name: pt.name, estDays, totalAvail, utilPct, tier, memberCount: allIds.size };
     });
-  }, [assignMap, boardEpics, processTeams, quarterOpt, state]);
+  }, [assignMap, boardEpics, phasePlansMap, processTeams, quarterOpt, state]);
 
   // Capacity alerts — people over or near capacity (exclude team placeholders)
   const alertRows = useMemo(() => {
@@ -2623,18 +2671,18 @@ function SummaryView({
       .filter(ps => {
         const pid = ps.member?.id ?? ps.contact?.id ?? ps.name;
         if (pid.startsWith('TEAM:')) return false;
-        const utilPct = ps.availDays > 0 ? ps.assignments.reduce((s, a) => s + a.days, 0) / ps.availDays : 0;
+        const utilPct = ps.availDays > 0 ? getVisibleAssignedDays(ps.assignments) / ps.availDays : 0;
         return utilPct > 0.85;
       })
       .map(ps => {
-        const estDays = ps.assignments.reduce((s, a) => s + a.days, 0);
+        const estDays = getVisibleAssignedDays(ps.assignments);
         const utilPct = ps.availDays > 0 ? estDays / ps.availDays : 0;
         const tier    = utilTier(utilPct);
         const delta   = estDays - ps.availDays;
         return { name: ps.name, id: ps.member?.id ?? ps.contact?.id ?? '', estDays, availDays: ps.availDays, utilPct, tier, delta };
       })
       .sort((a, b) => b.utilPct - a.utilPct);
-  }, [peopleSummaries]);
+  }, [getVisibleAssignedDays, peopleSummaries]);
 
   // Compact Gantt — weeks use flex:1
   const nWeeks = weeks.length;
@@ -3549,13 +3597,13 @@ export function PortfolioPlanning() {
     const m = new Map<string, 'over' | 'near'>();
     for (const ps of peopleSummaries) {
       if (ps.availDays <= 0) continue;
-      const totalDays = ps.assignments.reduce((s, a) => s + a.days, 0);
+      const totalDays = getVisibleAssignedDaysForEntries(ps.assignments, activeQuarterOpt);
       const pct = totalDays / ps.availDays;
       if (pct > 1) m.set(ps.id, 'over');
       else if (pct > 0.85) m.set(ps.id, 'near');
     }
     return m;
-  }, [peopleSummaries]);
+  }, [activeQuarterOpt, peopleSummaries]);
 
   const handleTimelineScroll = useCallback((el: HTMLDivElement) => {
     ganttWeekOffsetRef.current = weekW > 0 ? el.scrollLeft / weekW : 0;
@@ -4290,6 +4338,7 @@ export function PortfolioPlanning() {
             ganttRef={pvGanttRef}
             onTimelineScroll={handleTimelineScroll}
             jiraBaseUrl={jiraBaseUrl}
+            quarterOpt={activeQuarterOpt}
           />
         )}
         {activeTab === 'breakdown' && (
