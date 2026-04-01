@@ -447,18 +447,16 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 .ph-add:hover { color: var(--blue); border-color: var(--blue); background: var(--blue-lt); }
 .ph-drag {
-  min-width: 32px; height: 20px;
+  width: 24px; height: 24px;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid #D7E3F0; background: #F8FAFD;
-  border-radius: 999px; color: #64748B;
+  border-radius: 6px; color: #64748B;
   cursor: grab; flex-shrink: 0;
-  font-size: 9px; font-weight: 700;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  padding: 0 6px;
+  padding: 0;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
   transition: all 100ms;
 }
+.ph-drag svg { display: block; }
 .ev-phase:hover .ph-drag,
 .ev-phase.is-dragging .ph-drag {
   color: var(--blue);

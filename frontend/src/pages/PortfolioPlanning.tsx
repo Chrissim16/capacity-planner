@@ -658,6 +658,19 @@ function EpicView({
 
   useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
 
+  const handleEmptyPhaseClick = useCallback((
+    epicKey: string,
+    phase: PlanningPhase,
+    phaseInstanceId: string,
+    event: React.MouseEvent<HTMLDivElement>,
+  ) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const scrollLeft = ganttRef.current?.scrollLeft ?? 0;
+    const relativeX = Math.max(0, scrollLeft + event.clientX - rect.left);
+    const weekIdx = Math.max(0, Math.min(weeks.length - 1, Math.floor(relativeX / (dayW * 5))));
+    onSetPhaseStart(epicKey, phase, phaseInstanceId, weekIdx);
+  }, [dayW, ganttRef, onSetPhaseStart, weeks.length]);
+
   useEffect(() => {
     if (ganttRef.current && bottomScrollbarRef.current && bottomScrollbarRef.current.scrollLeft !== ganttRef.current.scrollLeft) {
       bottomScrollbarRef.current.scrollLeft = ganttRef.current.scrollLeft;
@@ -807,7 +820,14 @@ function EpicView({
                 title="Drag to reorder phase"
                 aria-label={`Reorder ${getPhaseDisplayLabel(ph, row.phaseOrdinal)}`}
               >
-                drag
+                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                  <circle cx="3" cy="2.5" r="1" fill="currentColor" />
+                  <circle cx="9" cy="2.5" r="1" fill="currentColor" />
+                  <circle cx="3" cy="6" r="1" fill="currentColor" />
+                  <circle cx="9" cy="6" r="1" fill="currentColor" />
+                  <circle cx="3" cy="9.5" r="1" fill="currentColor" />
+                  <circle cx="9" cy="9.5" r="1" fill="currentColor" />
+                </svg>
               </button>
             )}
             <span className={`pp-chev ph-expand${pCollapsed ? '' : ' open'}`}>▶</span>
@@ -849,7 +869,12 @@ function EpicView({
         // Phase Gantt row
         if (!hasStart) {
           ganttRows.push(
-            <div key={`gp-${phKey}`} className="pp-g-phase empty-phase" style={{ minWidth: totalW }}>
+            <div
+              key={`gp-${phKey}`}
+              className="pp-g-phase empty-phase"
+              style={{ minWidth: totalW }}
+              onClick={(event) => handleEmptyPhaseClick(epicKey, ph, row.phaseInstanceId, event)}
+            >
               <GridBg weeks={weeks} />
               <TodayLine tStart={tStart} totalW={totalW} dayW={dayW} />
               <div className="pp-g-click-cols">
