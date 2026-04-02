@@ -138,7 +138,7 @@ module.exports = async function handler(req, res) {
       if (createUserError || !createdUserData?.user?.id) {
         const message = createUserError?.message ?? 'Unknown createUser error';
         const msg = normalizeCreateUserError(message);
-        console.error('[Admin] Create user error:', message);
+        console.error('[Admin] Create user error:', createUserError);
         return res.status(400).json({
           error: msg,
           details: message,

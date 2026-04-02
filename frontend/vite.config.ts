@@ -1,8 +1,26 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { randomBytes } from 'crypto'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { createClient } from '@supabase/supabase-js'
+
+function generateTemporaryPassword(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*'
+  const bytes = randomBytes(16)
+  let password = ''
+  for (const byte of bytes) {
+    password += alphabet[byte % alphabet.length]
+  }
+  return password
+}
+
+function normalizeCreateUserError(message: string): string {
+  const lower = message.toLowerCase()
+  if (lower.includes('already registered')) return 'A user with this email already exists.'
+  if (lower.includes('password')) return 'Supabase rejected the temporary password. Please try again.'
+  return 'Failed to create the user. Please try again.'
+}
 
 const ALLOWED_JIRA_HOSTS = ['atlassian.net']
 
@@ -172,24 +190,44 @@ const adminProxyPlugin: Plugin = {
 
           const validRoles = ['system_admin', 'project_manager', 'read_only']
           const assignedRole = validRoles.includes(role ?? '') ? role : 'project_manager'
-          const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email)
-          if (inviteError) {
-            const msg = inviteError.message.toLowerCase().includes('already registered')
-              ? 'A user with this email already exists.'
-              : 'Failed to send invitation. Please try again.'
-            return sendJson(400, { error: msg })
+
+          const temporaryPassword = generateTemporaryPassword()
+          const { data: createdUserData, error: createUserError } = await adminClient.auth.admin.createUser({
+            email,
+            password: temporaryPassword,
+            email_confirm: true,
+          })
+          if (createUserError || !createdUserData?.user?.id) {
+            const message = createUserError?.message ?? 'Unknown createUser error'
+            const msg = normalizeCreateUserError(message)
+            console.error('[admin-proxy] Create user error:', createUserError)
+            return sendJson(400, {
+              error: msg,
+              details: message,
+              diagnostics: createUserError ? {
+                name: createUserError.name ?? null,
+                message: createUserError.message ?? null,
+                status: (createUserError as { status?: number }).status ?? null,
+                code: (createUserError as { code?: string }).code ?? null,
+                error_code: (createUserError as { error_code?: string }).error_code ?? null,
+              } : null,
+            })
           }
 
-          if (inviteData?.user?.id) {
-            const { error: upsertError } = await adminClient
-              .from('user_roles')
-              .upsert({ user_id: inviteData.user.id, role: assignedRole }, { onConflict: 'user_id' })
-            if (upsertError) {
-              console.error('[admin-proxy] Failed to pre-assign role:', upsertError.message)
-            }
+          const createdUserId = createdUserData.user.id
+          const { error: upsertError } = await adminClient
+            .from('user_roles')
+            .upsert({ user_id: createdUserId, role: assignedRole }, { onConflict: 'user_id' })
+          if (upsertError) {
+            console.error('[admin-proxy] Failed to pre-assign role:', upsertError.message)
+            await adminClient.auth.admin.deleteUser(createdUserId)
+            return sendJson(500, {
+              error: 'Failed to assign the user role.',
+              details: upsertError.message,
+            })
           }
 
-          return sendJson(200, { success: true })
+          return sendJson(200, { success: true, temporaryPassword, userId: createdUserId })
         }
 
         if (action === 'remove') {
