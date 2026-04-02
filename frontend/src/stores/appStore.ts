@@ -549,10 +549,23 @@ export const useAppStore = create<AppStore>()(
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => customStorage),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<AppStore> | undefined;
+        return {
+          ...currentState,
+          ...persisted,
+          data: persisted?.data ?? currentState.data,
+          ui: {
+            ...currentState.ui,
+            ...(persisted?.ui ?? {}),
+            // Never let a stale persisted UI view override a direct URL.
+            currentView: currentState.ui.currentView,
+          },
+        };
+      },
       partialize: (state) => ({
         data: state.data,
         ui: {
-          currentView: state.ui.currentView,
           teamViewMode: state.ui.teamViewMode,
           timelineViewMode: state.ui.timelineViewMode,
           dashboardPeopleFilter: state.ui.dashboardPeopleFilter,

@@ -239,7 +239,7 @@ export interface MemberCapacitySummary {
 // UI STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'planner' | 'portfolio-planning' | 'report' | 'settings';
+export type ViewType = 'dashboard' | 'timeline' | 'projects' | 'team' | 'jira' | 'scenarios' | 'planner' | 'portfolio-planning' | 'report' | 'settings' | 'planning-mockups';
 export type TeamViewMode = 'current' | 'all';
 export type TimelineViewMode = 'week' | 'month' | 'quarter' | 'year';
 export type PlannerTimelineViewMode = 'sprint' | 'quarter';

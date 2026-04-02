@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { Dashboard } from './pages/Dashboard';
@@ -8,6 +8,7 @@ import { Team } from './pages/Team';
 import { Scenarios } from './pages/Scenarios';
 import { ScenarioPlanner } from './pages/ScenarioPlanner';
 import { PortfolioPlanning } from './pages/PortfolioPlanning';
+import { PlanningJourneyMockups } from './pages/PlanningJourneyMockups';
 import { Report } from './pages/Report';
 import { Settings } from './pages/Settings';
 import { ToastProvider } from './components/ui/Toast';
@@ -31,6 +32,7 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
   '/planner':             'planner',
   '/planning':            'planner',
   '/portfolio-planning':  'portfolio-planning',
+  '/planning-mockups':    'planning-mockups',
   '/report':              'report',
   '/settings':            'settings',
 };
@@ -45,6 +47,7 @@ const VIEW_TO_PATH: Record<ViewType, string> = {
   scenarios:           '/scenarios',
   planner:             '/planner',
   'portfolio-planning': '/portfolio-planning',
+  'planning-mockups':  '/planning-mockups',
   report:              '/report',
   settings:            '/settings',
 };
@@ -59,6 +62,7 @@ const pages: Record<ViewType, React.ComponentType> = {
   scenarios:           Scenarios,
   planner:             ScenarioPlanner,
   'portfolio-planning': PortfolioPlanning,
+  'planning-mockups':  PlanningJourneyMockups,
   report:              Report,
   settings:            Settings,
 };
@@ -119,6 +123,8 @@ function App() {
   const initializeFromSupabase = useAppStore((s) => s.initializeFromSupabase);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const hasSyncedInitialUrlRef = useRef(false);
+  const syncingViewFromUrlRef = useRef(false);
   const { user, loading: authLoading, accessIssue } = useCurrentUser();
   const navigate = useNavigate();
   const location = useLocation();
@@ -133,16 +139,27 @@ function App() {
   // When the URL changes (browser back/forward), update the store.
   useEffect(() => {
     const view = PATH_TO_VIEW[location.pathname] ?? 'dashboard';
-    if (view !== currentView) setCurrentView(view);
+    if (view !== currentView) {
+      syncingViewFromUrlRef.current = true;
+      setCurrentView(view);
+    }
+    hasSyncedInitialUrlRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   // When the store view changes (programmatic nav), push to history.
   useEffect(() => {
+    if (!hasSyncedInitialUrlRef.current) return;
+    if (syncingViewFromUrlRef.current) {
+      syncingViewFromUrlRef.current = false;
+      return;
+    }
+    const viewForCurrentPath = PATH_TO_VIEW[location.pathname] ?? 'dashboard';
+    if (currentView === viewForCurrentPath) return;
     const targetPath = VIEW_TO_PATH[currentView] ?? '/';
     if (location.pathname !== targetPath) navigate(targetPath, { replace: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentView]);
+  }, [currentView, location.pathname]);
 
   // Dark mode is removed — always light mode
 
@@ -219,7 +236,7 @@ function App() {
 
   return (
     <ToastProvider>
-      <Layout variant={currentView === 'planner' || currentView === 'report' || currentView === 'portfolio-planning' ? 'fullbleed' : 'default'}>
+      <Layout variant={currentView === 'planner' || currentView === 'report' || currentView === 'portfolio-planning' || currentView === 'planning-mockups' ? 'fullbleed' : 'default'}>
         <CurrentPage />
       </Layout>
       <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />

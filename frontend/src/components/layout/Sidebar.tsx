@@ -32,6 +32,7 @@ const VIEW_TO_PATH: Record<ViewType, string> = {
   scenarios:           '/scenarios',
   planner:             '/planner',
   'portfolio-planning': '/portfolio-planning',
+  'planning-mockups':  '/planning-mockups',
   report:              '/report',
   settings:            '/settings',
 };
