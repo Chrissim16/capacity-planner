@@ -1,11 +1,11 @@
-const crypto = require('crypto');
-const { createClient } = require('@supabase/supabase-js');
+import { randomBytes } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
 const ALLOWED_ORIGIN = process.env.FRONTEND_URL || 'https://capacity-planner-mw.vercel.app';
 
 function generateTemporaryPassword() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
-  const bytes = crypto.randomBytes(16);
+  const bytes = randomBytes(16);
   let password = '';
 
   for (const byte of bytes) {
@@ -58,7 +58,7 @@ function getErrorDiagnostics(error) {
  *   { action: 'invite', email: string, role: string }
  *   { action: 'remove', userId: string }
  */
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // CORS preflight
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
@@ -195,4 +195,4 @@ module.exports = async function handler(req, res) {
       diagnostics: getErrorDiagnostics(err),
     });
   }
-};
+}
