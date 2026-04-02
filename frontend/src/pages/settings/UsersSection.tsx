@@ -40,11 +40,27 @@ async function parseApiError(res: Response, fallback: string): Promise<string> {
  const contentType = res.headers.get('content-type') ?? '';
 
  if (contentType.includes('application/json')) {
- const body = await res.json() as { error?: string; details?: string };
+ const body = await res.json() as {
+ error?: string;
+ details?: string;
+ diagnostics?: {
+ name?: string | null;
+ message?: string | null;
+ status?: number | null;
+ code?: string | null;
+ error_code?: string | null;
+ };
+ };
+ const diagnosticParts = [
+ body.diagnostics?.name,
+ body.diagnostics?.code,
+ body.diagnostics?.error_code,
+ body.diagnostics?.status != null ? `status ${body.diagnostics.status}` : null,
+ ].filter(Boolean);
  if (body.error && body.details && body.details !== body.error) {
- return `${body.error} ${body.details}`;
+ return [body.error, body.details, diagnosticParts.join(' · ')].filter(Boolean).join(' ');
  }
- return body.error ?? body.details ?? fallback;
+ return [body.error ?? body.details ?? fallback, diagnosticParts.join(' · ')].filter(Boolean).join(' ');
  }
 
  const text = await res.text();

@@ -33,6 +33,18 @@ function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error || 'Unknown error');
 }
 
+function getErrorDiagnostics(error) {
+  if (!error || typeof error !== 'object') return null;
+
+  return {
+    name: error.name ?? null,
+    message: error.message ?? null,
+    status: error.status ?? null,
+    code: error.code ?? null,
+    error_code: error.error_code ?? null,
+  };
+}
+
 /**
  * Admin API route — create and remove users.
  *
@@ -127,7 +139,11 @@ module.exports = async function handler(req, res) {
         const message = createUserError?.message ?? 'Unknown createUser error';
         const msg = normalizeCreateUserError(message);
         console.error('[Admin] Create user error:', message);
-        return res.status(400).json({ error: msg, details: message });
+        return res.status(400).json({
+          error: msg,
+          details: message,
+          diagnostics: getErrorDiagnostics(createUserError),
+        });
       }
 
       const createdUserId = createdUserData.user.id;
@@ -176,6 +192,7 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({
       error: 'An unexpected error occurred.',
       details: getErrorMessage(err),
+      diagnostics: getErrorDiagnostics(err),
     });
   }
 };
