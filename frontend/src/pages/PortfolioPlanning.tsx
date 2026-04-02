@@ -591,7 +591,12 @@ function AllocEditor({
       window.innerWidth - width - viewportPadding,
     );
 
-    setPopoverStyle({ top, left, width });
+    setPopoverStyle((prev) => {
+      if (prev.top === top && prev.left === left && prev.width === width) {
+        return prev;
+      }
+      return { top, left, width };
+    });
   }, [anchorEl, mode, onClose]);
 
   useLayoutEffect(() => {
