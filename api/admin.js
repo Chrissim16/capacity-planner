@@ -24,6 +24,10 @@ function normalizeInviteError(message) {
   return 'Failed to send invitation. Please try again.';
 }
 
+function getErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error || 'Unknown error');
+}
+
 /**
  * Admin API route — invite and remove users.
  *
@@ -59,7 +63,10 @@ module.exports = async function handler(req, res) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
     console.error('[Admin] Missing Supabase configuration');
-    return res.status(500).json({ error: 'Server configuration error' });
+    return res.status(500).json({
+      error: 'Server configuration error',
+      details: `Missing ${!supabaseUrl ? 'SUPABASE_URL' : 'SUPABASE_SERVICE_ROLE_KEY'} in the Vercel environment.`,
+    });
   }
 
   // Verify caller JWT
@@ -110,7 +117,7 @@ module.exports = async function handler(req, res) {
       if (inviteError) {
         const msg = normalizeInviteError(inviteError.message);
         console.error('[Admin] Invite user error:', inviteError.message);
-        return res.status(400).json({ error: msg });
+        return res.status(400).json({ error: msg, details: inviteError.message });
       }
 
       // Pre-assign the chosen role so the user lands with the right permissions on first login
@@ -149,6 +156,9 @@ module.exports = async function handler(req, res) {
     }
   } catch (err) {
     console.error('[Admin] Unexpected error:', err);
-    return res.status(500).json({ error: 'An unexpected error occurred.' });
+    return res.status(500).json({
+      error: 'An unexpected error occurred.',
+      details: getErrorMessage(err),
+    });
   }
 };
