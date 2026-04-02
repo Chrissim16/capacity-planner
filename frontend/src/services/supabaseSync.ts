@@ -543,7 +543,16 @@ const MEMBER_ROW_NO_CAPACITY_OVERRIDES = (m: TeamMember) => ({
   squad_id: m.squadId ?? null,
   process_team_ids: m.processTeamIds ?? [],
   excluded_from_capacity: m.excludedFromCapacity ?? false,
-  name_manually_edited: m.nameManuallyEdited ?? false,
+});
+
+const MEMBER_ROW_NO_CAPACITY_OR_EXCLUDED = (m: TeamMember) => ({
+  id: m.id, name: m.name, role: m.role, country_id: m.countryId,
+  skill_ids: m.skillIds, max_concurrent_projects: m.maxConcurrentProjects,
+  email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
+  synced_from_jira: m.syncedFromJira ?? false,
+  needs_enrichment: m.needsEnrichment ?? false, is_active: true,
+  squad_id: m.squadId ?? null,
+  process_team_ids: m.processTeamIds ?? [],
 });
 
 const MEMBER_ROW_NO_NAME_OVERRIDE = (m: TeamMember) => ({
@@ -575,13 +584,39 @@ const softDeleteMembers = async (idsToRemove: string[]) => {
   }
 };
 
+async function syncTeamMembersWithoutCapacityOverrides(members: TeamMember[]): Promise<void> {
+  try {
+    await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('excluded_from_capacity')) {
+      try {
+        await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OR_EXCLUDED, softDeleteMembers);
+      } catch (err2) {
+        const msg2 = err2 instanceof Error ? err2.message : String(err2);
+        if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
+          await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
+        } else {
+          throw err2;
+        }
+      }
+      return;
+    }
+    if (msg.includes('squad_id') || msg.includes('process_team_ids')) {
+      await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
+      return;
+    }
+    throw err;
+  }
+}
+
 async function syncTeamMembers(members: TeamMember[]): Promise<void> {
   try {
     await upsertAndPrune('team_members', members, EXTENDED_MEMBER_ROW, softDeleteMembers);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('working_days_per_week') || msg.includes('bau_override') || msg.includes('bau_reserve_days') || msg.includes('bau_reserve_percent')) {
-      await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
+      await syncTeamMembersWithoutCapacityOverrides(members);
       return;
     }
     if (msg.includes('name_manually_edited')) {
@@ -590,7 +625,7 @@ async function syncTeamMembers(members: TeamMember[]): Promise<void> {
       } catch (err2) {
         const msg2 = err2 instanceof Error ? err2.message : String(err2);
         if (msg2.includes('working_days_per_week') || msg2.includes('bau_override') || msg2.includes('bau_reserve_days') || msg2.includes('bau_reserve_percent')) {
-          await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
+          await syncTeamMembersWithoutCapacityOverrides(members);
         } else if (msg2.includes('excluded_from_capacity')) {
           await upsertAndPrune('team_members', members, MEMBER_ROW_NO_EXCLUDED, softDeleteMembers);
         } else if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
