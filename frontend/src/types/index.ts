@@ -65,6 +65,8 @@ export interface TeamMember {
   maxConcurrentProjects: number;
   workingDaysPerWeek?: number;
   bauOverride?: boolean;
+  bauReservePercent?: number;
+  /** Legacy day-based BAU value kept for backward compatibility with older saved data. */
   bauReserveDays?: number;
   squadId?: string;
   processTeamIds?: string[];
@@ -104,7 +106,9 @@ export interface Sprint {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface Settings {
-  bauReserveDays: number;
+  bauReservePercent?: number;
+  /** Legacy day-based BAU value kept for backward compatibility with older saved data. */
+  bauReserveDays?: number;
   hoursPerDay: number;
   defaultView: string;
   quartersToShow: number;
@@ -137,6 +141,8 @@ export interface BusinessContact {
   countryId: string;
   workingDaysPerWeek?: number;
   workingHoursPerDay?: number;
+  bauReservePercent?: number;
+  /** Legacy day-based BAU value kept for backward compatibility with older saved data. */
   bauReserveDays?: number;
   processTeamIds?: string[];
   businessTeamIds?: string[];

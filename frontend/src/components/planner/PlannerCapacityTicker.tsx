@@ -18,7 +18,7 @@ import {
 } from '@floating-ui/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
-import { calculateCapacity } from '../../utils/capacity';
+import { calculateBusinessCapacity, calculateCapacity } from '../../utils/capacity';
 import type { PlannerItem, Sprint } from '../../types';
 
 const TICKER_H = 28;
@@ -322,12 +322,20 @@ export function usePlannerCapacityTicker({
     const contactRows = (state.businessContacts ?? [])
       .filter(c => !c.archived && !c.excludedFromCapacity)
       .map(c => {
-        const scale = (c.workingDaysPerWeek ?? 5) / 5;
-        const bauPerSprint = Math.round((c.bauReserveDays ?? 5) / 6);
-        const perSprintAvail = Math.max(0, Math.round(10 * scale) - bauPerSprint);
         const cells = quarterSprints.map(s => ({
           load: computeLoadDays(c.id, s.number, itemsForCalc),
-          avail: perSprintAvail,
+          avail: (() => {
+            const cap = calculateBusinessCapacity(
+              c,
+              s.startDate,
+              s.endDate,
+              [],
+              state.businessTimeOff ?? [],
+              state.publicHolidays ?? [],
+              [],
+            );
+            return Math.max(0, cap.availableDays - cap.allocatedDays);
+          })(),
         }));
         return { id: c.id, name: c.name, cells };
       });

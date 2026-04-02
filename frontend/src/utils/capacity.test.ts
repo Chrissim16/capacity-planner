@@ -146,6 +146,44 @@ describe('calculateCapacity', () => {
     expect(overrideResult.breakdown.find(b => b.type === 'bau')?.days).toBe(2);
   });
 
+  it('calculates BAU from a global percentage setting', () => {
+    const state = makeState({
+      settings: {
+        ...makeState().settings,
+        bauReservePercent: 10,
+        bauReserveDays: undefined,
+      },
+      teamMembers: [{ id: 'm1', name: 'Alice', role: 'Dev', countryId: 'country-nl', skillIds: [], maxConcurrentProjects: 3 }],
+    });
+
+    const result = calculateCapacity('m1', 'Q1 2026', state);
+    expect(result.breakdown.find(b => b.type === 'bau')?.days).toBeCloseTo(6.4, 1);
+  });
+
+  it('uses a per-member BAU percentage override when present', () => {
+    const state = makeState({
+      settings: {
+        ...makeState().settings,
+        bauReservePercent: 10,
+        bauReserveDays: undefined,
+      },
+      teamMembers: [{
+        id: 'm1',
+        name: 'Alice',
+        role: 'Dev',
+        countryId: 'country-nl',
+        skillIds: [],
+        maxConcurrentProjects: 3,
+        bauOverride: true,
+        bauReservePercent: 20,
+        bauReserveDays: undefined,
+      }],
+    });
+
+    const result = calculateCapacity('m1', 'Q1 2026', state);
+    expect(result.breakdown.find(b => b.type === 'bau')?.days).toBeCloseTo(12.8, 1);
+  });
+
   it('scales IT capacity by workingDaysPerWeek', () => {
     const fullTimeState = makeState({
       teamMembers: [{
@@ -268,6 +306,12 @@ describe('calculateBusinessCapacity', () => {
     // BAU prorated to the week — some fraction of 10 days per quarter
     expect(result.allocatedDays).toBeGreaterThan(0);
     expect(result.breakdownByProject.some(b => b.projectId === '__bau__')).toBe(true);
+  });
+
+  it('calculates business BAU from percentage', () => {
+    const contact = makeContact({ bauReservePercent: 20, bauReserveDays: undefined });
+    const result = calculateBusinessCapacity(contact, '2026-01-05', '2026-01-09', [], [], [], []);
+    expect(result.allocatedDays).toBeCloseTo(1, 1);
   });
 
   it('scales availability by workingDaysPerWeek', () => {

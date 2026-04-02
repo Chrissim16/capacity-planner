@@ -3,6 +3,7 @@
  */
 
 import type { AppState, TimeOff } from '../types';
+import { getSettingsBauPercent } from './bau';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // JSON EXPORT/IMPORT
@@ -39,7 +40,7 @@ export async function exportToExcel(state: AppState, filename = 'capacity-planne
 
   const settingsSheet = XLSX.utils.aoa_to_sheet([
     ['Setting', 'Value'],
-    ['BAU Reserve Days', state.settings.bauReserveDays],
+    ['BAU Reserve %', getSettingsBauPercent(state.settings)],
     ['Hours Per Day', state.settings.hoursPerDay],
     ['Quarters To Show', state.settings.quartersToShow],
     ['Default Country ID', state.settings.defaultCountryId],

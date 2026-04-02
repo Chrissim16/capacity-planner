@@ -58,7 +58,7 @@ function safeSetItem(key: string, value: string): void {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const defaultSettings: Settings = {
-  bauReserveDays: 5,
+  bauReservePercent: 8,
   hoursPerDay: 8,
   defaultView: 'dashboard',
   quartersToShow: 4,

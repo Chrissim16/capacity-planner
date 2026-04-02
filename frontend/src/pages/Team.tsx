@@ -15,6 +15,7 @@ import { calculateBusinessCapacityForQuarter } from '../utils/capacity';
 import { getCurrentQuarter } from '../utils/calendar';
 import type { TeamMember, BusinessContact, ProcessTeam } from '../types';
 import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
+import { getBusinessContactBauPercent, getSettingsBauPercent, getTeamMemberBauPercent } from '../utils/bau';
 
 type GroupBy = 'role' | 'country' | 'squad' | 'processTeam' | 'dept' | 'none';
 type TabType = 'it' | 'biz' | 'all';
@@ -1159,6 +1160,7 @@ return (
  contact={editingContact}
  countries={countries}
  processTeams={processTeams}
+ defaultBauPercent={getSettingsBauPercent(state.settings)}
  onSave={data => {
  if (editingContact) {
  updateBusinessContact(editingContact.id, data);
@@ -1239,6 +1241,7 @@ return (
  countries={countries}
  processTeams={processTeams}
  jiraWorkItems={jiraWorkItems}
+ defaultBauPercent={getSettingsBauPercent(state.settings)}
  onConfirm={(contactData, migrateKeys) => {
  const snapshotMembers = JSON.parse(JSON.stringify(state.teamMembers));
  const snapshotContacts = JSON.parse(JSON.stringify(state.businessContacts));
@@ -1474,10 +1477,10 @@ function MassUpdateModal({
  const [ptMode, setPtMode] = useState<'add' | 'replace'>('add');
 
  // IT-member-only fields
- const [bauDays, setBauDays] = useState('');
+ const [bauPercent, setBauPercent] = useState('');
 
  // Biz-contact-only fields
- const [bizBauDays, setBizBauDays] = useState('');
+ const [bizBauPercent, setBizBauPercent] = useState('');
  const [department, setDepartment] = useState('');
 
  const togglePt = (id: string) =>
@@ -1499,11 +1502,14 @@ function MassUpdateModal({
  memberUpdates.processTeamIds = processTeamIds;
  contactUpdates.processTeamIds = processTeamIds;
  }
- if (bauDays && !isNaN(parseFloat(bauDays))) {
- (memberUpdates as Record<string, unknown>).bauDays = parseFloat(bauDays);
+ if (bauPercent && !isNaN(parseFloat(bauPercent))) {
+ memberUpdates.bauOverride = true;
+ memberUpdates.bauReservePercent = parseFloat(bauPercent);
+ memberUpdates.bauReserveDays = undefined;
  }
- if (bizBauDays && !isNaN(parseFloat(bizBauDays))) {
- contactUpdates.bauReserveDays = parseFloat(bizBauDays);
+ if (bizBauPercent && !isNaN(parseFloat(bizBauPercent))) {
+ contactUpdates.bauReservePercent = parseFloat(bizBauPercent);
+ contactUpdates.bauReserveDays = undefined;
  }
  if (department) {
  contactUpdates.department = department;
@@ -1584,8 +1590,8 @@ function MassUpdateModal({
  {/* IT member BAU — hidden for biz-only selection */}
  {!onlyContacts && (
  <div>
- <label className={labelClass}>IT member BAU (days/qtr)</label>
- <input className={fieldClass} type="number" min={0} placeholder="— no change —" value={bauDays} onChange={e => setBauDays(e.target.value)} />
+ <label className={labelClass}>IT member BAU (% capacity)</label>
+ <input className={fieldClass} type="number" min={0} max={100} step={0.5} placeholder="— no change —" value={bauPercent} onChange={e => setBauPercent(e.target.value)} />
  </div>
  )}
 
@@ -1593,8 +1599,8 @@ function MassUpdateModal({
  {!onlyMembers && (
  <>
  <div>
- <label className={labelClass}>BAU reserve (days/qtr)</label>
- <input className={fieldClass} type="number" min={0} placeholder="— no change —" value={bizBauDays} onChange={e => setBizBauDays(e.target.value)} />
+ <label className={labelClass}>BAU reserve (% capacity)</label>
+ <input className={fieldClass} type="number" min={0} max={100} step={0.5} placeholder="— no change —" value={bizBauPercent} onChange={e => setBizBauPercent(e.target.value)} />
  </div>
  <div>
  <label className={labelClass}>Department</label>
@@ -1610,12 +1616,13 @@ function MassUpdateModal({
 // ─── Convert IT Member → Business Contact Modal ───────────────────────────────
 
 function ConvertToBizModal({
- member, countries, processTeams, jiraWorkItems, onConfirm, onClose,
+ member, countries, processTeams, jiraWorkItems, defaultBauPercent, onConfirm, onClose,
 }: {
  member: TeamMember;
  countries: ReturnType<typeof useCurrentState>['countries'];
  processTeams: ProcessTeam[];
  jiraWorkItems: ReturnType<typeof useCurrentState>['jiraWorkItems'];
+ defaultBauPercent: number;
  onConfirm: (contactData: Omit<BusinessContact, 'id'>, migrateKeys: string[]) => void;
  onClose: () => void;
 }) {
@@ -1628,7 +1635,9 @@ function ConvertToBizModal({
  const [department, setDepartment] = useState('');
  const [email, setEmail] = useState(member.email ?? '');
  const [countryId, setCountryId] = useState(member.countryId ?? '');
- const [bauReserveDays, setBauReserveDays] = useState('5');
+ const [bauReservePercent, setBauReservePercent] = useState(String(getTeamMemberBauPercent(member, {
+ bauReservePercent: defaultBauPercent,
+ })));
  const [selectedProcessTeamIds, setSelectedProcessTeamIds] = useState<string[]>([]);
 
  const toggleProcessTeam = (id: string) =>
@@ -1673,7 +1682,8 @@ function ConvertToBizModal({
  countryId,
  workingDaysPerWeek: 5,
  workingHoursPerDay: 8,
- bauReserveDays: parseFloat(bauReserveDays) || 5,
+ bauReservePercent: parseFloat(bauReservePercent) || defaultBauPercent,
+ bauReserveDays: undefined,
       processTeamIds: selectedProcessTeamIds,
       archived: false,
     }, Array.from(checkedKeys));
@@ -1744,8 +1754,8 @@ function ConvertToBizModal({
  </select>
  </div>
  <div>
- <label className={labelClass}>BAU reserve (days/qtr)</label>
- <input className={fieldClass} type="number" min={0} max={65} step={1} value={bauReserveDays} onChange={e => setBauReserveDays(e.target.value)} />
+ <label className={labelClass}>BAU reserve (% capacity)</label>
+ <input className={fieldClass} type="number" min={0} max={100} step={0.5} value={bauReservePercent} onChange={e => setBauReservePercent(e.target.value)} />
  </div>
  {processTeams.length > 0 && (
  <div>
@@ -1821,11 +1831,12 @@ function ConvertToBizModal({
 // ─── Business Contact Form Modal ──────────────────────────────────────────────
 
 function BizContactFormModal({
- contact, countries, processTeams, onSave, onClose,
+ contact, countries, processTeams, defaultBauPercent, onSave, onClose,
 }: {
  contact: BusinessContact | null;
  countries: ReturnType<typeof useCurrentState>['countries'];
  processTeams: ProcessTeam[];
+ defaultBauPercent: number;
  onSave: (data: Omit<BusinessContact, 'id'>) => void;
  onClose: () => void;
 }) {
@@ -1836,7 +1847,7 @@ function BizContactFormModal({
  const [countryId, setCountryId] = useState(contact?.countryId ?? '');
  const [workingDaysPerWeek, setWorkingDaysPerWeek] = useState(String(contact?.workingDaysPerWeek ?? 5));
  const [workingHoursPerDay, setWorkingHoursPerDay] = useState(String(contact?.workingHoursPerDay ?? 8));
- const [bauReserveDays, setBauReserveDays] = useState(String(contact?.bauReserveDays ?? 5));
+ const [bauReservePercent, setBauReservePercent] = useState(String(contact ? getBusinessContactBauPercent(contact) : defaultBauPercent));
  const [selectedProcessTeamIds, setSelectedProcessTeamIds] = useState<string[]>(contact?.processTeamIds ?? []);
  const [excludedFromCapacity, setExcludedFromCapacity] = useState(contact?.excludedFromCapacity ?? false);
 
@@ -1857,7 +1868,8 @@ function BizContactFormModal({
  countryId,
  workingDaysPerWeek: parseFloat(workingDaysPerWeek) || 5,
  workingHoursPerDay: parseFloat(workingHoursPerDay) || 8,
- bauReserveDays: parseFloat(bauReserveDays) || 5,
+ bauReservePercent: parseFloat(bauReservePercent) || defaultBauPercent,
+ bauReserveDays: undefined,
       processTeamIds: selectedProcessTeamIds,
       archived: contact?.archived ?? false,
       excludedFromCapacity,
@@ -1924,8 +1936,8 @@ function BizContactFormModal({
  <input className={fieldClass} type="number" min={1} max={24} step={0.5} value={workingHoursPerDay} onChange={e => setWorkingHoursPerDay(e.target.value)} />
  </div>
  <div>
- <label className={labelClass}>BAU reserve (days/qtr)</label>
- <input className={fieldClass} type="number" min={0} max={65} step={1} value={bauReserveDays} onChange={e => setBauReserveDays(e.target.value)} />
+ <label className={labelClass}>BAU reserve (% capacity)</label>
+ <input className={fieldClass} type="number" min={0} max={100} step={0.5} value={bauReservePercent} onChange={e => setBauReservePercent(e.target.value)} />
  </div>
  </div>
  {processTeams.length > 0 && (

@@ -31,6 +31,10 @@ import {
   prorateDaysToWeek,
 } from './calendar';
 import { getForecastedDays } from './confidence';
+import {
+  calculateBusinessContactBauDays,
+  calculateTeamMemberBauDays,
+} from './bau';
 
 // ─── BUSINESS CAPACITY ────────────────────────────────────────────────────────
 
@@ -78,28 +82,34 @@ export function calculateBusinessCapacity(
       sum + getWorkdaysInDateRange(t.startDate, t.endDate, contactHolidays, weekStartDate, weekEndDate) * capacityScale,
     0);
 
+  const usesPercentBau = contact.bauReservePercent != null || contact.bauReserveDays == null;
+  const bauDays = usesPercentBau
+    ? calculateBusinessContactBauDays(workdays, contact)
+    : (() => {
+        const bauReserveDays = contact.bauReserveDays ?? 5;
+        const d = new Date(weekStart + 'T00:00:00');
+        const yr = d.getFullYear();
+        const qn = Math.ceil((d.getMonth() + 1) / 3);
+        const qStarts = ['01-01', '04-01', '07-01', '10-01'];
+        const qEnds = ['03-31', '06-30', '09-30', '12-31'];
+        return prorateDaysToWeek(
+          bauReserveDays,
+          `${yr}-${qStarts[qn - 1]}`,
+          `${yr}-${qEnds[qn - 1]}`,
+          weekStart,
+          weekEnd,
+          contactHolidays,
+        );
+      })();
   const availableDays = Math.max(0, workdays - timeOffDays);
 
   const breakdownByProject: BusinessCellData['breakdownByProject'] = [];
   let allocated = 0;
 
   // BAU reserve
-  const bauReserveDays = contact.bauReserveDays ?? 5;
-  if (bauReserveDays > 0) {
-    const d = new Date(weekStart + 'T00:00:00');
-    const yr = d.getFullYear();
-    const qn = Math.ceil((d.getMonth() + 1) / 3);
-    const qStarts = ['01-01', '04-01', '07-01', '10-01'];
-    const qEnds   = ['03-31', '06-30', '09-30', '12-31'];
-    const bauForRange = prorateDaysToWeek(
-      bauReserveDays,
-      `${yr}-${qStarts[qn - 1]}`, `${yr}-${qEnds[qn - 1]}`,
-      weekStart, weekEnd, contactHolidays
-    );
-    if (bauForRange > 0) {
-      allocated += bauForRange;
-      breakdownByProject.push({ projectId: '__bau__', projectName: 'BAU Reserve', days: bauForRange });
-    }
+  if (bauDays > 0) {
+    allocated += bauDays;
+    breakdownByProject.push({ projectId: '__bau__', projectName: 'BAU Reserve', days: bauDays });
   }
 
   // Jira item BIZ assignments — prorate each item's days into this week
@@ -228,9 +238,7 @@ export function calculateCapacity(
   const breakdown: CapacityBreakdownItem[] = [];
 
   // BAU Reserve
-  const bauDays = member.bauOverride
-    ? (member.bauReserveDays ?? 0)
-    : (state.settings.bauReserveDays || 5);
+  const bauDays = calculateTeamMemberBauDays(totalWorkdays, member, state.settings);
   usedDays += bauDays;
   breakdown.push({ type: 'bau', days: bauDays });
 
@@ -530,12 +538,19 @@ export function calculateSprintCapacity(
   const capacityScale = (member.workingDaysPerWeek ?? 5) / 5;
   const totalWorkdays = getWorkdaysInDateRange(sprint.startDate, sprint.endDate, holidays) * capacityScale;
 
-  const bauPerQuarter = member.bauOverride
-    ? (member.bauReserveDays ?? 0)
-    : (state.settings.bauReserveDays || 5);
-  const weeksInQuarter = 13;
-  const sprintWeeks = state.settings.sprintDurationWeeks || 3;
-  const bauProrated = Math.round(((bauPerQuarter / weeksInQuarter) * sprintWeeks) * 10) / 10;
+  const usesPercentBau = member.bauOverride
+    ? (member.bauReservePercent != null || member.bauReserveDays == null)
+    : (state.settings.bauReservePercent != null || state.settings.bauReserveDays == null);
+  const bauProrated = usesPercentBau
+    ? calculateTeamMemberBauDays(totalWorkdays, member, state.settings)
+    : (() => {
+        const bauPerQuarter = member.bauOverride
+          ? (member.bauReserveDays ?? 0)
+          : (state.settings.bauReserveDays ?? 5);
+        const weeksInQuarter = 13;
+        const sprintWeeks = state.settings.sprintDurationWeeks || 3;
+        return Math.round(((bauPerQuarter / weeksInQuarter) * sprintWeeks) * 10) / 10;
+      })();
 
   const timeOffDays = state.timeOff
     .filter(t => t.memberId === memberId)

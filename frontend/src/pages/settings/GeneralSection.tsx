@@ -7,12 +7,13 @@ import { Select } from '../../components/ui/Select';
 import { useCurrentState } from '../../stores/appStore';
 import { updateSettings } from '../../stores/actions';
 import { useToast } from '../../components/ui/Toast';
+import { getSettingsBauPercent } from '../../utils/bau';
 
 export function GeneralSection() {
   const { settings, countries } = useCurrentState();
   const { showToast } = useToast();
 
-  const [bauDays, setBauDays] = useState(settings.bauReserveDays || 5);
+  const [bauPercent, setBauPercent] = useState(getSettingsBauPercent(settings));
   const [hoursPerDay, setHoursPerDay] = useState(settings.hoursPerDay || 8);
   const [quartersToShow, setQuartersToShow] = useState(settings.quartersToShow || 4);
   const [defaultCountryId, setDefaultCountryId] = useState(settings.defaultCountryId || '');
@@ -24,7 +25,8 @@ export function GeneralSection() {
 
   const handleSave = () => {
     updateSettings({
-      bauReserveDays: bauDays,
+      bauReservePercent: bauPercent,
+      bauReserveDays: undefined,
       hoursPerDay,
       quartersToShow,
       defaultCountryId,
@@ -40,13 +42,14 @@ export function GeneralSection() {
       <CardContent className="space-y-6">
         <div className="grid grid-cols-2 gap-4">
           <Input
-            id="bau-days"
-            label="BAU Reserve (days per quarter)"
+            id="bau-percent"
+            label="BAU Reserve (% of capacity)"
             type="number"
             min={0}
-            max={30}
-            value={bauDays}
-            onChange={(e) => setBauDays(parseInt(e.target.value) || 0)}
+            max={100}
+            step={0.5}
+            value={bauPercent}
+            onChange={(e) => setBauPercent(parseFloat(e.target.value) || 0)}
           />
           <Input
             id="hours-per-day"
