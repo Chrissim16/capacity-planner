@@ -24,14 +24,11 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setInfo(null);
 
     if (!email.trim() || !password.trim()) {
       setError('Email and password are required.');
@@ -45,32 +42,14 @@ export function Login() {
         return;
       }
 
-      if (isSignUpMode && password.length < 8) {
-        setError('Password must be at least 8 characters.');
+      const { error: signInError } = await withTimeout(
+        supabase.auth.signInWithPassword({ email: email.trim(), password }),
+        10000,
+        'Sign-in'
+      );
+      if (signInError) {
+        setError(normalizeAuthError(signInError.message));
         return;
-      }
-
-      if (isSignUpMode) {
-        const { error: signUpError } = await withTimeout(
-          supabase.auth.signUp({ email: email.trim(), password }),
-          10000,
-          'Sign-up'
-        );
-        if (signUpError) {
-          setError(normalizeAuthError(signUpError.message));
-          return;
-        }
-        setInfo('Account created. Check your email for verification if required.');
-      } else {
-        const { error: signInError } = await withTimeout(
-          supabase.auth.signInWithPassword({ email: email.trim(), password }),
-          10000,
-          'Sign-in'
-        );
-        if (signInError) {
-          setError(normalizeAuthError(signInError.message));
-          return;
-        }
       }
     } catch (err) {
       const raw = err instanceof Error ? err.message : '';
@@ -128,7 +107,7 @@ export function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-lg border border-[#DEDFE3] bg-white px-3 py-2 text-sm text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0089DD]/40 focus:border-[#0089DD] transition-colors"
-                autoComplete={isSignUpMode ? 'new-password' : 'current-password'}
+                autoComplete="current-password"
                 required
               />
             </div>
@@ -141,28 +120,18 @@ export function Login() {
                 {error}
               </p>
             )}
-            {info && <p className="text-sm text-[#16A34A]">{info}</p>}
-
             <button
               type="submit"
               disabled={isSubmitting}
               className="w-full rounded-lg bg-[#1E293B] hover:opacity-85 disabled:opacity-50 text-white font-medium py-2.5 transition-opacity duration-150 mt-2"
             >
-              {isSubmitting ? 'Please wait…' : isSignUpMode ? 'Create account' : 'Sign in'}
+              {isSubmitting ? 'Please wait…' : 'Sign in'}
             </button>
           </form>
 
-          <button
-            type="button"
-            onClick={() => {
-              setIsSignUpMode((v) => !v);
-              setError(null);
-              setInfo(null);
-            }}
-            className="mt-4 w-full text-sm text-[#0089DD] hover:underline transition-colors"
-          >
-            {isSignUpMode ? 'Have an account? Sign in' : 'Need an account? Create one'}
-          </button>
+          <p className="mt-4 text-sm text-[#64748B]">
+            Accounts are provisioned by invitation. If you need access or your role has not been set up yet, contact a system administrator.
+          </p>
         </div>
 
         <p className="mt-6 text-center text-xs text-[#94A3B8]">

@@ -114,10 +114,7 @@ function SyncIndicator({ collapsed }: { collapsed: boolean }) {
 export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   const location = useLocation();
   const currentView = PATH_TO_VIEW[location.pathname] ?? 'dashboard';
-  const { user, role, can } = useCurrentUser();
-  const visibleNavItems = navItems.filter(
-    (item) => item.view !== 'settings' || can('manage_settings')
-  );
+  const { user, role } = useCurrentUser();
 
   const initials = useMemo(() => {
     const source = user?.email ?? 'User';
@@ -150,7 +147,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 py-3">
-        {visibleNavItems.map(({ view, icon: Icon, label }) => (
+        {navItems.map(({ view, icon: Icon, label }) => (
           <Link
             key={view}
             to={VIEW_TO_PATH[view]}

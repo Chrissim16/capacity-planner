@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings2, BookOpen, Link2, Shield, Lock } from 'lucide-react';
+import { Settings2, BookOpen, Link2, Shield } from 'lucide-react';
 import { GeneralSection } from './settings/GeneralSection';
 import { ConfidenceSection } from './settings/ConfidenceSection';
 import { RolesSection } from './settings/RolesSection';
@@ -28,35 +28,30 @@ const groups: { id: SettingsGroup; label: string; icon: typeof Settings2 }[] = [
 
 export function Settings() {
   const { can } = useCurrentUser();
-  const [activeGroup, setActiveGroup] = useState<SettingsGroup>('planning');
-
-  if (!can('manage_settings')) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4 text-[#94A3B8]">
-        <Lock size={40} className="text-[#DEDFE3]" />
-        <p className="text-lg font-medium text-[#1E293B]">Access restricted</p>
-        <p className="text-sm text-[#94A3B8]">You don't have permission to view Settings.</p>
-      </div>
-    );
-  }
+  const canManageSettings = can('manage_settings');
+  const availableGroups = canManageSettings ? groups : groups.filter((group) => group.id === 'users');
+  const [activeGroup, setActiveGroup] = useState<SettingsGroup>(canManageSettings ? 'planning' : 'users');
+  const visibleGroup = availableGroups.some((group) => group.id === activeGroup)
+    ? activeGroup
+    : (availableGroups[0]?.id ?? 'users');
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Settings"
-        subtitle="Configuration and preferences"
+        subtitle={canManageSettings ? 'Configuration and preferences' : 'Workspace access and roles'}
       />
 
       {/* Horizontal tab bar */}
       <div className="flex items-center gap-1 border-b border-[#DEDFE3]">
-        {groups.map((group) => {
+        {availableGroups.map((group) => {
           const Icon = group.icon;
           return (
             <button
               key={group.id}
               onClick={() => setActiveGroup(group.id)}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150 ${
-                activeGroup === group.id
+                visibleGroup === group.id
                   ? 'border-[#0089DD] text-[#1E293B]'
                   : 'border-transparent text-[#94A3B8] hover:text-[#94A3B8]'
               }`}
@@ -70,7 +65,7 @@ export function Settings() {
 
       {/* Tab content */}
       <div className="overflow-y-auto pb-8" style={{ maxHeight: 'calc(100vh - 12rem)' }}>
-        {activeGroup === 'planning' && (
+        {visibleGroup === 'planning' && (
           <div className="space-y-6">
             <GeneralSection />
             <ConfidenceSection />
@@ -79,7 +74,7 @@ export function Settings() {
           </div>
         )}
 
-        {activeGroup === 'reference' && (
+        {visibleGroup === 'reference' && (
           <div className="space-y-6">
             <RolesSection />
             <SkillsSection />
@@ -92,9 +87,9 @@ export function Settings() {
           </div>
         )}
 
-        {activeGroup === 'jira' && <JiraSection />}
+        {visibleGroup === 'jira' && <JiraSection />}
 
-        {activeGroup === 'users' && <UsersSection />}
+        {visibleGroup === 'users' && <UsersSection />}
       </div>
     </div>
   );
