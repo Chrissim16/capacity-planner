@@ -172,4 +172,29 @@ describe('buildPortfolioPlanExportData', () => {
     expect(data.csvRows[1]).toEqual(expect.arrayContaining(['FIN-241', 'Treasury Modernisation', 'Design', 'Alex Example', 'member-1771633467873-z7u7oecf4']));
     expect(data.health.unstaffedEpicCount).toBe(0);
   });
+
+  it('normalizes team placeholders and unresolved ids in export labels', () => {
+    const data = buildPortfolioPlanExportData({
+      planName: 'Main Plan',
+      quarterLabel: 'Q2 2026',
+      quarterOpt: { label: 'Q2 2026', q: 1, year: 2026 },
+      boardEpics: [makeEpic()],
+      phasePlans: [makePlan()],
+      phaseAssignments: [
+        makeAssignment({ memberId: 'TEAM:Controllership', track: 'BIZ' }),
+        makeAssignment({ id: 'assign-2', memberId: 'member-unknown-1', track: 'IT' }),
+      ],
+      state: makeState(),
+      jiraBaseUrl: 'https://jira.example.com',
+      exportedAt: new Date('2026-04-02T09:30:00.000Z'),
+    });
+
+    const phaseRow = data.epicViewRows.find((row) => row[0] === 'Phase');
+    const teamAssignmentRow = data.epicViewRows.find((row) => row[0] === 'Assignment' && row[7] === 'TEAM:Controllership');
+    const unknownAssignmentRow = data.epicViewRows.find((row) => row[0] === 'Assignment' && row[7] === 'member-unknown-1');
+
+    expect(phaseRow).toEqual(expect.arrayContaining(['Phase', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07', 'Validate target operating model', 'Controllership, Unresolved assignee']));
+    expect(teamAssignmentRow).toEqual(expect.arrayContaining(['Assignment', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07', 'Validate target operating model', 'Controllership', 'TEAM:Controllership', 'Business team']));
+    expect(unknownAssignmentRow).toEqual(expect.arrayContaining(['Assignment', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07', 'Validate target operating model', 'Unresolved assignee', 'member-unknown-1', 'Reference only']));
+  });
 });

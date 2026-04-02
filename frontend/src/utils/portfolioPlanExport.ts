@@ -138,6 +138,72 @@ function teamEntryForId(id: string): { name: string; abbr: string } {
   return { name, abbr };
 }
 
+function buildHistoricMemberLookup(state: AppState): Map<string, { name: string; role: string }> {
+  const historicMembers = new Map<string, { name: string; role: string }>();
+
+  for (const scenario of state.scenarios) {
+    for (const member of scenario.teamMembers ?? []) {
+      if (!historicMembers.has(member.id)) {
+        historicMembers.set(member.id, { name: member.name, role: member.role });
+      }
+    }
+  }
+
+  return historicMembers;
+}
+
+function resolveActorIdentity(
+  id: string,
+  state: AppState,
+  historicMembers: Map<string, { name: string; role: string }>,
+): Pick<ExportActorSummary, 'id' | 'name' | 'role' | 'type'> {
+  if (id.startsWith('TEAM:')) {
+    return {
+      id,
+      name: teamEntryForId(id).name,
+      role: 'Business team',
+      type: 'team',
+    };
+  }
+
+  const member = state.teamMembers.find((item) => item.id === id);
+  if (member) {
+    return {
+      id,
+      name: member.name,
+      role: member.role,
+      type: 'person',
+    };
+  }
+
+  const contact = state.businessContacts.find((item) => item.id === id);
+  if (contact) {
+    return {
+      id,
+      name: contact.name,
+      role: contact.title ?? '',
+      type: 'contact',
+    };
+  }
+
+  const historicMember = historicMembers.get(id);
+  if (historicMember) {
+    return {
+      id,
+      name: historicMember.name,
+      role: historicMember.role || 'Former team member',
+      type: 'person',
+    };
+  }
+
+  return {
+    id,
+    name: 'Unresolved assignee',
+    role: 'Reference only',
+    type: 'unknown',
+  };
+}
+
 function roundToTenth(value: number): number {
   return Math.round(value * 10) / 10;
 }
@@ -285,15 +351,7 @@ function buildActorSummaryMap(
   visibleAssignedDays: Map<string, number>,
 ): Map<string, ExportActorSummary> {
   const summaries = new Map<string, ExportActorSummary>();
-  const historicMembers = new Map<string, { name: string; role: string }>();
-
-  for (const scenario of state.scenarios) {
-    for (const member of scenario.teamMembers ?? []) {
-      if (!historicMembers.has(member.id)) {
-        historicMembers.set(member.id, { name: member.name, role: member.role });
-      }
-    }
-  }
+  const historicMembers = buildHistoricMemberLookup(state);
 
   const addSummary = (id: string, summary: ExportActorSummary) => {
     summaries.set(id, {
@@ -331,38 +389,9 @@ function buildActorSummaryMap(
 
   for (const id of visibleAssignedDays.keys()) {
     if (summaries.has(id)) continue;
-    if (id.startsWith('TEAM:')) {
-      summaries.set(id, {
-        id,
-        name: `${teamEntryForId(id).name} Team`,
-        role: 'Business team',
-        type: 'team',
-        availableDays: null,
-        visibleAssignedDays: roundToTenth(visibleAssignedDays.get(id) ?? 0),
-        utilization: null,
-      });
-      continue;
-    }
-
-    const historicMember = historicMembers.get(id);
-    if (historicMember) {
-      summaries.set(id, {
-        id,
-        name: historicMember.name,
-        role: historicMember.role || 'Former team member',
-        type: 'person',
-        availableDays: null,
-        visibleAssignedDays: roundToTenth(visibleAssignedDays.get(id) ?? 0),
-        utilization: null,
-      });
-      continue;
-    }
-
+    const actor = resolveActorIdentity(id, state, historicMembers);
     summaries.set(id, {
-      id,
-      name: 'Unresolved assignee',
-      role: 'Reference only',
-      type: 'unknown',
+      ...actor,
       availableDays: null,
       visibleAssignedDays: roundToTenth(visibleAssignedDays.get(id) ?? 0),
       utilization: null,
@@ -496,6 +525,7 @@ export function buildPortfolioPlanExportData({
   exportedAt = new Date(),
 }: PortfolioPlanExportInput): PortfolioPlanExportData {
   const visibleAssignedDaysByActor = new Map<string, number>();
+  const historicMembers = buildHistoricMemberLookup(state);
 
   const epicDetails = boardEpics.map((epic): ExportEpicDetail => {
     const rows = getPhaseInstanceRows(
@@ -543,12 +573,11 @@ export function buildPortfolioPlanExportData({
           roundToTenth((visibleAssignedDaysByActor.get(assignment.memberId) ?? 0) + visibleAssignmentDays),
         );
 
+        const actorIdentity = resolveActorIdentity(assignment.memberId, state, historicMembers);
+
         return {
           actor: {
-            id: assignment.memberId,
-            name: assignment.memberId,
-            role: '',
-            type: assignment.memberId.startsWith('TEAM:') ? 'team' : 'unknown',
+            ...actorIdentity,
             availableDays: null,
             visibleAssignedDays: visibleAssignmentDays,
             utilization: null,
