@@ -140,8 +140,10 @@ export function UsersSection() {
  setInviteRole('project_manager');
  void fetchUsers();
  }
- } catch {
- showToast('An unexpected error occurred. Please try again.', 'error');
+ } catch (err) {
+ const message = err instanceof Error ? err.message : 'Unknown error';
+ console.error('[Users] Invite request failed:', err);
+ showToast(`An unexpected error occurred. ${message}`, 'error');
  } finally {
  setIsInviting(false);
  }
@@ -172,8 +174,10 @@ export function UsersSection() {
  showToast(`${pendingRemove.email} has been removed.`, 'success');
  setUsers((prev) => prev.filter((u) => u.id !== pendingRemove.id));
  }
- } catch {
- showToast('An unexpected error occurred. Please try again.', 'error');
+ } catch (err) {
+ const message = err instanceof Error ? err.message : 'Unknown error';
+ console.error('[Users] Remove request failed:', err);
+ showToast(`An unexpected error occurred. ${message}`, 'error');
  } finally {
  setIsRemoving(false);
  setPendingRemove(null);
