@@ -30,6 +30,22 @@ function formatDate(iso: string | null): string {
  return new Date(iso).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 }
 
+async function parseApiError(res: Response, fallback: string): Promise<string> {
+ const contentType = res.headers.get('content-type') ?? '';
+
+ if (contentType.includes('application/json')) {
+ const body = await res.json() as { error?: string };
+ return body.error ?? fallback;
+ }
+
+ const text = await res.text();
+ if (!text.trim()) return fallback;
+ if (text.includes('<!doctype') || text.includes('<html')) {
+ return 'The admin API is unavailable in this environment. If you are running locally, restart the Vite dev server after pulling the latest changes.'
+ }
+ return text;
+}
+
 export function UsersSection() {
  const { user, can } = useCurrentUser();
  const { showToast } = useToast();
@@ -100,6 +116,10 @@ export function UsersSection() {
  try {
  const { data: sessionData } = await supabase.auth.getSession();
  const jwt = sessionData.session?.access_token;
+ if (!jwt) {
+ showToast('Your session has expired. Please sign in again.', 'error');
+ return;
+ }
 
  const res = await fetch('/api/admin', {
  method: 'POST',
@@ -109,10 +129,8 @@ export function UsersSection() {
  },
  body: JSON.stringify({ action: 'invite', email: trimmedEmail, role: inviteRole }),
  });
-
- const body = await res.json() as { error?: string };
  if (!res.ok) {
- showToast(body.error ?? 'Failed to send invitation.', 'error');
+ showToast(await parseApiError(res, 'Failed to send invitation.'), 'error');
  } else {
  showToast(`Invitation sent to ${trimmedEmail}.`, 'success');
  setInviteEmail('');
@@ -132,6 +150,10 @@ export function UsersSection() {
  try {
  const { data: sessionData } = await supabase.auth.getSession();
  const jwt = sessionData.session?.access_token;
+ if (!jwt) {
+ showToast('Your session has expired. Please sign in again.', 'error');
+ return;
+ }
 
  const res = await fetch('/api/admin', {
  method: 'POST',
@@ -141,10 +163,8 @@ export function UsersSection() {
  },
  body: JSON.stringify({ action: 'remove', userId: pendingRemove.id }),
  });
-
- const body = await res.json() as { error?: string };
  if (!res.ok) {
- showToast(body.error ?? 'Failed to remove user.', 'error');
+ showToast(await parseApiError(res, 'Failed to remove user.'), 'error');
  } else {
  showToast(`${pendingRemove.email} has been removed.`, 'success');
  setUsers((prev) => prev.filter((u) => u.id !== pendingRemove.id));
