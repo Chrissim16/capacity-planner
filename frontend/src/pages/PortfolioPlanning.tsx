@@ -52,6 +52,7 @@ import {
   type PortfolioScenarioSnapshot,
 } from '../stores/actions';
 import { AddManualEpicModal } from './AddManualEpicModal';
+import { BulkReplacePersonModal } from './BulkReplacePersonModal';
 import type {
   JiraWorkItem,
   TeamMember,
@@ -848,6 +849,7 @@ interface EpicViewProps {
   onPhasePointerUp:   (e: React.PointerEvent<HTMLDivElement>) => void;
   onClearPhase:  (epicKey: string, phase: PlanningPhase, phaseInstanceId: string) => void;
   onRemoveAssignment: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string) => void;
+  onReplaceAssignment: (memberId: string, displayName: string, track: 'IT' | 'BIZ') => void;
   onUpdateDays:  (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, days: number) => void;
   onUpdateAllocationMode: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, mode: AllocationMode, daysPerWeek?: number) => void;
   onUpsertSegment: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, seg: AllocationSegment) => void;
@@ -873,7 +875,7 @@ function EpicView({
   epicCollapsed, phasePersonCollapsed,
   onToggleEpic, onTogglePhasePersons, onExpandEpicPhases, onCollapseEpicPhases, onRemoveEpic,
   onAddPhaseInstance, onRemovePhaseInstance, onReorderPhaseInstances, onSetPhaseStart,
-  onEpicPhasePointerDown, onPhasePointerDown, onPhasePointerMove, onPhasePointerUp, onClearPhase, onRemoveAssignment,
+  onEpicPhasePointerDown, onPhasePointerDown, onPhasePointerMove, onPhasePointerUp, onClearPhase, onRemoveAssignment, onReplaceAssignment,
   onUpdateDays, onUpdateAllocationMode, onUpsertSegment, onRemoveSegment,
   onUpdatePhasePlan, onAddPerson,
   onExpandAll, onCollapseAll, onResizeMouseDown, lpRef, ganttRef,
@@ -1440,7 +1442,21 @@ function EpicView({
                   />
                 )}
                 {!isEditing && (
-                  <button className="ev-person-remove" onClick={() => onRemoveAssignment(epicKey, ph, row.phaseInstanceId, assign.memberId)}>×</button>
+                  <>
+                    <button
+                      className="ev-person-replace"
+                      title="Replace in all phases…"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onReplaceAssignment(assign.memberId, name, assign.track);
+                      }}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
+                      </svg>
+                    </button>
+                    <button className="ev-person-remove" onClick={() => onRemoveAssignment(epicKey, ph, row.phaseInstanceId, assign.memberId)}>×</button>
+                  </>
                 )}
               </div>
             );
@@ -3451,6 +3467,9 @@ export function PortfolioPlanning() {
   const [pickerTarget, setPickerTarget] = useState<{
     epicKey: string; phase: PlanningPhase; phaseInstanceId: string; rect: DOMRect;
   } | null>(null);
+  const [replaceTarget, setReplaceTarget] = useState<{
+    fromMemberId: string; fromName: string; fromTrack: 'IT' | 'BIZ';
+  } | null>(null);
 
   // ── Drag state (phase bars) ────────────────────────────────────────────────
   const [phaseDragPreviewMap, setPhaseDragPreviewMap] = useState<Map<string, PhaseDragPreview>>(new Map());
@@ -4069,6 +4088,27 @@ export function PortfolioPlanning() {
     }
   }, [activeScenario, updateActiveScenario, plan]);
 
+  const handleBulkReplaceAssignment = useCallback(async (
+    fromMemberId: string,
+    toMemberId: string,
+    toTrack: 'IT' | 'BIZ',
+    selectedRows: Array<{ assignment: EpicPhaseAssignment; overrideDays: number }>,
+  ): Promise<void> => {
+    for (const { assignment: a, overrideDays } of selectedRows) {
+      await handleRemoveAssignment(a.epicKey, a.phase, a.phaseInstanceId, fromMemberId);
+      await handleUpsertAssignment(
+        a.epicKey, a.phase, a.phaseInstanceId, toMemberId,
+        overrideDays, toTrack,
+        { allocationMode: a.allocationMode, daysPerWeek: a.daysPerWeek },
+      );
+      if (a.allocationMode === 'segments' && a.segments) {
+        for (const seg of a.segments) {
+          await handleUpsertSegment(a.epicKey, a.phase, a.phaseInstanceId, toMemberId, seg);
+        }
+      }
+    }
+  }, [handleRemoveAssignment, handleUpsertAssignment, handleUpsertSegment]);
+
   const handleRemoveEpic = useCallback((epicKey: string) => {
     if (activeScenario) {
       updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
@@ -4581,6 +4621,9 @@ export function PortfolioPlanning() {
             onPhasePointerUp={handlePhasePointerUp}
             onClearPhase={handleClearPhase}
             onRemoveAssignment={handleRemoveAssignment}
+            onReplaceAssignment={(memberId, name, track) =>
+              setReplaceTarget({ fromMemberId: memberId, fromName: name, fromTrack: track })
+            }
             onUpdateDays={(epicKey, phase, phaseInstanceId, memberId, days) => {
               const existing = activePhaseAssignments.find(a => a.epicKey === epicKey && a.phaseInstanceId === phaseInstanceId && a.memberId === memberId);
               if (existing) handleUpsertAssignment(epicKey, phase, phaseInstanceId, memberId, days, existing.track, { allocationMode: existing.allocationMode, daysPerWeek: existing.daysPerWeek });
@@ -4705,6 +4748,22 @@ export function PortfolioPlanning() {
               setPickerTarget(null);
             }}
             onClose={() => setPickerTarget(null)}
+          />
+        )}
+        {replaceTarget && (
+          <BulkReplacePersonModal
+            fromMemberId={replaceTarget.fromMemberId}
+            fromName={replaceTarget.fromName}
+            activePhaseAssignments={activePhaseAssignments}
+            boardEpics={boardEpics}
+            memberMap={memberMap}
+            contactMap={contactMap}
+            businessTeams={baselineState.businessTeams}
+            onConfirm={(toMemberId, toTrack, selectedRows) => {
+              handleBulkReplaceAssignment(replaceTarget.fromMemberId, toMemberId, toTrack, selectedRows);
+              setReplaceTarget(null);
+            }}
+            onClose={() => setReplaceTarget(null)}
           />
         )}
       </div>
