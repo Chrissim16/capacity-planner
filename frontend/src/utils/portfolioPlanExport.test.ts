@@ -102,7 +102,26 @@ function makeState(): AppState {
       statusFilterBugs: 'active_only',
       defaultConfidenceLevel: 'medium',
     },
-    scenarios: [],
+    scenarios: [{
+      id: 'scenario-1',
+      name: 'Historic Snapshot',
+      createdAt: '2026-04-01T00:00:00.000Z',
+      updatedAt: '2026-04-01T00:00:00.000Z',
+      isBaseline: false,
+      jiraWorkItems: [],
+      jiraItemBizAssignments: [],
+      teamMembers: [{
+        id: 'member-1771633467873-z7u7oecf4',
+        name: 'Alex Example',
+        role: 'Engineer',
+        countryId: 'country-nl',
+        skillIds: [],
+        maxConcurrentProjects: 2,
+      }],
+      timeOff: [],
+      projects: [],
+      assignments: [],
+    }],
     activeScenarioId: null,
     businessContacts: [],
     businessTimeOff: [],
@@ -120,7 +139,7 @@ describe('buildPortfolioPlanExportData', () => {
       quarterOpt: { label: 'Q2 2026', q: 1, year: 2026 },
       boardEpics: [makeEpic()],
       phasePlans: [makePlan()],
-      phaseAssignments: [makeAssignment()],
+      phaseAssignments: [makeAssignment({ memberId: 'member-1771633467873-z7u7oecf4', track: 'IT' })],
       state: makeState(),
       jiraBaseUrl: 'https://jira.example.com',
       exportedAt: new Date('2026-04-02T09:30:00.000Z'),
@@ -133,10 +152,24 @@ describe('buildPortfolioPlanExportData', () => {
     expect(data.filenameBase).toBe('portfolio-plan-main-plan-q2-2026');
     expect(epicRow).toEqual(expect.arrayContaining(['Epic', 'FIN-241', 'Treasury Modernisation']));
     expect(phaseRow).toEqual(expect.arrayContaining(['Phase', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07']));
-    expect(assignmentRow).toEqual(expect.arrayContaining(['Assignment', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07', 'Validate target operating model', 'Finance Ops Team', 'Business team', 'BIZ', '3d total', 3, 3]));
+    expect(assignmentRow).toEqual(expect.arrayContaining([
+      'Assignment',
+      'FIN-241',
+      'Treasury Modernisation',
+      'Design',
+      '2026-04-01 -> 2026-04-07',
+      'Validate target operating model',
+      'Alex Example',
+      'member-1771633467873-z7u7oecf4',
+      'Engineer',
+      'IT',
+      '3d total',
+      3,
+      3,
+    ]));
     expect(data.overviewRows.flat()).toContain('Portfolio Health');
-    expect(data.csvRows[0]).toEqual(expect.arrayContaining(['Epic Key', 'Epic Summary', 'Phase', 'Person / Team']));
-    expect(data.csvRows[1]).toEqual(expect.arrayContaining(['FIN-241', 'Treasury Modernisation', 'Design', 'Finance Ops Team']));
+    expect(data.csvRows[0]).toEqual(expect.arrayContaining(['Epic Key', 'Epic Summary', 'Phase', 'Person / Team', 'Reference ID']));
+    expect(data.csvRows[1]).toEqual(expect.arrayContaining(['FIN-241', 'Treasury Modernisation', 'Design', 'Alex Example', 'member-1771633467873-z7u7oecf4']));
     expect(data.health.unstaffedEpicCount).toBe(0);
   });
 });

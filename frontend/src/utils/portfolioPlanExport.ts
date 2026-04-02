@@ -285,6 +285,15 @@ function buildActorSummaryMap(
   visibleAssignedDays: Map<string, number>,
 ): Map<string, ExportActorSummary> {
   const summaries = new Map<string, ExportActorSummary>();
+  const historicMembers = new Map<string, { name: string; role: string }>();
+
+  for (const scenario of state.scenarios) {
+    for (const member of scenario.teamMembers ?? []) {
+      if (!historicMembers.has(member.id)) {
+        historicMembers.set(member.id, { name: member.name, role: member.role });
+      }
+    }
+  }
 
   const addSummary = (id: string, summary: ExportActorSummary) => {
     summaries.set(id, {
@@ -335,10 +344,24 @@ function buildActorSummaryMap(
       continue;
     }
 
+    const historicMember = historicMembers.get(id);
+    if (historicMember) {
+      summaries.set(id, {
+        id,
+        name: historicMember.name,
+        role: historicMember.role || 'Former team member',
+        type: 'person',
+        availableDays: null,
+        visibleAssignedDays: roundToTenth(visibleAssignedDays.get(id) ?? 0),
+        utilization: null,
+      });
+      continue;
+    }
+
     summaries.set(id, {
       id,
-      name: id,
-      role: '',
+      name: 'Unresolved assignee',
+      role: 'Reference only',
       type: 'unknown',
       availableDays: null,
       visibleAssignedDays: roundToTenth(visibleAssignedDays.get(id) ?? 0),
@@ -373,6 +396,7 @@ function buildPortfolioCsvRows(epics: ExportEpicDetail[]): CellValue[][] {
     'Phase Dates',
     'Phase Description',
     'Person / Team',
+    'Reference ID',
     'Role / Team',
     'Track',
     'Allocation',
@@ -393,6 +417,7 @@ function buildPortfolioCsvRows(epics: ExportEpicDetail[]): CellValue[][] {
         '',
         '',
         epic.description,
+        '',
         '',
         '',
         '',
@@ -420,6 +445,7 @@ function buildPortfolioCsvRows(epics: ExportEpicDetail[]): CellValue[][] {
           '',
           '',
           '',
+          '',
           phase.totalDays,
           phase.visibleDays,
           '',
@@ -439,6 +465,7 @@ function buildPortfolioCsvRows(epics: ExportEpicDetail[]): CellValue[][] {
           phase.dateLabel,
           phase.description,
           assignment.actor.name,
+          assignment.actor.id,
           assignment.actor.role,
           assignment.track,
           assignment.allocation,
@@ -741,6 +768,7 @@ export function buildPortfolioPlanExportData({
     'Phase Dates',
     'Phase Description',
     'Person / Team',
+    'Reference ID',
     'Role / Team',
     'Track',
     'Allocation',
@@ -753,18 +781,19 @@ export function buildPortfolioPlanExportData({
   ]];
 
   for (const epic of epicDetails) {
-    epicViewRows.push([
-      'Epic',
-      epic.epic.jiraKey,
-      epic.epic.summary,
-      '',
-      '',
-      epic.description,
-      '',
-      '',
-      '',
-      '',
-      epic.totalDays,
+      epicViewRows.push([
+        'Epic',
+        epic.epic.jiraKey,
+        epic.epic.summary,
+        '',
+        '',
+        epic.description,
+        '',
+        '',
+        '',
+        '',
+        '',
+        epic.totalDays,
       epic.visibleDays,
       '',
       '',
@@ -781,6 +810,7 @@ export function buildPortfolioPlanExportData({
         phase.dateLabel,
         phase.description,
         phase.assigneeSummary,
+        '',
         '',
         '',
         phase.durationWorkdays === null ? '' : `${phase.durationWorkdays} workdays`,
@@ -801,6 +831,7 @@ export function buildPortfolioPlanExportData({
           phase.dateLabel,
           phase.description,
           assignment.actor.name,
+          assignment.actor.id,
           assignment.actor.role,
           assignment.track,
           assignment.allocation,
@@ -919,7 +950,7 @@ export async function exportPortfolioPlanToExcel(input: PortfolioPlanExportInput
   const risksSheet = XLSX.utils.aoa_to_sheet(data.riskRows);
 
   applyColumnWidths(overviewSheet as Record<string, unknown>, [28, 24, 48]);
-  applyColumnWidths(epicViewSheet as Record<string, unknown>, [12, 14, 34, 18, 26, 40, 24, 22, 10, 36, 16, 18, 16, 14, 28, 42]);
+  applyColumnWidths(epicViewSheet as Record<string, unknown>, [12, 14, 34, 18, 26, 40, 24, 24, 22, 10, 36, 16, 18, 16, 14, 28, 42]);
   applyColumnWidths(risksSheet as Record<string, unknown>, [12, 10, 20, 34, 50, 42]);
 
   XLSX.utils.book_append_sheet(workbook, overviewSheet, 'Overview');
