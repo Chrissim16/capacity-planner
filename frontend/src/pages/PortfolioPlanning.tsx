@@ -44,6 +44,11 @@ import {
   buildOrderedPhaseEntries,
   upsertPhaseSequencePlans,
 } from '../utils/portfolioPhaseOrdering';
+import {
+  buildPortfolioPlanExportData,
+  exportPortfolioPlanToCsv,
+  exportPortfolioPlanToExcel,
+} from '../utils/portfolioPlanExport';
 import { usePortfolioPlan } from '../hooks/usePortfolioPlan';
 import {
   createPortfolioScenario,
@@ -3459,6 +3464,7 @@ export function PortfolioPlanning() {
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(loadActiveScenarioId);
   const [renamingScenarioId, setRenamingScenarioId] = useState<string | null>(null);
   const [activeQIdx, setActiveQIdx] = useState(1);
+  const [exportingFormat, setExportingFormat] = useState<'excel' | 'csv' | 'pdf' | null>(null);
   const [epicCollapsed, setEpicCollapsed]   = useState<Record<string, boolean>>({});
   const [phasePersonCollapsed, setPhasePersonCollapsed] = useState<Record<string, boolean>>({});
   const [pvExpanded, setPvExpanded] = useState<Record<string, boolean>>({});
@@ -4484,6 +4490,81 @@ export function PortfolioPlanning() {
     setDrawerOpen(false);
   }, [activeScenario, updateActiveScenario, plan]);
 
+  const exportInput = useMemo(() => ({
+    planName: activeScenario?.name ?? 'Main Plan',
+    quarterLabel: quarter,
+    quarterOpt: activeQuarterOpt,
+    boardEpics,
+    phasePlans: activePhasePlans,
+    phaseAssignments: activePhaseAssignments,
+    state: baselineState,
+    jiraBaseUrl,
+  }), [
+    activePhaseAssignments,
+    activePhasePlans,
+    activeQuarterOpt,
+    activeScenario?.name,
+    baselineState,
+    boardEpics,
+    jiraBaseUrl,
+    quarter,
+  ]);
+
+  const handleExportExcel = useCallback(async () => {
+    try {
+      setExportingFormat('excel');
+      await exportPortfolioPlanToExcel(exportInput);
+    } catch (error) {
+      console.error('[PortfolioPlanning] export failed', error);
+      window.alert('Failed to export the portfolio workbook. Please try again.');
+    } finally {
+      setExportingFormat(null);
+    }
+  }, [exportInput]);
+
+  const handleExportCsv = useCallback(() => {
+    try {
+      setExportingFormat('csv');
+      exportPortfolioPlanToCsv(exportInput);
+    } catch (error) {
+      console.error('[PortfolioPlanning] CSV export failed', error);
+      window.alert('Failed to export the portfolio CSV. Please try again.');
+    } finally {
+      setExportingFormat(null);
+    }
+  }, [exportInput]);
+
+  const handleExportPdf = useCallback(async () => {
+    try {
+      setExportingFormat('pdf');
+      const exportData = buildPortfolioPlanExportData(exportInput);
+      const { pdf } = await import('@react-pdf/renderer');
+      const { PortfolioPlanPDF } = await import('../components/report/PortfolioPlanPDF');
+      const blob = await pdf(
+        <PortfolioPlanPDF
+          planName={exportData.planName}
+          quarterLabel={exportData.quarterLabel}
+          exportedAt={exportData.exportedAt}
+          health={exportData.health}
+          epics={exportData.epics}
+          risks={exportData.risks}
+          teamCapacityRows={exportData.teamCapacityRows}
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${exportData.filenameBase}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('[PortfolioPlanning] PDF export failed', error);
+      window.alert('Failed to export the portfolio PDF. Please try again.');
+    } finally {
+      setExportingFormat(null);
+    }
+  }, [exportInput]);
+
   const expandAll = useCallback(() => {
     const ec: Record<string, boolean> = {};
     const ppc: Record<string, boolean> = {};
@@ -4526,6 +4607,15 @@ export function PortfolioPlanning() {
           ))}
         </div>
         <div className="pp-divider" />
+        <button className="pp-btn secondary" onClick={handleExportExcel} disabled={exportingFormat !== null}>
+          {exportingFormat === 'excel' ? 'Exporting…' : 'Export Excel'}
+        </button>
+        <button className="pp-btn secondary" onClick={handleExportCsv} disabled={exportingFormat !== null}>
+          {exportingFormat === 'csv' ? 'Exporting…' : 'Export CSV'}
+        </button>
+        <button className="pp-btn secondary" onClick={handleExportPdf} disabled={exportingFormat !== null}>
+          {exportingFormat === 'pdf' ? 'Exporting…' : 'Export PDF'}
+        </button>
         <button className="pp-btn primary" onClick={() => setDrawerOpen(true)}>
           + Add Epics
         </button>
