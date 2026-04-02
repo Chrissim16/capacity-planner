@@ -130,7 +130,7 @@ export function Login() {
           </form>
 
           <p className="mt-4 text-sm text-[#64748B]">
-            Accounts are provisioned by invitation. If you need access or your role has not been set up yet, contact a system administrator.
+            Accounts are provisioned by an administrator. Use the temporary password they give you the first time you sign in.
           </p>
         </div>
 

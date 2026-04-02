@@ -17,6 +17,12 @@ interface UserRow {
  last_sign_in_at: string | null;
 }
 
+interface CreatedCredentials {
+ email: string;
+ role: AppRole;
+ temporaryPassword: string;
+}
+
 const ALL_ROLES: AppRole[] = ['system_admin', 'project_manager', 'read_only'];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -62,6 +68,7 @@ export function UsersSection() {
  const [inviteEmail, setInviteEmail] = useState('');
  const [inviteRole, setInviteRole] = useState<AppRole>('project_manager');
  const [isInviting, setIsInviting] = useState(false);
+ const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
 
  // Role update state: maps userId → true while saving
  const [savingRole, setSavingRole] = useState<Record<string, boolean>>({});
@@ -116,6 +123,7 @@ export function UsersSection() {
  }
 
  setIsInviting(true);
+ setCreatedCredentials(null);
  try {
  const { data: sessionData } = await supabase.auth.getSession();
  const jwt = sessionData.session?.access_token;
@@ -128,14 +136,24 @@ export function UsersSection() {
  method: 'POST',
  headers: {
  'Content-Type': 'application/json',
- Authorization: `Bearer ${jwt ?? ''}`,
+ Authorization: `Bearer ${jwt}`,
  },
  body: JSON.stringify({ action: 'invite', email: trimmedEmail, role: inviteRole }),
  });
  if (!res.ok) {
- showToast(await parseApiError(res, 'Failed to send invitation.'), 'error');
+ showToast(await parseApiError(res, 'Failed to create user.'), 'error');
  } else {
- showToast(`Invitation sent to ${trimmedEmail}.`, 'success');
+ const body = await res.json() as { temporaryPassword?: string };
+ if (!body.temporaryPassword) {
+ showToast('The user was created, but no temporary password was returned.', 'warning');
+ } else {
+ setCreatedCredentials({
+ email: trimmedEmail,
+ role: inviteRole,
+ temporaryPassword: body.temporaryPassword,
+ });
+ }
+ showToast(`User created for ${trimmedEmail}.`, 'success');
  setInviteEmail('');
  setInviteRole('project_manager');
  void fetchUsers();
@@ -210,7 +228,8 @@ export function UsersSection() {
  <CardContent className="space-y-4">
  {/* Invite row — admin only */}
  {isAdmin && (
- <div className="flex flex-col sm:flex-row gap-2 pb-4 border-b border-[#DEDFE3] ">
+ <div className="space-y-3 pb-4 border-b border-[#DEDFE3] ">
+ <div className="flex flex-col sm:flex-row gap-2">
  <div className="flex-1">
  <Input
  type="email"
@@ -237,8 +256,51 @@ export function UsersSection() {
  size="md"
  >
  <UserPlus size={16} />
- Send invite
+ Create user
  </Button>
+ </div>
+ <p className="text-xs text-[#64748B]">
+ Creates the account immediately and generates a temporary password. Share the password securely with the user.
+ </p>
+ {createdCredentials && (
+ <div className="rounded-lg border border-[#CCE4F9] bg-[#F5F8FC] px-4 py-3 space-y-2">
+ <p className="text-sm font-medium text-[#1E293B]">User created</p>
+ <p className="text-sm text-[#475569]">
+ <span className="font-medium text-[#1E293B]">{createdCredentials.email}</span> was created as {ROLE_LABELS[createdCredentials.role]}.
+ </p>
+ <div className="flex flex-col gap-1">
+ <span className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Temporary password</span>
+ <code className="rounded-md bg-white border border-[#DEDFE3] px-3 py-2 text-sm text-[#1E293B] break-all">
+ {createdCredentials.temporaryPassword}
+ </code>
+ </div>
+ <div className="flex gap-2">
+ <Button
+ type="button"
+ size="sm"
+ variant="secondary"
+ onClick={() => {
+ void navigator.clipboard.writeText(createdCredentials.temporaryPassword);
+ showToast('Temporary password copied.', 'success');
+ }}
+ >
+ Copy password
+ </Button>
+ <Button
+ type="button"
+ size="sm"
+ variant="secondary"
+ onClick={() => {
+ const credentials = `Email: ${createdCredentials.email}\nTemporary password: ${createdCredentials.temporaryPassword}`;
+ void navigator.clipboard.writeText(credentials);
+ showToast('Credentials copied.', 'success');
+ }}
+ >
+ Copy credentials
+ </Button>
+ </div>
+ </div>
+ )}
  </div>
  )}
 

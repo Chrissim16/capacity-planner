@@ -1,27 +1,32 @@
+const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 const ALLOWED_ORIGIN = process.env.FRONTEND_URL || 'https://capacity-planner-mw.vercel.app';
 
-function normalizeInviteError(message) {
+function generateTemporaryPassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+  const bytes = crypto.randomBytes(16);
+  let password = '';
+
+  for (const byte of bytes) {
+    password += alphabet[byte % alphabet.length];
+  }
+
+  return password;
+}
+
+function normalizeCreateUserError(message) {
   const lower = message.toLowerCase();
 
   if (lower.includes('already registered')) {
     return 'A user with this email already exists.';
   }
 
-  if (lower.includes('not authorized')) {
-    return 'Supabase blocked the invite email for this address. Configure custom SMTP or add the recipient as an authorized team address in Supabase.';
+  if (lower.includes('password')) {
+    return 'Supabase rejected the temporary password. Please try again.';
   }
 
-  if (lower.includes('rate limit') || lower.includes('too many requests')) {
-    return 'Invite emails are temporarily rate-limited. Please wait a bit and try again.';
-  }
-
-  if (lower.includes('smtp') || lower.includes('email') || lower.includes('mailer')) {
-    return 'Supabase could not send the invite email. Check the project email and SMTP settings.';
-  }
-
-  return 'Failed to send invitation. Please try again.';
+  return 'Failed to create the user. Please try again.';
 }
 
 function getErrorMessage(error) {
@@ -29,7 +34,7 @@ function getErrorMessage(error) {
 }
 
 /**
- * Admin API route — invite and remove users.
+ * Admin API route — create and remove users.
  *
  * Requires SUPABASE_SERVICE_ROLE_KEY to be set in Vercel environment variables.
  * The service role key is NEVER exposed to the browser.
@@ -112,26 +117,38 @@ module.exports = async function handler(req, res) {
       const validRoles = ['system_admin', 'project_manager', 'read_only'];
       const assignedRole = validRoles.includes(role) ? role : 'project_manager';
 
-      // Send the invitation email
-      const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email);
-      if (inviteError) {
-        const msg = normalizeInviteError(inviteError.message);
-        console.error('[Admin] Invite user error:', inviteError.message);
-        return res.status(400).json({ error: msg, details: inviteError.message });
+      const temporaryPassword = generateTemporaryPassword();
+      const { data: createdUserData, error: createUserError } = await adminClient.auth.admin.createUser({
+        email,
+        password: temporaryPassword,
+        email_confirm: true,
+      });
+      if (createUserError || !createdUserData?.user?.id) {
+        const message = createUserError?.message ?? 'Unknown createUser error';
+        const msg = normalizeCreateUserError(message);
+        console.error('[Admin] Create user error:', message);
+        return res.status(400).json({ error: msg, details: message });
       }
 
-      // Pre-assign the chosen role so the user lands with the right permissions on first login
-      if (inviteData?.user?.id) {
-        const { error: upsertError } = await adminClient
-          .from('user_roles')
-          .upsert({ user_id: inviteData.user.id, role: assignedRole }, { onConflict: 'user_id' });
-        if (upsertError) {
-          console.error('[Admin] Failed to pre-assign role:', upsertError.message);
-          // Non-fatal: the user can still be assigned a role manually
-        }
+      const createdUserId = createdUserData.user.id;
+
+      const { error: upsertError } = await adminClient
+        .from('user_roles')
+        .upsert({ user_id: createdUserId, role: assignedRole }, { onConflict: 'user_id' });
+      if (upsertError) {
+        console.error('[Admin] Failed to pre-assign role:', upsertError.message);
+        await adminClient.auth.admin.deleteUser(createdUserId);
+        return res.status(500).json({
+          error: 'Failed to assign the user role.',
+          details: upsertError.message,
+        });
       }
 
-      return res.status(200).json({ success: true });
+      return res.status(200).json({
+        success: true,
+        temporaryPassword,
+        userId: createdUserId,
+      });
 
     } else if (action === 'remove') {
       if (!userId || typeof userId !== 'string') {
