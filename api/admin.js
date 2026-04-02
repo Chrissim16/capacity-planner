@@ -2,6 +2,28 @@ const { createClient } = require('@supabase/supabase-js');
 
 const ALLOWED_ORIGIN = process.env.FRONTEND_URL || 'https://capacity-planner-mw.vercel.app';
 
+function normalizeInviteError(message) {
+  const lower = message.toLowerCase();
+
+  if (lower.includes('already registered')) {
+    return 'A user with this email already exists.';
+  }
+
+  if (lower.includes('not authorized')) {
+    return 'Supabase blocked the invite email for this address. Configure custom SMTP or add the recipient as an authorized team address in Supabase.';
+  }
+
+  if (lower.includes('rate limit') || lower.includes('too many requests')) {
+    return 'Invite emails are temporarily rate-limited. Please wait a bit and try again.';
+  }
+
+  if (lower.includes('smtp') || lower.includes('email') || lower.includes('mailer')) {
+    return 'Supabase could not send the invite email. Check the project email and SMTP settings.';
+  }
+
+  return 'Failed to send invitation. Please try again.';
+}
+
 /**
  * Admin API route — invite and remove users.
  *
@@ -86,10 +108,8 @@ module.exports = async function handler(req, res) {
       // Send the invitation email
       const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email);
       if (inviteError) {
-        // Surface a user-friendly message without leaking internal detail
-        const msg = inviteError.message.toLowerCase().includes('already registered')
-          ? 'A user with this email already exists.'
-          : 'Failed to send invitation. Please try again.';
+        const msg = normalizeInviteError(inviteError.message);
+        console.error('[Admin] Invite user error:', inviteError.message);
         return res.status(400).json({ error: msg });
       }
 
