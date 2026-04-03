@@ -358,21 +358,23 @@
   min-height: 0;
   scrollbar-gutter: stable;
 }
-.pp-rp-scroll-epic { overflow-x: hidden; }
+.pp-rp-scroll-epic { overflow-x: auto; }
 .pp-bottom-scroll {
   flex-shrink: 0;
-  height: 14px;
-  overflow-x: auto;
+  height: 16px;
+  min-height: 16px;
+  overflow-x: scroll;
   overflow-y: hidden;
   border-top: 1px solid var(--border);
   background: var(--white);
+  scrollbar-gutter: stable;
   scrollbar-color: var(--txt3) var(--offwh);
 }
 .pp-bottom-scroll-inner {
   height: 1px;
 }
 .pp-bottom-scroll::-webkit-scrollbar {
-  height: 14px;
+  height: 16px;
 }
 .pp-bottom-scroll::-webkit-scrollbar-track {
   background: var(--offwh);
