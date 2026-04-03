@@ -4131,13 +4131,22 @@ export function PortfolioPlanning() {
     return map;
   }, [plan.phasePlans]);
   const activePhasePlans = useMemo(
-    () => activePhasePlansRaw.map(item => ({
-      ...baselinePhasePlanByKey.get(`${item.epicKey}::${item.phaseInstanceId ?? item.phase}`),
-      ...item,
-      phaseInstanceId: item.phaseInstanceId ?? item.phase,
-      phaseOrder: item.phaseOrder ?? baselinePhasePlanByKey.get(`${item.epicKey}::${item.phaseInstanceId ?? item.phase}`)?.phaseOrder ?? 0,
-      description: item.description ?? baselinePhasePlanByKey.get(`${item.epicKey}::${item.phaseInstanceId ?? item.phase}`)?.description ?? null,
-    })),
+    () => {
+      const merged = new Map<string, EpicPhasePlan>(baselinePhasePlanByKey);
+      for (const item of activePhasePlansRaw) {
+        const phaseInstanceId = item.phaseInstanceId ?? item.phase;
+        const key = `${item.epicKey}::${phaseInstanceId}`;
+        const baseline = baselinePhasePlanByKey.get(key);
+        merged.set(key, {
+          ...baseline,
+          ...item,
+          phaseInstanceId,
+          phaseOrder: item.phaseOrder ?? baseline?.phaseOrder ?? 0,
+          description: item.description ?? baseline?.description ?? null,
+        });
+      }
+      return [...merged.values()];
+    },
     [activePhasePlansRaw, baselinePhasePlanByKey],
   );
   const activePhaseAssignments = useMemo(
