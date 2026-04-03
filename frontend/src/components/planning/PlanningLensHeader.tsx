@@ -81,12 +81,12 @@ export function PlanningLensHeader({
   showSaveState = true,
 }: PlanningLensHeaderProps) {
   return (
-    <div className="border-b border-[#DEDFE3] bg-white px-6 py-6">
-      <div className="flex flex-col gap-5">
+    <div className="border-b border-[#DEDFE3] bg-white px-6 py-3">
+      <div className="flex flex-col gap-2">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-bold leading-tight text-[#1E293B]">{title}</h1>
-            <p className="mt-1 max-w-3xl text-sm text-[#64748B]">{subtitle}</p>
+            <h1 className="text-lg font-bold leading-tight text-[#1E293B]">{title}</h1>
+            <p className="max-w-3xl text-sm text-[#64748B]">{subtitle}</p>
           </div>
 
           {(badges || actions || showSaveState) ? (

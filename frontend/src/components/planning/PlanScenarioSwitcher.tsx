@@ -63,11 +63,10 @@ export function PlanScenarioSwitcher({
 
   return (
     <>
-      <div className="rounded-2xl border border-[#DEDFE3] bg-white px-4 py-4 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#94A3B8]">Scenarios</p>
-            <div className="mt-2 flex flex-wrap gap-2">
+      <div>
+        <div className="flex flex-wrap items-center gap-2 lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-[#94A3B8]">Scenarios</span>
               <button
                 type="button"
                 onClick={() => onSwitch(null)}
@@ -93,12 +92,11 @@ export function PlanScenarioSwitcher({
                       : 'border-[#DEDFE3] bg-white text-[#64748B] hover:border-[#BFDBFE] hover:text-[#1E293B]',
                   )}
                 >
-                  <span className={clsx('h-2.5 w-2.5 rounded-full', scenarioColorDot(scenario.color).dot)} />
+                  <span className={clsx('h-3.5 w-3.5 rounded-full', scenarioColorDot(scenario.color).dot)} />
                   <span className="max-w-[200px] truncate">{scenario.name}</span>
                 </button>
               ))}
             </div>
-          </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" size="sm" onClick={() => openModal('create')}>
