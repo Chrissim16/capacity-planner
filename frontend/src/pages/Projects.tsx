@@ -8,7 +8,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/layout/PageHeader';
-import { useAppStore, useCurrentState } from '../stores/appStore';
+import { useCurrentState } from '../stores/appStore';
 import { WorkItemSkillsCell } from '../components/WorkItemSkillsCell';
 import { fetchSyncPreview, applySync } from '../application/jiraSync';
 import { useCurrentUser } from '../hooks/useCurrentUser';
