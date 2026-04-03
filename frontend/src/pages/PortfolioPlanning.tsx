@@ -1644,6 +1644,41 @@ interface ActivePhaseInteraction {
   targets: PhaseInteractionTarget[];
 }
 
+interface SummaryBreakdownPhaseRow {
+  key: string;
+  phase: PlanningPhase;
+  phaseOrder: number;
+  phaseOrdinal: number;
+  phaseLabel: string;
+  totalDays: number;
+  description: string;
+  startDate: string | null;
+  endDate: string | null;
+  dateLabel: string;
+}
+
+interface SummaryBreakdownActorRow {
+  id: string;
+  name: string;
+  role: string;
+  actorType: 'person' | 'contact' | 'team' | 'unknown';
+  totalDays: number;
+  utilization: number | null;
+  phaseCount: number;
+  phases: SummaryBreakdownPhaseRow[];
+}
+
+interface SummaryBreakdownEpicRow {
+  epic: JiraWorkItem;
+  totalDays: number;
+  itDays: number;
+  bizDays: number;
+  staffingCount: number;
+  peopleCount: number;
+  teamCount: number;
+  actors: SummaryBreakdownActorRow[];
+}
+
 function isTeamEntryId(id: string): boolean {
   return isBusinessTeamPlaceholderId(id);
 }
@@ -1677,6 +1712,21 @@ function getQuarterDateRange(qOpt: QOpt): { start: Date; end: Date } {
 
 function roundToTenth(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function formatDays(value: number): string {
+  const rounded = roundToTenth(value);
+  return Number.isInteger(rounded) ? String(Math.round(rounded)) : rounded.toFixed(1).replace(/\.0$/, '');
+}
+
+function formatPhaseDateRange(startDate: string | null, endDate: string | null): string {
+  const startLabel = startDate
+    ? formatIsoDateLocal(parsePortfolioIsoDate(startDate) ?? new Date(`${startDate}T00:00:00`))
+    : 'Start TBD';
+  const endLabel = endDate
+    ? formatIsoDateLocal(parsePortfolioIsoDate(endDate) ?? new Date(`${endDate}T00:00:00`))
+    : 'End TBD';
+  return `${startLabel} -> ${endLabel}`;
 }
 
 function getAssignmentDaysForQuarter(
@@ -1832,27 +1882,28 @@ function PeopleView({
         }
         <div className="pv-pinfo">
           <div className="pv-pname">{getActorDisplayName(ps, businessTeams)}</div>
-          <div className="pv-prole">{getActorRole(ps)}</div>
+          <div className="pv-pmeta">
+            <span className="pv-prole">{getActorRole(ps)}</span>
+            <div className="pv-cap-inline">
+              <div className="pv-cap-bar compact">
+                <div
+                  className={`pv-cap-fill ${isTeam ? 'team' : tier}`}
+                  style={{ width: isTeam ? '100%' : `${Math.min(100, utilPct * 100)}%` }}
+                />
+              </div>
+              <span className="pv-cap-label">
+                {isTeam ? `${formatDays(estDays)}d planned` : `${formatDays(estDays)}d / ${formatDays(ps.availDays)}d`}
+              </span>
+            </div>
+          </div>
         </div>
-        {!isTeam && (
+        {!isTeam ? (
           <div className={`pv-util-pill ${tier}`}>
             {Math.round(utilPct * 100)}%
           </div>
+        ) : (
+          <span className="pv-team-data-pill">No capacity data</span>
         )}
-      </div>
-    );
-    // Capacity bar row — teams show placeholder instead of utilisation
-    lpRows.push(
-      <div key={`pvcap-${pid}`} className="pv-cap-row">
-        {isTeam
-          ? <span className="pv-team-placeholder">No capacity data — team placeholder</span>
-          : <>
-              <div className="pv-cap-bar">
-                <div className={`pv-cap-fill ${tier}`} style={{ width: `${Math.min(100, utilPct * 100)}%` }} />
-              </div>
-              <span className="pv-cap-label">{estDays}d / {ps.availDays}d</span>
-            </>
-        }
       </div>
     );
 
@@ -1867,12 +1918,6 @@ function PeopleView({
             </div>
           ))}
         </div>
-      </div>
-    );
-    // Capacity bar row in gantt (empty — aligns with left panel row)
-    ganttRows.push(
-      <div key={`gpvcap-${pid}`} className="pp-g-pv-cap" style={{ minWidth: totalW }}>
-        <GridBg weeks={weeks} />
       </div>
     );
 
@@ -2553,10 +2598,16 @@ function SummaryView({
   baselinePortfolioCostSummary: PortfolioCostSummary | null;
 }) {
   const periodLabel = quarterOpt.q === -1 ? 'year' : 'quarter';
+  const [expandedStaffingEpics, setExpandedStaffingEpics] = useState<Record<string, boolean>>({});
+  const [expandedStaffingActors, setExpandedStaffingActors] = useState<Record<string, boolean>>({});
   const getVisibleAssignedDays = useCallback(
     (assignments: Array<Pick<PersonAssignEntry, 'assignment' | 'phaseStartDate' | 'phaseEndDate'>>) =>
       getVisibleAssignedDaysForEntries(assignments, quarterOpt),
     [quarterOpt],
+  );
+  const peopleSummaryById = useMemo(
+    () => new Map(peopleSummaries.map((summary) => [summary.id, summary])),
+    [peopleSummaries],
   );
   const totalPlannedDays = useMemo(
     () => peopleSummaries.reduce((sum, person) => sum + getVisibleAssignedDays(person.assignments), 0),
@@ -2819,6 +2870,146 @@ function SummaryView({
     }).sort((a, b) => b.totalDays - a.totalDays || a.epic.jiraKey.localeCompare(b.epic.jiraKey));
   }, [assignMap, boardEpics, state.businessContacts, state.businessTeams]);
 
+  const staffingBreakdownRows = useMemo((): SummaryBreakdownEpicRow[] => {
+    const memberMap = new Map(state.teamMembers.map((member) => [member.id, member]));
+    const contactMap = new Map(state.businessContacts.map((contact) => [contact.id, contact]));
+
+    return boardEpics
+      .map((epic) => {
+        const phaseRows = getPhaseInstanceRows(
+          phasePlansMap.get(epic.jiraKey) ?? new Map(),
+          assignMap.get(epic.jiraKey) ?? new Map(),
+        );
+
+        const actorMap = new Map<string, {
+          id: string;
+          name: string;
+          role: string;
+          actorType: 'person' | 'contact' | 'team' | 'unknown';
+          totalDays: number;
+          availableDays: number | null;
+          phases: Map<string, SummaryBreakdownPhaseRow>;
+        }>();
+
+        let totalDays = 0;
+        let itDays = 0;
+        let bizDays = 0;
+
+        for (const row of phaseRows) {
+          const phaseStartDate = row.plan?.startDate ?? null;
+          const phaseEndDate = row.plan?.endDate ?? null;
+          const phaseDescription = row.plan?.description?.trim() ?? '';
+
+          for (const assignment of row.assignments) {
+            const visibleDays = getAssignmentDaysForQuarter({
+              assignment,
+              phaseStartDate,
+              phaseEndDate,
+            }, quarterOpt);
+
+            if (visibleDays <= 0) continue;
+
+            totalDays += visibleDays;
+            if (assignment.track === 'IT') itDays += visibleDays;
+            else bizDays += visibleDays;
+
+            const actorSummary = peopleSummaryById.get(assignment.memberId);
+            const member = memberMap.get(assignment.memberId);
+            const contact = contactMap.get(assignment.memberId);
+            const isTeam = isBusinessTeamPlaceholderId(assignment.memberId);
+
+            const actorName = actorSummary
+              ? getActorDisplayName(actorSummary, state.businessTeams)
+              : isTeam
+                ? `${getBusinessTeamPlaceholderDisplay(assignment.memberId, state.businessTeams).name} Team`
+                : member?.name ?? contact?.name ?? assignment.memberId;
+            const actorRole = actorSummary
+              ? getActorRole(actorSummary)
+              : isTeam
+                ? 'Business team'
+                : member?.role ?? contact?.title ?? 'Reference only';
+            const actorType = isTeam
+              ? 'team' as const
+              : contact
+                ? 'contact' as const
+                : member
+                  ? 'person' as const
+                  : 'unknown' as const;
+
+            if (!actorMap.has(assignment.memberId)) {
+              actorMap.set(assignment.memberId, {
+                id: assignment.memberId,
+                name: actorName,
+                role: actorRole,
+                actorType,
+                totalDays: 0,
+                availableDays: actorType === 'team' ? null : actorSummary?.availDays ?? null,
+                phases: new Map(),
+              });
+            }
+
+            const actorRow = actorMap.get(assignment.memberId)!;
+            actorRow.totalDays += visibleDays;
+
+            const phaseKey = `${row.phase}-${row.phaseInstanceId}`;
+            if (!actorRow.phases.has(phaseKey)) {
+              actorRow.phases.set(phaseKey, {
+                key: phaseKey,
+                phase: row.phase,
+                phaseOrder: row.phaseOrder,
+                phaseOrdinal: row.phaseOrdinal,
+                phaseLabel: getPhaseDisplayLabel(row.phase, row.phaseOrdinal),
+                totalDays: 0,
+                description: phaseDescription,
+                startDate: phaseStartDate,
+                endDate: phaseEndDate,
+                dateLabel: formatPhaseDateRange(phaseStartDate, phaseEndDate),
+              });
+            }
+            actorRow.phases.get(phaseKey)!.totalDays += visibleDays;
+          }
+        }
+
+        const actors = [...actorMap.values()]
+          .map((actor): SummaryBreakdownActorRow => ({
+            id: actor.id,
+            name: actor.name,
+            role: actor.role,
+            actorType: actor.actorType,
+            totalDays: roundToTenth(actor.totalDays),
+            utilization: actor.availableDays && actor.availableDays > 0
+              ? actor.totalDays / actor.availableDays
+              : null,
+            phaseCount: actor.phases.size,
+            phases: [...actor.phases.values()]
+              .map((phaseRow) => ({ ...phaseRow, totalDays: roundToTenth(phaseRow.totalDays) }))
+              .sort((a, b) => a.phaseOrder - b.phaseOrder || a.phaseLabel.localeCompare(b.phaseLabel)),
+          }))
+          .sort((a, b) => b.totalDays - a.totalDays || a.name.localeCompare(b.name));
+
+        return {
+          epic,
+          totalDays: roundToTenth(totalDays),
+          itDays: roundToTenth(itDays),
+          bizDays: roundToTenth(bizDays),
+          staffingCount: actors.length,
+          peopleCount: actors.filter((actor) => actor.actorType !== 'team').length,
+          teamCount: actors.filter((actor) => actor.actorType === 'team').length,
+          actors,
+        };
+      })
+      .sort((a, b) => b.totalDays - a.totalDays || a.epic.jiraKey.localeCompare(b.epic.jiraKey));
+  }, [
+    assignMap,
+    boardEpics,
+    peopleSummaryById,
+    phasePlansMap,
+    quarterOpt,
+    state.businessContacts,
+    state.businessTeams,
+    state.teamMembers,
+  ]);
+
   // KPI cards — one per process team
   const kpiCards = useMemo(() => {
     return processTeams.map(pt => {
@@ -3068,6 +3259,149 @@ function SummaryView({
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {staffingBreakdownRows.length > 0 && (
+          <div>
+            <div className="pp-sec-hd">
+              <span className="pp-sec-title">Epic Staffing Breakdown</span>
+              <span className="pp-sec-sub">Epic, staffing, and phase detail for {quarter}</span>
+            </div>
+            <div className="pp-sbd-wrap">
+              <div className="pp-sbd-table">
+                <div className="pp-sbd-head">
+                  <div className="pp-sbd-head-cell">Epic</div>
+                  <div className="pp-sbd-head-cell">Staffing</div>
+                  <div className="pp-sbd-head-cell">Phase</div>
+                  <div className="pp-sbd-head-cell">Description</div>
+                  <div className="pp-sbd-head-cell pp-sbd-num">Days</div>
+                  <div className="pp-sbd-head-cell">Utilisation</div>
+                </div>
+
+                {staffingBreakdownRows.map((epicRow) => {
+                  const epicExpanded = expandedStaffingEpics[epicRow.epic.jiraKey] ?? false;
+                  const staffingLabel = [
+                    epicRow.peopleCount > 0 ? `${epicRow.peopleCount} people` : null,
+                    epicRow.teamCount > 0 ? `${epicRow.teamCount} teams` : null,
+                  ].filter(Boolean).join(' / ');
+
+                  return (
+                    <div key={epicRow.epic.jiraKey}>
+                      <div className="pp-sbd-row epic">
+                        <div className="pp-sbd-cell pp-sbd-epic-cell">
+                          <button
+                            type="button"
+                            className={`pp-sbd-toggle${epicExpanded ? ' open' : ''}`}
+                            onClick={() => {
+                              if (epicRow.staffingCount === 0) return;
+                              setExpandedStaffingEpics((prev) => ({
+                                ...prev,
+                                [epicRow.epic.jiraKey]: !prev[epicRow.epic.jiraKey],
+                              }));
+                            }}
+                            aria-label={`${epicExpanded ? 'Collapse' : 'Expand'} ${epicRow.epic.jiraKey}`}
+                            disabled={epicRow.staffingCount === 0}
+                          >
+                            ▶
+                          </button>
+                          {jiraBaseUrl
+                            ? <a href={`${jiraBaseUrl}/browse/${epicRow.epic.jiraKey}`} target="_blank" rel="noopener noreferrer" className="pv-assign-key">{epicRow.epic.jiraKey}</a>
+                            : <span className="pv-assign-key">{epicRow.epic.jiraKey}</span>
+                          }
+                          <div className="pp-sbd-meta">
+                            <div className="pp-sbd-title">{epicRow.epic.summary}</div>
+                            <div className="pp-sbd-sub">{epicRow.staffingCount > 0 ? staffingLabel : 'No staffing assigned yet'}</div>
+                          </div>
+                        </div>
+                        <div className="pp-sbd-cell pp-sbd-muted">
+                          {epicRow.staffingCount > 0 ? `${epicRow.staffingCount} assigned` : 'No staffing'}
+                        </div>
+                        <div className="pp-sbd-cell pp-sbd-muted">{epicRow.staffingCount > 0 ? 'Expand to view people and teams' : 'No phase details yet'}</div>
+                        <div className="pp-sbd-cell pp-sbd-muted">
+                          {epicRow.totalDays > 0 ? `${formatDays(epicRow.itDays)}d IT / ${formatDays(epicRow.bizDays)}d Biz` : 'Waiting for assignments'}
+                        </div>
+                        <div className="pp-sbd-cell pp-sbd-num pp-sbd-strong">{formatDays(epicRow.totalDays)}d</div>
+                        <div className="pp-sbd-cell" />
+                      </div>
+
+                      {epicExpanded && epicRow.actors.map((actorRow) => {
+                        const actorExpandedKey = `${epicRow.epic.jiraKey}::${actorRow.id}`;
+                        const actorExpanded = expandedStaffingActors[actorExpandedKey] ?? false;
+                        const teamEntry = actorRow.actorType === 'team'
+                          ? getBusinessTeamPlaceholderDisplay(actorRow.id, state.businessTeams)
+                          : null;
+                        const actorTier = actorRow.utilization === null ? null : utilTier(actorRow.utilization);
+
+                        return (
+                          <div key={actorExpandedKey}>
+                            <div className="pp-sbd-row actor">
+                              <div className="pp-sbd-cell" />
+                              <div className="pp-sbd-cell pp-sbd-actor-cell">
+                                <button
+                                  type="button"
+                                  className={`pp-sbd-toggle${actorExpanded ? ' open' : ''}`}
+                                  onClick={() => {
+                                    setExpandedStaffingActors((prev) => ({
+                                      ...prev,
+                                      [actorExpandedKey]: !prev[actorExpandedKey],
+                                    }));
+                                  }}
+                                  aria-label={`${actorExpanded ? 'Collapse' : 'Expand'} ${actorRow.name}`}
+                                >
+                                  ▶
+                                </button>
+                                {actorRow.actorType === 'team'
+                                  ? <div className="pp-av team pp-sbd-avatar">{teamEntry?.abbr ?? actorRow.name.slice(0, 2).toUpperCase()}</div>
+                                  : <div className="pp-av pp-sbd-avatar" style={{ background: avColor(actorRow.id) }}>{initials(actorRow.name)}</div>
+                                }
+                                <div className="pp-sbd-meta">
+                                  <div className="pp-sbd-title">{actorRow.name}</div>
+                                  <div className="pp-sbd-sub">{actorRow.role}</div>
+                                </div>
+                              </div>
+                              <div className="pp-sbd-cell pp-sbd-muted">{actorRow.phaseCount} phase{actorRow.phaseCount === 1 ? '' : 's'}</div>
+                              <div className="pp-sbd-cell pp-sbd-muted">Assigned across this epic</div>
+                              <div className="pp-sbd-cell pp-sbd-num">{formatDays(actorRow.totalDays)}d</div>
+                              <div className="pp-sbd-cell">
+                                {actorRow.utilization === null || !actorTier
+                                  ? <span className="pp-sbd-na">N/A</span>
+                                  : (
+                                    <div className="pp-breakdown-util">
+                                      <div className="pp-breakdown-util-bar">
+                                        <div className={`pp-breakdown-util-fill ${actorTier}`} style={{ width: `${Math.min(100, actorRow.utilization * 100)}%` }} />
+                                      </div>
+                                      <span className={`pp-breakdown-util-pill ${actorTier}`}>{Math.round(actorRow.utilization * 100)}%</span>
+                                    </div>
+                                  )}
+                              </div>
+                            </div>
+
+                            {actorExpanded && actorRow.phases.map((phaseRow) => (
+                              <div key={`${actorExpandedKey}::${phaseRow.key}`} className="pp-sbd-row phase">
+                                <div className="pp-sbd-cell" />
+                                <div className="pp-sbd-cell" />
+                                <div className="pp-sbd-cell pp-sbd-phase-cell">
+                                  <span className={`pp-pv-pp ${PH_KEY[phaseRow.phase]}`}>{phaseRow.phaseLabel}</span>
+                                  <span className="pp-sbd-phase-dates">{phaseRow.dateLabel}</span>
+                                </div>
+                                <div className="pp-sbd-cell">
+                                  {phaseRow.description
+                                    ? <span className="pp-sbd-description">{phaseRow.description}</span>
+                                    : <span className="pp-sbd-muted">No description yet</span>}
+                                </div>
+                                <div className="pp-sbd-cell pp-sbd-num">{formatDays(phaseRow.totalDays)}d</div>
+                                <div className="pp-sbd-cell" />
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
