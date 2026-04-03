@@ -28,6 +28,7 @@ import {
 import type { PlannerItem, PlannerItemType, PlannerAssignment, Scenario } from '../types';
 import { migratePlannerLayout } from '../utils/plannerMigration';
 import { resolveItemAssignees } from '../utils/plannerInit';
+import { useShallow } from 'zustand/react/shallow';
 
 const TYPE_SPAN: Record<PlannerItemType, number> = {
   epic: 6,
@@ -67,7 +68,9 @@ export function ScenarioPlanner() {
   const planningState = useCurrentState();
   const activeScenario = useActiveScenario();
   const activeScenarioId = useActiveScenarioId();
-  const scenarios = useAppStore((state) => state.data.scenarios.filter((scenario) => !scenario.archived && !scenario.isBaseline));
+  const scenarios = useAppStore(useShallow((state) =>
+    state.data.scenarios.filter((scenario) => !scenario.archived && !scenario.isBaseline),
+  ));
   const sync = useSyncStatus();
 
   const [backlogExpanded, setBacklogExpanded] = useState(true);
