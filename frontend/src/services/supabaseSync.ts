@@ -46,6 +46,7 @@ import type {
 import { generateQuarters } from '../utils/calendar';
 import { migratePlannerLayout } from '../utils/plannerMigration';
 import { bauPercentToLegacyDays } from '../utils/bau';
+import { normalizeBusinessTeamPlaceholdersInAssignments } from '../utils/businessTeamPlaceholders';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEFAULT VALUES — must stay in sync with appStore.ts
@@ -520,7 +521,7 @@ export async function saveToSupabase(state: AppState): Promise<void> {
     ['sprints',                      syncSprints(state.sprints)],
     ['jira_connections',             syncJiraConnections(state.jiraConnections)],
     ['jira_work_items',              syncJiraWorkItems(state.jiraWorkItems)],
-    ['scenarios',                    syncScenarios(state.scenarios)],
+    ['scenarios',                    syncScenarios(state.scenarios, state.businessTeams ?? [])],
     ['settings',                     syncSettings(
       state.settings,
       state.jiraSettings,
@@ -841,7 +842,7 @@ async function syncJiraWorkItems(items: JiraWorkItem[]): Promise<void> {
   }));
 }
 
-async function syncScenarios(scenarios: Scenario[]): Promise<void> {
+async function syncScenarios(scenarios: Scenario[], businessTeams: BusinessTeam[]): Promise<void> {
   await upsertAndPrune('scenarios', scenarios, s => ({
     id: s.id,
     name: s.name,
@@ -863,7 +864,10 @@ async function syncScenarios(scenarios: Scenario[]): Promise<void> {
     portfolio_board_epic_keys: s.portfolioBoardEpicKeys ?? [],
     portfolio_manual_epics: s.portfolioManualEpics ?? [],
     portfolio_phase_plans: s.portfolioPhasePlans ?? [],
-    portfolio_phase_assignments: s.portfolioPhaseAssignments ?? [],
+    portfolio_phase_assignments: normalizeBusinessTeamPlaceholdersInAssignments(
+      s.portfolioPhaseAssignments ?? [],
+      businessTeams,
+    ),
     last_edited_by: s.lastEditedBy ?? null,
     skills_matching_enabled: s.skillsMatchingEnabled ?? true,
   }));

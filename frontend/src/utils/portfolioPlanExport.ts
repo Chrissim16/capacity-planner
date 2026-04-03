@@ -10,6 +10,7 @@ import { calculateBusinessCapacityForQuarter, calculateCapacity } from './capaci
 import { getWorkdaysInDateRange, parseQuarter } from './calendar';
 import { stripJiraMarkup } from './markup';
 import { buildOrderedPhaseEntries } from './portfolioPhaseOrdering';
+import { getBusinessTeamPlaceholderDisplay, isBusinessTeamPlaceholderId } from './businessTeamPlaceholders';
 import {
   PH_LBL,
   storedPhaseEndDateToDisplayDate,
@@ -126,18 +127,6 @@ export interface PortfolioPlanExportInput {
   exportedAt?: Date;
 }
 
-function teamEntryForId(id: string): { name: string; abbr: string } {
-  const name = id.replace('TEAM:', '');
-  const abbr = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase() || name.slice(0, 2).toUpperCase();
-  return { name, abbr };
-}
-
 function buildHistoricMemberLookup(state: AppState): Map<string, { name: string; role: string }> {
   const historicMembers = new Map<string, { name: string; role: string }>();
 
@@ -157,10 +146,10 @@ function resolveActorIdentity(
   state: AppState,
   historicMembers: Map<string, { name: string; role: string }>,
 ): Pick<ExportActorSummary, 'id' | 'name' | 'role' | 'type'> {
-  if (id.startsWith('TEAM:')) {
+  if (isBusinessTeamPlaceholderId(id)) {
     return {
       id,
-      name: teamEntryForId(id).name,
+      name: getBusinessTeamPlaceholderDisplay(id, state.businessTeams).name,
       role: 'Business team',
       type: 'team',
     };

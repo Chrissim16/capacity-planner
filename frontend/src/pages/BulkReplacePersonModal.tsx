@@ -13,6 +13,7 @@ import type {
   BusinessTeam,
 } from '../types';
 import { PH_LBL } from '../utils/portfolioGeometry';
+import { makeBusinessTeamPlaceholderId } from '../utils/businessTeamPlaceholders';
 
 // ── Helpers (mirrored from PortfolioPlanning module scope) ────────────────────
 const AV_PALETTE = [
@@ -95,7 +96,7 @@ export function BulkReplacePersonModal({
       .filter(c => !c.excludedFromCapacity && c.id !== fromMemberId)
       .map(c => ({ id: c.id, name: c.name, sub: c.title ?? '', track: 'BIZ' as const, isTeam: false }));
     const teams = businessTeams.map(bt => ({
-      id: `TEAM:${bt.name}`,
+      id: makeBusinessTeamPlaceholderId(bt.id),
       name: bt.name,
       sub: 'Business team',
       track: 'BIZ' as const,

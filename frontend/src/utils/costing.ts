@@ -7,6 +7,11 @@ import type {
   JiraWorkItem,
   MoneyAmount,
 } from '../types';
+import {
+  getBusinessTeamPlaceholderDisplay,
+  isBusinessTeamPlaceholderId,
+  resolveBusinessTeamPlaceholder,
+} from './businessTeamPlaceholders';
 
 type AssignmentsByInstance = Map<string, EpicPhaseAssignment[]>;
 
@@ -56,17 +61,12 @@ function resolveBusinessTeam(
   memberId: string,
   state: AppState,
 ) {
-  if (!memberId.startsWith('TEAM:')) return null;
-  const raw = memberId.slice(5);
-  return state.businessTeams.find((team) => team.id === raw)
-    ?? state.businessTeams.find((team) => team.name === raw)
-    ?? null;
+  return resolveBusinessTeamPlaceholder(memberId, state.businessTeams);
 }
 
 function resolveActorLabel(memberId: string, state: AppState): string {
-  if (memberId.startsWith('TEAM:')) {
-    const team = resolveBusinessTeam(memberId, state);
-    return team ? `${team.name} Team` : memberId.replace('TEAM:', '') + ' Team';
+  if (isBusinessTeamPlaceholderId(memberId)) {
+    return `${getBusinessTeamPlaceholderDisplay(memberId, state.businessTeams).name} Team`;
   }
   const member = state.teamMembers.find((item) => item.id === memberId);
   if (member) return member.name;
@@ -79,7 +79,7 @@ function resolveRateForAssignment(
   assignment: EpicPhaseAssignment,
   state: AppState,
 ): MoneyAmount | null {
-  if (assignment.memberId.startsWith('TEAM:')) {
+  if (isBusinessTeamPlaceholderId(assignment.memberId)) {
     const team = resolveBusinessTeam(assignment.memberId, state);
     if (!team) return null;
     if (team.dailyRateOverride != null && team.dailyRateCurrency) {

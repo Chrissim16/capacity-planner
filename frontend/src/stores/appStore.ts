@@ -18,6 +18,7 @@ import type {
   Settings,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
+import { normalizeBusinessTeamPlaceholdersInAssignments } from '../utils/businessTeamPlaceholders';
 import { loadFromSupabase, saveToSupabase, scheduleSyncToSupabase } from '../services/supabaseSync';
 import { isSupabaseConfigured } from '../services/supabase';
 
@@ -184,17 +185,44 @@ function sanitizeActiveScenarioId(
   return scenarios.some((scenario) => scenario.id === activeScenarioId) ? activeScenarioId : null;
 }
 
-function normalizeScenario(scenario: Scenario): Scenario {
+function normalizeScenario(
+  scenario: Scenario,
+  businessTeams: AppState['businessTeams'] = [],
+): Scenario {
+  const capacityRequests = Array.isArray(scenario.capacityRequests) ? scenario.capacityRequests : [];
+  const capacityAssignments = Array.isArray(scenario.capacityAssignments) ? scenario.capacityAssignments : [];
+  const plannerLayout = Array.isArray(scenario.plannerLayout) ? scenario.plannerLayout : [];
+  const portfolioBoardEpicKeys = Array.isArray(scenario.portfolioBoardEpicKeys) ? scenario.portfolioBoardEpicKeys : [];
+  const portfolioManualEpics = Array.isArray(scenario.portfolioManualEpics) ? scenario.portfolioManualEpics : [];
+  const portfolioPhasePlans = Array.isArray(scenario.portfolioPhasePlans) ? scenario.portfolioPhasePlans : [];
+  const portfolioPhaseAssignments = Array.isArray(scenario.portfolioPhaseAssignments)
+    ? normalizeBusinessTeamPlaceholdersInAssignments(scenario.portfolioPhaseAssignments, businessTeams)
+    : [];
+  const skillsMatchingEnabled = scenario.skillsMatchingEnabled ?? true;
+
+  if (
+    capacityRequests === scenario.capacityRequests &&
+    capacityAssignments === scenario.capacityAssignments &&
+    plannerLayout === scenario.plannerLayout &&
+    portfolioBoardEpicKeys === scenario.portfolioBoardEpicKeys &&
+    portfolioManualEpics === scenario.portfolioManualEpics &&
+    portfolioPhasePlans === scenario.portfolioPhasePlans &&
+    portfolioPhaseAssignments === scenario.portfolioPhaseAssignments &&
+    skillsMatchingEnabled === scenario.skillsMatchingEnabled
+  ) {
+    return scenario;
+  }
+
   return {
     ...scenario,
-    capacityRequests: Array.isArray(scenario.capacityRequests) ? scenario.capacityRequests : [],
-    capacityAssignments: Array.isArray(scenario.capacityAssignments) ? scenario.capacityAssignments : [],
-    plannerLayout: Array.isArray(scenario.plannerLayout) ? scenario.plannerLayout : [],
-    portfolioBoardEpicKeys: Array.isArray(scenario.portfolioBoardEpicKeys) ? scenario.portfolioBoardEpicKeys : [],
-    portfolioManualEpics: Array.isArray(scenario.portfolioManualEpics) ? scenario.portfolioManualEpics : [],
-    portfolioPhasePlans: Array.isArray(scenario.portfolioPhasePlans) ? scenario.portfolioPhasePlans : [],
-    portfolioPhaseAssignments: Array.isArray(scenario.portfolioPhaseAssignments) ? scenario.portfolioPhaseAssignments : [],
-    skillsMatchingEnabled: scenario.skillsMatchingEnabled ?? true,
+    capacityRequests,
+    capacityAssignments,
+    plannerLayout,
+    portfolioBoardEpicKeys,
+    portfolioManualEpics,
+    portfolioPhasePlans,
+    portfolioPhaseAssignments,
+    skillsMatchingEnabled,
   };
 }
 
@@ -227,8 +255,12 @@ function getOverlayScenario(data: AppState) {
 }
 
 function sanitizeAppState(data: AppState): AppState {
-  const activeScenarioId = sanitizeActiveScenarioId(data.activeScenarioId, data.scenarios);
-  return activeScenarioId === data.activeScenarioId ? data : { ...data, activeScenarioId };
+  const scenarios = data.scenarios.map((scenario) => normalizeScenario(scenario, data.businessTeams));
+  const activeScenarioId = sanitizeActiveScenarioId(data.activeScenarioId, scenarios);
+  const scenariosChanged = scenarios.some((scenario, index) => scenario !== data.scenarios[index]);
+
+  if (!scenariosChanged && activeScenarioId === data.activeScenarioId) return data;
+  return { ...data, scenarios, activeScenarioId };
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -276,8 +308,11 @@ const defaultUIState: UIState = {
 
 function migrate(data: Partial<AppState>): AppState {
   const d = { ...data } as Partial<AppState> & Record<string, unknown>;
+  const businessTeams = Array.isArray(d.businessTeams)
+    ? d.businessTeams as AppState['businessTeams']
+    : [];
   const scenarios = Array.isArray(d.scenarios)
-    ? (d.scenarios as AppState['scenarios']).map(normalizeScenario)
+    ? (d.scenarios as AppState['scenarios']).map((scenario) => normalizeScenario(scenario, businessTeams))
     : [];
   return sanitizeAppState({
     ...defaultAppState,
@@ -297,6 +332,7 @@ function migrate(data: Partial<AppState>): AppState {
     jiraWorkItems: Array.isArray(d.jiraWorkItems)
       ? d.jiraWorkItems as AppState['jiraWorkItems']
       : [],
+    businessTeams,
     scenarios,
     activeScenarioId: resolveInitialActiveScenarioId((d.activeScenarioId as string | null | undefined) ?? null, scenarios),
     businessContacts: Array.isArray(d.businessContacts)
@@ -457,7 +493,9 @@ export const useAppStore = create<AppStore>()(
         try {
           const cloudData = await withTimeout(loadFromSupabase(), 15000, 'Supabase initial load');
           if (cloudData) {
-            const scenarios = (cloudData.scenarios || []).map(normalizeScenario);
+            const scenarios = (cloudData.scenarios || []).map((scenario) =>
+              normalizeScenario(scenario, cloudData.businessTeams || [])
+            );
             const hydratedData: AppState = {
               ...defaultAppState,
               ...cloudData,
@@ -496,7 +534,7 @@ export const useAppStore = create<AppStore>()(
         }
       },
 
-      setData: (data) => set({ data, error: null }),
+      setData: (data) => set({ data: sanitizeAppState(data), error: null }),
 
       updateData: (updates) => {
         const state = get();

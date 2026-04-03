@@ -50,6 +50,11 @@ import {
   exportPortfolioPlanToCsv,
   exportPortfolioPlanToExcel,
 } from '../utils/portfolioPlanExport';
+import {
+  getBusinessTeamPlaceholderDisplay,
+  isBusinessTeamPlaceholderId,
+  makeBusinessTeamPlaceholderId,
+} from '../utils/businessTeamPlaceholders';
 import { usePortfolioPlan } from '../hooks/usePortfolioPlan';
 import {
   createPortfolioScenario,
@@ -81,18 +86,6 @@ import type {
   InitiativeCostRecord,
 } from '../types';
 import './PortfolioPlanning.css';
-
-function teamEntryForId(id: string): { name: string; abbr: string } {
-  const name = id.replace('TEAM:', '');
-  const abbr = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase() || name.slice(0, 2).toUpperCase();
-  return { name, abbr };
-}
 
 function manualToJiraWorkItem(m: ManualEpic): JiraWorkItem {
   return {
@@ -838,6 +831,7 @@ interface EpicViewProps {
   absenceLookup: Record<string, number>;
   memberMap:     Map<string, TeamMember>;
   contactMap:    Map<string, BusinessContact>;
+  businessTeams: BusinessTeam[];
   weeks:         PortfolioWeek[];
   tStart:        Date;
   dayW:          number;
@@ -899,7 +893,7 @@ interface EpicViewProps {
 }
 
 function EpicView({
-  boardEpics, phasePlansMap, assignMap, absenceLookup, memberMap, contactMap,
+  boardEpics, phasePlansMap, assignMap, absenceLookup, memberMap, contactMap, businessTeams,
   weeks, tStart, dayW, panelWidth,
   epicCollapsed, phasePersonCollapsed,
   onToggleEpic, onTogglePhasePersons, onExpandEpicPhases, onCollapseEpicPhases, onRemoveEpic,
@@ -1376,7 +1370,7 @@ function EpicView({
         // Person rows (if phase section expanded)
         if (!pCollapsed) {
           for (const assign of assignments) {
-            const isTeam   = assign.memberId.startsWith('TEAM:');
+            const isTeam   = isBusinessTeamPlaceholderId(assign.memberId);
             const member   = isTeam ? undefined : memberMap.get(assign.memberId);
             const contact  = isTeam ? undefined : contactMap.get(assign.memberId);
             const name     = member?.name ?? contact?.name ?? assign.memberId;
@@ -1431,7 +1425,7 @@ function EpicView({
             let avatarEl: React.ReactNode;
             let nameEl: React.ReactNode;
             if (isTeam) {
-              const { name: teamName, abbr } = teamEntryForId(assign.memberId);
+              const { name: teamName, abbr } = getBusinessTeamPlaceholderDisplay(assign.memberId, businessTeams);
               avatarEl = <div className="pp-av team">{abbr}</div>;
               nameEl = (
                 <>
@@ -1635,11 +1629,16 @@ interface ActivePhaseInteraction {
 }
 
 function isTeamEntryId(id: string): boolean {
-  return id.startsWith('TEAM:');
+  return isBusinessTeamPlaceholderId(id);
 }
 
-function getActorDisplayName(summary: Pick<PersonSummary, 'id' | 'name'>): string {
-  return isTeamEntryId(summary.id) ? `${teamEntryForId(summary.id).name} Team` : summary.name;
+function getActorDisplayName(
+  summary: Pick<PersonSummary, 'id' | 'name'>,
+  businessTeams: BusinessTeam[],
+): string {
+  return isTeamEntryId(summary.id)
+    ? `${getBusinessTeamPlaceholderDisplay(summary.id, businessTeams).name} Team`
+    : summary.name;
 }
 
 function getActorRole(summary: Pick<PersonSummary, 'id' | 'role'>): string {
@@ -1724,7 +1723,7 @@ function getVisibleAssignedDaysForEntries(
 function PeopleView({
   peopleSummaries, weeks, tStart, dayW, panelWidth,
   pvExpanded, onTogglePerson,
-  onResizeMouseDown, lpRef, ganttRef, onTimelineScroll, jiraBaseUrl, quarterOpt,
+  onResizeMouseDown, lpRef, ganttRef, onTimelineScroll, jiraBaseUrl, quarterOpt, businessTeams,
 }: {
   peopleSummaries: PersonSummary[];
   weeks: PortfolioWeek[];
@@ -1739,6 +1738,7 @@ function PeopleView({
   onTimelineScroll: (el: HTMLDivElement) => void;
   jiraBaseUrl: string;
   quarterOpt: QOpt;
+  businessTeams: BusinessTeam[];
 }) {
   const totalW = weeks.length * (dayW * 5);
   const [sortBy, setSortBy] = useState<'name' | 'utilization'>('name');
@@ -1766,9 +1766,9 @@ function PeopleView({
         if (utilB !== utilA) return utilB - utilA;
       }
 
-      return getActorDisplayName(a).localeCompare(getActorDisplayName(b));
+      return getActorDisplayName(a, businessTeams).localeCompare(getActorDisplayName(b, businessTeams));
     });
-  }, [getVisibleAssignedDays, peopleSummaries, sortBy]);
+  }, [businessTeams, getVisibleAssignedDays, peopleSummaries, sortBy]);
 
   if (!peopleSummaries.length) {
     return (
@@ -1811,11 +1811,11 @@ function PeopleView({
       <div key={`pvhd-${pid}`} className="pv-person-hd" onClick={() => onTogglePerson(pid)}>
         <div className={`pp-chev${expanded ? ' open' : ''}`}>▶</div>
         {isTeam
-          ? <div className="pp-av-lg team" style={{ background: '#F5F8FC', color: '#64748B', borderRadius: 6, border: '1px solid #E2E8F0' }}>{teamEntryForId(pid).abbr}</div>
+          ? <div className="pp-av-lg team" style={{ background: '#F5F8FC', color: '#64748B', borderRadius: 6, border: '1px solid #E2E8F0' }}>{getBusinessTeamPlaceholderDisplay(pid, businessTeams).abbr}</div>
           : <div className="pp-av-lg" style={{ background: avColor(pid) }}>{initials(ps.name)}</div>
         }
         <div className="pv-pinfo">
-          <div className="pv-pname">{getActorDisplayName(ps)}</div>
+          <div className="pv-pname">{getActorDisplayName(ps, businessTeams)}</div>
           <div className="pv-prole">{getActorRole(ps)}</div>
         </div>
         {!isTeam && (
@@ -2845,7 +2845,7 @@ function SummaryView({
     return peopleSummaries
       .filter(ps => {
         const pid = ps.member?.id ?? ps.contact?.id ?? ps.name;
-        if (pid.startsWith('TEAM:')) return false;
+        if (isBusinessTeamPlaceholderId(pid)) return false;
         const utilPct = ps.availDays > 0 ? getVisibleAssignedDays(ps.assignments) / ps.availDays : 0;
         return utilPct > 0.85;
       })
@@ -3506,7 +3506,7 @@ function PortfolioPickerPopover({
       .filter(c => !c.excludedFromCapacity)
       .map(c => ({ id: c.id, name: c.name, sub: c.title ?? 'Business owner', track: 'BIZ' as const, isTeam: false }));
     const bizTeams = businessTeams.map(bt => ({
-      id: `TEAM:${bt.name}`,
+      id: makeBusinessTeamPlaceholderId(bt.id),
       name: bt.name,
       sub: 'Business team placeholder',
       track: 'BIZ' as const,
@@ -3580,7 +3580,7 @@ function PortfolioPickerPopover({
                 </div>
                 {group.entries.map(e => {
                   const isAdded = existingMemberIds.has(e.id);
-                  const teamEntry = e.isTeam ? teamEntryForId(e.id) : null;
+                  const teamEntry = e.isTeam ? getBusinessTeamPlaceholderDisplay(e.id, businessTeams) : null;
                   return (
                     <div
                       key={e.id}
@@ -4931,6 +4931,7 @@ export function PortfolioPlanning() {
             absenceLookup={absenceLookup}
             memberMap={memberMap}
             contactMap={contactMap}
+            businessTeams={baselineState.businessTeams}
             weeks={weeks}
             tStart={tStart}
             dayW={dayW}
@@ -4995,6 +4996,7 @@ export function PortfolioPlanning() {
             onTimelineScroll={handleTimelineScroll}
             jiraBaseUrl={jiraBaseUrl}
             quarterOpt={activeQuarterOpt}
+            businessTeams={baselineState.businessTeams}
           />
         )}
         {activeTab === 'summary' && (

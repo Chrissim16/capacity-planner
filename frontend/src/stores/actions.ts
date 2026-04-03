@@ -707,8 +707,22 @@ export function createScenario(name: string, description?: string): Scenario {
   };
 
   const scenarios = [...currentState.scenarios, newScenario];
+  const clonedInitiativeCosts = sourceScenario
+    ? currentState.initiativeCosts
+        .filter((record) => record.initiativeKind === 'scenario_project' && record.scenarioId === sourceScenario.id)
+        .map((record) => ({
+          ...JSON.parse(JSON.stringify(record)),
+          id: generateId('initiative-cost'),
+          scenarioId: newScenario.id,
+          updatedAt: now,
+        }))
+    : [];
   writePlannerSession(newScenario.id);
-  state.updateData({ scenarios, activeScenarioId: newScenario.id });
+  state.updateData({
+    scenarios,
+    activeScenarioId: newScenario.id,
+    initiativeCosts: [...currentState.initiativeCosts, ...clonedInitiativeCosts],
+  });
   return newScenario;
 }
 
@@ -728,7 +742,19 @@ export function duplicateScenario(scenarioId: string, newName: string): Scenario
     isBaseline: false,
   };
 
-  state.updateData({ scenarios: [...currentState.scenarios, newScenario] });
+  const clonedInitiativeCosts = currentState.initiativeCosts
+    .filter((record) => record.initiativeKind === 'scenario_project' && record.scenarioId === sourceScenario.id)
+    .map((record) => ({
+      ...JSON.parse(JSON.stringify(record)),
+      id: generateId('initiative-cost'),
+      scenarioId: newScenario.id,
+      updatedAt: now,
+    }));
+
+  state.updateData({
+    scenarios: [...currentState.scenarios, newScenario],
+    initiativeCosts: [...currentState.initiativeCosts, ...clonedInitiativeCosts],
+  });
   return newScenario;
 }
 
@@ -871,7 +897,11 @@ export function deleteScenario(scenarioId: string): void {
   const scenarios = currentState.scenarios.filter(s => s.id !== scenarioId);
   const activeScenarioId = currentState.activeScenarioId === scenarioId ? null : currentState.activeScenarioId;
   if (activeScenarioId === null) clearPlannerSession();
-  state.updateData({ scenarios, activeScenarioId });
+  state.updateData({
+    scenarios,
+    activeScenarioId,
+    initiativeCosts: currentState.initiativeCosts.filter((record) => record.scenarioId !== scenarioId),
+  });
 }
 
 export function switchScenario(scenarioId: string | null): void {

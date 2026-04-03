@@ -43,7 +43,7 @@ function makeAssignment(overrides: Partial<EpicPhaseAssignment> = {}): EpicPhase
     epicKey: 'FIN-241',
     phase: 'design',
     phaseInstanceId: 'design',
-    memberId: 'TEAM:Finance Ops',
+    memberId: 'TEAM:biz-team-finance-ops',
     track: 'BIZ',
     days: 3,
     allocationMode: 'flat',
@@ -78,7 +78,16 @@ function makeState(): AppState {
     systems: [],
     squads: [],
     processTeams: [],
-    businessTeams: [],
+    businessTeams: [
+      {
+        id: 'biz-team-finance-ops',
+        name: 'Finance Ops',
+      },
+      {
+        id: 'biz-team-controllership',
+        name: 'Controllership',
+      },
+    ],
     teamMembers: [],
     timeOff: [],
     quarters: [],
@@ -173,7 +182,7 @@ describe('buildPortfolioPlanExportData', () => {
     expect(data.health.unstaffedEpicCount).toBe(0);
   });
 
-  it('normalizes team placeholders and unresolved ids in export labels', () => {
+  it('normalizes id-based team placeholders, legacy team placeholders, and unresolved ids in export labels', () => {
     const data = buildPortfolioPlanExportData({
       planName: 'Main Plan',
       quarterLabel: 'Q2 2026',
@@ -181,8 +190,9 @@ describe('buildPortfolioPlanExportData', () => {
       boardEpics: [makeEpic()],
       phasePlans: [makePlan()],
       phaseAssignments: [
-        makeAssignment({ memberId: 'TEAM:Controllership', track: 'BIZ' }),
-        makeAssignment({ id: 'assign-2', memberId: 'member-unknown-1', track: 'IT' }),
+        makeAssignment({ memberId: 'TEAM:biz-team-controllership', track: 'BIZ' }),
+        makeAssignment({ id: 'assign-2', memberId: 'TEAM:Finance Ops', track: 'BIZ' }),
+        makeAssignment({ id: 'assign-3', memberId: 'member-unknown-1', track: 'IT' }),
       ],
       state: makeState(),
       jiraBaseUrl: 'https://jira.example.com',
@@ -190,11 +200,13 @@ describe('buildPortfolioPlanExportData', () => {
     });
 
     const phaseRow = data.epicViewRows.find((row) => row[0] === 'Phase');
-    const teamAssignmentRow = data.epicViewRows.find((row) => row[0] === 'Assignment' && row[7] === 'TEAM:Controllership');
+    const idBasedTeamAssignmentRow = data.epicViewRows.find((row) => row[0] === 'Assignment' && row[7] === 'TEAM:biz-team-controllership');
+    const legacyTeamAssignmentRow = data.epicViewRows.find((row) => row[0] === 'Assignment' && row[7] === 'TEAM:Finance Ops');
     const unknownAssignmentRow = data.epicViewRows.find((row) => row[0] === 'Assignment' && row[7] === 'member-unknown-1');
 
-    expect(phaseRow).toEqual(expect.arrayContaining(['Phase', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07', 'Validate target operating model', 'Controllership, Unresolved assignee']));
-    expect(teamAssignmentRow).toEqual(expect.arrayContaining(['Assignment', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07', 'Validate target operating model', 'Controllership', 'TEAM:Controllership', 'Business team']));
+    expect(phaseRow).toEqual(expect.arrayContaining(['Phase', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07', 'Validate target operating model', 'Controllership, Finance Ops, Unresolved assignee']));
+    expect(idBasedTeamAssignmentRow).toEqual(expect.arrayContaining(['Assignment', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07', 'Validate target operating model', 'Controllership', 'TEAM:biz-team-controllership', 'Business team']));
+    expect(legacyTeamAssignmentRow).toEqual(expect.arrayContaining(['Assignment', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07', 'Validate target operating model', 'Finance Ops', 'TEAM:Finance Ops', 'Business team']));
     expect(unknownAssignmentRow).toEqual(expect.arrayContaining(['Assignment', 'FIN-241', 'Treasury Modernisation', 'Design', '2026-04-01 -> 2026-04-07', 'Validate target operating model', 'Unresolved assignee', 'member-unknown-1', 'Reference only']));
   });
 });

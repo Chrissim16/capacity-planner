@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capacity Planner — Screen Mockups</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: #E8EDF2; font-size: 13px; color: #1A1A2E; }
+
+  /* Mockup switcher */
+  .switcher { display: flex; gap: 8px; padding: 16px 24px; background: #1A1A2E; align-items: center; }
+  .switcher h1 { color: #94A3B8; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; margin-right: 8px; }
+  .switcher button { padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 500; background: #2D3748; color: #94A3B8; transition: all .15s; }
+  .switcher button.active { background: #0089DD; color: white; }
+
+  /* App shell */
+  .app { display: none; height: calc(100vh - 53px); }
+  .app.visible { display: flex; }
+
+  /* Sidebar */
+  .sidebar { width: 200px; background: #0F172A; display: flex; flex-direction: column; flex-shrink: 0; }
+  .sidebar-logo { padding: 16px; border-bottom: 1px solid #1E293B; }
+  .sidebar-logo span { color: white; font-weight: 700; font-size: 14px; }
+  .sidebar-logo sub { color: #0089DD; font-size: 9px; display: block; }
+  .sidebar nav { flex: 1; padding: 8px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #64748B; cursor: pointer; margin-bottom: 2px; font-size: 12px; transition: all .15s; }
+  .nav-item:hover { background: #1E293B; color: #94A3B8; }
+  .nav-item.active { background: #1E3A5F; color: #60BDFF; }
+  .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .nav-stage-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #334155; padding: 12px 10px 4px; }
+
+  /* Main area */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #F8F9FC; }
+
+  /* Stage progress bar */
+  .stage-bar { display: flex; align-items: center; gap: 4px; padding: 6px 20px; background: white; border-bottom: 1px solid #DEDFE3; font-size: 11px; color: #94A3B8; }
+  .stage-bar .stage { padding: 3px 8px; border-radius: 4px; cursor: pointer; transition: all .15s; }
+  .stage-bar .stage:hover { color: #1A1A2E; background: #F1F5F9; }
+  .stage-bar .stage.current { color: #1A1A2E; background: #F1F5F9; font-weight: 500; }
+  .stage-bar .stage.done { color: #0089DD; }
+  .stage-bar .chevron { color: #CBD5E1; }
+
+  /* Page header */
+  .page-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 12px; border-bottom: 1px solid #DEDFE3; background: white; }
+  .page-header h2 { font-size: 16px; font-weight: 600; }
+  .page-header .subtitle { font-size: 11px; color: #64748B; margin-top: 1px; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* Buttons */
+  .btn { padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-primary { background: #0089DD; color: white; }
+  .btn-secondary { background: white; color: #1A1A2E; border: 1px solid #DEDFE3; }
+  .btn-ghost { background: transparent; color: #64748B; }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+  /* Scenario bar */
+  .scenario-bar { display: flex; align-items: center; gap: 6px; padding: 8px 20px; background: white; border-bottom: 1px solid #DEDFE3; }
+  .scenario-label { font-size: 11px; color: #94A3B8; margin-right: 4px; }
+  .scenario-pill { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; cursor: pointer; }
+  .scenario-pill.active { background: #0089DD; color: white; }
+  .scenario-pill.inactive { background: #F1F5F9; color: #64748B; border: 1px solid #E2E8F0; }
+  .scenario-add { width: 24px; height: 24px; border-radius: 50%; background: #F1F5F9; border: 1px dashed #CBD5E1; color: #94A3B8; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; }
+
+  /* Tab bar */
+  .tab-bar { display: flex; align-items: center; padding: 0 20px; background: white; border-bottom: 1px solid #DEDFE3; }
+  .tab { padding: 10px 14px; font-size: 12px; font-weight: 500; color: #64748B; cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; }
+  .tab.active { color: #0089DD; border-bottom-color: #0089DD; }
+  .tab:hover:not(.active) { color: #1A1A2E; }
+  .tab-spacer { flex: 1; }
+
+  /* Content area */
+  .content { flex: 1; display: flex; overflow: hidden; }
+
+  /* Split panel (left list + right gantt) */
+  .split { display: flex; flex: 1; overflow: hidden; }
+  .left-panel { width: 260px; flex-shrink: 0; border-right: 1px solid #DEDFE3; display: flex; flex-direction: column; background: white; }
+  .left-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #DEDFE3; }
+  .left-panel-header span { font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: .06em; }
+  .right-panel { flex: 1; overflow: hidden; background: #FAFBFC; }
+
+  /* Epic rows */
+  .epic-row { border-bottom: 1px solid #F1F5F9; }
+  .epic-row-header { display: flex; align-items: center; gap: 6px; padding: 8px 12px; cursor: pointer; }
+  .epic-row-header:hover { background: #F8FAFC; }
+  .epic-caret { color: #94A3B8; font-size: 10px; width: 12px; }
+  .epic-icon { width: 18px; height: 18px; border-radius: 4px; background: #DBEAFE; display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
+  .epic-key { font-size: 10px; color: #94A3B8; font-family: monospace; }
+  .epic-name { flex: 1; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cost-chip { padding: 2px 7px; border-radius: 4px; background: #F1F5F9; color: #64748B; font-size: 10px; font-weight: 500; cursor: pointer; }
+  .cost-chip:hover { background: #E2E8F0; }
+
+  .phase-row { display: flex; align-items: center; gap: 6px; padding: 5px 12px 5px 32px; cursor: pointer; }
+  .phase-row:hover { background: #F8FAFC; }
+  .phase-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .phase-label { font-size: 11px; color: #64748B; flex: 1; }
+  .phase-dates { font-size: 10px; color: #94A3B8; }
+
+  /* Gantt area */
+  .gantt { overflow: auto; padding: 0; }
+  .gantt-header { display: flex; border-bottom: 1px solid #DEDFE3; background: white; position: sticky; top: 0; z-index: 1; }
+  .gantt-month { flex: 1; padding: 6px 8px; font-size: 10px; font-weight: 600; color: #64748B; text-align: center; border-right: 1px solid #F1F5F9; text-transform: uppercase; letter-spacing: .06em; }
+  .gantt-row { display: flex; align-items: center; border-bottom: 1px solid #F1F5F9; height: 34px; position: relative; }
+  .gantt-row.phase-gantt { height: 28px; }
+  .gantt-cell { flex: 1; height: 100%; border-right: 1px solid #F8F9FC; position: relative; }
+  .phase-bar { position: absolute; height: 18px; border-radius: 4px; top: 5px; display: flex; align-items: center; padding: 0 6px; font-size: 10px; font-weight: 500; color: white; overflow: hidden; white-space: nowrap; }
+  .phase-bar.design  { background: #818CF8; }
+  .phase-bar.build   { background: #0089DD; }
+  .phase-bar.test    { background: #F59E0B; }
+  .phase-bar.deploy  { background: #10B981; }
+  .phase-bar.hyper   { background: #6366F1; opacity: .7; }
+
+  /* People assignment chips in gantt */
+  .person-bar { position: absolute; height: 14px; border-radius: 3px; top: 7px; display: flex; align-items: center; padding: 0 5px; font-size: 9px; color: white; overflow: hidden; white-space: nowrap; opacity: .8; }
+
+  /* Filter bar */
+  .filter-bar { display: flex; gap: 8px; padding: 10px 20px; border-bottom: 1px solid #DEDFE3; background: white; align-items: center; }
+  .search-box { display: flex; align-items: center; gap: 6px; background: #F8F9FC; border: 1px solid #DEDFE3; border-radius: 6px; padding: 5px 10px; }
+  .search-box input { border: none; background: transparent; outline: none; font-size: 12px; width: 200px; }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #94A3B8; border-bottom: 1px solid #DEDFE3; background: white; position: sticky; top: 0; }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid #F1F5F9; font-size: 12px; vertical-align: middle; }
+  .data-table tr:hover td { background: #F8FAFC; }
+
+  /* RAG badges */
+  .rag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .rag.green  { background: #DCFCE7; color: #16A34A; }
+  .rag.amber  { background: #FEF9C3; color: #CA8A04; }
+  .rag.red    { background: #FEE2E2; color: #DC2626; }
+  .rag.grey   { background: #F1F5F9; color: #64748B; }
+  .rag-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* Status chips */
+  .status { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 500; }
+  .status.done { background: #DCFCE7; color: #16A34A; }
+  .status.progress { background: #DBEAFE; color: #1D4ED8; }
+  .status.todo { background: #F1F5F9; color: #64748B; }
+  .status.blocked { background: #FEE2E2; color: #DC2626; }
+
+  /* Avatar */
+  .avatar { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; color: white; }
+
+  /* KPI cards */
+  .kpi-row { display: flex; gap: 12px; padding: 12px 20px; background: white; border-bottom: 1px solid #DEDFE3; }
+  .kpi-card { flex: 1; padding: 12px; background: #F8F9FC; border: 1px solid #DEDFE3; border-radius: 8px; }
+  .kpi-card .kpi-label { font-size: 10px; color: #94A3B8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .kpi-card .kpi-value { font-size: 20px; font-weight: 700; color: #1A1A2E; }
+  .kpi-card .kpi-sub { font-size: 10px; color: #64748B; margin-top: 2px; }
+  .kpi-card.highlight { border-color: #BFDBFE; background: #EFF6FF; }
+  .kpi-card.highlight .kpi-value { color: #0089DD; }
+
+  /* Sprint header */
+  .sprint-label { font-size: 9px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: .06em; text-align: center; padding: 4px 0; border-right: 1px solid #F1F5F9; }
+
+  /* Timeline items in scenario planner */
+  .timeline-item { position: absolute; height: 20px; border-radius: 4px; top: 7px; display: flex; align-items: center; padding: 0 8px; font-size: 10px; font-weight: 500; color: white; overflow: hidden; white-space: nowrap; cursor: pointer; }
+
+  /* Capacity bar */
+  .cap-row { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid #F1F5F9; }
+  .cap-name { width: 100px; font-size: 11px; color: #64748B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cap-bar-bg { flex: 1; height: 6px; background: #E2E8F0; border-radius: 3px; position: relative; overflow: hidden; }
+  .cap-bar-fill { height: 100%; border-radius: 3px; }
+  .cap-pct { width: 36px; text-align: right; font-size: 10px; color: #64748B; }
+
+  /* Planner left panel */
+  .planner-label { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; background: white; border-bottom: 1px solid #DEDFE3; }
+  .planner-label span { font-size: 13px; font-weight: 600; }
+
+  /* Tag */
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 500; }
+
+  /* Divider */
+  .divider { height: 1px; background: #F1F5F9; margin: 0; }
+
+  /* Scroll area */
+  .scroll { overflow-y: auto; flex: 1; }
+
+  /* Cost summary table */
+  .cost-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cost-table th { padding: 6px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #94A3B8; border-bottom: 1px solid #DEDFE3; }
+  .cost-table td { padding: 8px 12px; border-bottom: 1px solid #F1F5F9; }
+  .cost-table .total-row td { font-weight: 600; border-top: 1px solid #DEDFE3; background: #F8F9FC; }
+  .delta-pos { color: #DC2626; font-size: 10px; }
+  .delta-neg { color: #16A34A; font-size: 10px; }
+
+  /* Annotation */
+  .annotation { font-size: 10px; color: #94A3B8; font-style: italic; padding: 4px 8px; }
+
+  /* Badges in nav */
+  .nav-badge { background: #0089DD; color: white; font-size: 9px; padding: 1px 5px; border-radius: 8px; margin-left: auto; }
+</style>
+</head>
+<body>
+
+<!-- Screen switcher -->
+<div class="switcher">
+  <h1>Mockups</h1>
+  <button class="active" onclick="show('portfolio')">Stage 1 — Portfolio Planning</button>
+  <button onclick="show('planner')">Stage 2 — Scenario Planner</button>
+  <button onclick="show('actuals')">Stage 3 — Actuals</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 1: PORTFOLIO PLANNING
+     ══════════════════════════════════════════════════════════ -->
+<div class="app visible" id="app-portfolio">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <span>capacity planner</span>
+      <sub>by Mileway</sub>
+    </div>
+    <nav>
+      <div class="nav-stage-label">Journey</div>
+      <div class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Portfolio Planning
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="3" x2="8" y2="21"/><line x1="2" y1="9" x2="8" y2="9"/></svg>
+        Scenario Planner
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Actuals
+        <span class="nav-badge">3 at risk</span>
+      </div>
+      <div class="nav-stage-label">Data</div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Timeline
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Team
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Report
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        Settings
+      </div>
+    </nav>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Stage progress bar -->
+    <div class="stage-bar">
+      <span class="stage current">① Portfolio Planning</span>
+      <span class="chevron">›</span>
+      <span class="stage">② Scenario Planner</span>
+      <span class="chevron">›</span>
+      <span class="stage">③ Actuals</span>
+    </div>
+
+    <!-- Page header -->
+    <div class="page-header">
+      <div>
+        <h2>Portfolio Planning</h2>
+        <div class="subtitle">5 epics · Q1–Q3 2026 · Main Plan</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm">+ Add Epics</button>
+        <button class="btn btn-primary btn-sm">Approve Plan →</button>
+      </div>
+    </div>
+
+    <!-- Scenario bar -->
+    <div class="scenario-bar">
+      <span class="scenario-label">Scenario</span>
+      <span class="scenario-pill active">Main Plan</span>
+      <span class="scenario-pill inactive">Reduced Scope ×</span>
+      <span class="scenario-pill inactive">Delayed Start ×</span>
+      <span class="scenario-add">+</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <div class="tab active">⬡ Epic View</div>
+      <div class="tab">◎ People View</div>
+      <div class="tab">▤ Breakdown</div>
+      <div class="tab">▦ Summary</div>
+      <div class="tab-spacer"></div>
+      <div style="display:flex;align-items:center;gap:6px;padding:0 4px;">
+        <span style="font-size:10px;color:#94A3B8;">Quarter</span>
+        <button class="btn btn-secondary btn-sm">‹ Q1 2026</button>
+        <button class="btn btn-secondary btn-sm">Q2 2026</button>
+        <button class="btn btn-secondary btn-sm active" style="background:#EFF6FF;border-color:#BFDBFE;color:#0089DD;">Q3 2026 ›</button>
+      </div>
+    </div>
+
+    <!-- Content: Epic View -->
+    <div class="content">
+      <div class="split">
+        <!-- Left panel -->
+        <div class="left-panel">
+          <div class="left-panel-header">
+            <span>Epics &amp; Phases</span>
+            <button class="btn btn-ghost btn-sm">≡</button>
+          </div>
+          <div class="scroll">
+
+            <!-- Epic 1 -->
+            <div class="epic-row">
+              <div class="epic-row-header">
+                <span class="epic-caret">▾</span>
+                <div class="epic-icon" style="background:#DBEAFE;">🚀</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:4px;">
+                    <span class="epic-key">EP-101</span>
+                    <span class="cost-chip">EUR 142k</span>
+                  </div>
+                  <div class="epic-name">Customer Portal v2</div>
+                </div>
+              </div>
+              <div class="phase-row">
+                <div class="phase-dot" style="background:#818CF8;"></div>
+                <span class="phase-label">Design</span>
+                <span class="phase-dates">Jan 6 – Feb 14</span>
+              </div>
+              <div class="phase-row">
+                <div class="phase-dot" style="background:#0089DD;"></div>
+                <span class="phase-label">Build</span>
+                <span class="phase-dates">Feb 17 – May 30</span>
+              </div>
+              <div class="phase-row">
+                <div class="phase-dot" style="background:#F59E0B;"></div>
+                <span class="phase-label">Test</span>
+                <span class="phase-dates">Jun 2 – Jun 27</span>
+              </div>
+              <div class="phase-row">
+                <div class="phase-dot" style="background:#10B981;"></div>
+                <span class="phase-label">Deploy</span>
+                <span class="phase-dates">Jun 30 – Jul 11</span>
+              </div>
+            </div>
+
+            <!-- Epic 2 -->
+            <div class="epic-row">
+              <div class="epic-row-header">
+                <span class="epic-caret">▾</span>
+                <div class="epic-icon" style="background:#FEF3C7;">⚡</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:4px;">
+                    <span class="epic-key">EP-102</span>
+                    <span class="cost-chip">EUR 87k</span>
+                  </div>
+                  <div class="epic-name">Real-time Notifications</div>
+                </div>
+              </div>
+              <div class="phase-row">
+                <div class="phase-dot" style="background:#818CF8;"></div>
+                <span class="phase-label">Design</span>
+                <span class="phase-dates">Feb 3 – Feb 28</span>
+              </div>
+              <div class="phase-row">
+                <div class="phase-dot" style="background:#0089DD;"></div>
+                <span class="phase-label">Build</span>
+                <span class="phase-dates">Mar 3 – Apr 25</span>
+              </div>
+              <div class="phase-row">
+                <div class="phase-dot" style="background:#F59E0B;"></div>
+                <span class="phase-label">Test</span>
+                <span class="phase-dates">Apr 28 – May 16</span>
+              </div>
+            </div>
+
+            <!-- Epic 3 -->
+            <div class="epic-row">
+              <div class="epic-row-header">
+                <span class="epic-caret">▸</span>
+                <div class="epic-icon" style="background:#FCE7F3;">🔒</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:4px;">
+                    <span class="epic-key">EP-103</span>
+                    <span class="cost-chip" style="color:#DC2626;background:#FEE2E2;">EUR 210k ⚠</span>
+                  </div>
+                  <div class="epic-name">SSO &amp; Auth Overhaul</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Epic 4 -->
+            <div class="epic-row">
+              <div class="epic-row-header">
+                <span class="epic-caret">▸</span>
+                <div class="epic-icon" style="background:#D1FAE5;">📊</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:4px;">
+                    <span class="epic-key">EP-104</span>
+                    <span class="cost-chip">EUR 63k</span>
+                  </div>
+                  <div class="epic-name">Analytics Dashboard</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Epic 5 (manual) -->
+            <div class="epic-row">
+              <div class="epic-row-header">
+                <span class="epic-caret">▸</span>
+                <div class="epic-icon" style="background:#E0E7FF;">✎</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:4px;">
+                    <span class="epic-key" style="color:#818CF8;">MANUAL</span>
+                    <span class="cost-chip">EUR 34k</span>
+                  </div>
+                  <div class="epic-name">Tech Debt Sprint</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <!-- Cost total footer -->
+          <div style="border-top:1px solid #DEDFE3;padding:10px 12px;background:#F8F9FC;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11px;color:#64748B;">Total</span>
+            <span style="font-size:13px;font-weight:700;color:#1A1A2E;">EUR 536k</span>
+          </div>
+        </div>
+
+        <!-- Right Gantt -->
+        <div class="right-panel">
+          <div class="gantt" style="overflow:auto;height:100%;">
+            <!-- Month headers -->
+            <div style="display:flex;border-bottom:1px solid #DEDFE3;background:white;position:sticky;top:0;z-index:2;">
+              <div style="width:60px;border-right:1px solid #DEDFE3;"></div>
+              <div class="gantt-month">Jan 26</div>
+              <div class="gantt-month">Feb 26</div>
+              <div class="gantt-month">Mar 26</div>
+              <div class="gantt-month">Apr 26</div>
+              <div class="gantt-month">May 26</div>
+              <div class="gantt-month">Jun 26</div>
+              <div class="gantt-month">Jul 26</div>
+              <div class="gantt-month">Aug 26</div>
+            </div>
+
+            <!-- EP-101 row (epic label + phase bars) -->
+            <div style="border-bottom:1px solid #F1F5F9;">
+              <!-- Epic header row -->
+              <div style="display:flex;height:34px;align-items:center;">
+                <div style="width:60px;padding:0 8px;font-size:10px;color:#94A3B8;font-weight:600;border-right:1px solid #DEDFE3;">EP-101</div>
+                <div style="flex:1;position:relative;height:100%;">
+                  <!-- Design bar: Jan–mid Feb ~15% wide, starts at 0% -->
+                  <div class="phase-bar design" style="left:2%;width:13%;">Design</div>
+                  <!-- Build bar: mid Feb–end May ~35% wide -->
+                  <div class="phase-bar build" style="left:16%;width:35%;">Build</div>
+                  <!-- Test bar: Jun ~8% -->
+                  <div class="phase-bar test" style="left:52%;width:9%;">Test</div>
+                  <!-- Deploy bar: end Jun ~5% -->
+                  <div class="phase-bar deploy" style="left:62%;width:6%;">Deploy</div>
+                </div>
+              </div>
+              <!-- Person rows under EP-101 -->
+              <div style="display:flex;height:24px;align-items:center;">
+                <div style="width:60px;border-right:1px solid #DEDFE3;"></div>
+                <div style="flex:1;position:relative;height:100%;">
+                  <div class="person-bar" style="left:2%;width:46%;background:#818CF8;font-size:9px;">A. Müller (Design + Build)</div>
+                </div>
+              </div>
+              <div style="display:flex;height:24px;align-items:center;">
+                <div style="width:60px;border-right:1px solid #DEDFE3;"></div>
+                <div style="flex:1;position:relative;height:100%;">
+                  <div class="person-bar" style="left:16%;width:35%;background:#0089DD;">J. Chen (Build)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- EP-102 row -->
+            <div style="border-bottom:1px solid #F1F5F9;">
+              <div style="display:flex;height:34px;align-items:center;">
+                <div style="width:60px;padding:0 8px;font-size:10px;color:#94A3B8;font-weight:600;border-right:1px solid #DEDFE3;">EP-102</div>
+                <div style="flex:1;position:relative;height:100%;">
+                  <div class="phase-bar design" style="left:17%;width:10%;">Design</div>
+                  <div class="phase-bar build" style="left:28%;width:22%;">Build</div>
+                  <div class="phase-bar test" style="left:51%;width:9%;">Test</div>
+                </div>
+              </div>
+              <div style="display:flex;height:24px;align-items:center;">
+                <div style="width:60px;border-right:1px solid #DEDFE3;"></div>
+                <div style="flex:1;position:relative;height:100%;">
+                  <div class="person-bar" style="left:17%;width:30%;background:#0089DD;">S. Patel (Design + Build)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- EP-103 row -->
+            <div style="border-bottom:1px solid #F1F5F9;">
+              <div style="display:flex;height:34px;align-items:center;">
+                <div style="width:60px;padding:0 8px;font-size:10px;color:#94A3B8;font-weight:600;border-right:1px solid #DEDFE3;">EP-103</div>
+                <div style="flex:1;position:relative;height:100%;">
+                  <div class="phase-bar design" style="left:26%;width:9%;">Design</div>
+                  <div class="phase-bar build" style="left:36%;width:38%;">Build</div>
+                  <div class="phase-bar test" style="left:75%;width:8%;">Test</div>
+                  <!-- Overallocation indicator -->
+                  <div style="position:absolute;right:4px;top:6px;background:#FEE2E2;color:#DC2626;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;">⚠ overallocated</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- EP-104 row -->
+            <div style="border-bottom:1px solid #F1F5F9;">
+              <div style="display:flex;height:34px;align-items:center;">
+                <div style="width:60px;padding:0 8px;font-size:10px;color:#94A3B8;font-weight:600;border-right:1px solid #DEDFE3;">EP-104</div>
+                <div style="flex:1;position:relative;height:100%;">
+                  <div class="phase-bar design" style="left:4%;width:12%;">Design</div>
+                  <div class="phase-bar build" style="left:17%;width:30%;">Build</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Today marker -->
+            <div style="position:absolute;top:32px;left:calc(60px + 20%);height:100%;width:1px;background:#0089DD;opacity:.3;pointer-events:none;"></div>
+            <div style="position:absolute;top:32px;left:calc(60px + 20% - 14px);background:#0089DD;color:white;font-size:9px;padding:1px 4px;border-radius:2px;pointer-events:none;">Today</div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 2: SCENARIO PLANNER
+     ══════════════════════════════════════════════════════════ -->
+<div class="app" id="app-planner">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <span>capacity planner</span>
+      <sub>by Mileway</sub>
+    </div>
+    <nav>
+      <div class="nav-stage-label">Journey</div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Portfolio Planning
+      </div>
+      <div class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="3" x2="8" y2="21"/><line x1="2" y1="9" x2="8" y2="9"/></svg>
+        Scenario Planner
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Actuals
+        <span class="nav-badge">3 at risk</span>
+      </div>
+      <div class="nav-stage-label">Data</div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Timeline
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Team
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+        Report
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>
+        Settings
+      </div>
+    </nav>
+  </div>
+
+  <div class="main">
+    <div class="stage-bar">
+      <span class="stage done">① Portfolio Planning ✓</span>
+      <span class="chevron">›</span>
+      <span class="stage current">② Scenario Planner</span>
+      <span class="chevron">›</span>
+      <span class="stage">③ Actuals</span>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <h2>Scenario Planner</h2>
+        <div class="subtitle">Main Sprint Plan · 47 items scheduled · Q1–Q3 2026</div>
+      </div>
+      <div class="header-actions">
+        <span style="font-size:11px;color:#64748B;background:#F1F5F9;padding:4px 10px;border-radius:6px;font-weight:500;">Main Sprint Plan</span>
+        <button class="btn btn-secondary btn-sm">‹ Q1 2026</button>
+        <button class="btn btn-secondary btn-sm" style="background:#EFF6FF;border-color:#BFDBFE;color:#0089DD;">Q2 2026 ›</button>
+        <button class="btn btn-primary btn-sm">View Actuals →</button>
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab active">⊞ Timeline</div>
+      <div class="tab">⊟ Board</div>
+      <div class="tab">◎ People</div>
+      <div class="tab">▦ Summary</div>
+      <div class="tab-spacer"></div>
+      <div style="display:flex;align-items:center;gap:6px;padding:0 4px;">
+        <input type="text" placeholder="Search…" style="border:1px solid #DEDFE3;border-radius:5px;padding:4px 8px;font-size:11px;outline:none;width:120px;">
+        <button class="btn btn-secondary btn-sm">Team ▾</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Left backlog panel -->
+      <div class="left-panel" style="width:200px;">
+        <div class="left-panel-header">
+          <span>Backlog</span>
+          <span style="background:#E2E8F0;color:#64748B;font-size:10px;padding:1px 6px;border-radius:8px;">8</span>
+        </div>
+        <div class="scroll" style="padding:8px;">
+          <div style="padding:6px 8px;background:#F8F9FC;border:1px solid #DEDFE3;border-radius:6px;margin-bottom:6px;cursor:grab;">
+            <div style="font-size:10px;color:#94A3B8;">EP-101 · Story</div>
+            <div style="font-size:11px;font-weight:500;margin-top:2px;">User profile settings page</div>
+          </div>
+          <div style="padding:6px 8px;background:#F8F9FC;border:1px solid #DEDFE3;border-radius:6px;margin-bottom:6px;cursor:grab;">
+            <div style="font-size:10px;color:#94A3B8;">EP-102 · Feature</div>
+            <div style="font-size:11px;font-weight:500;margin-top:2px;">Email notification preferences</div>
+          </div>
+          <div style="padding:6px 8px;background:#F8F9FC;border:1px solid #DEDFE3;border-radius:6px;margin-bottom:6px;cursor:grab;">
+            <div style="font-size:10px;color:#94A3B8;">EP-103 · Story</div>
+            <div style="font-size:11px;font-weight:500;margin-top:2px;">SAML 2.0 integration</div>
+          </div>
+          <div style="padding:6px 8px;background:#F8F9FC;border:1px solid #DEDFE3;border-radius:6px;margin-bottom:6px;cursor:grab;">
+            <div style="font-size:10px;color:#94A3B8;">EP-101 · Story</div>
+            <div style="font-size:11px;font-weight:500;margin-top:2px;">Mobile responsive layouts</div>
+          </div>
+          <div style="padding:6px 8px;background:#F8F9FC;border:1px solid #DEDFE3;border-radius:6px;cursor:grab;">
+            <div style="font-size:10px;color:#94A3B8;">EP-104 · Feature</div>
+            <div style="font-size:11px;font-weight:500;margin-top:2px;">Export to CSV/Excel</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="right-panel" style="display:flex;flex-direction:column;">
+        <!-- Sprint headers -->
+        <div style="display:flex;border-bottom:1px solid #DEDFE3;background:white;position:sticky;top:0;">
+          <div style="width:140px;border-right:1px solid #DEDFE3;padding:6px 10px;font-size:10px;font-weight:600;color:#64748B;">Person</div>
+          <div class="sprint-label" style="flex:1;">S1 Jan 6</div>
+          <div class="sprint-label" style="flex:1;">S2 Jan 20</div>
+          <div class="sprint-label" style="flex:1;">S3 Feb 3</div>
+          <div class="sprint-label" style="flex:1;">S4 Feb 17</div>
+          <div class="sprint-label" style="flex:1;">S5 Mar 3</div>
+          <div class="sprint-label" style="flex:1;">S6 Mar 17</div>
+          <div class="sprint-label" style="flex:1;">S7 Mar 31</div>
+          <div class="sprint-label" style="flex:1;">S8 Apr 14</div>
+        </div>
+
+        <div class="scroll">
+          <!-- Alex Müller row -->
+          <div style="display:flex;border-bottom:1px solid #F1F5F9;height:38px;align-items:center;">
+            <div style="width:140px;border-right:1px solid #DEDFE3;padding:0 10px;display:flex;align-items:center;gap:6px;">
+              <div class="avatar" style="background:#818CF8;">AM</div>
+              <span style="font-size:11px;font-weight:500;">A. Müller</span>
+            </div>
+            <div style="flex:1;position:relative;height:100%;">
+              <div class="timeline-item" style="left:1%;width:24%;background:#818CF8;">Customer Portal — Design</div>
+              <div class="timeline-item" style="left:26%;width:36%;background:#0089DD;">Customer Portal — Build</div>
+            </div>
+          </div>
+
+          <!-- Jing Chen row -->
+          <div style="display:flex;border-bottom:1px solid #F1F5F9;height:38px;align-items:center;">
+            <div style="width:140px;border-right:1px solid #DEDFE3;padding:0 10px;display:flex;align-items:center;gap:6px;">
+              <div class="avatar" style="background:#0089DD;">JC</div>
+              <span style="font-size:11px;font-weight:500;">J. Chen</span>
+            </div>
+            <div style="flex:1;position:relative;height:100%;">
+              <div class="timeline-item" style="left:26%;width:36%;background:#0089DD;">Customer Portal — Build</div>
+              <div class="timeline-item" style="left:63%;width:25%;background:#6366F1;">Auth Overhaul</div>
+            </div>
+          </div>
+
+          <!-- Shreya Patel row -->
+          <div style="display:flex;border-bottom:1px solid #F1F5F9;height:38px;align-items:center;">
+            <div style="width:140px;border-right:1px solid #DEDFE3;padding:0 10px;display:flex;align-items:center;gap:6px;">
+              <div class="avatar" style="background:#10B981;">SP</div>
+              <span style="font-size:11px;font-weight:500;">S. Patel</span>
+            </div>
+            <div style="flex:1;position:relative;height:100%;">
+              <div class="timeline-item" style="left:26%;width:22%;background:#F59E0B;">Notifications</div>
+              <div class="timeline-item" style="left:49%;width:14%;background:#F59E0B;">Notifications — Test</div>
+            </div>
+          </div>
+
+          <!-- Overallocation row -->
+          <div style="display:flex;border-bottom:1px solid #F1F5F9;height:38px;align-items:center;background:#FFF8F8;">
+            <div style="width:140px;border-right:1px solid #DEDFE3;padding:0 10px;display:flex;align-items:center;gap:6px;">
+              <div class="avatar" style="background:#DC2626;">MK</div>
+              <span style="font-size:11px;font-weight:500;color:#DC2626;">M. Klein ⚠</span>
+            </div>
+            <div style="flex:1;position:relative;height:100%;">
+              <div class="timeline-item" style="left:1%;width:24%;background:#0089DD;">Customer Portal</div>
+              <div class="timeline-item" style="left:1%;width:36%;background:#6366F1;opacity:.6;top:13px;">Auth Overhaul</div>
+              <div style="position:absolute;right:6px;top:8px;font-size:9px;color:#DC2626;font-weight:600;background:#FEE2E2;padding:1px 5px;border-radius:3px;">130% allocated</div>
+            </div>
+          </div>
+
+          <!-- T. Williams row -->
+          <div style="display:flex;border-bottom:1px solid #F1F5F9;height:38px;align-items:center;">
+            <div style="width:140px;border-right:1px solid #DEDFE3;padding:0 10px;display:flex;align-items:center;gap:6px;">
+              <div class="avatar" style="background:#0EA5E9;">TW</div>
+              <span style="font-size:11px;font-weight:500;">T. Williams</span>
+            </div>
+            <div style="flex:1;position:relative;height:100%;">
+              <div class="timeline-item" style="left:49%;width:38%;background:#0089DD;">Analytics Dashboard</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Capacity panel at bottom -->
+        <div style="border-top:1px solid #DEDFE3;background:white;padding:8px 0;max-height:120px;overflow-y:auto;">
+          <div style="padding:4px 10px 6px;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#64748B;">Team Capacity</span>
+            <span style="font-size:10px;color:#94A3B8;">days per sprint</span>
+          </div>
+          <div class="cap-row">
+            <div class="cap-name">A. Müller</div>
+            <div class="cap-bar-bg"><div class="cap-bar-fill" style="width:80%;background:#818CF8;"></div></div>
+            <div class="cap-pct">80%</div>
+          </div>
+          <div class="cap-row">
+            <div class="cap-name">J. Chen</div>
+            <div class="cap-bar-bg"><div class="cap-bar-fill" style="width:95%;background:#0089DD;"></div></div>
+            <div class="cap-pct">95%</div>
+          </div>
+          <div class="cap-row">
+            <div class="cap-name">M. Klein</div>
+            <div class="cap-bar-bg"><div class="cap-bar-fill" style="width:100%;background:#DC2626;"></div><div style="position:absolute;left:100%;height:100%;width:30%;background:#FCA5A5;"></div></div>
+            <div class="cap-pct" style="color:#DC2626;">130%</div>
+          </div>
+          <div class="cap-row">
+            <div class="cap-name">S. Patel</div>
+            <div class="cap-bar-bg"><div class="cap-bar-fill" style="width:55%;background:#10B981;"></div></div>
+            <div class="cap-pct">55%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 3: ACTUALS
+     ══════════════════════════════════════════════════════════ -->
+<div class="app" id="app-actuals">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <span>capacity planner</span>
+      <sub>by Mileway</sub>
+    </div>
+    <nav>
+      <div class="nav-stage-label">Journey</div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Portfolio Planning
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="3" x2="8" y2="21"/><line x1="2" y1="9" x2="8" y2="9"/></svg>
+        Scenario Planner
+      </div>
+      <div class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Actuals
+        <span class="nav-badge">3</span>
+      </div>
+      <div class="nav-stage-label">Data</div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+        Timeline
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Team
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+        Report
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>
+        Settings
+      </div>
+    </nav>
+  </div>
+
+  <div class="main">
+    <div class="stage-bar">
+      <span class="stage done">① Portfolio Planning ✓</span>
+      <span class="chevron">›</span>
+      <span class="stage done">② Scenario Planner ✓</span>
+      <span class="chevron">›</span>
+      <span class="stage current">③ Actuals</span>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <h2>Actuals</h2>
+        <div class="subtitle">5 epics · Jira synced 4 min ago · <span style="color:#DC2626;">3 at risk</span></div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm">⟳ Sync Jira</button>
+      </div>
+    </div>
+
+    <!-- KPI row -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Epics On Track</div>
+        <div class="kpi-value" style="color:#16A34A;">2</div>
+        <div class="kpi-sub">of 5 total</div>
+      </div>
+      <div class="kpi-card" style="border-color:#FDE68A;background:#FFFBEB;">
+        <div class="kpi-label">At Risk</div>
+        <div class="kpi-value" style="color:#CA8A04;">2</div>
+        <div class="kpi-sub">≤2 weeks overdue</div>
+      </div>
+      <div class="kpi-card" style="border-color:#FCA5A5;background:#FFF1F2;">
+        <div class="kpi-label">Delayed</div>
+        <div class="kpi-value" style="color:#DC2626;">1</div>
+        <div class="kpi-sub">&gt;2 weeks overdue</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Completed</div>
+        <div class="kpi-value" style="color:#64748B;">0</div>
+        <div class="kpi-sub">epics shipped</div>
+      </div>
+      <div class="kpi-card highlight">
+        <div class="kpi-label">Next Delivery</div>
+        <div class="kpi-value" style="font-size:14px;">Jun 27</div>
+        <div class="kpi-sub">Customer Portal — Test</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search epics…">
+      </div>
+      <button class="btn btn-secondary btn-sm">Status ▾</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <div class="tab active">🏥 Delivery Health</div>
+      <div class="tab">◎ People</div>
+      <div class="tab">📅 Timeline</div>
+      <div class="tab">👤 Stakeholders</div>
+    </div>
+
+    <!-- Content: Delivery Health tab -->
+    <div class="content" style="overflow-y:auto;display:block;">
+      <table class="data-table" style="min-width:900px;">
+        <thead>
+          <tr>
+            <th>Epic</th>
+            <th>Owner</th>
+            <th>Current Phase</th>
+            <th>Planned End</th>
+            <th>Jira Status</th>
+            <th>RAG</th>
+            <th>Days Variance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="epic-icon" style="background:#DBEAFE;">🚀</div>
+                <div>
+                  <div style="font-weight:600;font-size:12px;">Customer Portal v2</div>
+                  <div style="font-size:10px;color:#94A3B8;">EP-101 · 42 stories</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div class="avatar" style="background:#0089DD;width:20px;height:20px;font-size:8px;">LB</div>
+                <span style="font-size:11px;">L. Bergmann</span>
+              </div>
+            </td>
+            <td><span class="tag" style="background:#DBEAFE;color:#1D4ED8;">Build</span></td>
+            <td style="font-size:11px;">Jul 11, 2026</td>
+            <td><span class="status progress">In Progress</span></td>
+            <td><span class="rag green"><span class="rag-dot"></span>On track</span></td>
+            <td style="font-size:11px;color:#16A34A;">–3 days</td>
+          </tr>
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="epic-icon" style="background:#FEF3C7;">⚡</div>
+                <div>
+                  <div style="font-weight:600;font-size:12px;">Real-time Notifications</div>
+                  <div style="font-size:10px;color:#94A3B8;">EP-102 · 18 stories</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div class="avatar" style="background:#F59E0B;width:20px;height:20px;font-size:8px;">HV</div>
+                <span style="font-size:11px;">H. van Dijk</span>
+              </div>
+            </td>
+            <td><span class="tag" style="background:#FEF9C3;color:#92400E;">Test</span></td>
+            <td style="font-size:11px;">May 16, 2026</td>
+            <td><span class="status progress">In Progress</span></td>
+            <td><span class="rag amber"><span class="rag-dot"></span>At risk</span></td>
+            <td style="font-size:11px;color:#CA8A04;">+8 days</td>
+          </tr>
+          <tr style="background:#FFF8F8;">
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="epic-icon" style="background:#FCE7F3;">🔒</div>
+                <div>
+                  <div style="font-weight:600;font-size:12px;">SSO &amp; Auth Overhaul</div>
+                  <div style="font-size:10px;color:#94A3B8;">EP-103 · 31 stories</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div class="avatar" style="background:#DC2626;width:20px;height:20px;font-size:8px;">RK</div>
+                <span style="font-size:11px;">R. Kovacs</span>
+              </div>
+            </td>
+            <td><span class="tag" style="background:#DBEAFE;color:#1D4ED8;">Build</span></td>
+            <td style="font-size:11px;">Sep 30, 2026</td>
+            <td><span class="status blocked">Blocked</span></td>
+            <td><span class="rag red"><span class="rag-dot"></span>Delayed</span></td>
+            <td style="font-size:11px;color:#DC2626;">+22 days</td>
+          </tr>
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="epic-icon" style="background:#D1FAE5;">📊</div>
+                <div>
+                  <div style="font-weight:600;font-size:12px;">Analytics Dashboard</div>
+                  <div style="font-size:10px;color:#94A3B8;">EP-104 · 24 stories</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div class="avatar" style="background:#10B981;width:20px;height:20px;font-size:8px;">YT</div>
+                <span style="font-size:11px;">Y. Tanaka</span>
+              </div>
+            </td>
+            <td><span class="tag" style="background:#DBEAFE;color:#1D4ED8;">Build</span></td>
+            <td style="font-size:11px;">Aug 14, 2026</td>
+            <td><span class="status progress">In Progress</span></td>
+            <td><span class="rag amber"><span class="rag-dot"></span>At risk</span></td>
+            <td style="font-size:11px;color:#CA8A04;">+5 days</td>
+          </tr>
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="epic-icon" style="background:#E0E7FF;">✎</div>
+                <div>
+                  <div style="font-weight:600;font-size:12px;">Tech Debt Sprint</div>
+                  <div style="font-size:10px;color:#94A3B8;">MANUAL · 8 stories</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div class="avatar" style="background:#6366F1;width:20px;height:20px;font-size:8px;">OB</div>
+                <span style="font-size:11px;">O. Becker</span>
+              </div>
+            </td>
+            <td><span class="tag" style="background:#F3F4F6;color:#4B5563;">Not started</span></td>
+            <td style="font-size:11px;">Oct 30, 2026</td>
+            <td><span class="status todo">To Do</span></td>
+            <td><span class="rag green"><span class="rag-dot"></span>On track</span></td>
+            <td style="font-size:11px;color:#64748B;">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(screen) {
+  document.querySelectorAll('.app').forEach(a => a.classList.remove('visible'));
+  document.querySelectorAll('.switcher button').forEach(b => b.classList.remove('active'));
+  document.getElementById('app-' + screen).classList.add('visible');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
