@@ -1277,6 +1277,7 @@ function EpicView({
             <span className={`pp-ph-label ${PH_KEY[ph]}`}>{getPhaseDisplayLabel(ph, row.phaseOrdinal)}</span>
             {editingPhaseKey === phKey ? (
               <PhaseEditorPopover
+                key={phKey}
                 startDate={startDate}
                 endDate={endDate}
                 description={phasePlan?.description ?? null}
@@ -4116,14 +4117,28 @@ export function PortfolioPlanning() {
       : baselineState.jiraWorkItems),
     [activeScenario?.jiraWorkItems, baselineState.jiraWorkItems],
   );
+  const baselinePhasePlanByKey = useMemo(() => {
+    const map = new Map<string, EpicPhasePlan>();
+    for (const item of plan.phasePlans) {
+      const phaseInstanceId = item.phaseInstanceId ?? item.phase;
+      map.set(`${item.epicKey}::${phaseInstanceId}`, {
+        ...item,
+        phaseInstanceId,
+        phaseOrder: item.phaseOrder ?? 0,
+        description: item.description ?? null,
+      });
+    }
+    return map;
+  }, [plan.phasePlans]);
   const activePhasePlans = useMemo(
     () => activePhasePlansRaw.map(item => ({
+      ...baselinePhasePlanByKey.get(`${item.epicKey}::${item.phaseInstanceId ?? item.phase}`),
       ...item,
       phaseInstanceId: item.phaseInstanceId ?? item.phase,
-      phaseOrder: item.phaseOrder ?? 0,
-      description: item.description ?? null,
+      phaseOrder: item.phaseOrder ?? baselinePhasePlanByKey.get(`${item.epicKey}::${item.phaseInstanceId ?? item.phase}`)?.phaseOrder ?? 0,
+      description: item.description ?? baselinePhasePlanByKey.get(`${item.epicKey}::${item.phaseInstanceId ?? item.phase}`)?.description ?? null,
     })),
-    [activePhasePlansRaw],
+    [activePhasePlansRaw, baselinePhasePlanByKey],
   );
   const activePhaseAssignments = useMemo(
     () => activePhaseAssignmentsRaw.map(item => ({ ...item, phaseInstanceId: item.phaseInstanceId ?? item.phase })),
