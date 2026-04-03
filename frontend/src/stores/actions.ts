@@ -1268,6 +1268,75 @@ export function updatePlannerLayout(scenarioId: string, items: PlannerItem[]): v
 }
 
 /**
+ * Replace plannerLayout for the current Delivery Planning context.
+ * When no named scenario is active, this persists against the baseline scenario
+ * snapshot so baseline Delivery Planning remains editable too.
+ */
+export function updatePlannerLayoutForCurrentContext(items: PlannerItem[]): void {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const now = new Date().toISOString();
+
+  if (currentState.activeScenarioId) {
+    updatePlannerLayout(currentState.activeScenarioId, items);
+    return;
+  }
+
+  const baselineScenario = currentState.scenarios.find((scenario) => scenario.isBaseline);
+
+  if (baselineScenario) {
+    state.updateData({
+      scenarios: currentState.scenarios.map((scenario) =>
+        scenario.isBaseline
+          ? {
+              ...scenario,
+              updatedAt: now,
+              jiraWorkItems: JSON.parse(JSON.stringify(currentState.jiraWorkItems)),
+              jiraItemBizAssignments: JSON.parse(JSON.stringify(currentState.jiraItemBizAssignments)),
+              teamMembers: JSON.parse(JSON.stringify(currentState.teamMembers)),
+              timeOff: JSON.parse(JSON.stringify(currentState.timeOff)),
+              projects: JSON.parse(JSON.stringify(currentState.projects ?? [])),
+              assignments: JSON.parse(JSON.stringify(currentState.assignments ?? [])),
+              capacityRequests: JSON.parse(JSON.stringify(currentState.capacityRequests ?? [])),
+              capacityAssignments: JSON.parse(JSON.stringify(currentState.capacityAssignments ?? [])),
+              plannerLayout: items,
+            }
+          : scenario,
+      ),
+    });
+    return;
+  }
+
+  const newBaseline: Scenario = {
+    id: generateId('scenario'),
+    name: 'Baseline',
+    createdAt: now,
+    updatedAt: now,
+    isBaseline: true,
+    archived: false,
+    basedOnSyncAt: currentState.jiraConnections.find((connection) => connection.lastSyncAt)?.lastSyncAt,
+    jiraWorkItems: JSON.parse(JSON.stringify(currentState.jiraWorkItems)),
+    jiraItemBizAssignments: JSON.parse(JSON.stringify(currentState.jiraItemBizAssignments)),
+    teamMembers: JSON.parse(JSON.stringify(currentState.teamMembers)),
+    timeOff: JSON.parse(JSON.stringify(currentState.timeOff)),
+    plannerLayout: items,
+    projects: JSON.parse(JSON.stringify(currentState.projects ?? [])),
+    assignments: JSON.parse(JSON.stringify(currentState.assignments ?? [])),
+    capacityRequests: JSON.parse(JSON.stringify(currentState.capacityRequests ?? [])),
+    capacityAssignments: JSON.parse(JSON.stringify(currentState.capacityAssignments ?? [])),
+    portfolioBoardEpicKeys: [],
+    portfolioManualEpics: [],
+    portfolioPhasePlans: [],
+    portfolioPhaseAssignments: [],
+    skillsMatchingEnabled: true,
+  };
+
+  state.updateData({
+    scenarios: [...currentState.scenarios, newBaseline],
+  });
+}
+
+/**
  * SP-05 — Baseline initialization.
  * Populates a scenario's plannerLayout by mapping each Jira item's sprint /
  * date fields to sprint positions in the app's sprint list.

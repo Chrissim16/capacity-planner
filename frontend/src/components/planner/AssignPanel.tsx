@@ -575,7 +575,7 @@ export function AssignPanel({
   };
 
   const openJira = () => {
-    if (!item.jiraKey || !jiraBaseUrl) return;
+    if (!item.jiraKey || item.isManual || !jiraBaseUrl) return;
     const base = jiraBaseUrl.replace(/\/+$/, '');
     window.open(`${base}/browse/${item.jiraKey}`, '_blank', 'noopener,noreferrer');
   };
@@ -784,7 +784,7 @@ export function AssignPanel({
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
             <span className={typePillClass(draft.type)}>{draft.type}</span>
-            {draft.jiraKey && (
+            {draft.jiraKey && !draft.isManual ? (
               <button
                 type="button"
                 onClick={openJira}
@@ -797,7 +797,11 @@ export function AssignPanel({
               >
                 ↗ {draft.jiraKey}
               </button>
-            )}
+            ) : draft.isManual ? (
+              <span className="inline-flex items-center rounded-[5px] border border-[#E0E7FF] bg-[#F8FAFF] px-2 py-0.5 text-[11px] font-semibold text-[#4338CA]">
+                Planning only
+              </span>
+            ) : null}
             <span
               className="text-[10.5px] font-bold rounded-full px-2 py-0.5"
               style={statusBadge.style}
