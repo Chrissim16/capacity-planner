@@ -1137,18 +1137,6 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pv-util-pill.near  { background: #FEF3C7; color: var(--util-near); }
 .pv-util-pill.ok    { background: #DCFCE7; color: #16A34A; }
 .pv-util-pill.bench { background: var(--offwh); color: var(--txt3); }
-.pv-team-data-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--offwh);
-  color: var(--txt2);
-  font-size: 10px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
 .pv-cap-row {
   height: var(--row-p-cap); display: flex; align-items: center;
   padding: 0 12px 0 50px; gap: 8px;

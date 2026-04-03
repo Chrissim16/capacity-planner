@@ -1889,6 +1889,22 @@ function formatPhaseDateRange(startDate: string | null, endDate: string | null):
   return `${startLabel} -> ${endLabel}`;
 }
 
+function getSummarySortBucket(summary: Pick<PersonSummary, 'member' | 'contact' | 'id'>): number {
+  if (summary.member) return 0;
+  if (summary.contact) return 1;
+  if (isTeamEntryId(summary.id)) return 2;
+  return 3;
+}
+
+function getActorTypeSortBucket(actorType: SummaryBreakdownActorRow['actorType']): number {
+  switch (actorType) {
+    case 'person': return 0;
+    case 'contact': return 1;
+    case 'team': return 2;
+    default: return 3;
+  }
+}
+
 function getAssignmentDaysForQuarter(
   assignmentEntry: Pick<PersonAssignEntry, 'assignment' | 'phaseStartDate' | 'phaseEndDate'>,
   qOpt: QOpt,
@@ -1970,6 +1986,8 @@ function PeopleView({
   const totalW = weeks.length * (dayW * 5);
   const [sortBy, setSortBy] = useState<'name' | 'utilization'>('name');
   const [viewMode, setViewMode] = useState<'people' | 'epic'>('people');
+  const bottomScrollbarRef = useRef<HTMLDivElement | null>(null);
+  const horizontalScrollSyncRef = useRef<'gantt' | 'bottom' | null>(null);
   const getVisibleAssignedDays = useCallback(
     (assignments: Array<Pick<PersonAssignEntry, 'assignment' | 'phaseStartDate' | 'phaseEndDate'>>) =>
       getVisibleAssignedDaysForEntries(assignments, quarterOpt),
@@ -1980,12 +1998,31 @@ function PeopleView({
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
   }, [ganttRef]);
   const syncLpFromGantt = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (horizontalScrollSyncRef.current === 'bottom') {
+      horizontalScrollSyncRef.current = null;
+    } else if (bottomScrollbarRef.current && bottomScrollbarRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+      horizontalScrollSyncRef.current = 'gantt';
+      bottomScrollbarRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
     if (lpRef.current) lpRef.current.scrollTop = e.currentTarget.scrollTop;
     onTimelineScroll(e.currentTarget);
   }, [lpRef, onTimelineScroll]);
+  const syncGanttFromBottomScrollbar = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (horizontalScrollSyncRef.current === 'gantt') {
+      horizontalScrollSyncRef.current = null;
+      return;
+    }
+    if (ganttRef.current && ganttRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+      horizontalScrollSyncRef.current = 'bottom';
+      ganttRef.current.scrollLeft = e.currentTarget.scrollLeft;
+      onTimelineScroll(ganttRef.current);
+    }
+  }, [ganttRef, onTimelineScroll]);
 
   const sortedPeopleSummaries = useMemo(() => {
     return [...peopleSummaries].sort((a, b) => {
+      const bucketDiff = getSummarySortBucket(a) - getSummarySortBucket(b);
+      if (bucketDiff !== 0) return bucketDiff;
       if (sortBy === 'utilization') {
         const assignedA = getVisibleAssignedDays(a.assignments);
         const assignedB = getVisibleAssignedDays(b.assignments);
@@ -2095,9 +2132,7 @@ function PeopleView({
           <div className={`pv-util-pill ${tier}`}>
             {Math.round(utilPct * 100)}%
           </div>
-        ) : (
-          <span className="pv-team-data-pill">No capacity data</span>
-        )}
+        ) : null}
       </div>
     );
 
@@ -2189,6 +2224,9 @@ function PeopleView({
               <GanttHeader weeks={weeks} totalW={totalW} />
               {ganttRows}
             </div>
+          </div>
+          <div className="pp-bottom-scroll" ref={bottomScrollbarRef} onScroll={syncGanttFromBottomScrollbar}>
+            <div className="pp-bottom-scroll-inner" style={{ width: totalW }} />
           </div>
         </div>
       </div>
@@ -4349,7 +4387,11 @@ export function PortfolioPlanning() {
               .map((phaseRow) => ({ ...phaseRow, totalDays: roundToTenth(phaseRow.totalDays) }))
               .sort((a, b) => a.phaseOrder - b.phaseOrder || a.phaseLabel.localeCompare(b.phaseLabel)),
           }))
-          .sort((a, b) => b.totalDays - a.totalDays || a.name.localeCompare(b.name));
+          .sort((a, b) => (
+            getActorTypeSortBucket(a.actorType) - getActorTypeSortBucket(b.actorType)
+            || b.totalDays - a.totalDays
+            || a.name.localeCompare(b.name)
+          ));
 
         return {
           epic,
