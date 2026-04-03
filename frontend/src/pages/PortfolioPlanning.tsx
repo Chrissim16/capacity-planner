@@ -67,7 +67,6 @@ import {
 import { PlanningLensHeader } from '../components/planning/PlanningLensHeader';
 import { PlanningHeaderActionMenu } from '../components/planning/PlanningHeaderActionMenu';
 import { CostDrawer } from '../components/portfolio/CostDrawer';
-import { StageProgressBar } from '../components/layout/StageProgressBar';
 import { Button } from '../components/ui/Button';
 import { buildPortfolioCostSummary, type PortfolioCostSummary } from '../utils/costing';
 import { formatCurrency } from '../utils/currency';
@@ -3980,7 +3979,6 @@ function AssignmentActionsPopover({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function PortfolioPlanning() {
-  const setCurrentView = useAppStore((s) => s.setCurrentView);
   const baselineState = useAppStore(useShallow(s => s.data));
   const plan  = usePortfolioPlan();
   const scenarios = useAppStore(useShallow(s => s.data.scenarios));
@@ -5321,7 +5319,6 @@ export function PortfolioPlanning() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="pp-root" ref={ppRootRef}>
-      <StageProgressBar currentStage="portfolio" onNavigate={setCurrentView} />
       <PlanningLensHeader
         title="Portfolio Planning"
         subtitle=""

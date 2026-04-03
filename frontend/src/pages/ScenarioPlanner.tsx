@@ -4,7 +4,6 @@ import { CalendarRange } from 'lucide-react';
 import { CapacityBacklog } from '../components/capacity/CapacityBacklog';
 import { CapacityRequestCard, type CapacityBacklogItem, type CapacityJiraItemMeta } from '../components/capacity/CapacityRequestCard';
 import { CapacitySprintGrid } from '../components/capacity/CapacitySprintGrid';
-import { StageProgressBar } from '../components/layout/StageProgressBar';
 import { DeliveryBreakdownPanel } from '../components/planning/DeliveryBreakdownPanel';
 import { PlanningLensHeader } from '../components/planning/PlanningLensHeader';
 import { Button } from '../components/ui/Button';
@@ -335,7 +334,6 @@ export function ScenarioPlanner() {
 
   return (
     <div className="flex h-full flex-col bg-[#F8FAFC]">
-      <StageProgressBar currentStage="capacity" onNavigate={setCurrentView} />
       <PlanningLensHeader
         title="Delivery Planning"
         subtitle="Plan imported delivery breakdown first, then layer scenario-only what-if requests where Jira work does not exist yet."

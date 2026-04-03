@@ -8,7 +8,6 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/layout/PageHeader';
-import { StageProgressBar } from '../components/layout/StageProgressBar';
 import { useAppStore, useCurrentState } from '../stores/appStore';
 import { WorkItemSkillsCell } from '../components/WorkItemSkillsCell';
 import { fetchSyncPreview, applySync } from '../application/jiraSync';
@@ -145,7 +144,6 @@ function TrackingEstimateCell({
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export function Projects() {
-  const setCurrentView = useAppStore((state) => state.setCurrentView);
   const state = useCurrentState();
   const jiraConnections = state.jiraConnections ?? [];
   const jiraWorkItems = globalJiraWorkItems(state.jiraWorkItems ?? [], jiraConnections);
@@ -380,10 +378,6 @@ export function Projects() {
           ) : undefined
         }
       />
-      <div className="mx-[-24px] mb-4">
-        <StageProgressBar currentStage="actuals" onNavigate={setCurrentView} />
-      </div>
-
       {/* Sync progress */}
       {syncProgress && (
         <div className="mx-6 mb-2 flex items-center gap-2 text-xs text-blue-600">
