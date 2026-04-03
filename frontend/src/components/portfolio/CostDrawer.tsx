@@ -77,9 +77,9 @@ export function CostDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-[1300] flex justify-end">
       <div className="absolute inset-0 bg-[#1E293B]/25" onClick={onClose} />
-      <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-[#DEDFE3] bg-white shadow-xl">
+      <aside className="relative z-10 h-full w-full max-w-xl overflow-y-auto border-l border-[#DEDFE3] bg-white shadow-xl" role="dialog" aria-modal="true" aria-label="Initiative Cost">
         <div className="flex items-center justify-between border-b border-[#DEDFE3] px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-[#1E293B]">Initiative Cost</h2>

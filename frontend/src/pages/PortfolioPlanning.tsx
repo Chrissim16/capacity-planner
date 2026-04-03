@@ -1107,17 +1107,15 @@ function EpicView({
               event.stopPropagation();
               onOpenCostDrawer(epicKey);
             }}
-            className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ${
-              costSummary.missingRateCount > 0
-                ? 'bg-[#FFF7ED] text-[#C2410C]'
-                : 'bg-[#EFF6FF] text-[#1D4ED8]'
-            }`}
+            className={`ev-epic-cost-btn${costSummary.missingRateCount > 0 ? ' warn' : ''}`}
             title={costSummary.missingRateCount > 0
-              ? `Missing rates: ${costSummary.missingRateLabels.join(', ')}`
+              ? `Open cost details. Missing rates: ${costSummary.missingRateLabels.join(', ')}`
               : 'Open cost details'}
+            aria-label={costSummary.missingRateCount > 0
+              ? `Open cost details for ${epicKey}. Missing rates for ${costSummary.missingRateLabels.join(', ')}`
+              : `Open cost details for ${epicKey}`}
           >
-            {costSummary.missingRateCount > 0 ? '⚠' : null}
-            {formatCurrency(costSummary.totalCost, portfolioCostSummary.reportingCurrency)}
+            <span aria-hidden="true">€</span>
           </button>
         )}
         {totalDays > 0 && <span className="ev-epic-total">{totalDays}d</span>}
@@ -1543,8 +1541,24 @@ function EpicView({
         <div className="pp-lp-hd">
           <span className="pp-lp-hd-label">Epic · Phase · Person</span>
           <span style={{ flex: 1 }} />
-          <button className="pp-collapse-btn" onClick={onExpandAll}>Expand all</button>
-          <button className="pp-collapse-btn" onClick={onCollapseAll} style={{ marginLeft: 4 }}>Collapse all</button>
+          <button
+            className="pp-collapse-btn"
+            type="button"
+            onClick={onExpandAll}
+            title="Expand all epics and phase details"
+            aria-label="Expand all epics and phase details"
+          >
+            <span className="pp-collapse-btn-icon" aria-hidden="true">▾▾</span>
+          </button>
+          <button
+            className="pp-collapse-btn"
+            type="button"
+            onClick={onCollapseAll}
+            title="Collapse all epics"
+            aria-label="Collapse all epics"
+          >
+            <span className="pp-collapse-btn-icon" aria-hidden="true">▴▴</span>
+          </button>
         </div>
         <div className="pp-lp-body" ref={lpRef} onScroll={syncGanttFromLp}>
           {lpRows}
@@ -3350,128 +3364,134 @@ function PortfolioDrawer({
     );
   }
 
-  return (
-    <div className={`pp-drawer${open ? ' open' : ''}`}>
-      <div className="pp-dr-head">
-        <span className="pp-dr-title">Add Epics to Portfolio</span>
-        <button className="pp-dr-close" onClick={onClose}>×</button>
-      </div>
-      <div className="pp-dr-filters">
-        <div className="pp-dr-search">
-          <span style={{ color: 'var(--txt3)', fontSize: 13 }}>🔍</span>
-          <input
-            placeholder="Search by name or key…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+  if (!open) return null;
+
+  return createPortal(
+    <div className="pp-drawer-overlay">
+      <div className="pp-drawer-backdrop" onClick={onClose} />
+      <div className="pp-drawer open" role="dialog" aria-modal="true" aria-label="Add Epics to Portfolio">
+        <div className="pp-dr-head">
+          <span className="pp-dr-title">Add Epics to Portfolio</span>
+          <button className="pp-dr-close" onClick={onClose}>×</button>
         </div>
-        <div className="pp-dr-filter-row">
-          <FilterDropdown
-            id="label" label="Labels"
-            items={allLabels.filter(l => l.toLowerCase().includes(labelSearch.toLowerCase()))}
-            selItems={selLabels} setSelItems={setSelLabels}
-            searchVal={labelSearch} setSearchVal={setLabelSearch}
-          />
-          <FilterDropdown
-            id="assignee" label="Assignee"
-            items={allAssignees.filter(a => a.toLowerCase().includes(assigneeSearch.toLowerCase()))}
-            selItems={selAssignees} setSelItems={setSelAssignees}
-            searchVal={assigneeSearch} setSearchVal={setAssigneeSearch}
-          />
-          <FilterDropdown
-            id="status" label="Status"
-            items={allStatuses.filter(s => s.toLowerCase().includes(statusSearch.toLowerCase()))}
-            selItems={selStatuses} setSelItems={setSelStatuses}
-            searchVal={statusSearch} setSearchVal={setStatusSearch}
-          />
+        <div className="pp-dr-filters">
+          <div className="pp-dr-search">
+            <span style={{ color: 'var(--txt3)', fontSize: 13 }}>🔍</span>
+            <input
+              placeholder="Search by name or key…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="pp-dr-filter-row">
+            <FilterDropdown
+              id="label" label="Labels"
+              items={allLabels.filter(l => l.toLowerCase().includes(labelSearch.toLowerCase()))}
+              selItems={selLabels} setSelItems={setSelLabels}
+              searchVal={labelSearch} setSearchVal={setLabelSearch}
+            />
+            <FilterDropdown
+              id="assignee" label="Assignee"
+              items={allAssignees.filter(a => a.toLowerCase().includes(assigneeSearch.toLowerCase()))}
+              selItems={selAssignees} setSelItems={setSelAssignees}
+              searchVal={assigneeSearch} setSearchVal={setAssigneeSearch}
+            />
+            <FilterDropdown
+              id="status" label="Status"
+              items={allStatuses.filter(s => s.toLowerCase().includes(statusSearch.toLowerCase()))}
+              selItems={selStatuses} setSelItems={setSelStatuses}
+              searchVal={statusSearch} setSearchVal={setStatusSearch}
+            />
+          </div>
         </div>
-      </div>
-      {/* ── Manual epics section ── */}
-      {manualEpics.length > 0 && (
-        <div className="pp-dr-manual-section">
-          <div className="pp-dr-section-hd">Manual Epics</div>
-          {manualEpics.map(e => (
+        {/* ── Manual epics section ── */}
+        {manualEpics.length > 0 && (
+          <div className="pp-dr-manual-section">
+            <div className="pp-dr-section-hd">Manual Epics</div>
+            {manualEpics.map(e => (
+              <div
+                key={e.epicKey}
+                className={`pp-dr-epic-item pp-dr-manual-item${selected.has(e.epicKey) ? ' checked' : ''}`}
+                onClick={() => {
+                  setSelected(prev => {
+                    const s = new Set(prev);
+                    s.has(e.epicKey) ? s.delete(e.epicKey) : s.add(e.epicKey);
+                    return s;
+                  });
+                }}
+              >
+                <div className={`pp-cb${selected.has(e.epicKey) ? ' on' : ''}`} />
+                <div className="pp-dr-epic-info">
+                  <div className="pp-dr-epic-key">{e.epicKey}</div>
+                  <div className="pp-dr-epic-name">{e.summary}</div>
+                  {e.description && <div className="pp-dr-epic-meta">{e.description}</div>}
+                </div>
+                <div className="pp-dr-manual-actions">
+                  {e.startDate && (
+                    <span className="pp-dr-manual-dates">
+                      {e.startDate.slice(5)} → {e.endDate ? e.endDate.slice(5) : '?'}
+                    </span>
+                  )}
+                  <button
+                    className="pp-dr-manual-btn edit"
+                    title="Edit"
+                    onClick={ev => { ev.stopPropagation(); onEditManual(e); }}
+                  >✎</button>
+                  <button
+                    className="pp-dr-manual-btn delete"
+                    title="Delete permanently"
+                    onClick={ev => {
+                      ev.stopPropagation();
+                      if (confirm(`Delete "${e.summary}" (${e.epicKey}) permanently?`)) {
+                        onDeleteManual(e.epicKey);
+                      }
+                    }}
+                  >🗑</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="pp-dr-list-head">
+          <label className="pp-dr-select-all" onClick={() => {
+            if (allChecked) setSelected(prev => { const s = new Set(prev); filtered.forEach(e => s.delete(e.jiraKey)); return s; });
+            else setSelected(prev => { const s = new Set(prev); filtered.forEach(e => s.add(e.jiraKey)); return s; });
+          }}>
+            <div className={`pp-cb${allChecked ? ' on' : ''}`} />
+            Select all visible
+          </label>
+            <span className="pp-dr-count">{filtered.length} epic{filtered.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div className="pp-dr-list" onClick={() => setOpenDd(null)}>
+          {filtered.map(e => (
             <div
-              key={e.epicKey}
-              className={`pp-dr-epic-item pp-dr-manual-item${selected.has(e.epicKey) ? ' checked' : ''}`}
-              onClick={() => {
-                setSelected(prev => {
-                  const s = new Set(prev);
-                  s.has(e.epicKey) ? s.delete(e.epicKey) : s.add(e.epicKey);
-                  return s;
-                });
-              }}
+              key={e.jiraKey}
+              className={`pp-dr-epic-item${selected.has(e.jiraKey) ? ' checked' : ''}`}
+              onClick={() => toggle(e.jiraKey)}
             >
-              <div className={`pp-cb${selected.has(e.epicKey) ? ' on' : ''}`} />
+              <div className={`pp-cb${selected.has(e.jiraKey) ? ' on' : ''}`} />
               <div className="pp-dr-epic-info">
-                <div className="pp-dr-epic-key">{e.epicKey}</div>
+                <div className="pp-dr-epic-key">{e.jiraKey}</div>
                 <div className="pp-dr-epic-name">{e.summary}</div>
-                {e.description && <div className="pp-dr-epic-meta">{e.description}</div>}
+                {e.assigneeName && <div className="pp-dr-epic-meta">{e.assigneeName}</div>}
               </div>
-              <div className="pp-dr-manual-actions">
-                {e.startDate && (
-                  <span className="pp-dr-manual-dates">
-                    {e.startDate.slice(5)} → {e.endDate ? e.endDate.slice(5) : '?'}
-                  </span>
-                )}
-                <button
-                  className="pp-dr-manual-btn edit"
-                  title="Edit"
-                  onClick={ev => { ev.stopPropagation(); onEditManual(e); }}
-                >✎</button>
-                <button
-                  className="pp-dr-manual-btn delete"
-                  title="Delete permanently"
-                  onClick={ev => {
-                    ev.stopPropagation();
-                    if (confirm(`Delete "${e.summary}" (${e.epicKey}) permanently?`)) {
-                      onDeleteManual(e.epicKey);
-                    }
-                  }}
-                >🗑</button>
-              </div>
+              <div className={`pp-dr-epic-status ${statusDisplayCls(e.status)}`}>{e.status}</div>
             </div>
           ))}
         </div>
-      )}
-
-      <div className="pp-dr-list-head">
-        <label className="pp-dr-select-all" onClick={() => {
-          if (allChecked) setSelected(prev => { const s = new Set(prev); filtered.forEach(e => s.delete(e.jiraKey)); return s; });
-          else setSelected(prev => { const s = new Set(prev); filtered.forEach(e => s.add(e.jiraKey)); return s; });
-        }}>
-          <div className={`pp-cb${allChecked ? ' on' : ''}`} />
-          Select all visible
-        </label>
-          <span className="pp-dr-count">{filtered.length} epic{filtered.length !== 1 ? 's' : ''}</span>
+        <div className="pp-dr-footer">
+          <button className="pp-btn pp-dr-create-btn" onClick={onCreateManual}>
+            + Create Manual Epic
+          </button>
+          <button className="pp-btn" onClick={onClose}>Cancel</button>
+          <button className="pp-btn primary" onClick={() => onSave([...selected])}>
+            Add to portfolio
+          </button>
+        </div>
       </div>
-      <div className="pp-dr-list" onClick={() => setOpenDd(null)}>
-        {filtered.map(e => (
-          <div
-            key={e.jiraKey}
-            className={`pp-dr-epic-item${selected.has(e.jiraKey) ? ' checked' : ''}`}
-            onClick={() => toggle(e.jiraKey)}
-          >
-            <div className={`pp-cb${selected.has(e.jiraKey) ? ' on' : ''}`} />
-            <div className="pp-dr-epic-info">
-              <div className="pp-dr-epic-key">{e.jiraKey}</div>
-              <div className="pp-dr-epic-name">{e.summary}</div>
-              {e.assigneeName && <div className="pp-dr-epic-meta">{e.assigneeName}</div>}
-            </div>
-            <div className={`pp-dr-epic-status ${statusDisplayCls(e.status)}`}>{e.status}</div>
-          </div>
-        ))}
-      </div>
-      <div className="pp-dr-footer">
-        <button className="pp-btn pp-dr-create-btn" onClick={onCreateManual}>
-          + Create Manual Epic
-        </button>
-        <button className="pp-btn" onClick={onClose}>Cancel</button>
-        <button className="pp-btn primary" onClick={() => onSave([...selected])}>
-          Add to portfolio
-        </button>
-      </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
