@@ -7,7 +7,6 @@ import {
   Users,
   WifiOff,
   Calendar,
-  LayoutDashboard,
   FolderKanban,
   AlertCircle,
   LogOut,
@@ -60,7 +59,6 @@ const navSections: Array<Array<{ view: ViewType; icon: typeof Settings; label: s
     { view: 'report',             icon: FileBarChart,  label: 'Report' },
   ],
   [
-    { view: 'dashboard',          icon: LayoutDashboard, label: 'Capacity' },
     { view: 'timeline',           icon: Calendar,        label: 'Timeline' },
     { view: 'team',               icon: Users,           label: 'Team' },
     { view: 'settings',           icon: Settings,        label: 'Settings' },
