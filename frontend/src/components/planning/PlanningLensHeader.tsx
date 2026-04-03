@@ -27,7 +27,7 @@ function PlanningLensSyncState() {
   if (status === 'offline') {
     return (
       <span
-        className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#94A3B8]"
+        className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#94A3B8]"
         title="Supabase not configured — data is currently stored locally only"
       >
         <WifiOff size={14} />
@@ -38,7 +38,7 @@ function PlanningLensSyncState() {
 
   if (status === 'saving') {
     return (
-      <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 text-sm font-medium text-[#1D4ED8]">
+      <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 text-sm font-medium text-[#1D4ED8]">
         <Loader2 size={14} className="animate-spin" />
         Saving
       </span>
@@ -50,7 +50,7 @@ function PlanningLensSyncState() {
       <button
         type="button"
         onClick={retrySyncToSupabase}
-        className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3 text-sm font-medium text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
+        className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 text-sm font-medium text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
         title={error ?? 'Save failed — click to retry'}
       >
         <AlertCircle size={14} />
@@ -60,7 +60,7 @@ function PlanningLensSyncState() {
   }
 
   return (
-    <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-sm font-medium text-[#15803D]">
+    <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-sm font-medium text-[#15803D]">
       <CheckCircle2 size={14} />
       Saved
     </span>
@@ -83,12 +83,14 @@ export function PlanningLensHeader({
   showSaveState = true,
 }: PlanningLensHeaderProps) {
   return (
-    <div className="border-b border-[#DEDFE3] bg-white px-6 py-4">
+    <div className="relative z-[320] border-b border-[#DEDFE3] bg-white px-6 py-4">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Planning Lens</div>
           <h1 className="mt-2 text-xl font-bold leading-tight text-[#1E293B]">{title}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-[#64748B]">{subtitle}</p>
+          {subtitle.trim() ? (
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-[#64748B]">{subtitle}</p>
+          ) : null}
           {context ? (
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-[#94A3B8]">
               {context}

@@ -55,7 +55,7 @@ export function PlanningHeaderActionMenu({
         disabled={disabled}
         onClick={() => setIsOpen((current) => !current)}
         className={clsx(
-          'inline-flex h-10 items-center gap-2 rounded-xl border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50',
+          'inline-flex h-9 items-center gap-2 rounded-lg border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}
         aria-expanded={isOpen}
@@ -67,7 +67,7 @@ export function PlanningHeaderActionMenu({
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[#DEDFE3] bg-white py-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+        <div className="absolute right-0 top-full z-[420] mt-2 w-56 overflow-hidden rounded-xl border border-[#DEDFE3] bg-white py-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
           {items.map((item) => (
             <button
               key={item.label}

@@ -91,7 +91,7 @@ export function PlanScenarioSwitcher({
         <button
           type="button"
           onClick={() => setIsOpen((current) => !current)}
-          className="inline-flex h-10 min-w-[220px] max-w-full items-center gap-3 rounded-xl border border-[#DEDFE3] bg-white px-3 text-left text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
+          className="inline-flex h-9 min-w-[200px] max-w-full items-center gap-2.5 rounded-lg border border-[#DEDFE3] bg-white px-3 text-left text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
           aria-expanded={isOpen}
           aria-haspopup="menu"
         >
@@ -114,7 +114,7 @@ export function PlanScenarioSwitcher({
         </button>
 
         {isOpen ? (
-          <div className="absolute right-0 top-full z-50 mt-2 w-[320px] overflow-hidden rounded-xl border border-[#DEDFE3] bg-white shadow-[0_20px_45px_rgba(15,23,42,0.14)]">
+          <div className="absolute right-0 top-full z-[420] mt-2 w-[320px] overflow-hidden rounded-xl border border-[#DEDFE3] bg-white shadow-[0_20px_45px_rgba(15,23,42,0.14)]">
             <div className="border-b border-[#EEF2F6] px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Available Scenarios</p>
             </div>

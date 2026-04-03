@@ -4869,7 +4869,7 @@ export function PortfolioPlanning() {
       <StageProgressBar currentStage="portfolio" onNavigate={setCurrentView} />
       <PlanningLensHeader
         title="Portfolio Planning"
-        subtitle="Compare staffing options, phase effort, and cost before detailed delivery breakdown exists."
+        subtitle=""
         scenarios={visibleScenarios}
         activeScenarioId={activeScenarioId}
         onSwitch={handleSwitchScenario}
@@ -4877,16 +4877,15 @@ export function PortfolioPlanning() {
         onDuplicate={handleDuplicateScenario}
         onRename={renameScenario}
         onDelete={handleDeleteScenario}
-        context={<span>VS Finance</span>}
         controls={(
           <>
-            <div className="inline-flex h-10 items-center rounded-xl border border-[#DEDFE3] bg-[#F8FAFC] p-1">
+            <div className="inline-flex h-9 items-center rounded-lg border border-[#DEDFE3] bg-[#F8FAFC] p-1">
               {quarterIndicatorOpts.map((q, i) => (
                 <button
                   key={i}
                   type="button"
                   className={[
-                    'inline-flex h-8 items-center rounded-lg px-3 text-sm font-medium transition-colors',
+                    'inline-flex h-7 items-center rounded-md px-2.5 text-sm font-medium transition-colors',
                     i === activeQIdx
                       ? 'bg-white text-[#1E293B] shadow-sm'
                       : 'text-[#64748B] hover:text-[#1E293B]',
@@ -4910,8 +4909,8 @@ export function PortfolioPlanning() {
           </>
         )}
         primaryAction={(
-          <Button variant="primary" size="md" className="rounded-xl" onClick={() => setDrawerOpen(true)}>
-              Add Epics
+          <Button variant="primary" size="sm" className="rounded-lg" onClick={() => setDrawerOpen(true)}>
+            Add Epics
           </Button>
         )}
       />
