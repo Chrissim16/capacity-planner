@@ -55,7 +55,7 @@ export function PlanningHeaderActionMenu({
         disabled={disabled}
         onClick={() => setIsOpen((current) => !current)}
         className={clsx(
-          'inline-flex h-9 items-center gap-2 rounded-lg border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50',
+          'inline-flex h-8 items-center gap-1.5 rounded-md border border-[#DEDFE3] bg-white px-2.5 text-xs font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}
         aria-expanded={isOpen}

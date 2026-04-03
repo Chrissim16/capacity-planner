@@ -4879,13 +4879,13 @@ export function PortfolioPlanning() {
         onDelete={handleDeleteScenario}
         controls={(
           <>
-            <div className="inline-flex h-9 items-center rounded-lg border border-[#DEDFE3] bg-[#F8FAFC] p-1">
+            <div className="inline-flex h-8 items-center rounded-md border border-[#DEDFE3] bg-[#F8FAFC] p-0.5">
               {quarterIndicatorOpts.map((q, i) => (
                 <button
                   key={i}
                   type="button"
                   className={[
-                    'inline-flex h-7 items-center rounded-md px-2.5 text-sm font-medium transition-colors',
+                    'inline-flex h-7 items-center rounded-[5px] px-2 text-xs font-medium transition-colors',
                     i === activeQIdx
                       ? 'bg-white text-[#1E293B] shadow-sm'
                       : 'text-[#64748B] hover:text-[#1E293B]',
@@ -4909,7 +4909,12 @@ export function PortfolioPlanning() {
           </>
         )}
         primaryAction={(
-          <Button variant="primary" size="sm" className="rounded-lg" onClick={() => setDrawerOpen(true)}>
+          <Button
+            variant="primary"
+            size="sm"
+            className="h-8 rounded-md px-2.5 text-xs"
+            onClick={() => setDrawerOpen(true)}
+          >
             Add Epics
           </Button>
         )}

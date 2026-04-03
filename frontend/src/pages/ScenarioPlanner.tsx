@@ -347,13 +347,18 @@ export function ScenarioPlanner() {
         onRename={handleRenameScenario}
         onDelete={handleDeleteScenario}
         controls={(
-          <div className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#64748B]">
-            <CalendarRange size={14} />
+          <div className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#DEDFE3] bg-white px-2.5 text-xs font-medium text-[#64748B]">
+            <CalendarRange size={13} />
             {visibleSprints.length} sprints
           </div>
         )}
         primaryAction={(
-          <Button variant="primary" size="sm" className="rounded-lg" onClick={() => setCurrentView('jira')}>
+          <Button
+            variant="primary"
+            size="sm"
+            className="h-8 rounded-md px-2.5 text-xs"
+            onClick={() => setCurrentView('jira')}
+          >
             Import Jira Breakdown
           </Button>
         )}

@@ -91,11 +91,11 @@ export function PlanScenarioSwitcher({
         <button
           type="button"
           onClick={() => setIsOpen((current) => !current)}
-          className="inline-flex h-9 min-w-[200px] max-w-full items-center gap-2.5 rounded-lg border border-[#DEDFE3] bg-white px-3 text-left text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
+          className="inline-flex h-8 min-w-[168px] max-w-full items-center gap-2 rounded-md border border-[#DEDFE3] bg-white px-2.5 text-left text-xs font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
           aria-expanded={isOpen}
           aria-haspopup="menu"
         >
-          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Scenario</span>
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94A3B8]">Scenario</span>
           <span className="h-4 w-px shrink-0 bg-[#E2E8F0]" aria-hidden="true" />
           <span className="flex min-w-0 flex-1 items-center gap-2">
             {activeScenario ? (

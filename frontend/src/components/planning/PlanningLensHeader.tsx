@@ -27,10 +27,10 @@ function PlanningLensSyncState() {
   if (status === 'offline') {
     return (
       <span
-        className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#94A3B8]"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#DEDFE3] bg-white px-2.5 text-xs font-medium text-[#94A3B8]"
         title="Supabase not configured — data is currently stored locally only"
       >
-        <WifiOff size={14} />
+        <WifiOff size={13} />
         Local only
       </span>
     );
@@ -38,8 +38,8 @@ function PlanningLensSyncState() {
 
   if (status === 'saving') {
     return (
-      <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 text-sm font-medium text-[#1D4ED8]">
-        <Loader2 size={14} className="animate-spin" />
+      <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#BFDBFE] bg-[#EFF6FF] px-2.5 text-xs font-medium text-[#1D4ED8]">
+        <Loader2 size={13} className="animate-spin" />
         Saving
       </span>
     );
@@ -50,18 +50,18 @@ function PlanningLensSyncState() {
       <button
         type="button"
         onClick={retrySyncToSupabase}
-        className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 text-sm font-medium text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#FECACA] bg-[#FEF2F2] px-2.5 text-xs font-medium text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
         title={error ?? 'Save failed — click to retry'}
       >
-        <AlertCircle size={14} />
+        <AlertCircle size={13} />
         Not saved
       </button>
     );
   }
 
   return (
-    <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-sm font-medium text-[#15803D]">
-      <CheckCircle2 size={14} />
+    <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 text-xs font-medium text-[#15803D]">
+      <CheckCircle2 size={13} />
       Saved
     </span>
   );
@@ -83,11 +83,11 @@ export function PlanningLensHeader({
   showSaveState = true,
 }: PlanningLensHeaderProps) {
   return (
-    <div className="relative z-[320] border-b border-[#DEDFE3] bg-white px-6 py-4">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+    <div className="relative z-[320] border-b border-[#DEDFE3] bg-white px-6 py-3">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-6">
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Planning Lens</div>
-          <h1 className="mt-2 text-xl font-bold leading-tight text-[#1E293B]">{title}</h1>
+          <h1 className="mt-1.5 text-xl font-bold leading-tight text-[#1E293B]">{title}</h1>
           {subtitle.trim() ? (
             <p className="mt-1 max-w-3xl text-sm leading-6 text-[#64748B]">{subtitle}</p>
           ) : null}
@@ -98,7 +98,7 @@ export function PlanningLensHeader({
           ) : null}
         </div>
 
-        <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:max-w-[780px] xl:justify-end">
+        <div className="flex w-full flex-wrap items-center gap-1.5 xl:w-auto xl:flex-nowrap xl:justify-end">
           {showSaveState ? <PlanningLensSyncState /> : null}
           <PlanScenarioSwitcher
             scenarios={scenarios}
