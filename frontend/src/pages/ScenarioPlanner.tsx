@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
-import { CalendarRange, Layers } from 'lucide-react';
+import { CalendarRange } from 'lucide-react';
 import { CapacityBacklog } from '../components/capacity/CapacityBacklog';
 import { CapacityRequestCard, type CapacityBacklogItem, type CapacityJiraItemMeta } from '../components/capacity/CapacityRequestCard';
 import { CapacitySprintGrid } from '../components/capacity/CapacitySprintGrid';
@@ -346,20 +346,14 @@ export function ScenarioPlanner() {
         onDuplicate={handleDuplicateScenario}
         onRename={handleRenameScenario}
         onDelete={handleDeleteScenario}
-        badges={(
-          <>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-medium text-[#1D4ED8]">
-              <Layers size={12} />
-              {activeScenario ? activeScenario.name : 'Baseline'}
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#DEDFE3] bg-white px-3 py-1 text-xs font-medium text-[#64748B]">
-              <CalendarRange size={12} />
-              {visibleSprints.length} sprints
-            </span>
-          </>
+        controls={(
+          <div className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#64748B]">
+            <CalendarRange size={14} />
+            {visibleSprints.length} sprints
+          </div>
         )}
-        actions={(
-          <Button variant="primary" size="md" onClick={() => setCurrentView('jira')}>
+        primaryAction={(
+          <Button variant="primary" size="md" className="rounded-xl" onClick={() => setCurrentView('jira')}>
             Import Jira Breakdown
           </Button>
         )}

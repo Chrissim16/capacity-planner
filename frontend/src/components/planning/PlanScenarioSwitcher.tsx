@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Copy, Database, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, Copy, Database, Pencil, Plus, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Scenario } from '../../types';
 import { Modal } from '../ui/Modal';
@@ -27,14 +27,37 @@ export function PlanScenarioSwitcher({
   onRename,
   onDelete,
 }: PlanScenarioSwitcherProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const [modalState, setModalState] = useState<ModalState>(null);
   const [draftName, setDraftName] = useState('');
+
   const activeScenario = useMemo(
     () => scenarios.find((scenario) => scenario.id === activeScenarioId) ?? null,
     [activeScenarioId, scenarios],
   );
 
-  const openModal = (nextModalState: Exclude<ModalState, 'delete' | null> | 'delete') => {
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const openModal = (nextModalState: Exclude<ModalState, null>) => {
     if (nextModalState === 'create') {
       setDraftName(`Scenario ${scenarios.length + 1}`);
     } else if (nextModalState === 'duplicate') {
@@ -44,6 +67,7 @@ export function PlanScenarioSwitcher({
     } else {
       setDraftName('');
     }
+    setIsOpen(false);
     setModalState(nextModalState);
   };
 
@@ -63,60 +87,127 @@ export function PlanScenarioSwitcher({
 
   return (
     <>
-      <div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-[#94A3B8]">Scenarios</span>
-              <button
-                type="button"
-                onClick={() => onSwitch(null)}
-                className={clsx(
-                  'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors',
-                  activeScenarioId === null
-                    ? 'border-[#0089DD] bg-[#E6F2FC] text-[#0089DD]'
-                    : 'border-[#DEDFE3] bg-white text-[#64748B] hover:border-[#BFDBFE] hover:text-[#1E293B]',
-                )}
-              >
-                <Database size={14} />
-                Baseline
-              </button>
-              {scenarios.map((scenario) => (
-                <button
-                  key={scenario.id}
-                  type="button"
-                  onClick={() => onSwitch(scenario.id)}
-                  className={clsx(
-                    'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors',
-                    activeScenarioId === scenario.id
-                      ? 'border-[#0089DD] bg-[#E6F2FC] text-[#0089DD]'
-                      : 'border-[#DEDFE3] bg-white text-[#64748B] hover:border-[#BFDBFE] hover:text-[#1E293B]',
-                  )}
-                >
-                  <span className={clsx('h-3.5 w-3.5 rounded-full', scenarioColorDot(scenario.color).dot)} />
-                  <span className="max-w-[200px] truncate">{scenario.name}</span>
-                </button>
-              ))}
+      <div ref={rootRef} className="relative">
+        <button
+          type="button"
+          onClick={() => setIsOpen((current) => !current)}
+          className="inline-flex h-10 min-w-[220px] max-w-full items-center gap-3 rounded-xl border border-[#DEDFE3] bg-white px-3 text-left text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
+          aria-expanded={isOpen}
+          aria-haspopup="menu"
+        >
+          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Scenario</span>
+          <span className="h-4 w-px shrink-0 bg-[#E2E8F0]" aria-hidden="true" />
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            {activeScenario ? (
+              <>
+                <span className={clsx('h-2.5 w-2.5 shrink-0 rounded-full', scenarioColorDot(activeScenario.color).dot)} />
+                <span className="truncate">{activeScenario.name}</span>
+              </>
+            ) : (
+              <>
+                <Database size={14} className="shrink-0 text-[#64748B]" />
+                <span className="truncate">Baseline</span>
+              </>
+            )}
+          </span>
+          <ChevronDown size={16} className={clsx('shrink-0 text-[#94A3B8] transition-transform', isOpen && 'rotate-180')} />
+        </button>
+
+        {isOpen ? (
+          <div className="absolute right-0 top-full z-50 mt-2 w-[320px] overflow-hidden rounded-xl border border-[#DEDFE3] bg-white shadow-[0_20px_45px_rgba(15,23,42,0.14)]">
+            <div className="border-b border-[#EEF2F6] px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Available Scenarios</p>
             </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => openModal('create')}>
-              <Plus size={14} />
-              New Scenario
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => openModal('duplicate')}>
-              <Copy size={14} />
-              Duplicate
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => openModal('rename')} disabled={!activeScenario}>
-              <Pencil size={14} />
-              Rename
-            </Button>
-            <Button variant="danger" size="sm" onClick={() => openModal('delete')} disabled={!activeScenario}>
-              <Trash2 size={14} />
-              Delete
-            </Button>
+            <div className="max-h-[280px] overflow-y-auto p-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onSwitch(null);
+                  setIsOpen(false);
+                }}
+                className={clsx(
+                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                  activeScenarioId === null ? 'bg-[#EFF6FF]' : 'hover:bg-[#F8FAFC]',
+                )}
+              >
+                <Database size={15} className="shrink-0 text-[#64748B]" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-[#1E293B]">Baseline</div>
+                  <div className="text-xs text-[#94A3B8]">Live shared plan</div>
+                </div>
+                {activeScenarioId === null ? <Check size={15} className="shrink-0 text-[#0089DD]" /> : null}
+              </button>
+
+              {scenarios.length > 0 ? (
+                <div className="mt-1 space-y-1">
+                  {scenarios.map((scenario) => (
+                    <button
+                      key={scenario.id}
+                      type="button"
+                      onClick={() => {
+                        onSwitch(scenario.id);
+                        setIsOpen(false);
+                      }}
+                      className={clsx(
+                        'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                        activeScenarioId === scenario.id ? 'bg-[#EFF6FF]' : 'hover:bg-[#F8FAFC]',
+                      )}
+                    >
+                      <span className={clsx('h-3 w-3 shrink-0 rounded-full', scenarioColorDot(scenario.color).dot)} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-[#1E293B]">{scenario.name}</div>
+                        <div className="text-xs text-[#94A3B8]">
+                          {scenario.updatedAt ? `Updated ${new Date(scenario.updatedAt).toLocaleDateString()}` : 'Scenario'}
+                        </div>
+                      </div>
+                      {activeScenarioId === scenario.id ? <Check size={15} className="shrink-0 text-[#0089DD]" /> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="border-t border-[#EEF2F6] p-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => openModal('create')}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
+                >
+                  <Plus size={14} />
+                  New
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openModal('duplicate')}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC]"
+                >
+                  <Copy size={14} />
+                  Duplicate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openModal('rename')}
+                  disabled={!activeScenario}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Pencil size={14} />
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openModal('delete')}
+                  disabled={!activeScenario}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 text-sm font-medium text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 size={14} />
+                  Delete
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <Modal

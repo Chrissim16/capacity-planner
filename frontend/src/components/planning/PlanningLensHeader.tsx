@@ -14,8 +14,9 @@ interface PlanningLensHeaderProps {
   onDuplicate: (scenarioId: string | null, name: string) => void;
   onRename: (scenarioId: string, name: string) => void;
   onDelete: (scenarioId: string) => void;
-  badges?: ReactNode;
-  actions?: ReactNode;
+  context?: ReactNode;
+  controls?: ReactNode;
+  primaryAction?: ReactNode;
   showSaveState?: boolean;
 }
 
@@ -26,10 +27,10 @@ function PlanningLensSyncState() {
   if (status === 'offline') {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-full border border-[#DEDFE3] bg-white px-3 py-1 text-xs font-medium text-[#94A3B8]"
+        className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#DEDFE3] bg-white px-3 text-sm font-medium text-[#94A3B8]"
         title="Supabase not configured — data is currently stored locally only"
       >
-        <WifiOff size={12} />
+        <WifiOff size={14} />
         Local only
       </span>
     );
@@ -37,8 +38,8 @@ function PlanningLensSyncState() {
 
   if (status === 'saving') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1 text-xs font-medium text-[#1D4ED8]">
-        <Loader2 size={12} className="animate-spin" />
+      <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 text-sm font-medium text-[#1D4ED8]">
+        <Loader2 size={14} className="animate-spin" />
         Saving
       </span>
     );
@@ -49,18 +50,18 @@ function PlanningLensSyncState() {
       <button
         type="button"
         onClick={retrySyncToSupabase}
-        className="inline-flex items-center gap-1 rounded-full border border-[#FECACA] bg-[#FEF2F2] px-3 py-1 text-xs font-medium text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
+        className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3 text-sm font-medium text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
         title={error ?? 'Save failed — click to retry'}
       >
-        <AlertCircle size={12} />
+        <AlertCircle size={14} />
         Not saved
       </button>
     );
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1 text-xs font-medium text-[#15803D]">
-      <CheckCircle2 size={12} />
+    <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-sm font-medium text-[#15803D]">
+      <CheckCircle2 size={14} />
       Saved
     </span>
   );
@@ -76,45 +77,39 @@ export function PlanningLensHeader({
   onDuplicate,
   onRename,
   onDelete,
-  badges,
-  actions,
+  context,
+  controls,
+  primaryAction,
   showSaveState = true,
 }: PlanningLensHeaderProps) {
   return (
-    <div className="border-b border-[#DEDFE3] bg-white px-6 py-3">
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold leading-tight text-[#1E293B]">{title}</h1>
-            <p className="max-w-3xl text-sm text-[#64748B]">{subtitle}</p>
-          </div>
-
-          {(badges || actions || showSaveState) ? (
-            <div className="flex w-full flex-col gap-3 xl:w-auto xl:min-w-[320px] xl:items-end">
-              {(badges || showSaveState) ? (
-                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                  {badges}
-                  {showSaveState ? <PlanningLensSyncState /> : null}
-                </div>
-              ) : null}
-              {actions ? (
-                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                  {actions}
-                </div>
-              ) : null}
+    <div className="border-b border-[#DEDFE3] bg-white px-6 py-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Planning Lens</div>
+          <h1 className="mt-2 text-xl font-bold leading-tight text-[#1E293B]">{title}</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-[#64748B]">{subtitle}</p>
+          {context ? (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-[#94A3B8]">
+              {context}
             </div>
           ) : null}
         </div>
 
-        <PlanScenarioSwitcher
-          scenarios={scenarios}
-          activeScenarioId={activeScenarioId}
-          onSwitch={onSwitch}
-          onCreate={onCreate}
-          onDuplicate={onDuplicate}
-          onRename={onRename}
-          onDelete={onDelete}
-        />
+        <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:max-w-[780px] xl:justify-end">
+          {showSaveState ? <PlanningLensSyncState /> : null}
+          <PlanScenarioSwitcher
+            scenarios={scenarios}
+            activeScenarioId={activeScenarioId}
+            onSwitch={onSwitch}
+            onCreate={onCreate}
+            onDuplicate={onDuplicate}
+            onRename={onRename}
+            onDelete={onDelete}
+          />
+          {controls}
+          {primaryAction}
+        </div>
       </div>
     </div>
   );

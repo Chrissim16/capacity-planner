@@ -65,8 +65,10 @@ import {
   type PortfolioScenarioSnapshot,
 } from '../stores/actions';
 import { PlanningLensHeader } from '../components/planning/PlanningLensHeader';
+import { PlanningHeaderActionMenu } from '../components/planning/PlanningHeaderActionMenu';
 import { CostDrawer } from '../components/portfolio/CostDrawer';
 import { StageProgressBar } from '../components/layout/StageProgressBar';
+import { Button } from '../components/ui/Button';
 import { buildPortfolioCostSummary, type PortfolioCostSummary } from '../utils/costing';
 import { formatCurrency } from '../utils/currency';
 import { AddManualEpicModal } from './AddManualEpicModal';
@@ -4875,42 +4877,42 @@ export function PortfolioPlanning() {
         onDuplicate={handleDuplicateScenario}
         onRename={renameScenario}
         onDelete={handleDeleteScenario}
-        badges={(
+        context={<span>VS Finance</span>}
+        controls={(
           <>
-            <span className="inline-flex items-center rounded-full border border-[#DEDFE3] bg-[#F8FAFC] px-3 py-1 text-xs font-medium text-[#64748B]">
-              VS Finance
-            </span>
-            <span className="inline-flex items-center rounded-full border border-[#DEDFE3] bg-white px-3 py-1 text-xs font-medium text-[#64748B]">
-              {quarter}
-            </span>
-          </>
-        )}
-        actions={(
-          <>
-            <div className="pp-seg">
+            <div className="inline-flex h-10 items-center rounded-xl border border-[#DEDFE3] bg-[#F8FAFC] p-1">
               {quarterIndicatorOpts.map((q, i) => (
                 <button
                   key={i}
-                  className={`pp-seg-btn${i === activeQIdx ? ' on' : ''}`}
+                  type="button"
+                  className={[
+                    'inline-flex h-8 items-center rounded-lg px-3 text-sm font-medium transition-colors',
+                    i === activeQIdx
+                      ? 'bg-white text-[#1E293B] shadow-sm'
+                      : 'text-[#64748B] hover:text-[#1E293B]',
+                  ].join(' ')}
                   onClick={() => handleQuarterIndicatorClick(i)}
+                  aria-pressed={i === activeQIdx}
                 >
                   {q.label}
                 </button>
               ))}
             </div>
-            <button className="pp-btn secondary" onClick={handleExportExcel} disabled={exportingFormat !== null}>
-              {exportingFormat === 'excel' ? 'Exporting…' : 'Export Excel'}
-            </button>
-            <button className="pp-btn secondary" onClick={handleExportCsv} disabled={exportingFormat !== null}>
-              {exportingFormat === 'csv' ? 'Exporting…' : 'Export CSV'}
-            </button>
-            <button className="pp-btn secondary" onClick={handleExportPdf} disabled={exportingFormat !== null}>
-              {exportingFormat === 'pdf' ? 'Exporting…' : 'Export PDF'}
-            </button>
-            <button className="pp-btn primary" onClick={() => setDrawerOpen(true)}>
-              Add Epics
-            </button>
+            <PlanningHeaderActionMenu
+              label={exportingFormat ? 'Exporting…' : 'Export'}
+              disabled={exportingFormat !== null}
+              items={[
+                { label: 'Excel workbook', onSelect: () => { void handleExportExcel(); } },
+                { label: 'CSV data', onSelect: handleExportCsv },
+                { label: 'PDF report', onSelect: () => { void handleExportPdf(); } },
+              ]}
+            />
           </>
+        )}
+        primaryAction={(
+          <Button variant="primary" size="md" className="rounded-xl" onClick={() => setDrawerOpen(true)}>
+              Add Epics
+          </Button>
         )}
       />
 
