@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../services/supabase';
 import { withTimeout } from '../utils/withTimeout';
@@ -18,6 +18,10 @@ export type AppAction =
 
 type PermissionMatrix = Record<AppRole, AppAction[]>;
 type AccountAccessIssue = 'missing_role' | 'invalid_role' | 'role_lookup_failed';
+type RoleLookupResult = {
+  role: AppRole | null;
+  accessIssue: AccountAccessIssue | null;
+};
 
 const PERMISSIONS: PermissionMatrix = {
   system_admin: [
@@ -62,10 +66,7 @@ function getInitialCurrentUserState(): CurrentUserState {
   return { user: null, role: null, loading: true, accessIssue: null };
 }
 
-async function fetchUserRole(userId: string): Promise<{
-  role: AppRole | null;
-  accessIssue: AccountAccessIssue | null;
-}> {
+async function fetchUserRole(userId: string): Promise<RoleLookupResult> {
   try {
     const roleResponse = await withTimeout(
       Promise.resolve(
@@ -117,15 +118,79 @@ async function fetchUserRole(userId: string): Promise<{
   }
 }
 
+function shouldKeepPreviousRole(
+  previousState: CurrentUserState,
+  sessionUser: User,
+  roleResult: RoleLookupResult
+): boolean {
+  return (
+    roleResult.accessIssue === 'role_lookup_failed' &&
+    previousState.user?.id === sessionUser.id &&
+    previousState.role != null &&
+    previousState.accessIssue == null
+  );
+}
+
 export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) => boolean } {
   const [state, setState] = useState<CurrentUserState>(getInitialCurrentUserState);
+  const stateRef = useRef(state);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     let cancelled = false;
+    let activeRequestId = 0;
 
     if (!isSupabaseConfigured()) {
       return;
     }
+
+    const applyRoleForUser = async (
+      sessionUser: User,
+      options: { preserveLoading?: boolean; retryTransientFailure?: boolean } = {}
+    ) => {
+      const requestId = ++activeRequestId;
+      const { preserveLoading = false, retryTransientFailure = true } = options;
+
+      if (!preserveLoading && !cancelled) {
+        setState((prev) => ({
+          user: prev.user?.id === sessionUser.id ? prev.user : sessionUser,
+          role: prev.user?.id === sessionUser.id ? prev.role : null,
+          loading: true,
+          accessIssue: prev.user?.id === sessionUser.id ? prev.accessIssue : null,
+        }));
+      }
+
+      let roleResult = await fetchUserRole(sessionUser.id);
+      if (retryTransientFailure && roleResult.accessIssue === 'role_lookup_failed') {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        roleResult = await fetchUserRole(sessionUser.id);
+      }
+
+      if (cancelled || requestId !== activeRequestId) {
+        return;
+      }
+
+      const previousState = stateRef.current;
+      if (shouldKeepPreviousRole(previousState, sessionUser, roleResult)) {
+        setState({
+          user: sessionUser,
+          role: previousState.role,
+          loading: false,
+          accessIssue: null,
+        });
+        return;
+      }
+
+      setState({
+        user: sessionUser,
+        role: roleResult.role,
+        loading: false,
+        accessIssue: roleResult.accessIssue,
+      });
+    };
 
     const hydrate = async () => {
       let data: Awaited<ReturnType<typeof supabase.auth.getSession>>['data'] | null = null;
@@ -150,20 +215,7 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
 
       // Fetch role before releasing the loading state so the UI never renders
       // with the wrong permissions (avoids "Access restricted" flash for admins).
-      // Retry once on transient lookup failures before giving up.
-      let roleResult = await fetchUserRole(sessionUser.id);
-      if (roleResult.accessIssue === 'role_lookup_failed') {
-        await new Promise(r => setTimeout(r, 1000));
-        roleResult = await fetchUserRole(sessionUser.id);
-      }
-      if (!cancelled) {
-        setState({
-          user: sessionUser,
-          role: roleResult.role,
-          loading: false,
-          accessIssue: roleResult.accessIssue,
-        });
-      }
+      await applyRoleForUser(sessionUser, { preserveLoading: true });
     };
 
     hydrate();
@@ -183,20 +235,30 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
 
       // For all other events (SIGNED_IN, INITIAL_SESSION, USER_UPDATED) re-fetch
       // the role so genuine role changes propagate.
-      const roleResult = await fetchUserRole(sessionUser.id);
-      if (!cancelled) {
-        setState({
-          user: sessionUser,
-          role: roleResult.role,
-          loading: false,
-          accessIssue: roleResult.accessIssue,
-        });
-      }
+      await applyRoleForUser(sessionUser);
     });
+
+    const refreshIfNeeded = async () => {
+      if (document.visibilityState === 'hidden') return;
+
+      const currentState = stateRef.current;
+      if (!currentState.user) return;
+
+      if (currentState.accessIssue !== 'role_lookup_failed' && currentState.role != null) {
+        return;
+      }
+
+      await applyRoleForUser(currentState.user, { retryTransientFailure: false });
+    };
+
+    window.addEventListener('focus', refreshIfNeeded);
+    document.addEventListener('visibilitychange', refreshIfNeeded);
 
     return () => {
       cancelled = true;
       subscription.subscription.unsubscribe();
+      window.removeEventListener('focus', refreshIfNeeded);
+      document.removeEventListener('visibilitychange', refreshIfNeeded);
     };
   }, []);
 
