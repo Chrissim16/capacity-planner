@@ -13,6 +13,7 @@ import type {
   Sprint,
   Settings,
   BusinessContact,
+  BusinessTeam,
   BusinessTimeOff,
   JiraItemBizAssignment,
   JiraConnection,
@@ -22,6 +23,10 @@ import type {
   JiraSyncResult,
   Project,
   Assignment,
+  CapacityRequest,
+  CapacityAssignment,
+  ExternalVendor,
+  InitiativeCostRecord,
   PlannerItem,
   PlannerAssignment,
   ManualEpic,
@@ -216,9 +221,20 @@ export function deleteProcessTeam(id: string): void {
   state.updateData({ processTeams: state.getCurrentState().processTeams.filter(p => p.id !== id) });
 }
 
-export function addBusinessTeam(name: string): void {
+export function addBusinessTeam(name: string): BusinessTeam {
   const state = useAppStore.getState();
-  state.updateData({ businessTeams: [...state.getCurrentState().businessTeams, { id: generateId('bt'), name }] });
+  const team: BusinessTeam = { id: generateId('bt'), name };
+  state.updateData({ businessTeams: [...state.getCurrentState().businessTeams, team] });
+  return team;
+}
+
+export function updateBusinessTeam(id: string, updates: Partial<BusinessTeam>): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    businessTeams: state.getCurrentState().businessTeams.map((team) =>
+      team.id === id ? { ...team, ...updates } : team
+    ),
+  });
 }
 
 export function deleteBusinessTeam(id: string): void {
@@ -568,6 +584,29 @@ export function updateJiraWorkItemSkills(
   state.updateData({ jiraWorkItems });
 }
 
+export function updateJiraWorkItemAssignee(
+  workItemId: string,
+  memberId: string | null,
+): void {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const member = memberId
+    ? currentState.teamMembers.find((candidate) => candidate.id === memberId) ?? null
+    : null;
+
+  const jiraWorkItems = currentState.jiraWorkItems.map((item) =>
+    item.id === workItemId
+      ? {
+          ...item,
+          assigneeEmail: member?.email ?? undefined,
+          assigneeName: member?.name ?? undefined,
+        }
+      : item,
+  );
+
+  state.updateData({ jiraWorkItems });
+}
+
 /**
  * Bulk update multiple work items with partial field updates.
  *
@@ -656,9 +695,15 @@ export function createScenario(name: string, description?: string): Scenario {
     teamMembers: JSON.parse(JSON.stringify(currentState.teamMembers)),
     timeOff: JSON.parse(JSON.stringify(currentState.timeOff)),
     plannerLayout: JSON.parse(JSON.stringify(sourceScenario?.plannerLayout ?? [])),
-    projects: [],
-    assignments: [],
-    skillsMatchingEnabled: true,
+    projects: JSON.parse(JSON.stringify(currentState.projects ?? [])),
+    assignments: JSON.parse(JSON.stringify(currentState.assignments ?? [])),
+    capacityRequests: JSON.parse(JSON.stringify(currentState.capacityRequests ?? [])),
+    capacityAssignments: JSON.parse(JSON.stringify(currentState.capacityAssignments ?? [])),
+    portfolioBoardEpicKeys: JSON.parse(JSON.stringify(sourceScenario?.portfolioBoardEpicKeys ?? [])),
+    portfolioManualEpics: JSON.parse(JSON.stringify(sourceScenario?.portfolioManualEpics ?? [])),
+    portfolioPhasePlans: JSON.parse(JSON.stringify(sourceScenario?.portfolioPhasePlans ?? [])),
+    portfolioPhaseAssignments: JSON.parse(JSON.stringify(sourceScenario?.portfolioPhaseAssignments ?? [])),
+    skillsMatchingEnabled: sourceScenario?.skillsMatchingEnabled ?? true,
   };
 
   const scenarios = [...currentState.scenarios, newScenario];
@@ -704,6 +749,10 @@ export function createPortfolioScenario(
 ): Scenario {
   const state = useAppStore.getState();
   const currentState = state.getCurrentState();
+  const sourceScenario =
+    currentState.activeScenarioId != null
+      ? currentState.scenarios.find(s => s.id === currentState.activeScenarioId)
+      : undefined;
   const now = new Date().toISOString();
 
   const newScenario: Scenario = {
@@ -712,22 +761,22 @@ export function createPortfolioScenario(
     createdAt: now,
     updatedAt: now,
     isBaseline: false,
-    isPortfolioScenario: true,
     archived: false,
     basedOnSyncAt: getLatestSuccessfulSyncAt(currentState.jiraConnections),
-    jiraWorkItems: buildPortfolioScenarioJiraSnapshot(
-      snapshot.boardEpicKeys,
-      currentState.jiraWorkItems,
-    ),
-    jiraItemBizAssignments: [],
-    teamMembers: [],
-    timeOff: [],
-    projects: [],
-    assignments: [],
+    jiraWorkItems: JSON.parse(JSON.stringify(currentState.jiraWorkItems)),
+    jiraItemBizAssignments: JSON.parse(JSON.stringify(currentState.jiraItemBizAssignments)),
+    teamMembers: JSON.parse(JSON.stringify(currentState.teamMembers)),
+    timeOff: JSON.parse(JSON.stringify(currentState.timeOff)),
+    projects: JSON.parse(JSON.stringify(currentState.projects ?? [])),
+    assignments: JSON.parse(JSON.stringify(currentState.assignments ?? [])),
+    capacityRequests: JSON.parse(JSON.stringify(currentState.capacityRequests ?? [])),
+    capacityAssignments: JSON.parse(JSON.stringify(currentState.capacityAssignments ?? [])),
+    plannerLayout: JSON.parse(JSON.stringify(sourceScenario?.plannerLayout ?? [])),
     portfolioBoardEpicKeys: JSON.parse(JSON.stringify(snapshot.boardEpicKeys)),
     portfolioManualEpics: JSON.parse(JSON.stringify(snapshot.manualEpics)),
     portfolioPhasePlans: JSON.parse(JSON.stringify(snapshot.phasePlans)),
     portfolioPhaseAssignments: JSON.parse(JSON.stringify(snapshot.phaseAssignments)),
+    skillsMatchingEnabled: sourceScenario?.skillsMatchingEnabled ?? true,
   };
 
   state.updateData({ scenarios: [...currentState.scenarios, newScenario] });
@@ -746,17 +795,11 @@ export function updatePortfolioScenario(
   state.updateData({
     scenarios: currentState.scenarios.map(s => {
       if (s.id !== scenarioId) return s;
-
-      const next = { ...s, ...updates };
       return {
-        ...next,
+        ...s,
+        ...updates,
         updatedAt: new Date().toISOString(),
         basedOnSyncAt: getLatestSuccessfulSyncAt(currentState.jiraConnections) ?? s.basedOnSyncAt,
-        jiraWorkItems: buildPortfolioScenarioJiraSnapshot(
-          next.portfolioBoardEpicKeys ?? [],
-          currentState.jiraWorkItems,
-          s.jiraWorkItems,
-        ),
       };
     }
     ),
@@ -778,8 +821,6 @@ export function safeguardPortfolioScenariosForRemovedItems(
   let scenariosUpdated = 0;
 
   const scenarios = currentState.scenarios.map((scenario) => {
-    if (!scenario.isPortfolioScenario) return scenario;
-
     const nextSnapshot = buildPortfolioScenarioJiraSnapshot(
       scenario.portfolioBoardEpicKeys ?? [],
       currentState.jiraWorkItems,
@@ -855,6 +896,10 @@ export function promoteScenarioToBaseline(scenarioId: string): void {
     jiraItemBizAssignments: JSON.parse(JSON.stringify(scenario.jiraItemBizAssignments)),
     teamMembers: JSON.parse(JSON.stringify(scenario.teamMembers)),
     timeOff: JSON.parse(JSON.stringify(scenario.timeOff)),
+    projects: JSON.parse(JSON.stringify(scenario.projects ?? [])),
+    assignments: JSON.parse(JSON.stringify(scenario.assignments ?? [])),
+    capacityRequests: JSON.parse(JSON.stringify(scenario.capacityRequests ?? [])),
+    capacityAssignments: JSON.parse(JSON.stringify(scenario.capacityAssignments ?? [])),
     activeScenarioId: null,
   });
 }
@@ -869,8 +914,8 @@ export function refreshScenarioFromJira(scenarioId: string): void {
     ...scenario,
     updatedAt: new Date().toISOString(),
     basedOnSyncAt: currentState.jiraConnections.find(c => c.lastSyncAt)?.lastSyncAt,
-    // Always read from the baseline catalog so newly synced items (including from
-    // Scenario Planner-only connections) are picked up when the user hits Refresh.
+    // Always read from the baseline catalog so newly synced items, including
+    // planning-page-only connections, are picked up when the user hits Refresh.
     jiraWorkItems: JSON.parse(JSON.stringify(state.data.jiraWorkItems)),
   };
 
@@ -1011,6 +1056,122 @@ export function deleteProject(id: string): void {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// BASELINE CAPACITY PLANNER ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function addCapacityRequest(
+  req: Omit<CapacityRequest, 'id' | 'createdAt'>,
+): CapacityRequest {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const capacityRequest: CapacityRequest = {
+    ...req,
+    id: generateId('capacity-request'),
+    createdAt: new Date().toISOString(),
+  };
+  state.updateData({
+    capacityRequests: [...(currentState.capacityRequests ?? []), capacityRequest],
+  });
+  return capacityRequest;
+}
+
+export function updateCapacityRequest(id: string, changes: Partial<CapacityRequest>): void {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  state.updateData({
+    capacityRequests: (currentState.capacityRequests ?? []).map((request) =>
+      request.id === id ? { ...request, ...changes, id: request.id, createdAt: request.createdAt } : request
+    ),
+  });
+}
+
+export function removeCapacityRequest(id: string): void {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  state.updateData({
+    capacityRequests: (currentState.capacityRequests ?? []).filter((request) => request.id !== id),
+    capacityAssignments: (currentState.capacityAssignments ?? []).filter((assignment) => assignment.capacityRequestId !== id),
+  });
+}
+
+export function addCapacityAssignment(
+  assignment: Omit<CapacityAssignment, 'id' | 'assignedAt'>,
+): CapacityAssignment {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  const capacityAssignment: CapacityAssignment = {
+    ...assignment,
+    id: generateId('capacity-assignment'),
+    assignedAt: new Date().toISOString(),
+  };
+  state.updateData({
+    capacityAssignments: [...(currentState.capacityAssignments ?? []), capacityAssignment],
+  });
+  return capacityAssignment;
+}
+
+export function removeCapacityAssignment(id: string): void {
+  const state = useAppStore.getState();
+  const currentState = state.getCurrentState();
+  state.updateData({
+    capacityAssignments: (currentState.capacityAssignments ?? []).filter((assignment) => assignment.id !== id),
+  });
+}
+
+export function upsertExternalVendor(
+  vendor: Omit<ExternalVendor, 'id'> & { id?: string },
+): ExternalVendor {
+  const state = useAppStore.getState();
+  const nextVendor: ExternalVendor = {
+    ...vendor,
+    id: vendor.id ?? generateId('vendor'),
+  };
+  const exists = state.data.externalVendors.some((entry) => entry.id === nextVendor.id);
+  state.updateData({
+    externalVendors: exists
+      ? state.data.externalVendors.map((entry) => (entry.id === nextVendor.id ? nextVendor : entry))
+      : [...state.data.externalVendors, nextVendor],
+  });
+  return nextVendor;
+}
+
+export function removeExternalVendor(id: string): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    externalVendors: state.data.externalVendors.filter((vendor) => vendor.id !== id),
+  });
+}
+
+export function upsertInitiativeCostRecord(
+  record: Omit<InitiativeCostRecord, 'id' | 'updatedAt'> & { id?: string },
+): InitiativeCostRecord {
+  const state = useAppStore.getState();
+  const normalizedRecord: Omit<InitiativeCostRecord, 'id' | 'updatedAt'> = {
+    ...record,
+    scenarioId: record.initiativeKind === 'portfolio_epic' ? undefined : record.scenarioId,
+  };
+  const nextRecord: InitiativeCostRecord = {
+    ...normalizedRecord,
+    id: record.id ?? generateId('initiative-cost'),
+    updatedAt: new Date().toISOString(),
+  };
+  const exists = state.data.initiativeCosts.some((entry) => entry.id === nextRecord.id);
+  state.updateData({
+    initiativeCosts: exists
+      ? state.data.initiativeCosts.map((entry) => (entry.id === nextRecord.id ? nextRecord : entry))
+      : [...state.data.initiativeCosts, nextRecord],
+  });
+  return nextRecord;
+}
+
+export function removeInitiativeCostRecord(id: string): void {
+  const state = useAppStore.getState();
+  state.updateData({
+    initiativeCosts: state.data.initiativeCosts.filter((record) => record.id !== id),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ASSIGNMENT ACTIONS (scenario-native planning)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1058,12 +1219,12 @@ export function restoreJiraWorkItemToPlan(item: JiraWorkItem): void {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SCENARIO PLANNER ACTIONS
+// DELIVERY PLANNING ACTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
  * Replace the entire plannerLayout for a named scenario.
- * Used by the Scenario Planner when saving a full layout snapshot.
+ * Used by Delivery Planning when saving a full layout snapshot.
  */
 export function updatePlannerLayout(scenarioId: string, items: PlannerItem[]): void {
   const state = useAppStore.getState();

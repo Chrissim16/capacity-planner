@@ -429,7 +429,7 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
  <div>
  <p className="text-sm font-medium text-[#1E293B]">Discovery Filters</p>
  <p className="text-xs text-[#94A3B8] mt-1">
-  Discovery connections are visible only in Scenario Planner and Portfolio Planning.
+  Discovery connections are visible only in Delivery Planning and Portfolio Planning.
  </p>
  {connectionStatus === 'success' && jiraProjectKey && (
  <p className="text-xs text-[#94A3B8] mt-2 flex items-center gap-2">
@@ -705,7 +705,7 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
              )}
            </div>
 
-           {/* Scenario Planner only */}
+           {/* Planning pages only */}
            <label className="flex items-start gap-3 cursor-pointer">
              <input
                type="checkbox"
@@ -714,10 +714,10 @@ export function JiraConnectionForm({ connection, globalSettings, onSave, onCance
                className="mt-0.5 h-4 w-4 rounded border-[#94A3B8] text-sana-teal accent-sana-teal"
              />
              <span>
-               <span className="block text-sm font-medium text-[#1E293B]">Scenario Planner only</span>
+               <span className="block text-sm font-medium text-[#1E293B]">Planning pages only</span>
                <span className="block text-xs text-[#94A3B8] mt-0.5">
-                 Items from this connection will only appear in the Scenario Planner backlog.
-                 They are hidden from Dashboard, Timeline, Team, Projects, and Command Palette.
+                 Items from this connection appear only in Portfolio Planning and Delivery Planning.
+                 They are hidden from Dashboard, Timeline, Team, Delivery Tracking, and Command Palette.
                </span>
              </span>
            </label>

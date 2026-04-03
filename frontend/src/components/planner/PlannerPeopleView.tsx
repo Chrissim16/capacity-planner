@@ -1,5 +1,5 @@
 /**
- * PlannerPeopleView — People View tab for the Scenario Planner.
+ * PlannerPeopleView — People View tab for Delivery Planning.
  *
  * Shows each team member / BIZ contact as a row with:
  *  - Left panel: avatar, name, role, utilisation badge (quarters total)

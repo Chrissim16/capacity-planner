@@ -5,7 +5,6 @@ import { Dashboard } from './pages/Dashboard';
 import { Timeline } from './pages/Timeline';
 import { Projects } from './pages/Projects';
 import { Team } from './pages/Team';
-import { Scenarios } from './pages/Scenarios';
 import { ScenarioPlanner } from './pages/ScenarioPlanner';
 import { PortfolioPlanning } from './pages/PortfolioPlanning';
 import { PlanningJourneyMockups } from './pages/PlanningJourneyMockups';
@@ -27,10 +26,12 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
   '/':                    'dashboard',
   '/timeline':            'timeline',
   '/epics':               'projects',
+  '/delivery-tracking':   'projects',
   '/team':                'team',
-  '/scenarios':           'scenarios',
+  '/scenarios':           'portfolio-planning',
   '/planner':             'planner',
   '/planning':            'planner',
+  '/delivery-planning':   'planner',
   '/portfolio-planning':  'portfolio-planning',
   '/planning-mockups':    'planning-mockups',
   '/report':              'report',
@@ -41,11 +42,11 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
 const VIEW_TO_PATH: Record<ViewType, string> = {
   dashboard:           '/',
   timeline:            '/timeline',
-  projects:            '/epics',
-  jira:                '/epics',
+  projects:            '/delivery-tracking',
+  jira:                '/delivery-tracking',
   team:                '/team',
-  scenarios:           '/scenarios',
-  planner:             '/planner',
+  scenarios:           '/portfolio-planning',
+  planner:             '/delivery-planning',
   'portfolio-planning': '/portfolio-planning',
   'planning-mockups':  '/planning-mockups',
   report:              '/report',
@@ -59,7 +60,7 @@ const pages: Record<ViewType, React.ComponentType> = {
   projects:            Projects,
   team:                Team,
   jira:                Projects,
-  scenarios:           Scenarios,
+  scenarios:           PortfolioPlanning,
   planner:             ScenarioPlanner,
   'portfolio-planning': PortfolioPlanning,
   'planning-mockups':  PlanningJourneyMockups,
@@ -121,6 +122,7 @@ function App() {
   // state change. React 19's useSyncExternalStore is strict about this.
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const initializeFromSupabase = useAppStore((s) => s.initializeFromSupabase);
+  const hasWorkspaceData = useAppStore((s) => s.data.teamMembers.length > 0 || s.data.jiraWorkItems.length > 0);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const hasSyncedInitialUrlRef = useRef(false);
@@ -138,14 +140,27 @@ function App() {
   // ── URL ↔ store sync ─────────────────────────────────────────────────────
   // When the URL changes (browser back/forward), update the store.
   useEffect(() => {
+    if (location.pathname === '/' && hasWorkspaceData) {
+      syncingViewFromUrlRef.current = true;
+      if (currentView !== 'portfolio-planning') {
+        setCurrentView('portfolio-planning');
+      }
+      navigate('/portfolio-planning', { replace: true });
+      hasSyncedInitialUrlRef.current = true;
+      return;
+    }
+
     const view = PATH_TO_VIEW[location.pathname] ?? 'dashboard';
     if (view !== currentView) {
       syncingViewFromUrlRef.current = true;
       setCurrentView(view);
     }
+    const canonicalPath = VIEW_TO_PATH[view] ?? '/';
+    if (location.pathname !== canonicalPath) {
+      navigate(canonicalPath, { replace: true });
+    }
     hasSyncedInitialUrlRef.current = true;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  }, [currentView, hasWorkspaceData, location.pathname, navigate, setCurrentView]);
 
   // When the store view changes (programmatic nav), push to history.
   useEffect(() => {
@@ -184,7 +199,7 @@ function App() {
 
       // Number keys 1-6: navigate the main views.
       if (e.key >= '1' && e.key <= '6' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping) {
-        const views: ViewType[] = ['dashboard', 'timeline', 'projects', 'team', 'planner', 'settings'];
+        const views: ViewType[] = ['dashboard', 'portfolio-planning', 'planner', 'projects', 'team', 'settings'];
         const index = parseInt(e.key) - 1;
         const target = views[index];
         if (target) {

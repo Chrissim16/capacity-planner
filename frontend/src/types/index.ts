@@ -50,6 +50,8 @@ export interface ProcessTeam {
 export interface BusinessTeam {
   id: string;
   name: string;
+  dailyRateOverride?: number;
+  dailyRateCurrency?: CurrencyCode;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -76,6 +78,10 @@ export interface TeamMember {
   needsEnrichment?: boolean;
   excludedFromCapacity?: boolean;
   nameManuallyEdited?: boolean;
+  workerType?: 'internal' | 'external';
+  externalVendorId?: string;
+  dailyRateOverride?: number;
+  dailyRateCurrency?: CurrencyCode;
 }
 
 export interface TimeOff {
@@ -126,6 +132,7 @@ export interface Settings {
   sprintsPerYear: number;
   byeWeeksAfter: number[];
   holidayWeeksAtEnd: number;
+  costing: CostSettings;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -149,6 +156,8 @@ export interface BusinessContact {
   notes?: string;
   archived?: boolean;
   excludedFromCapacity?: boolean;
+  dailyRateOverride?: number;
+  dailyRateCurrency?: CurrencyCode;
 }
 
 export interface BusinessTimeOff {
@@ -201,6 +210,75 @@ export interface AppState {
   // Baseline-level planning data (scenario overrides live in Scenario.projects / Scenario.assignments)
   projects: Project[];
   assignments: Assignment[];
+  capacityRequests: CapacityRequest[];
+  capacityAssignments: CapacityAssignment[];
+  externalVendors: ExternalVendor[];
+  initiativeCosts: InitiativeCostRecord[];
+}
+
+export type CurrencyCode = 'EUR' | 'GBP' | 'USD';
+
+export interface MoneyAmount {
+  amount: number;
+  currency: CurrencyCode;
+}
+
+export interface CostLineItem {
+  id: string;
+  description: string;
+  amount: number;
+  currency: CurrencyCode;
+  note?: string;
+}
+
+export interface CostSettings {
+  reportingCurrency: CurrencyCode;
+  supportedCurrencies: CurrencyCode[];
+  fxToEur: Record<CurrencyCode, number>;
+  internalItDailyRate: MoneyAmount;
+  businessDailyRate: MoneyAmount;
+}
+
+export interface ExternalVendor {
+  id: string;
+  name: string;
+  dailyRate: number;
+  currency: CurrencyCode;
+  notes?: string;
+  archived?: boolean;
+  countsTowardCapacity?: boolean;
+  workingDaysPerWeek?: number;
+}
+
+export interface InitiativeCostRecord {
+  id: string;
+  initiativeKind: 'portfolio_epic' | 'scenario_project';
+  initiativeId: string;
+  scenarioId?: string;
+  contingencyPct: number;
+  hardware?: CostLineItem | null;
+  licenses: CostLineItem[];
+  updatedAt: string;
+}
+
+export interface CapacityRequest {
+  id: string;
+  name: string;
+  estimatedDays: number;
+  sprintId?: string;
+  requiredSkills?: string[];
+  jiraItemId?: string;
+  createdAt: string;
+}
+
+export interface CapacityAssignment {
+  id: string;
+  memberId: string;
+  sprintId: string;
+  jiraItemId?: string;
+  capacityRequestId?: string;
+  estimatedDays: number;
+  assignedAt: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -569,7 +647,7 @@ export interface Scenario {
   lastEditedBy?: string;
   basedOnSyncAt?: string;
   isBaseline: boolean;
-  /** Marks scenarios created from Portfolio Planning rather than the main Scenario Planner. */
+  /** Deprecated compatibility flag from the old split between portfolio and planner scenarios. */
   isPortfolioScenario?: boolean;
   /** When true, scenario is hidden from the default home list until "Show archived" is on */
   archived?: boolean;
@@ -581,7 +659,11 @@ export interface Scenario {
   // Scenario-native planning data (not Jira-derived)
   projects: Project[];
   assignments: Assignment[];
-  /** Planner timeline layout — only populated for scenarios created or edited in the Scenario Planner */
+  /** Delivery Planning backlog requests scoped to this scenario. */
+  capacityRequests?: CapacityRequest[];
+  /** Delivery Planning sprint assignments scoped to this scenario. */
+  capacityAssignments?: CapacityAssignment[];
+  /** Planner timeline layout — only populated for scenarios created or edited in Delivery Planning. */
   plannerLayout?: PlannerItem[];
   /** Portfolio Planning board membership for this scenario. Omitted for non-portfolio scenarios. */
   portfolioBoardEpicKeys?: string[];

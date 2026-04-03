@@ -11,6 +11,7 @@ import { BusinessContactsSection } from './settings/BusinessContactsSection';
 import { ProcessTeamsSection } from './settings/ProcessTeamsSection';
 import { BusinessTeamsSection } from './settings/BusinessTeamsSection';
 import { SprintsSection } from './settings/SprintsSection';
+import { CostingSection } from './settings/CostingSection';
 import { JiraSection } from './settings/JiraSection';
 import { DataSection } from './settings/DataSection';
 import { UsersSection } from './settings/UsersSection';
@@ -68,6 +69,7 @@ export function Settings() {
         {visibleGroup === 'planning' && (
           <div className="space-y-6">
             <GeneralSection />
+            <CostingSection />
             <ConfidenceSection />
             <SprintsSection />
             <DataSection />

@@ -191,7 +191,7 @@ function CreateModal({ duplicateFrom, onClose }: CreateModalProps) {
 export function Scenarios() {
  const data = useAppStore(useShallow(s => s.data));
  const setCurrentView = useAppStore(s => s.setCurrentView);
- const scenarios = useMemo(() => data.scenarios.filter(s => !s.isPortfolioScenario), [data.scenarios]);
+ const scenarios = useMemo(() => data.scenarios.filter(s => !s.archived), [data.scenarios]);
  const { activeScenarioId } = data;
  const { can } = useCurrentUser();
  const canManage = can('manage_scenarios');

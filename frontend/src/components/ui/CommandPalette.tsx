@@ -185,7 +185,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search epics, team members, Jira items…"
+            placeholder="Search delivery items, team members, Jira items…"
             className="flex-1 bg-transparent text-[#1E293B] placeholder-[#94A3B8] text-sm focus:outline-none"
           />
           <kbd className="hidden sm:inline text-xs text-[#94A3B8] bg-[#F0F2F5] px-1.5 py-0.5 rounded-md border border-[#DEDFE3]">
@@ -197,7 +197,7 @@ export function CommandPalette({ isOpen, onClose, onNavigate }: CommandPalettePr
         <div className="max-h-96 overflow-y-auto">
           {query.trim() === '' && (
             <div className="py-8 text-center text-sm text-[#94A3B8]">
-              Type to search across epics, members, and Jira items
+              Type to search across delivery items, members, and Jira items
             </div>
           )}
 

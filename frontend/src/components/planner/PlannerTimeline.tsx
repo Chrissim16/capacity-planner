@@ -1,10 +1,10 @@
 /**
- * PlannerTimeline — Sprint-level Gantt for the Scenario Planner.
+ * PlannerTimeline — Sprint-level Gantt for Delivery Planning.
  *
  * Bars are position:absolute, left/width as percentages of a 6-sprint canvas.
  * Sprint numbers (not dates) drive positioning — simpler than JiraGantt.
  *
- * NOTE: DndContext lives here temporarily. It will be lifted to ScenarioPlanner
+ * NOTE: DndContext lives here temporarily. It will be lifted to Delivery Planning
  * during page assembly so PlannerBacklog's useDroppable({ id: 'backlog' }) joins
  * the same context and the unschedule drop zone works natively.
  *

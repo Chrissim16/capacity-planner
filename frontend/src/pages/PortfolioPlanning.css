@@ -869,6 +869,16 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 .ev-person:hover .ev-person-remove { opacity: 1; }
 .ev-person-remove:hover { color: var(--util-over); }
+.ev-person-actions {
+  min-width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px; cursor: pointer; color: var(--txt3);
+  font-size: 12px; letter-spacing: 1px; opacity: 0;
+  transition: all 100ms;
+  border: none; background: transparent; flex-shrink: 0;
+}
+.ev-person:hover .ev-person-actions { opacity: 1; }
+.ev-person-actions:hover { color: var(--blue); background: #EBF5FC; }
 .ev-add-person {
   height: var(--row-add);
   display: flex; align-items: center; gap: 5px;
@@ -1886,10 +1896,22 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 
 /* ── Person / team picker popover ───────────────────────────────────────── */
 .pp-picker {
-  position: fixed; width: 280px; background: #fff;
+  position: fixed; width: 320px; background: #fff;
   border: 1px solid #E2E8F0; border-radius: 8px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, .14);
   z-index: 9000; display: flex; flex-direction: column; overflow: hidden;
+}
+.pp-picker-head {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid #F1F5F9;
+  background: #FBFDFF;
+}
+.pp-picker-title {
+  font-size: 12px; font-weight: 700; color: #1E293B;
+}
+.pp-picker-copy {
+  margin-top: 3px;
+  font-size: 11px; line-height: 1.4; color: #64748B;
 }
 .pp-picker-search {
   display: flex; align-items: center; gap: 8px;
@@ -1900,7 +1922,18 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   font-size: 13px; color: #1E293B; flex: 1; outline: none;
 }
 .pp-picker-search input::placeholder { color: #94A3B8; }
-.pp-picker-list { max-height: 220px; overflow-y: auto; }
+.pp-picker-list { max-height: 320px; overflow-y: auto; }
+.pp-picker-section + .pp-picker-section { border-top: 1px solid #F8FAFC; }
+.pp-picker-section-head {
+  padding: 10px 10px 6px;
+}
+.pp-picker-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #64748B;
+}
+.pp-picker-section-copy {
+  margin-top: 2px;
+  font-size: 10px; color: #94A3B8;
+}
 .pp-picker-item {
   display: flex; align-items: center; gap: 9px;
   padding: 7px 10px; cursor: pointer; transition: background 80ms;
@@ -1925,6 +1958,41 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-picker-badge.team { background: #F0F2F5; color: #64748B; }
 .pp-picker-added { font-size: 10px; color: #94A3B8; flex-shrink: 0; }
 .pp-picker-empty { padding: 14px 12px; font-size: 12px; color: #94A3B8; text-align: center; }
+
+.pp-assignment-actions {
+  position: fixed; width: 240px; background: #fff;
+  border: 1px solid #E2E8F0; border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .16);
+  z-index: 9100; overflow: hidden;
+}
+.pp-assignment-actions-head {
+  padding: 10px 12px;
+  border-bottom: 1px solid #F1F5F9;
+  background: #FBFDFF;
+}
+.pp-assignment-actions-title {
+  font-size: 12px; font-weight: 700; color: #1E293B;
+}
+.pp-assignment-actions-copy {
+  margin-top: 3px;
+  font-size: 11px; line-height: 1.4; color: #64748B;
+}
+.pp-assignment-action-btn {
+  width: 100%;
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border: none; border-top: 1px solid #F8FAFC;
+  background: #fff;
+  font-family: inherit; font-size: 12px; font-weight: 600; color: #1E293B;
+  cursor: pointer; text-align: left;
+}
+.pp-assignment-action-btn:hover { background: #F8FAFC; }
+.pp-assignment-action-btn span {
+  font-size: 11px; font-weight: 400; line-height: 1.4; color: #64748B;
+}
+.pp-assignment-action-btn.danger { color: #B91C1C; }
+.pp-assignment-action-btn.danger span { color: #991B1B; }
 
 /* ── Phase bar — end handle & no-end state ───────────────────────────────── */
 .pp-pbar { overflow: visible; }

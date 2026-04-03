@@ -1,28 +1,20 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search, ChevronDown, ChevronRight, ExternalLink,
-  RefreshCw, Loader2, X, Check, Filter, Users,
-  AlertCircle, UserCircle2, Building2, UserPlus,
-  CheckSquare, Square, Edit3,
+  RefreshCw, Loader2, X, Filter, Users,
+  AlertCircle, UserCircle2, Building2,
 } from 'lucide-react';
-import { SmartAssignmentPanel } from '../components/SmartAssignmentPanel';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { BulkEditWorkItemsModal } from '../components/BulkEditWorkItemsModal';
 import { PageHeader } from '../components/layout/PageHeader';
-import { useCurrentState } from '../stores/appStore';
-import {
-  upsertJiraItemBizAssignment,
-  removeJiraItemBizAssignment,
-  updateJiraWorkItemConfidence,
-} from '../stores/actions';
-import { DaysCell } from '../components/JiraHierarchyTree';
+import { StageProgressBar } from '../components/layout/StageProgressBar';
+import { useAppStore, useCurrentState } from '../stores/appStore';
 import { WorkItemSkillsCell } from '../components/WorkItemSkillsCell';
 import { fetchSyncPreview, applySync } from '../application/jiraSync';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useToast } from '../components/ui/Toast';
-import { computeRollup } from '../utils/confidence';
+import { computeRollup, getConfidenceLabel, getForecastedDays } from '../utils/confidence';
 import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
 import { matchesSearch } from '../utils/searchUtils';
 import type {
@@ -30,7 +22,6 @@ import type {
   JiraItemBizAssignment,
   BusinessContact,
   JiraSyncDiff,
-  ConfidenceLevel,
 } from '../types';
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -70,9 +61,6 @@ interface BizPopoverProps {
 }
 
 function BizPopover({ jiraKey, existingAssignments, contacts, onClose }: BizPopoverProps) {
-  const [contactId, setContactId] = useState(existingAssignments[0]?.contactId ?? '');
-  const [days, setDays] = useState<string>(String(existingAssignments[0]?.days ?? ''));
-  const [notes, setNotes] = useState(existingAssignments[0]?.notes ?? '');
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,93 +71,81 @@ function BizPopover({ jiraKey, existingAssignments, contacts, onClose }: BizPopo
     return () => document.removeEventListener('mousedown', handleClick);
   }, [onClose]);
 
-  const handleSave = () => {
-    if (!contactId || !days) return;
-    upsertJiraItemBizAssignment({
-      id: existingAssignments.find(a => a.contactId === contactId)?.id,
-      jiraKey,
-      contactId,
-      days: parseFloat(days),
-      notes: notes || undefined,
-    });
-    onClose();
-  };
-
-  const handleRemove = (id: string) => {
-    removeJiraItemBizAssignment(id);
-    onClose();
-  };
-
-  const activeContacts = contacts.filter(c => !c.archived);
+  const assignmentsWithContacts = existingAssignments.map((assignment) => ({
+    assignment,
+    contact: contacts.find((contact) => contact.id === assignment.contactId) ?? null,
+  }));
 
   return (
     <div
       ref={ref}
       className="absolute z-50 right-0 top-full mt-1 w-64 bg-white border border-[#DEDFE3] rounded-lg shadow-xl p-3 space-y-2"
     >
-      <p className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">BIZ Assignment</p>
+      <p className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">BIZ Assignments</p>
+      <p className="text-[11px] text-[#94A3B8]">{jiraKey}</p>
 
-      {existingAssignments.length > 0 && (
+      {assignmentsWithContacts.length > 0 ? (
         <div className="space-y-1">
-          {existingAssignments.map(a => {
-            const c = contacts.find(x => x.id === a.contactId);
-            return (
-              <div key={a.id} className="flex items-center justify-between text-xs bg-[#F0F2F5] rounded px-2 py-1">
-                <span className="text-[#1E293B]">{c?.name ?? a.contactId}</span>
-                <span className="text-[#94A3B8] font-medium">{a.days}d</span>
-                <button onClick={() => handleRemove(a.id)} className="text-[#94A3B8] hover:text-red-500 ml-1">
-                  <X size={10} />
-                </button>
+          {assignmentsWithContacts.map(({ assignment, contact }) => (
+            <div key={assignment.id} className="rounded bg-[#F0F2F5] px-2 py-2">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="font-medium text-[#1E293B]">{contact?.name ?? assignment.contactId}</span>
+                <span className="font-medium text-[#64748B]">{assignment.days}d</span>
               </div>
-            );
-          })}
+              {assignment.notes ? (
+                <p className="mt-1 text-[11px] leading-relaxed text-[#94A3B8]">{assignment.notes}</p>
+              ) : null}
+            </div>
+          ))}
         </div>
+      ) : (
+        <p className="text-xs leading-relaxed text-[#94A3B8]">
+          No business assignments are tracked for this item yet.
+        </p>
       )}
-
-      <select
-        value={contactId}
-        onChange={e => setContactId(e.target.value)}
-        className="w-full text-xs border border-[#DEDFE3] rounded px-2 py-1 bg-white text-gray-900"
-      >
-        <option value="">Select contact…</option>
-        {activeContacts.map(c => (
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
-      </select>
-
-      <input
-        type="number"
-        min="0"
-        step="0.5"
-        placeholder="Days"
-        value={days}
-        onChange={e => setDays(e.target.value)}
-        className="w-full text-xs border border-[#DEDFE3] rounded px-2 py-1 bg-white text-gray-900"
-      />
-
-      <input
-        type="text"
-        placeholder="Notes (optional)"
-        value={notes}
-        onChange={e => setNotes(e.target.value)}
-        className="w-full text-xs border border-[#DEDFE3] rounded px-2 py-1 bg-white text-gray-900"
-      />
-
-      <button
-        onClick={handleSave}
-        disabled={!contactId || !days}
-        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-[#94A3B8] text-white text-xs font-medium disabled:opacity-40 hover:bg-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0089DD]"
-      >
-        <Check size={12} />
-        Save
-      </button>
     </div>
+  );
+}
+
+const CONFIDENCE_BADGE_STYLES: Record<'high' | 'medium' | 'low', string> = {
+  high: 'bg-green-100 text-[#16A34A]',
+  medium: 'bg-blue-100 text-blue-700',
+  low: 'bg-amber-100 text-amber-700',
+};
+
+function TrackingEstimateCell({
+  item,
+  defaultConfidenceLevel,
+  confidenceSettings,
+}: {
+  item: JiraWorkItem;
+  defaultConfidenceLevel: 'high' | 'medium' | 'low';
+  confidenceSettings: NonNullable<ReturnType<typeof useCurrentState>['settings']>['confidenceLevels'];
+}) {
+  if (item.storyPoints == null) return <span className="text-xs text-[#0089DD] font-medium">—</span>;
+
+  const confidence = item.confidenceLevel ?? defaultConfidenceLevel;
+  const forecastedDays = getForecastedDays(item.storyPoints, confidence, confidenceSettings);
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-xs text-[#94A3B8]">{item.storyPoints}d</span>
+      <span className="text-xs text-[#94A3B8]">→</span>
+      <span className="text-xs font-semibold text-[#0089DD]">{forecastedDays}d</span>
+      <span
+        className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${CONFIDENCE_BADGE_STYLES[confidence]}`}
+        title={getConfidenceLabel(confidence, confidenceSettings)}
+      >
+        {confidence.charAt(0).toUpperCase() + confidence.slice(1)}
+      </span>
+    </span>
   );
 }
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export function Projects() {
+  const setCurrentView = useAppStore((state) => state.setCurrentView);
   const state = useCurrentState();
   const jiraConnections = state.jiraConnections ?? [];
   const jiraWorkItems = globalJiraWorkItems(state.jiraWorkItems ?? [], jiraConnections);
@@ -220,21 +196,6 @@ export function Projects() {
 
   // BIZ assignment popover
   const [openBizPopover, setOpenBizPopover] = useState<string | null>(null);
-
-  // SmartAssignmentPanel slide-out
-  const [staffingEpic, setStaffingEpic] = useState<{ jiraKey: string; summary: string } | null>(null);
-
-  // Multi-select + bulk edit
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkEditOpen, setBulkEditOpen] = useState(false);
-
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }, []);
 
   // Build hierarchy
   const { epics, featuresByEpic, childrenByParent } = useMemo(() => {
@@ -392,15 +353,6 @@ export function Projects() {
 
   const hasFilters = search || filterStatus || filterPriority || filterLabel || filterITMember || filterBizContact;
 
-  const selectAllFiltered = useCallback(() => {
-    const allFilteredIds = filteredEpics.map(e => e.id);
-    setSelectedIds(prev => {
-      const allSelected = allFilteredIds.every(id => prev.has(id));
-      if (allSelected) return new Set<string>();
-      return new Set(allFilteredIds);
-    });
-  }, [filteredEpics]);
-
   const toggleEpic = (key: string) =>
     setExpandedEpics(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
 
@@ -412,8 +364,8 @@ export function Projects() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Epics"
-        subtitle={`${filteredEpics.length} epic${filteredEpics.length !== 1 ? 's' : ''}${jiraWorkItems.length > 0 ? ` · ${jiraWorkItems.length} total items` : ''}`}
+        title="Delivery Tracking"
+        subtitle={`Read Jira status, hierarchy, and actual delivery progress.${jiraWorkItems.length > 0 ? ` ${filteredEpics.length} epic${filteredEpics.length !== 1 ? 's' : ''} in view.` : ''}`}
         actions={
           showSyncShortcut && activeConnection ? (
             <Button
@@ -428,6 +380,9 @@ export function Projects() {
           ) : undefined
         }
       />
+      <div className="mx-[-24px] mb-4">
+        <StageProgressBar currentStage="actuals" onNavigate={setCurrentView} />
+      </div>
 
       {/* Sync progress */}
       {syncProgress && (
@@ -506,25 +461,6 @@ export function Projects() {
         )}
       </div>
 
-      {/* Select-all row */}
-      {filteredEpics.length > 0 && (
-        <div className="px-6 pb-2 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={selectAllFiltered}
-            className="flex items-center gap-1.5 text-xs text-[#94A3B8] hover:text-[#0089DD] transition-colors"
-          >
-            {filteredEpics.every(e => selectedIds.has(e.id))
-              ? <><CheckSquare size={13} className="text-[#0089DD]" /> Deselect all</>
-              : <><Square size={13} /> Select all {filteredEpics.length} filtered</>
-            }
-          </button>
-          {selectedIds.size > 0 && (
-            <span className="text-xs text-[#0089DD] font-medium">{selectedIds.size} selected</span>
-          )}
-        </div>
-      )}
-
       {/* Epics list */}
       <div className="flex-1 overflow-auto px-6 pb-6 space-y-3">
         {jiraWorkItems.length === 0 ? (
@@ -551,25 +487,13 @@ export function Projects() {
             const memberEmails = epicITMembers(epic.jiraKey);
             const link = jiraLink(epic.jiraKey);
 
-            const isSelected = selectedIds.has(epic.id);
-
             return (
-              <div key={epic.jiraKey} className={`bg-white border rounded-xl shadow-sm ${isSelected ? 'border-[#0089DD]' : 'border-[#DEDFE3]'}`}>
+              <div key={epic.jiraKey} className="bg-white border rounded-xl shadow-sm border-[#DEDFE3]">
                 {/* Epic header */}
                 <div
                   className="flex items-start gap-3 p-4 cursor-pointer hover:bg-[#F5F8FC] select-none"
                   onClick={() => toggleEpic(epic.jiraKey)}
                 >
-                  {/* Checkbox */}
-                  <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); toggleSelect(epic.id); }}
-                    className="mt-0.5 shrink-0 text-[#94A3B8] hover:text-[#0089DD] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD] rounded"
-                    aria-label={isSelected ? 'Deselect epic' : 'Select epic'}
-                  >
-                    {isSelected ? <CheckSquare size={16} className="text-[#0089DD]" /> : <Square size={16} />}
-                  </button>
-
                   <div className="mt-0.5 text-[#94A3B8] shrink-0">
                     {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </div>
@@ -634,14 +558,6 @@ export function Projects() {
                       </div>
                     )}
                     <WorkItemSkillsCell item={epic} allItems={jiraWorkItems} />
-                    <button
-                      onClick={e => { e.stopPropagation(); setStaffingEpic({ jiraKey: epic.jiraKey, summary: epic.summary }); }}
-                      className="p-1.5 rounded-lg text-[#0089DD] hover:bg-[#DEDFE3] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0089DD]"
-                      title="Staff this epic"
-                      aria-label={`Staff ${epic.summary}`}
-                    >
-                      <UserPlus size={15} />
-                    </button>
                   </div>
                 </div>
 
@@ -716,7 +632,7 @@ export function Projects() {
                               <button
                                 onClick={() => setOpenBizPopover(openBizPopover === feature.jiraKey ? null : feature.jiraKey)}
                                 className={`text-xs font-medium px-2 py-0.5 rounded hover:bg-[#F0F2F5] transition-colors ${featBizDays > 0 ? 'text-[#94A3B8]' : 'text-[#DEDFE3]'}`}
-                                title="Click to assign BIZ contact"
+                                title="View BIZ assignments"
                               >
                                 <span className="flex items-center gap-1">
                                   <Building2 size={11} />
@@ -780,10 +696,9 @@ export function Projects() {
                                 {/* IT days + confidence */}
                                 <div className="shrink-0 min-w-20 flex justify-end">
                                   {child.storyPoints != null ? (
-                                    <DaysCell
+                                    <TrackingEstimateCell
                                       item={child}
                                       defaultConfidenceLevel={state.jiraSettings.defaultConfidenceLevel}
-                                      onConfidence={v => updateJiraWorkItemConfidence(child.id, (v as ConfidenceLevel) || null)}
                                       confidenceSettings={state.settings.confidenceLevels}
                                     />
                                   ) : (
@@ -799,7 +714,7 @@ export function Projects() {
                                   <button
                                     onClick={() => setOpenBizPopover(openBizPopover === child.jiraKey ? null : child.jiraKey)}
                                     className={`text-xs font-medium px-2 py-0.5 rounded hover:bg-[#F0F2F5] transition-colors ${childBizDays > 0 ? 'text-[#94A3B8]' : 'text-[#DEDFE3]'}`}
-                                    title="Click to assign BIZ contact"
+                                    title="View BIZ assignments"
                                   >
                                     <span className="flex items-center gap-1">
                                       <Building2 size={11} />
@@ -855,10 +770,9 @@ export function Projects() {
                           <span className="hidden md:block text-xs text-[#94A3B8] shrink-0 min-w-20 text-center truncate">{child.sprintName ?? '—'}</span>
                           <div className="shrink-0 min-w-20 flex justify-end">
                             {child.storyPoints != null ? (
-                              <DaysCell
+                              <TrackingEstimateCell
                                 item={child}
                                 defaultConfidenceLevel={state.jiraSettings.defaultConfidenceLevel}
-                                onConfidence={v => updateJiraWorkItemConfidence(child.id, (v as ConfidenceLevel) || null)}
                                 confidenceSettings={state.settings.confidenceLevels}
                               />
                             ) : (
@@ -872,6 +786,7 @@ export function Projects() {
                             <button
                               onClick={() => setOpenBizPopover(openBizPopover === child.jiraKey ? null : child.jiraKey)}
                               className={`text-xs font-medium px-2 py-0.5 rounded hover:bg-[#F0F2F5] ${childBizDays > 0 ? 'text-[#94A3B8]' : 'text-[#DEDFE3]'}`}
+                              title="View BIZ assignments"
                             >
                               <span className="flex items-center gap-1"><Building2 size={11} />{daysFmt(childBizDays)}</span>
                             </button>
@@ -901,48 +816,7 @@ export function Projects() {
         )}
       </div>
 
-      {/* SmartAssignmentPanel slide-out */}
-      {staffingEpic && (
-        <SmartAssignmentPanel
-          variant="slideOut"
-          projectId={staffingEpic.jiraKey}
-          projectName={staffingEpic.summary}
-          onClose={() => setStaffingEpic(null)}
-        />
-      )}
-
       {/* Sync confirmation modal */}
-      {/* Floating bulk-edit toolbar */}
-      {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 bg-[#1E293B] text-white rounded-2xl shadow-2xl">
-          <span className="text-sm font-medium">{selectedIds.size} epic{selectedIds.size !== 1 ? 's' : ''} selected</span>
-          <button
-            type="button"
-            onClick={() => setBulkEditOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-[#0089DD] hover:bg-[#0077C2] rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            <Edit3 size={14} />
-            Bulk Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedIds(new Set())}
-            className="p-1 rounded text-[#94A3B8] hover:text-white transition-colors focus:outline-none"
-            aria-label="Clear selection"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
-      {/* Bulk edit modal */}
-      <BulkEditWorkItemsModal
-        isOpen={bulkEditOpen}
-        onClose={() => { setBulkEditOpen(false); setSelectedIds(new Set()); }}
-        selectedIds={[...selectedIds]}
-        itemLabel="epics"
-      />
-
       {pendingDiff && (
         <Modal
           isOpen={true}

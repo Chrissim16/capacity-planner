@@ -9,8 +9,8 @@ const SHORTCUTS = [
   { keys: ['N'], description: 'New item (add team member, epic, etc. on current page)' },
   { keys: ['?'], description: 'Show this keyboard shortcuts reference' },
   { keys: ['Esc'], description: 'Close modal or panel' },
-  { keys: ['Ctrl', 'K'], description: 'Global search — epics, members, Jira items' },
-  { keys: ['1–6'], description: 'Navigate to view (Dashboard, Timeline, Epics, Team, Scenario Planner, Settings)' },
+  { keys: ['Ctrl', 'K'], description: 'Global search — delivery items, members, Jira items' },
+  { keys: ['1–6'], description: 'Navigate to view (Capacity, Portfolio Planning, Delivery Planning, Delivery Tracking, Team, Settings)' },
 ];
 
 function Key({ label }: { label: string }) {

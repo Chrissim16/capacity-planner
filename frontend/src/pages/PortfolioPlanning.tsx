@@ -1,15 +1,16 @@
 /**
  * PortfolioPlanning — phase-level effort planning for Jira Epics.
  *
- * Four tabs: Epic View (Gantt with phase bars), People View (per-person
- * utilisation + assignment bars), Breakdown (person/team-first table),
- * Summary (KPI cards + compact Gantt + capacity alerts table).
+ * Three primary tabs: Plan (Gantt with phase bars), People (per-person
+ * utilisation + assignment bars), and Summary (KPI cards + compact Gantt
+ * + capacity alerts table).
  *
  * All styling lives in PortfolioPlanning.css, scoped under .pp-root.
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
+import type { CSSProperties } from 'react';
 import { useCurrentState, useAppStore } from '../stores/appStore';
 import { useShallow } from 'zustand/react/shallow';
 import { calculateCapacity, calculateBusinessCapacityForQuarter } from '../utils/capacity';
@@ -54,8 +55,15 @@ import {
   createPortfolioScenario,
   updatePortfolioScenario,
   deleteScenario,
+  switchScenario as switchGlobalScenario,
+  upsertInitiativeCostRecord,
   type PortfolioScenarioSnapshot,
 } from '../stores/actions';
+import { PlanningLensHeader } from '../components/planning/PlanningLensHeader';
+import { CostDrawer } from '../components/portfolio/CostDrawer';
+import { StageProgressBar } from '../components/layout/StageProgressBar';
+import { buildPortfolioCostSummary, type PortfolioCostSummary } from '../utils/costing';
+import { formatCurrency } from '../utils/currency';
 import { AddManualEpicModal } from './AddManualEpicModal';
 import { BulkReplacePersonModal } from './BulkReplacePersonModal';
 import type {
@@ -70,26 +78,9 @@ import type {
   ProcessTeam,
   BusinessTeam,
   ManualEpic,
-  Scenario,
+  InitiativeCostRecord,
 } from '../types';
 import './PortfolioPlanning.css';
-
-// ── Portfolio scenarios (what-if plans) ──────────────────────────────────────
-const ACTIVE_SCENARIO_KEY = 'pp.activeScenarioId';
-
-function loadActiveScenarioId(): string | null {
-  try { return localStorage.getItem(ACTIVE_SCENARIO_KEY) ?? null; } catch { return null; }
-}
-function saveActiveScenarioId(id: string | null): void {
-  try {
-    if (id === null) localStorage.removeItem(ACTIVE_SCENARIO_KEY);
-    else localStorage.setItem(ACTIVE_SCENARIO_KEY, id);
-  } catch {}
-}
-
-function isPortfolioScenario(scenario: Scenario): boolean {
-  return scenario.isPortfolioScenario === true;
-}
 
 function teamEntryForId(id: string): { name: string; abbr: string } {
   const name = id.replace('TEAM:', '');
@@ -394,6 +385,23 @@ type PhasePlanChanges = {
   description?: string | null;
 };
 
+type PortfolioPickerMode = 'add' | 'replace';
+
+type PortfolioPickerTarget = {
+  epicKey: string;
+  phase: PlanningPhase;
+  phaseInstanceId: string;
+  rect: DOMRect;
+  mode: PortfolioPickerMode;
+  assignment?: EpicPhaseAssignment;
+};
+
+type AssignmentActionTarget = {
+  assignment: EpicPhaseAssignment;
+  displayName: string;
+  rect: DOMRect;
+};
+
 function getDefaultPhaseInstanceId(phase: PlanningPhase): string {
   return phase;
 }
@@ -410,6 +418,17 @@ function getPhaseInstanceRows(
   const phaseAssignments = [...assignmentsByInstance.values()].flat();
   const epicKey = phasePlans[0]?.epicKey ?? phaseAssignments[0]?.epicKey ?? '__portfolio_epic__';
   return buildOrderedPhaseEntries(phasePlans, phaseAssignments, epicKey);
+}
+
+function buildPhaseAssignmentsMap(assignments: EpicPhaseAssignment[]): Map<string, PhaseAssignmentsByInstance> {
+  const map = new Map<string, PhaseAssignmentsByInstance>();
+  for (const assignment of assignments) {
+    if (!map.has(assignment.epicKey)) map.set(assignment.epicKey, new Map());
+    const byInstance = map.get(assignment.epicKey)!;
+    if (!byInstance.has(assignment.phaseInstanceId)) byInstance.set(assignment.phaseInstanceId, []);
+    byInstance.get(assignment.phaseInstanceId)!.push(assignment);
+  }
+  return map;
 }
 
 function getCapacityQuarters(qOpt: QOpt): string[] {
@@ -853,8 +872,11 @@ interface EpicViewProps {
   onPhasePointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPhasePointerUp:   (e: React.PointerEvent<HTMLDivElement>) => void;
   onClearPhase:  (epicKey: string, phase: PlanningPhase, phaseInstanceId: string) => void;
-  onRemoveAssignment: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string) => void;
-  onReplaceAssignment: (memberId: string, displayName: string, track: 'IT' | 'BIZ') => void;
+  onOpenAssignmentActions: (
+    assignment: EpicPhaseAssignment,
+    displayName: string,
+    anchorRect: DOMRect,
+  ) => void;
   onUpdateDays:  (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, days: number) => void;
   onUpdateAllocationMode: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, mode: AllocationMode, daysPerWeek?: number) => void;
   onUpsertSegment: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, seg: AllocationSegment) => void;
@@ -872,6 +894,8 @@ interface EpicViewProps {
   jiraBaseUrl: string;
   phaseDragPreviewMap: Map<string, PhaseDragPreview>;
   activePhaseInteraction: ActivePhaseInteractionState | null;
+  portfolioCostSummary: PortfolioCostSummary;
+  onOpenCostDrawer: (epicKey: string) => void;
 }
 
 function EpicView({
@@ -880,12 +904,13 @@ function EpicView({
   epicCollapsed, phasePersonCollapsed,
   onToggleEpic, onTogglePhasePersons, onExpandEpicPhases, onCollapseEpicPhases, onRemoveEpic,
   onAddPhaseInstance, onRemovePhaseInstance, onReorderPhaseInstances, onSetPhaseStart,
-  onEpicPhasePointerDown, onPhasePointerDown, onPhasePointerMove, onPhasePointerUp, onClearPhase, onRemoveAssignment, onReplaceAssignment,
+  onEpicPhasePointerDown, onPhasePointerDown, onPhasePointerMove, onPhasePointerUp, onClearPhase,
+  onOpenAssignmentActions,
   onUpdateDays, onUpdateAllocationMode, onUpsertSegment, onRemoveSegment,
   onUpdatePhasePlan, onAddPerson,
   onExpandAll, onCollapseAll, onResizeMouseDown, lpRef, ganttRef,
   onTimelineScroll,
-  personOverloadMap, allJiraItems, jiraBaseUrl, phaseDragPreviewMap, activePhaseInteraction,
+  personOverloadMap, allJiraItems, jiraBaseUrl, phaseDragPreviewMap, activePhaseInteraction, portfolioCostSummary, onOpenCostDrawer,
 }: EpicViewProps) {
   const totalW = weeks.length * (dayW * 5);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -897,6 +922,10 @@ function EpicView({
   const draggingPhaseRef = useRef<{ epicKey: string; phaseInstanceId: string } | null>(null);
   const dragAutoScrollRef = useRef<{ direction: -1 | 0 | 1; frameId: number | null }>({ direction: 0, frameId: null });
   const daysButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const costSummaryByEpic = useMemo(
+    () => new Map(portfolioCostSummary.initiatives.map((initiative) => [initiative.initiativeId, initiative])),
+    [portfolioCostSummary.initiatives],
+  );
 
   const syncGanttFromLp = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
@@ -1064,6 +1093,7 @@ function EpicView({
     );
 
     const totalDays = phaseRows.reduce((sum, row) => sum + row.assignments.reduce((acc, assignment) => acc + assignment.days, 0), 0);
+    const costSummary = costSummaryByEpic.get(epicKey) ?? null;
 
     // ── Epic row
     lpRows.push(
@@ -1074,6 +1104,26 @@ function EpicView({
           : <span className="pp-jkey">{epicKey}</span>
         }
         <span className="ev-epic-name">{epic.summary}</span>
+        {costSummary && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenCostDrawer(epicKey);
+            }}
+            className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ${
+              costSummary.missingRateCount > 0
+                ? 'bg-[#FFF7ED] text-[#C2410C]'
+                : 'bg-[#EFF6FF] text-[#1D4ED8]'
+            }`}
+            title={costSummary.missingRateCount > 0
+              ? `Missing rates: ${costSummary.missingRateLabels.join(', ')}`
+              : 'Open cost details'}
+          >
+            {costSummary.missingRateCount > 0 ? '⚠' : null}
+            {formatCurrency(costSummary.totalCost, portfolioCostSummary.reportingCurrency)}
+          </button>
+        )}
         {totalDays > 0 && <span className="ev-epic-total">{totalDays}d</span>}
         <button
           className="ev-epic-phase-toggle"
@@ -1449,18 +1499,20 @@ function EpicView({
                 {!isEditing && (
                   <>
                     <button
-                      className="ev-person-replace"
-                      title="Replace in all phases…"
+                      className="ev-person-actions"
+                      type="button"
+                      title="Staffing actions"
                       onClick={e => {
                         e.stopPropagation();
-                        onReplaceAssignment(assign.memberId, name, assign.track);
+                        onOpenAssignmentActions(
+                          assign,
+                          name,
+                          (e.currentTarget as HTMLElement).getBoundingClientRect(),
+                        );
                       }}
                     >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
-                      </svg>
+                      •••
                     </button>
-                    <button className="ev-person-remove" onClick={() => onRemoveAssignment(epicKey, ph, row.phaseInstanceId, assign.memberId)}>×</button>
                   </>
                 )}
               </div>
@@ -1474,7 +1526,7 @@ function EpicView({
                 className="ev-add-person"
                 onClick={e => onAddPerson(epicKey, ph, row.phaseInstanceId, (e.currentTarget as HTMLElement).getBoundingClientRect())}
               >
-                + Add person or team
+                + Add staffing
               </div>
             );
             ganttRows.push(
@@ -1610,11 +1662,6 @@ function getQuarterDateRange(qOpt: QOpt): { start: Date; end: Date } {
 
 function roundToTenth(value: number): number {
   return Math.round(value * 10) / 10;
-}
-
-function formatDays(value: number): string {
-  const rounded = roundToTenth(value);
-  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
 }
 
 function getAssignmentDaysForQuarter(
@@ -1882,6 +1929,7 @@ function PeopleView({
   );
 }
 
+/* Retired hidden breakdown surface. The shipped Portfolio Planning flow is now Plan, People, and Summary only.
 type BreakdownMode = 'people' | 'teams' | 'combined';
 type BreakdownSort = 'name' | 'totalDays';
 type BreakdownPerspective = 'peopleFirst' | 'epicFirst';
@@ -1929,7 +1977,7 @@ type BreakdownEpicRow = {
   actors: BreakdownEpicActorRow[];
 };
 
-function BreakdownView({
+export function BreakdownView({
   peopleSummaries,
   jiraBaseUrl,
   quarterOptions,
@@ -2461,6 +2509,7 @@ function BreakdownView({
   );
 }
 
+*/
 // ─────────────────────────────────────────────────────────────────────────────
 // SUMMARY VIEW
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2468,7 +2517,7 @@ function BreakdownView({
 function SummaryView({
   processTeams, boardEpics, peopleSummaries, phasePlansMap, assignMap,
   absenceLookup, weeks, quarter, quarterOpt, state, jiraBaseUrl,
-  activeScenarioName, baselinePhasePlans, baselinePhaseAssignments,
+  activeScenarioName, baselinePhasePlans, baselinePhaseAssignments, portfolioCostSummary, baselinePortfolioCostSummary,
 }: {
   processTeams: ProcessTeam[];
   boardEpics: JiraWorkItem[];
@@ -2484,6 +2533,8 @@ function SummaryView({
   activeScenarioName: string | null;
   baselinePhasePlans: EpicPhasePlan[];
   baselinePhaseAssignments: EpicPhaseAssignment[];
+  portfolioCostSummary: PortfolioCostSummary;
+  baselinePortfolioCostSummary: PortfolioCostSummary | null;
 }) {
   const periodLabel = quarterOpt.q === -1 ? 'year' : 'quarter';
   const getVisibleAssignedDays = useCallback(
@@ -2638,6 +2689,19 @@ function SummaryView({
     totalPlannedDays,
     unstaffedEpicCount,
   ]);
+
+  const costDeltaByInitiative = useMemo(() => {
+    if (!baselinePortfolioCostSummary) return new Map<string, number>();
+    const baselineMap = new Map(
+      baselinePortfolioCostSummary.initiatives.map((initiative) => [initiative.initiativeId, initiative.totalCost]),
+    );
+    return new Map(
+      portfolioCostSummary.initiatives.map((initiative) => [
+        initiative.initiativeId,
+        initiative.totalCost - (baselineMap.get(initiative.initiativeId) ?? 0),
+      ]),
+    );
+  }, [baselinePortfolioCostSummary, portfolioCostSummary.initiatives]);
 
   const portfolioRisks = useMemo(() => {
     const peopleRisks = peopleSummaries
@@ -2864,6 +2928,75 @@ function SummaryView({
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <div className="pp-sec-hd">
+            <span className="pp-sec-title">Cost Overview</span>
+            <span className="pp-sec-sub">Reporting currency: {portfolioCostSummary.reportingCurrency}</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-5">
+            {[
+              { label: 'Total Portfolio Cost', value: portfolioCostSummary.totalCost },
+              { label: 'Labor Cost', value: portfolioCostSummary.totalLaborCost },
+              { label: 'Direct Cost', value: portfolioCostSummary.totalDirectCost },
+              { label: 'Contingency', value: portfolioCostSummary.totalContingencyCost },
+              { label: 'Rate Gaps', value: portfolioCostSummary.initiativesWithMissingRates, isCount: true },
+            ].map((card) => (
+              <div key={card.label} className="rounded-xl border border-[#DEDFE3] bg-white px-4 py-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#94A3B8]">{card.label}</div>
+                <div className="mt-2 text-xl font-semibold text-[#1E293B]">
+                  {card.isCount
+                    ? card.value
+                    : formatCurrency(card.value, portfolioCostSummary.reportingCurrency)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {portfolioCostSummary.initiatives.length > 0 && (
+          <div>
+            <div className="pp-sec-hd">
+              <span className="pp-sec-title">Cost by Initiative</span>
+              <span className="pp-sec-sub">Labor, direct cost, contingency, and scenario delta</span>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-[#DEDFE3] bg-white">
+              <div className="grid grid-cols-[1.6fr,1fr,1fr,1fr,1fr,0.9fr] gap-3 border-b border-[#DEDFE3] bg-[#F8FAFC] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#94A3B8]">
+                <div>Initiative</div>
+                <div>Labor</div>
+                <div>Direct</div>
+                <div>Contingency</div>
+                <div>Total</div>
+                <div>Delta</div>
+              </div>
+              {portfolioCostSummary.initiatives.map((initiative) => {
+                const delta = costDeltaByInitiative.get(initiative.initiativeId) ?? 0;
+                return (
+                  <div key={initiative.initiativeId} className="grid grid-cols-[1.6fr,1fr,1fr,1fr,1fr,0.9fr] gap-3 border-b border-[#EEF2F7] px-4 py-3 text-sm last:border-b-0">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[#1E293B]">{initiative.initiativeId}</span>
+                        {initiative.missingRateCount > 0 ? (
+                          <span className="rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[11px] text-[#C2410C]">Missing rates</span>
+                        ) : null}
+                      </div>
+                      <div className="truncate text-xs text-[#64748B]">{initiative.initiativeTitle}</div>
+                    </div>
+                    <div>{formatCurrency(initiative.laborCost, portfolioCostSummary.reportingCurrency)}</div>
+                    <div>{formatCurrency(initiative.directCost, portfolioCostSummary.reportingCurrency)}</div>
+                    <div>{formatCurrency(initiative.contingencyCost, portfolioCostSummary.reportingCurrency)}</div>
+                    <div className="font-semibold text-[#1E293B]">{formatCurrency(initiative.totalCost, portfolioCostSummary.reportingCurrency)}</div>
+                    <div className={delta > 0 ? 'text-[#B91C1C]' : delta < 0 ? 'text-[#15803D]' : 'text-[#64748B]'}>
+                      {baselinePortfolioCostSummary
+                        ? `${delta > 0 ? '+' : ''}${formatCurrency(delta, portfolioCostSummary.reportingCurrency)}`
+                        : '—'}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -3346,6 +3479,7 @@ function PortfolioDrawer({
 
 function PortfolioPickerPopover({
   epicKey: _epicKey, phase: _phase, anchorRect, existingMemberIds, memberMap, contactMap, businessTeams,
+  mode = 'add',
   onSelect, onClose,
 }: {
   epicKey: string;
@@ -3355,34 +3489,48 @@ function PortfolioPickerPopover({
   memberMap: Map<string, TeamMember>;
   contactMap: Map<string, BusinessContact>;
   businessTeams: BusinessTeam[];
+  mode?: PortfolioPickerMode;
   onSelect: (memberId: string, track: 'IT' | 'BIZ') => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
 
-  // Build flat entry list: IT members + BIZ contacts + business teams
-  const entries = useMemo(() => {
-    const it = [...memberMap.values()]
-      .filter(m => !m.excludedFromCapacity)
+  const groups = useMemo(() => {
+    const internalIt = [...memberMap.values()]
+      .filter(m => !m.excludedFromCapacity && m.workerType !== 'external')
       .map(m => ({ id: m.id, name: m.name, sub: m.role ?? '', track: 'IT' as const, isTeam: false }));
-    const biz = [...contactMap.values()]
+    const externalIt = [...memberMap.values()]
+      .filter(m => !m.excludedFromCapacity && m.workerType === 'external')
+      .map(m => ({ id: m.id, name: m.name, sub: m.role ?? 'External partner', track: 'IT' as const, isTeam: false }));
+    const bizContacts = [...contactMap.values()]
       .filter(c => !c.excludedFromCapacity)
-      .map(c => ({ id: c.id, name: c.name, sub: c.title ?? '', track: 'BIZ' as const, isTeam: false }));
-    const teams = businessTeams.map(bt => ({
+      .map(c => ({ id: c.id, name: c.name, sub: c.title ?? 'Business owner', track: 'BIZ' as const, isTeam: false }));
+    const bizTeams = businessTeams.map(bt => ({
       id: `TEAM:${bt.name}`,
       name: bt.name,
-      sub: 'Business team',
+      sub: 'Business team placeholder',
       track: 'BIZ' as const,
       isTeam: true,
     }));
-    return [...it, ...biz, ...teams].sort((a, b) => a.name.localeCompare(b.name));
+
+    return [
+      { key: 'it', title: 'IT people', description: 'Internal delivery owners and contributors', entries: internalIt.sort((a, b) => a.name.localeCompare(b.name)) },
+      { key: 'external', title: 'External partners', description: 'Vendor or contractor staffing', entries: externalIt.sort((a, b) => a.name.localeCompare(b.name)) },
+      { key: 'biz', title: 'Business owners', description: 'Named business contacts', entries: bizContacts.sort((a, b) => a.name.localeCompare(b.name)) },
+      { key: 'teams', title: 'Business teams', description: 'Placeholder team ownership when a named contact is not set', entries: bizTeams.sort((a, b) => a.name.localeCompare(b.name)) },
+    ] as const;
   }, [memberMap, contactMap, businessTeams]);
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return entries;
+  const filteredGroups = useMemo(() => {
+    if (!query.trim()) return groups.filter(group => group.entries.length > 0);
     const q = query.toLowerCase();
-    return entries.filter(e => e.name.toLowerCase().includes(q) || e.sub.toLowerCase().includes(q));
-  }, [entries, query]);
+    return groups
+      .map(group => ({
+        ...group,
+        entries: group.entries.filter(e => e.name.toLowerCase().includes(q) || e.sub.toLowerCase().includes(q)),
+      }))
+      .filter(group => group.entries.length > 0);
+  }, [groups, query]);
 
   // Dismiss on outside click
   useEffect(() => {
@@ -3395,14 +3543,23 @@ function PortfolioPickerPopover({
   }, [onClose]);
 
   // Position: below the anchor, flip up if near bottom
-  const above = anchorRect.bottom + 240 > window.innerHeight;
+  const estimatedHeight = 360;
+  const above = anchorRect.bottom + estimatedHeight > window.innerHeight;
   const style: React.CSSProperties = {
-    top: above ? anchorRect.top - 244 : anchorRect.bottom + 4,
-    left: Math.min(anchorRect.left, window.innerWidth - 290),
+    top: above ? Math.max(12, anchorRect.top - estimatedHeight) : anchorRect.bottom + 4,
+    left: Math.max(12, Math.min(anchorRect.left, window.innerWidth - 332)),
   };
 
   return (
     <div id="pp-picker-popover" className="pp-picker" style={style}>
+      <div className="pp-picker-head">
+        <div className="pp-picker-title">{mode === 'replace' ? 'Replace staffing assignment' : 'Add staffing'}</div>
+        <div className="pp-picker-copy">
+          {mode === 'replace'
+            ? 'Choose the replacement type clearly: internal IT, external partner, business owner, or business team.'
+            : 'Choose the staffing mix for this phase: internal IT, external partner, business owner, or business team.'}
+        </div>
+      </div>
       <div className="pp-picker-search">
         <span style={{ color: '#94A3B8', fontSize: 13 }}>🔍</span>
         <input
@@ -3413,37 +3570,97 @@ function PortfolioPickerPopover({
         />
       </div>
       <div className="pp-picker-list">
-        {filtered.length === 0
+        {filteredGroups.length === 0
           ? <div className="pp-picker-empty">No results</div>
-          : filtered.map(e => {
-              const isAdded = existingMemberIds.has(e.id);
-              const teamEntry = e.isTeam ? teamEntryForId(e.id) : null;
-              return (
-                <div
-                  key={e.id}
-                  className={`pp-picker-item${isAdded ? ' disabled' : ''}`}
-                  onClick={() => { if (!isAdded) { onSelect(e.id, e.track); } }}
-                >
-                  {e.isTeam
-                    ? <div className="pp-picker-av team">{teamEntry?.abbr ?? e.name.slice(0, 2).toUpperCase()}</div>
-                    : <div className="pp-picker-av" style={{ background: avColor(e.id) }}>{initials(e.name)}</div>
-                  }
-                  <div className="pp-picker-info">
-                    <div className="pp-picker-name">{e.name}{e.isTeam ? ' Team' : ''}</div>
-                    <div className="pp-picker-sub">{e.sub}</div>
-                  </div>
-                  {isAdded
-                    ? <span className="pp-picker-added">Added</span>
-                    : <span className={`pp-picker-badge ${e.isTeam ? 'team' : e.track.toLowerCase()}`}>
-                        {e.isTeam ? 'Team' : e.track}
-                      </span>
-                  }
+          : filteredGroups.map(group => (
+              <div key={group.key} className="pp-picker-section">
+                <div className="pp-picker-section-head">
+                  <div className="pp-picker-section-title">{group.title}</div>
+                  <div className="pp-picker-section-copy">{group.description}</div>
                 </div>
-              );
-            })
+                {group.entries.map(e => {
+                  const isAdded = existingMemberIds.has(e.id);
+                  const teamEntry = e.isTeam ? teamEntryForId(e.id) : null;
+                  return (
+                    <div
+                      key={e.id}
+                      className={`pp-picker-item${isAdded ? ' disabled' : ''}`}
+                      onClick={() => { if (!isAdded) { onSelect(e.id, e.track); } }}
+                    >
+                      {e.isTeam
+                        ? <div className="pp-picker-av team">{teamEntry?.abbr ?? e.name.slice(0, 2).toUpperCase()}</div>
+                        : <div className="pp-picker-av" style={{ background: avColor(e.id) }}>{initials(e.name)}</div>
+                      }
+                      <div className="pp-picker-info">
+                        <div className="pp-picker-name">{e.name}{e.isTeam ? ' Team' : ''}</div>
+                        <div className="pp-picker-sub">{e.sub}</div>
+                      </div>
+                      {isAdded
+                        ? <span className="pp-picker-added">Added</span>
+                        : <span className={`pp-picker-badge ${e.isTeam ? 'team' : e.track.toLowerCase()}`}>
+                            {e.isTeam ? 'Team' : e.track}
+                          </span>
+                      }
+                    </div>
+                  );
+                })}
+              </div>
+            ))
         }
       </div>
     </div>
+  );
+}
+
+function AssignmentActionsPopover({
+  anchorRect,
+  displayName,
+  onReplaceThis,
+  onReplaceEverywhere,
+  onRemove,
+  onClose,
+}: {
+  anchorRect: DOMRect;
+  displayName: string;
+  onReplaceThis: () => void;
+  onReplaceEverywhere: () => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      const el = document.getElementById('pp-assignment-actions-popover');
+      if (el && !el.contains(event.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const style: CSSProperties = {
+    top: anchorRect.bottom + 6,
+    left: Math.max(12, Math.min(anchorRect.left - 160, window.innerWidth - 252)),
+  };
+
+  return createPortal(
+    <div id="pp-assignment-actions-popover" className="pp-assignment-actions" style={style}>
+      <div className="pp-assignment-actions-head">
+        <div className="pp-assignment-actions-title">{displayName}</div>
+        <div className="pp-assignment-actions-copy">Choose one staffing action for this assignment.</div>
+      </div>
+      <button type="button" className="pp-assignment-action-btn" onClick={onReplaceThis}>
+        Replace in this phase
+        <span>Choose a different person, external, owner, or team for this one row.</span>
+      </button>
+      <button type="button" className="pp-assignment-action-btn" onClick={onReplaceEverywhere}>
+        Replace across plan
+        <span>Open the multi-row replacement flow for every matching assignment.</span>
+      </button>
+      <button type="button" className="pp-assignment-action-btn danger" onClick={onRemove}>
+        Remove from this phase
+        <span>Delete only this staffing row and keep the rest of the plan unchanged.</span>
+      </button>
+    </div>,
+    document.body,
   );
 }
 
@@ -3452,17 +3669,17 @@ function PortfolioPickerPopover({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function PortfolioPlanning() {
+  const setCurrentView = useAppStore((s) => s.setCurrentView);
   const baselineState = useAppStore(useShallow(s => s.data));
   const plan  = usePortfolioPlan();
   const scenarios = useAppStore(useShallow(s => s.data.scenarios));
+  const activeScenarioId = baselineState.activeScenarioId;
 
   // ── UI state ───────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'breakdown' | 'summary'>('epic');
+  const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'summary'>('epic');
   const [drawerOpen, setDrawerOpen]           = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [editingManualEpic, setEditingManualEpic] = useState<ManualEpic | null>(null);
-  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(loadActiveScenarioId);
-  const [renamingScenarioId, setRenamingScenarioId] = useState<string | null>(null);
   const [activeQIdx, setActiveQIdx] = useState(1);
   const [exportingFormat, setExportingFormat] = useState<'excel' | 'csv' | 'pdf' | null>(null);
   const [epicCollapsed, setEpicCollapsed]   = useState<Record<string, boolean>>({});
@@ -3470,9 +3687,9 @@ export function PortfolioPlanning() {
   const [pvExpanded, setPvExpanded] = useState<Record<string, boolean>>({});
   const [weekW, setWeekW]           = useState(52);
   const [panelWidth, setPanelWidth] = useState(460);
-  const [pickerTarget, setPickerTarget] = useState<{
-    epicKey: string; phase: PlanningPhase; phaseInstanceId: string; rect: DOMRect;
-  } | null>(null);
+  const [pickerTarget, setPickerTarget] = useState<PortfolioPickerTarget | null>(null);
+  const [selectedCostEpicKey, setSelectedCostEpicKey] = useState<string | null>(null);
+  const [assignmentActionTarget, setAssignmentActionTarget] = useState<AssignmentActionTarget | null>(null);
   const [replaceTarget, setReplaceTarget] = useState<{
     fromMemberId: string; fromName: string; fromTrack: 'IT' | 'BIZ';
   } | null>(null);
@@ -3573,13 +3790,13 @@ export function PortfolioPlanning() {
     const conn = baselineState.jiraConnections.find(c => c.isActive);
     return conn?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
   }, [baselineState.jiraConnections]);
-  const portfolioScenarios = useMemo(
-    () => scenarios.filter(isPortfolioScenario),
-    [scenarios]
+  const visibleScenarios = useMemo(
+    () => scenarios.filter((scenario) => !scenario.archived),
+    [scenarios],
   );
 
   // Active scenario (null = live base plan)
-  const activeScenario = portfolioScenarios.find(s => s.id === activeScenarioId) ?? null;
+  const activeScenario = scenarios.find((scenario) => scenario.id === activeScenarioId) ?? null;
   const activeBoardEpicKeys = activeScenario?.portfolioBoardEpicKeys ?? plan.boardEpicKeys;
   const activeManualEpics = activeScenario?.portfolioManualEpics ?? plan.manualEpics;
   const activePhasePlansRaw = activeScenario?.portfolioPhasePlans ?? plan.phasePlans;
@@ -3606,8 +3823,7 @@ export function PortfolioPlanning() {
 
   useEffect(() => {
     if (activeScenarioId !== null && !activeScenario) {
-      setActiveScenarioId(null);
-      saveActiveScenarioId(null);
+      switchGlobalScenario(null);
     }
   }, [activeScenarioId, activeScenario]);
 
@@ -3634,6 +3850,12 @@ export function PortfolioPlanning() {
       return null;
     }).filter(Boolean) as JiraWorkItem[];
   }, [activeBoardEpicKeys, activeJiraItems, manualEpicMap]);
+
+  useEffect(() => {
+    if (selectedCostEpicKey && !boardEpics.some((epic) => epic.jiraKey === selectedCostEpicKey)) {
+      setSelectedCostEpicKey(null);
+    }
+  }, [boardEpics, selectedCostEpicKey]);
 
   const memberMap  = useMemo(() => new Map(baselineState.teamMembers.map(m => [m.id, m])), [baselineState.teamMembers]);
   const contactMap = useMemo(() => new Map(baselineState.businessContacts.map(c => [c.id, c])), [baselineState.businessContacts]);
@@ -3664,6 +3886,26 @@ export function PortfolioPlanning() {
     }
     return m;
   }, [activePhaseAssignments]);
+  const baselineAssignMap = useMemo(
+    () => buildPhaseAssignmentsMap(plan.phaseAssignments),
+    [plan.phaseAssignments],
+  );
+  const portfolioCostSummary = useMemo(
+    () => buildPortfolioCostSummary(baselineState, boardEpics, assignMap),
+    [assignMap, baselineState, boardEpics],
+  );
+  const baselinePortfolioCostSummary = useMemo(
+    () => activeScenario ? buildPortfolioCostSummary(baselineState, boardEpics, baselineAssignMap) : null,
+    [activeScenario, baselineAssignMap, baselineState, boardEpics],
+  );
+  const selectedCostEpic = useMemo(
+    () => boardEpics.find((epic) => epic.jiraKey === selectedCostEpicKey) ?? null,
+    [boardEpics, selectedCostEpicKey],
+  );
+  const selectedCostSummary = useMemo(
+    () => portfolioCostSummary.initiatives.find((initiative) => initiative.initiativeId === selectedCostEpicKey) ?? null,
+    [portfolioCostSummary.initiatives, selectedCostEpicKey],
+  );
 
   const absenceLookup = useMemo(
     () => buildAbsenceLookup(activeQuarterOpt, baselineState.teamMembers, baselineState),
@@ -3769,7 +4011,7 @@ export function PortfolioPlanning() {
   }, [drawerOpen, panelWidth, quarterSegments, visibleSegmentIdx]);
 
   useEffect(() => {
-    if (activeTab === 'summary' || activeTab === 'breakdown') return;
+    if (activeTab === 'summary') return;
 
     const ganttEl = activeTab === 'epic' ? epicGanttRef.current : pvGanttRef.current;
     if (!ganttEl) return;
@@ -3837,8 +4079,11 @@ export function PortfolioPlanning() {
 
   // ── Person / team picker ───────────────────────────────────────────────────
   const handleAddPerson = useCallback((epicKey: string, phase: PlanningPhase, phaseInstanceId: string, rect: DOMRect) => {
+    setAssignmentActionTarget(null);
     setPickerTarget(prev =>
-      prev?.epicKey === epicKey && prev?.phaseInstanceId === phaseInstanceId ? null : { epicKey, phase, phaseInstanceId, rect }
+      prev?.epicKey === epicKey && prev?.phaseInstanceId === phaseInstanceId && prev.mode === 'add'
+        ? null
+        : { epicKey, phase, phaseInstanceId, rect, mode: 'add' }
     );
   }, []);
 
@@ -3860,6 +4105,13 @@ export function PortfolioPlanning() {
       portfolioPhasePlans: next.phasePlans,
       portfolioPhaseAssignments: next.phaseAssignments,
     });
+  }, [activeScenario]);
+
+  const handleSaveInitiativeCosts = useCallback((
+    record: Omit<InitiativeCostRecord, 'id' | 'updatedAt'> & { id?: string },
+  ) => {
+    if (activeScenario) return;
+    upsertInitiativeCostRecord(record);
   }, [activeScenario]);
 
   const handleAddPhaseInstance = useCallback(async (
@@ -4115,6 +4367,28 @@ export function PortfolioPlanning() {
     }
   }, [handleRemoveAssignment, handleUpsertAssignment, handleUpsertSegment]);
 
+  const handleReplaceSingleAssignment = useCallback(async (
+    assignment: EpicPhaseAssignment,
+    toMemberId: string,
+    toTrack: 'IT' | 'BIZ',
+  ) => {
+    await handleRemoveAssignment(assignment.epicKey, assignment.phase, assignment.phaseInstanceId, assignment.memberId);
+    await handleUpsertAssignment(
+      assignment.epicKey,
+      assignment.phase,
+      assignment.phaseInstanceId,
+      toMemberId,
+      assignment.days,
+      toTrack,
+      { allocationMode: assignment.allocationMode, daysPerWeek: assignment.daysPerWeek },
+    );
+    if (assignment.allocationMode === 'segments' && assignment.segments) {
+      for (const seg of assignment.segments) {
+        await handleUpsertSegment(assignment.epicKey, assignment.phase, assignment.phaseInstanceId, toMemberId, seg);
+      }
+    }
+  }, [handleRemoveAssignment, handleUpsertAssignment, handleUpsertSegment]);
+
   const handleRemoveEpic = useCallback((epicKey: string) => {
     if (activeScenario) {
       updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
@@ -4190,26 +4464,27 @@ export function PortfolioPlanning() {
       phasePlans: activePhasePlans,
       phaseAssignments: activePhaseAssignments,
     });
-    setActiveScenarioId(created.id);
-    saveActiveScenarioId(created.id);
+    switchGlobalScenario(created.id);
   }, [activeBoardEpicKeys, activeManualEpics, activePhasePlans, activePhaseAssignments]);
 
   const renameScenario = useCallback((id: string, name: string) => {
     updatePortfolioScenario(id, { name });
   }, []);
 
+  const handleCreateScenario = useCallback((name: string) => {
+    forkCurrentPlan(name);
+  }, [forkCurrentPlan]);
+
+  const handleDuplicateScenario = useCallback((_scenarioId: string | null, name: string) => {
+    forkCurrentPlan(name);
+  }, [forkCurrentPlan]);
+
   const handleDeleteScenario = useCallback((id: string) => {
     deleteScenario(id);
-    if (activeScenarioId === id) {
-      setActiveScenarioId(null);
-      saveActiveScenarioId(null);
-    }
-  }, [activeScenarioId]);
+  }, []);
 
-  const switchScenario = useCallback((id: string | null) => {
-    setActiveScenarioId(id);
-    saveActiveScenarioId(id);
-    setRenamingScenarioId(null);
+  const handleSwitchScenario = useCallback((id: string | null) => {
+    switchGlobalScenario(id);
   }, []);
 
   // ── Drag to reposition / resize phase bar ────────────────────────────────
@@ -4589,92 +4864,60 @@ export function PortfolioPlanning() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="pp-root" ref={ppRootRef}>
-      {/* Topbar */}
-      <div className={`pp-topbar${drawerOpen ? ' drawer-open' : ''}`}>
-        <div className="pp-tb-title">
-          Portfolio Planning
-          <span className="pp-tb-badge">VS Finance · {quarter}</span>
-        </div>
-        <div className="pp-seg">
-          {quarterIndicatorOpts.map((q, i) => (
-            <button
-              key={i}
-              className={`pp-seg-btn${i === activeQIdx ? ' on' : ''}`}
-              onClick={() => handleQuarterIndicatorClick(i)}
-            >
-              {q.label}
+      <StageProgressBar currentStage="portfolio" onNavigate={setCurrentView} />
+      <PlanningLensHeader
+        title="Portfolio Planning"
+        subtitle="Compare staffing options, phase effort, and cost before detailed delivery breakdown exists."
+        scenarios={visibleScenarios}
+        activeScenarioId={activeScenarioId}
+        onSwitch={handleSwitchScenario}
+        onCreate={handleCreateScenario}
+        onDuplicate={handleDuplicateScenario}
+        onRename={renameScenario}
+        onDelete={handleDeleteScenario}
+        badges={(
+          <>
+            <span className="inline-flex items-center rounded-full border border-[#DEDFE3] bg-[#F8FAFC] px-3 py-1 text-xs font-medium text-[#64748B]">
+              VS Finance
+            </span>
+            <span className="inline-flex items-center rounded-full border border-[#DEDFE3] bg-white px-3 py-1 text-xs font-medium text-[#64748B]">
+              {quarter}
+            </span>
+          </>
+        )}
+        actions={(
+          <>
+            <div className="pp-seg">
+              {quarterIndicatorOpts.map((q, i) => (
+                <button
+                  key={i}
+                  className={`pp-seg-btn${i === activeQIdx ? ' on' : ''}`}
+                  onClick={() => handleQuarterIndicatorClick(i)}
+                >
+                  {q.label}
+                </button>
+              ))}
+            </div>
+            <button className="pp-btn secondary" onClick={handleExportExcel} disabled={exportingFormat !== null}>
+              {exportingFormat === 'excel' ? 'Exporting…' : 'Export Excel'}
             </button>
-          ))}
-        </div>
-        <div className="pp-divider" />
-        <button className="pp-btn secondary" onClick={handleExportExcel} disabled={exportingFormat !== null}>
-          {exportingFormat === 'excel' ? 'Exporting…' : 'Export Excel'}
-        </button>
-        <button className="pp-btn secondary" onClick={handleExportCsv} disabled={exportingFormat !== null}>
-          {exportingFormat === 'csv' ? 'Exporting…' : 'Export CSV'}
-        </button>
-        <button className="pp-btn secondary" onClick={handleExportPdf} disabled={exportingFormat !== null}>
-          {exportingFormat === 'pdf' ? 'Exporting…' : 'Export PDF'}
-        </button>
-        <button className="pp-btn primary" onClick={() => setDrawerOpen(true)}>
-          + Add Epics
-        </button>
-      </div>
-
-      {/* Scenario bar */}
-      <div className="pp-scenario-bar">
-        <button
-          className={`pp-scenario-pill${activeScenarioId === null ? ' on' : ''}`}
-          onClick={() => switchScenario(null)}
-        >
-          Main Plan
-        </button>
-        {portfolioScenarios.map(s => (
-          <span key={s.id} className={`pp-scenario-pill-wrap${activeScenarioId === s.id ? ' on' : ''}`}>
-            {renamingScenarioId === s.id ? (
-              <input
-                className="pp-scenario-rename-inp"
-                defaultValue={s.name}
-                autoFocus
-                onBlur={e => { renameScenario(s.id, e.target.value || s.name); setRenamingScenarioId(null); }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') e.currentTarget.blur();
-                  if (e.key === 'Escape') { setRenamingScenarioId(null); }
-                }}
-              />
-            ) : (
-              <button
-                className={`pp-scenario-pill${activeScenarioId === s.id ? ' on' : ''}`}
-                onClick={() => switchScenario(s.id)}
-                onDoubleClick={() => setRenamingScenarioId(s.id)}
-                title="Double-click to rename"
-              >
-                {s.name}
-              </button>
-            )}
-            <button
-              className="pp-scenario-delete"
-              onClick={() => handleDeleteScenario(s.id)}
-              title="Delete scenario"
-            >
-              ×
+            <button className="pp-btn secondary" onClick={handleExportCsv} disabled={exportingFormat !== null}>
+              {exportingFormat === 'csv' ? 'Exporting…' : 'Export CSV'}
             </button>
-          </span>
-        ))}
-        <button
-          className="pp-scenario-fork-btn"
-          onClick={() => forkCurrentPlan(`Plan ${portfolioScenarios.length + 2}`)}
-          title="Duplicate current plan as a new scenario"
-        >
-          + Duplicate
-        </button>
-      </div>
+            <button className="pp-btn secondary" onClick={handleExportPdf} disabled={exportingFormat !== null}>
+              {exportingFormat === 'pdf' ? 'Exporting…' : 'Export PDF'}
+            </button>
+            <button className="pp-btn primary" onClick={() => setDrawerOpen(true)}>
+              Add Epics
+            </button>
+          </>
+        )}
+      />
 
       {/* Tab bar */}
       <div className="pp-tabbar">
-        <button className={`pp-tab${activeTab === 'epic'    ? ' on' : ''}`} onClick={() => setActiveTab('epic')}>⬡ Epic View</button>
-        <button className={`pp-tab${activeTab === 'people'  ? ' on' : ''}`} onClick={() => setActiveTab('people')}>◎ People View</button>
-        <button className={`pp-tab${activeTab === 'breakdown' ? ' on' : ''}`} onClick={() => setActiveTab('breakdown')}>▤ Breakdown</button>
+        <button className={`pp-tab${activeTab === 'epic'    ? ' on' : ''}`} onClick={() => setActiveTab('epic')}>⬡ Plan</button>
+        <button className={`pp-tab${activeTab === 'people'  ? ' on' : ''}`} onClick={() => setActiveTab('people')}>◎ People</button>
         <button className={`pp-tab${activeTab === 'summary' ? ' on' : ''}`} onClick={() => setActiveTab('summary')}>▦ Summary</button>
       </div>
 
@@ -4710,9 +4953,8 @@ export function PortfolioPlanning() {
             onPhasePointerMove={handlePhasePointerMove}
             onPhasePointerUp={handlePhasePointerUp}
             onClearPhase={handleClearPhase}
-            onRemoveAssignment={handleRemoveAssignment}
-            onReplaceAssignment={(memberId, name, track) =>
-              setReplaceTarget({ fromMemberId: memberId, fromName: name, fromTrack: track })
+            onOpenAssignmentActions={(assignment, displayName, anchorRect) =>
+              setAssignmentActionTarget({ assignment, displayName, rect: anchorRect })
             }
             onUpdateDays={(epicKey, phase, phaseInstanceId, memberId, days) => {
               const existing = activePhaseAssignments.find(a => a.epicKey === epicKey && a.phaseInstanceId === phaseInstanceId && a.memberId === memberId);
@@ -4734,6 +4976,8 @@ export function PortfolioPlanning() {
             jiraBaseUrl={jiraBaseUrl}
             phaseDragPreviewMap={phaseDragPreviewMap}
             activePhaseInteraction={activePhaseInteraction}
+            portfolioCostSummary={portfolioCostSummary}
+            onOpenCostDrawer={setSelectedCostEpicKey}
           />
         )}
         {activeTab === 'people' && (
@@ -4753,16 +4997,6 @@ export function PortfolioPlanning() {
             quarterOpt={activeQuarterOpt}
           />
         )}
-        {activeTab === 'breakdown' && (
-          <BreakdownView
-            peopleSummaries={peopleSummaries}
-            jiraBaseUrl={jiraBaseUrl}
-            quarterOptions={quarterIndicatorOpts}
-            quarterOpt={activeQuarterOpt}
-            activeQuarterIdx={activeQIdx}
-            onQuarterChange={handleQuarterIndicatorClick}
-          />
-        )}
         {activeTab === 'summary' && (
           <SummaryView
             processTeams={baselineState.processTeams}
@@ -4779,6 +5013,8 @@ export function PortfolioPlanning() {
             activeScenarioName={activeScenario?.name ?? null}
             baselinePhasePlans={plan.phasePlans}
             baselinePhaseAssignments={plan.phaseAssignments}
+            portfolioCostSummary={portfolioCostSummary}
+            baselinePortfolioCostSummary={baselinePortfolioCostSummary}
           />
         )}
 
@@ -4833,11 +5069,51 @@ export function PortfolioPlanning() {
             memberMap={memberMap}
             contactMap={contactMap}
             businessTeams={baselineState.businessTeams}
+            mode={pickerTarget.mode}
             onSelect={(memberId, track) => {
-              handleUpsertAssignment(pickerTarget.epicKey, pickerTarget.phase, pickerTarget.phaseInstanceId, memberId, 0, track);
+              if (pickerTarget.mode === 'replace' && pickerTarget.assignment) {
+                handleReplaceSingleAssignment(pickerTarget.assignment, memberId, track);
+              } else {
+                handleUpsertAssignment(pickerTarget.epicKey, pickerTarget.phase, pickerTarget.phaseInstanceId, memberId, 0, track);
+              }
               setPickerTarget(null);
             }}
             onClose={() => setPickerTarget(null)}
+          />
+        )}
+        {assignmentActionTarget && (
+          <AssignmentActionsPopover
+            anchorRect={assignmentActionTarget.rect}
+            displayName={assignmentActionTarget.displayName}
+            onReplaceThis={() => {
+              setPickerTarget({
+                epicKey: assignmentActionTarget.assignment.epicKey,
+                phase: assignmentActionTarget.assignment.phase,
+                phaseInstanceId: assignmentActionTarget.assignment.phaseInstanceId,
+                rect: assignmentActionTarget.rect,
+                mode: 'replace',
+                assignment: assignmentActionTarget.assignment,
+              });
+              setAssignmentActionTarget(null);
+            }}
+            onReplaceEverywhere={() => {
+              setReplaceTarget({
+                fromMemberId: assignmentActionTarget.assignment.memberId,
+                fromName: assignmentActionTarget.displayName,
+                fromTrack: assignmentActionTarget.assignment.track,
+              });
+              setAssignmentActionTarget(null);
+            }}
+            onRemove={() => {
+              handleRemoveAssignment(
+                assignmentActionTarget.assignment.epicKey,
+                assignmentActionTarget.assignment.phase,
+                assignmentActionTarget.assignment.phaseInstanceId,
+                assignmentActionTarget.assignment.memberId,
+              );
+              setAssignmentActionTarget(null);
+            }}
+            onClose={() => setAssignmentActionTarget(null)}
           />
         )}
         {replaceTarget && (
@@ -4856,6 +5132,15 @@ export function PortfolioPlanning() {
             onClose={() => setReplaceTarget(null)}
           />
         )}
+        <CostDrawer
+          isOpen={selectedCostEpicKey !== null}
+          epic={selectedCostEpic}
+          summary={selectedCostSummary}
+          reportingCurrency={portfolioCostSummary.reportingCurrency}
+          readOnly={activeScenario !== null}
+          onClose={() => setSelectedCostEpicKey(null)}
+          onSave={handleSaveInitiativeCosts}
+        />
       </div>
     </div>
   );

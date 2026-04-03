@@ -148,7 +148,7 @@ export function Report() {
           <FileBarChart size={40} className="text-[#DEDFE3]" />
           <p className="text-base font-medium text-[#1E293B]">No planning data in this scenario</p>
           <p className="text-sm text-[#94A3B8] max-w-sm">
-            Open the Scenario Planner and place epics on the timeline to generate a report.
+            Open Delivery Planning and schedule delivery work to generate a report.
           </p>
         </div>
       )}

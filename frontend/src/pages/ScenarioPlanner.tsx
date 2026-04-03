@@ -1,1703 +1,462 @@
-/**
- * ScenarioPlanner — Page shell for the Scenario Planner feature.
- *
- * Composes: ScenarioTabs · PlannerBacklog · PlannerTimeline · PlannerCapacity · PlannerBoard
- *
- * PlannerBoard is lazy-loaded so @dnd-kit stays out of the main bundle when
- * the user never visits Board mode.
- *
- * DndContext note: PlannerTimeline owns its DndContext internally for now.
- * It will be lifted to this shell in a follow-up session so PlannerBacklog's
- * useDroppable({ id: 'backlog' }) participates in the same context and the
- * drag-to-unschedule gesture works natively.
- */
-import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
-import { Loader2, Users, Filter, X, Check, ChevronDown, Plus, GraduationCap, Edit3 } from 'lucide-react';
-import {
-  useFloating, autoUpdate, offset, flip, shift,
-  useClick, useDismiss, useRole, useInteractions,
-  FloatingFocusManager, FloatingPortal,
-} from '@floating-ui/react';
-import {
-  DndContext, PointerSensor, useSensor, useSensors,
-  closestCenter, rectIntersection, type CollisionDetection,
-} from '@dnd-kit/core';
-import { useAppStore, useActiveScenarioId, useCurrentState, useSyncStatus, usePlannerTimelineViewMode } from '../stores/appStore';
-import {
-  createScenario,
-  switchScenario,
-  updatePlannerLayout,
-
-  generateId,
-  deleteScenario,
-  updateScenario,
-  initBaselineScenario,
-  toggleSkillsMatching,
-} from '../stores/actions';
-import { getCurrentQuarter } from '../utils/calendar';
-import { getPortfolioQuarterOpts } from '../utils/portfolioGeometry';
-import { matchesSearch } from '../utils/searchUtils';
-import { migratePlannerLayout } from '../utils/plannerMigration';
-import { resolveItemAssignees } from '../utils/plannerInit';
-import { getEffectiveSkills } from '../utils/workItemSkills';
-import {
-  appStateForScenario,
-  countOverloadedTeamSprints,
-  countUnscheduledJiraItems,
-} from '../utils/plannerScenarioHealth';
-import {
-  readPlannerSession,
-  persistPlannerSession,
-  clearPlannerSession,
-} from '../utils/plannerSessionStorage';
-import { useToast } from '../components/ui/Toast';
-import { Modal } from '../components/ui/Modal';
+import { useCallback, useMemo, useState } from 'react';
+import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
+import { CalendarRange, Layers } from 'lucide-react';
+import { CapacityBacklog } from '../components/capacity/CapacityBacklog';
+import { CapacityRequestCard, type CapacityBacklogItem, type CapacityJiraItemMeta } from '../components/capacity/CapacityRequestCard';
+import { CapacitySprintGrid } from '../components/capacity/CapacitySprintGrid';
+import { StageProgressBar } from '../components/layout/StageProgressBar';
+import { DeliveryBreakdownPanel } from '../components/planning/DeliveryBreakdownPanel';
+import { PlanningLensHeader } from '../components/planning/PlanningLensHeader';
 import { Button } from '../components/ui/Button';
-import { ScenarioTabs, ScenarioCreateModal } from '../components/planner/ScenarioTabs';
-import { PlannerBacklog } from '../components/planner/PlannerBacklog';
-import { PlannerTimeline, type DragPreview } from '../components/planner/PlannerTimeline';
-import { PlannerCapacity, type PlannerCapacityHandle } from '../components/planner/PlannerCapacity';
-import { AssignPanel } from '../components/planner/AssignPanel';
-import { PlannerPeopleView } from '../components/planner/PlannerPeopleView';
-import { PlannerSummaryView } from '../components/planner/PlannerSummaryView';
-import { PlannerTeamDrawer } from '../components/planner/PlannerTeamDrawer';
-import { BoardToolbar } from '../components/planner/BoardToolbar';
-import { PlannerDetailPanel } from '../components/planner/PlannerDetailPanel';
-import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
-import { PlannerContextMenu, type ContextMenuTarget } from '../components/planner/PlannerContextMenu';
-import { BulkEditPlannerItemsModal } from '../components/planner/BulkEditPlannerItemsModal';
-import type { PlannerItem, PlannerItemType, PlannerAssignment, Scenario, JiraWorkItem } from '../types';
-import type { BoardSort } from '../components/planner/PlannerBoard';
+import {
+  addCapacityAssignment,
+  addCapacityRequest,
+  createScenario,
+  deleteScenario,
+  duplicateScenario,
+  removeCapacityAssignment,
+  removeCapacityRequest,
+  removeJiraItemBizAssignment,
+  switchScenario,
+  updateJiraWorkItemAssignee,
+  updateScenario,
+  upsertJiraItemBizAssignment,
+} from '../stores/actions';
+import { useActiveScenario, useActiveScenarioId, useAppStore, useCurrentState, useScenarios } from '../stores/appStore';
+import { usePortfolioPlan } from '../hooks/usePortfolioPlan';
 
-// PlannerBoard is lazy so @dnd-kit/core stays out of the initial bundle
-const PlannerBoard = lazy(() =>
-  import('../components/planner/PlannerBoard').then(m => ({ default: m.PlannerBoard }))
-);
-
-type PlannerMode = 'board' | 'timeline' | 'people' | 'summary';
-
-// ── PlannerUIState ────────────────────────────────────────────────────────────
-// All UI-only toggle state for the Scenario Planner shell. Lives here so the
-// toolbar, drawers, and canvases share one source of truth. No Zustand writes.
-
-interface PlannerUIState {
-  /** Left overlay drawer — Backlog items */
-  backlogOpen: boolean;
-  /** Right overlay drawer — Team members */
-  teamDrawerOpen: boolean;
-  /** Bottom capacity panel (Timeline mode only) */
-  capacityOpen: boolean;
-  /** Active canvas mode */
-  activeMode: PlannerMode;
-  /** Index into the getPortfolioQuarterOpts() array — drives the quarter navigator */
-  currentQuarterIndex: number;
-  /** Board mode — which epic card is selected (drives SmartAssignment panel) */
-  selectedProjectId: string | null;
-  /** Any mode — which item is open in the Slide-out Detail Panel */
-  detailItemId: string | null;
-  /** Timeline — person filter (toolbar pill + team drawer); dims bars + individual ticker */
-  focusedMemberId: string | null;
-  /** Timeline — process team filter; hard-filters items to those assigned to team members */
-  focusedProcessTeamId: string | null;
+function estimateItemDays(entry: CapacityBacklogItem): number {
+  return entry.kind === 'request'
+    ? entry.item.estimatedDays
+    : (entry.item.originalEstimate ?? entry.item.storyPoints ?? 1);
 }
-
-const INITIAL_PLANNER_UI: PlannerUIState = {
-  backlogOpen: false,
-  teamDrawerOpen: false,
-  capacityOpen: false,
-  activeMode: 'timeline',
-  currentQuarterIndex: 0,
-  selectedProjectId: null,
-  detailItemId: null,
-  focusedMemberId: null,
-  focusedProcessTeamId: null,
-};
-
-// ── ViewportNotice ────────────────────────────────────────────────────────────
-
-function ViewportNotice() {
-  return (
-    <div className="hidden max-[1279px]:flex items-center justify-center h-screen bg-mileway-bg px-8">
-      <div className="bg-mileway-blue-10 border-l-4 border-mileway-blue rounded-lg p-6 max-w-md text-center">
-        <p className="text-sm font-semibold text-mileway-text mb-1">Best viewed on a wider display</p>
-        <p className="text-xs text-mileway-grey leading-relaxed">
-          The Scenario Planner requires at least 1280px of horizontal space.
-          Try maximising your browser window.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ── ModeToggle ────────────────────────────────────────────────────────────────
-
-const MODE_LABELS: Record<PlannerMode, string> = { board: 'Board', timeline: 'Timeline', people: 'People', summary: 'Summary' };
-
-function ModeToggle({ mode, onChange }: { mode: PlannerMode; onChange: (m: PlannerMode) => void }) {
-  return (
-    <div className="flex items-center">
-      {(['board', 'timeline', 'people', 'summary'] as PlannerMode[]).map(m => (
-        <button
-          key={m}
-          onClick={() => onChange(m)}
-          style={
-            mode === m
-              ? { height: 40, marginBottom: -1, borderBottom: '2px solid var(--color-primary)' }
-              : { height: 40 }
-          }
-          className={[
-            'px-4 text-sm font-medium transition-colors duration-fast',
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue focus-visible:ring-inset',
-            mode === m ? 'text-[var(--color-primary)]' : 'text-mileway-grey hover:text-mileway-text',
-          ].join(' ')}
-        >
-          {MODE_LABELS[m]}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ── SaveButton ────────────────────────────────────────────────────────────────
-
-function SaveButton() {
-  const { status } = useSyncStatus();
-  const retrySyncToSupabase = useAppStore(s => s.retrySyncToSupabase);
-  const [showSaved, setShowSaved] = useState(false);
-  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Show "Saved ✓" for 2 s when status transitions to 'saved'
-  useEffect(() => {
-    if (status === 'saved') {
-      setShowSaved(true);
-      savedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
-    } else {
-      setShowSaved(false);
-    }
-    return () => {
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-    };
-  }, [status]);
-
-  const isError   = status === 'error';
-  const isSaving  = status === 'saving';
-  const isSaved   = showSaved;
-
-  return (
-    <button
-      onClick={() => void retrySyncToSupabase()}
-      disabled={isSaving}
-      className={[
-        'flex items-center gap-2 px-4 py-1.5 font-medium transition-all duration-fast',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-        isSaving  ? 'bg-mileway-blue-10 text-mileway-blue cursor-not-allowed'
-        : isError ? 'bg-white border-2 border-red-500 text-red-600 hover:bg-red-50'
-        : isSaved ? 'bg-green-50 text-green-700 border border-green-200'
-                  : 'bg-mileway-blue text-white hover:bg-[#0077C2]',
-      ].join(' ')}
-      style={{ fontSize: 12, fontWeight: 500, borderRadius: 6 }}
-    >
-      {isSaving && <Loader2 size={14} className="animate-spin" />}
-      {isSaved  && <Check   size={14} />}
-      {isSaving ? 'Saving…' : isError ? 'Retry' : isSaved ? 'Saved' : 'Save'}
-    </button>
-  );
-}
-
-// ── EpicsFilterPill ───────────────────────────────────────────────────────────
-
-function EpicsFilterPill({
-  options,
-  selected,
-  onChange,
-}: {
-  options: { key: string; name: string }[];
-  selected: string[];
-  onChange: (keys: string[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const { refs, floatingStyles, context } = useFloating({
-    open,
-    onOpenChange: setOpen,
-    placement: 'bottom-start',
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-
-  const click = useClick(context);
-  const dismiss = useDismiss(context);
-  const role = useRole(context, { role: 'listbox' });
-  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss, role]);
-
-  const toggle = useCallback((key: string) => {
-    onChange(
-      selected.includes(key) ? selected.filter(k => k !== key) : [...selected, key],
-    );
-  }, [selected, onChange]);
-
-  const label = selected.length > 0 ? `Epics (${selected.length})` : 'Epics';
-
-  return (
-    <>
-      <button
-        type="button"
-        ref={refs.setReference}
-        {...getReferenceProps()}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={[
-          'inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors duration-fast',
-          'border focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-          selected.length > 0
-            ? 'border-mileway-blue bg-mileway-blue-10 text-mileway-blue'
-            : 'border-mileway-border bg-white text-mileway-text hover:bg-mileway-bg',
-        ].join(' ')}
-      >
-        <span>{label}</span>
-        <ChevronDown size={12} className="flex-shrink-0 text-current opacity-60" aria-hidden />
-      </button>
-
-      {open && (
-        <FloatingPortal>
-          <FloatingFocusManager context={context} modal={false} initialFocus={-1} returnFocus>
-            <div
-              ref={refs.setFloating}
-              style={floatingStyles}
-              {...getFloatingProps()}
-              className="z-[120] min-w-[220px] max-w-[320px] max-h-[min(320px,70vh)] overflow-y-auto rounded-lg border border-mileway-border bg-white py-1 shadow-lg"
-              role="listbox"
-              aria-multiselectable="true"
-              aria-label="Filter by epic"
-            >
-              {options.length === 0 && (
-                <p className="px-3 py-2 text-xs text-mileway-grey italic">No epics available</p>
-              )}
-              {options.map(opt => {
-                const isSelected = selected.includes(opt.key);
-                return (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => toggle(opt.key)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-mileway-bg focus:outline-none focus-visible:bg-mileway-blue-10 transition-colors duration-fast"
-                  >
-                    <span className="flex-1 truncate text-mileway-text">
-                      {opt.name.length > 40 ? opt.name.slice(0, 40) + '…' : opt.name}
-                    </span>
-                    {isSelected && (
-                      <Check size={13} className="flex-shrink-0 text-mileway-blue" aria-hidden />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </FloatingFocusManager>
-        </FloatingPortal>
-      )}
-    </>
-  );
-}
-
-// ── ScenarioPlanner ───────────────────────────────────────────────────────────
 
 export function ScenarioPlanner() {
-  const [plannerUI, setPlannerUI] = useState<PlannerUIState>(INITIAL_PLANNER_UI);
-  /** Timeline — slide-out AssignPanel target item id */
-  const [assignPanelItemId, setAssignPanelItemId] = useState<string | null>(null);
-  /** SP-10: member to auto-add when AssignPanel opens via drag-to-assign */
-  const [assignPanelMemberId, setAssignPanelMemberId] = useState<string | null>(null);
-  const [boardSort, setBoardSort] = useState<BoardSort>('priority');
-
-  const capacityPanelRef = useRef<PlannerCapacityHandle>(null);
-
-  const handleCapacityPanelToggle = useCallback(() => {
-    setPlannerUI(prev => ({ ...prev, capacityOpen: !prev.capacityOpen }));
-  }, []);
-
-  const handleOverloadedTickerClick = useCallback(() => {
-    setPlannerUI(prev => ({ ...prev, capacityOpen: true }));
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => capacityPanelRef.current?.scrollToFirstOverloaded());
-    });
-  }, []);
-
-  // ── Soft-responsive drawer coexistence (US-UI-20) ───────────────────────────
-  // Track canvas container width via ResizeObserver (excludes nav sidebar).
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth : 1440,
-  );
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setContainerWidth(entry.contentRect.width);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // Smart toggle for Backlog: auto-closes Team drawer at < 1440px
-  /** Backlog drawer: toggles expanded (280px) vs collapsed (32px pill). */
-  const toggleBacklog = useCallback(() => {
-    setPlannerUI(prev => {
-      if (prev.backlogOpen) return { ...prev, backlogOpen: false };
-      const autoClose = prev.teamDrawerOpen && containerWidth < 1440;
-      return { ...prev, backlogOpen: true, ...(autoClose ? { teamDrawerOpen: false } : {}) };
-    });
-  }, [containerWidth]);
-
-  const expandBacklog = useCallback(() => {
-    setPlannerUI(prev => {
-      const autoClose = prev.teamDrawerOpen && containerWidth < 1440;
-      return { ...prev, backlogOpen: true, ...(autoClose ? { teamDrawerOpen: false } : {}) };
-    });
-  }, [containerWidth]);
-
-  const collapseBacklog = useCallback(() => {
-    setPlannerUI(prev => ({ ...prev, backlogOpen: false }));
-  }, []);
-
-  // Smart toggle for Team drawer: auto-closes Backlog at < 1440px
-  const toggleTeamDrawer = useCallback(() => {
-    setPlannerUI(prev => {
-      if (prev.teamDrawerOpen) return { ...prev, teamDrawerOpen: false };
-      const autoClose = prev.backlogOpen && containerWidth < 1440;
-      return { ...prev, teamDrawerOpen: true, ...(autoClose ? { backlogOpen: false } : {}) };
-    });
-  }, [containerWidth]);
-
-  // Switch mode and clear selection state that belongs to the previous mode
-  const handleModeChange = useCallback((m: PlannerMode) => {
-    setAssignPanelItemId(null);
-    setPlannerUI(prev => ({
-      ...prev,
-      activeMode: m,
-      selectedProjectId: null,
-      detailItemId: null,
-      focusedMemberId: null,
-      focusedProcessTeamId: null,
-    }));
-  }, []);
-
-  const [activeDragPreview, setActiveDragPreview] = useState<DragPreview | null>(null);
-
-  // Quarter navigation — 8 quarters forward from today, current quarter at index 0
-  const quarters = useMemo(() => getPortfolioQuarterOpts().map(o => o.label), []);
-  const selectedQuarter = quarters[plannerUI.currentQuarterIndex] ?? getCurrentQuarter();
-
-  // SP-17/18/19: Create/edit modal and context menu
-  const [createModal, setCreateModal] = useState<{
-    editItem?: PlannerItem;
-    defaultType?: PlannerItemType;
-    defaultParentKey?: string;
-  } | null>(null);
-  const [contextMenu, setContextMenu] = useState<ContextMenuTarget | null>(null);
-  const [plannerBulkEditOpen, setPlannerBulkEditOpen] = useState(false);
-  const [plannerSelectedIds, setPlannerSelectedIds] = useState<string[]>([]);
-
-  // SP-20/21: Filters
-  const [filterLabels, setFilterLabels] = useState<string[]>([]);
-  const [filterEpics, setFilterEpics]   = useState<string[]>([]);
-  const [search, setSearch]             = useState('');
-
-  // Home screen (no scenario open)
-  const [showArchived, setShowArchived] = useState(false);
-  const [homeCreateOpen, setHomeCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Scenario | null>(null);
-
-  const { showToast } = useToast();
-
-  // Shared sensors for Timeline mode DndContext
-  const timelineSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
-  // SP-10: when dragging a team member, only consider bar-* droppables so
-  // full-height SprintColumnZones don't win rect-intersection against thin bars.
-  const timelineCollisionDetection: CollisionDetection = useCallback(({ droppableContainers, active, ...args }) => {
-    if (active.data.current?.type === 'people-drag') {
-      const barContainers = droppableContainers.filter(c => c.id.toString().startsWith('bar-'));
-      return closestCenter({ droppableContainers: barContainers, active, ...args });
-    }
-    return rectIntersection({ droppableContainers, active, ...args });
-  }, []);
-
+  const setCurrentView = useAppStore((state) => state.setCurrentView);
+  const planningState = useCurrentState();
+  const activeScenario = useActiveScenario();
   const activeScenarioId = useActiveScenarioId();
+  const scenarios = useScenarios();
+  const portfolioPlan = usePortfolioPlan();
+  const [activeEntry, setActiveEntry] = useState<CapacityBacklogItem | null>(null);
+  const [pendingDrop, setPendingDrop] = useState<{ memberId: string; sprintId: string; entry: CapacityBacklogItem } | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'portfolio' | 'current-plan' | 'staffing-risk' | 'external' | 'has-breakdown' | 'missing-breakdown'>('all');
 
-  useEffect(() => {
-    setAssignPanelItemId(null);
-    setPlannerUI(prev => ({ ...prev, detailItemId: null }));
-  }, [activeScenarioId]);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  // Read raw store data — useCurrentState returns a stable ref via useShallow
-  // so it only triggers a re-render when the underlying arrays change, not on
-  // every store write.  Derived arrays are computed in useMemo below (never
-  // inside the selector) to keep the selector result reference-stable.
-  const allState = useCurrentState();
-
-  const jiraBaseUrl = useMemo(() => {
-    const c = allState.jiraConnections?.find(x => x.isActive);
-    return c?.jiraBaseUrl?.replace(/\/+$/, '') ?? '';
-  }, [allState.jiraConnections]);
-  const scenarios = useMemo(
-    () => allState.scenarios.filter(sc => !sc.isBaseline && !sc.isPortfolioScenario),
-    [allState.scenarios],
+  const visibleSprints = useMemo(
+    () => (planningState.sprints ?? []).filter((sprint) => !sprint.isByeWeek).slice(0, Math.max(6, planningState.settings.sprintsToShow ?? 6)),
+    [planningState.sprints, planningState.settings.sprintsToShow],
   );
 
-  const appData = useAppStore(s => s.data);
-  const plannerTimelineViewMode = usePlannerTimelineViewMode();
-  const setPlannerTimelineViewMode = useAppStore(s => s.setPlannerTimelineViewMode);
+  const teamMembers = useMemo(
+    () => planningState.teamMembers.filter((member) => !member.excludedFromCapacity),
+    [planningState.teamMembers],
+  );
+  const businessContacts = useMemo(
+    () => planningState.businessContacts.filter((contact) => !contact.archived && !contact.excludedFromCapacity),
+    [planningState.businessContacts],
+  );
+  const portfolioBoardSet = useMemo(
+    () => new Set(activeScenario?.portfolioBoardEpicKeys ?? portfolioPlan.boardEpicKeys),
+    [activeScenario?.portfolioBoardEpicKeys, portfolioPlan.boardEpicKeys],
+  );
 
-  const scenarioHealthById = useMemo(() => {
-    const map = new Map<string, { overloaded: number; unscheduled: number }>();
-    for (const sc of scenarios) {
-      const merged = appStateForScenario(appData, sc);
-      const layout = migratePlannerLayout(sc.plannerLayout ?? []);
-      map.set(sc.id, {
-        overloaded: countOverloadedTeamSprints(layout, merged, appData.sprints),
-        unscheduled: countUnscheduledJiraItems(layout, merged),
+  const jiraItemByKey = useMemo(
+    () => new Map(planningState.jiraWorkItems.map((item) => [item.jiraKey, item])),
+    [planningState.jiraWorkItems],
+  );
+  const epicItems = useMemo(
+    () => planningState.jiraWorkItems.filter((item) => item.type === 'epic'),
+    [planningState.jiraWorkItems],
+  );
+  const externalMemberIds = useMemo(
+    () => new Set(planningState.teamMembers.filter((member) => member.workerType === 'external').map((member) => member.id)),
+    [planningState.teamMembers],
+  );
+
+  const resolveEpicKey = (item: { jiraKey: string; type: string; parentKey?: string }): string | null => {
+    if (item.type === 'epic') return item.jiraKey;
+    let currentParentKey = item.parentKey;
+    while (currentParentKey) {
+      const parent = jiraItemByKey.get(currentParentKey);
+      if (!parent) return null;
+      if (parent.type === 'epic') return parent.jiraKey;
+      currentParentKey = parent.parentKey;
+    }
+    return null;
+  };
+  const hasItOwner = useCallback(
+    (item: { assigneeEmail?: string; assigneeName?: string }) => Boolean(item.assigneeEmail || item.assigneeName),
+    [],
+  );
+
+  const epicMeta = useMemo(() => {
+    const byEpic = new Map<string, {
+      epic: typeof epicItems[number];
+      onPortfolioBoard: boolean;
+      inCurrentPlan: boolean;
+      staffingRisk: boolean;
+      usesExternal: boolean;
+      hasBreakdown: boolean;
+    }>();
+
+    for (const epic of epicItems) {
+      byEpic.set(epic.jiraKey, {
+        epic,
+        onPortfolioBoard: portfolioBoardSet.has(epic.jiraKey),
+        inCurrentPlan: false,
+        staffingRisk: false,
+        usesExternal: false,
+        hasBreakdown: false,
       });
     }
-    return map;
-  }, [appData, scenarios]);
 
-  const listScenarios = useMemo(() => {
-    const filtered = scenarios.filter(s => showArchived || !s.archived);
-    return [...filtered].sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
-  }, [scenarios, showArchived]);
+    for (const item of planningState.jiraWorkItems) {
+      const epicKey = resolveEpicKey(item);
+      if (!epicKey) continue;
+      const meta = byEpic.get(epicKey);
+      if (!meta) continue;
+      if (item.type === 'feature' || item.type === 'story' || item.type === 'task' || item.type === 'bug') {
+        meta.hasBreakdown = true;
+      }
+      if (item.type !== 'epic' && (!hasItOwner(item) || !planningState.jiraItemBizAssignments.some((assignment) => assignment.jiraKey === item.jiraKey))) {
+        meta.staffingRisk = true;
+      }
+    }
 
-  const activeScenarioCount = useMemo(
-    () => scenarios.filter(s => !s.archived).length,
-    [scenarios],
+    for (const assignment of planningState.capacityAssignments ?? []) {
+      const sourceItem = assignment.jiraItemId
+        ? planningState.jiraWorkItems.find((item) => item.id === assignment.jiraItemId)
+        : null;
+      const epicKey = sourceItem ? resolveEpicKey(sourceItem) : null;
+      if (!epicKey) continue;
+      const meta = byEpic.get(epicKey);
+      if (!meta) continue;
+      meta.inCurrentPlan = true;
+      if (externalMemberIds.has(assignment.memberId)) {
+        meta.usesExternal = true;
+      }
+    }
+
+    return byEpic;
+  }, [
+    epicItems,
+    externalMemberIds,
+    hasItOwner,
+    planningState.capacityAssignments,
+    planningState.jiraItemBizAssignments,
+    planningState.jiraWorkItems,
+    portfolioBoardSet,
+  ]);
+
+  const epicMatchesFilter = (epicKey: string) => {
+    const meta = epicMeta.get(epicKey);
+    if (!meta) return activeFilter === 'all';
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'portfolio') return meta.onPortfolioBoard;
+    if (activeFilter === 'current-plan') return meta.inCurrentPlan;
+    if (activeFilter === 'staffing-risk') return meta.staffingRisk;
+    if (activeFilter === 'external') return meta.usesExternal;
+    if (activeFilter === 'has-breakdown') return meta.hasBreakdown;
+    if (activeFilter === 'missing-breakdown') return !meta.hasBreakdown;
+    return true;
+  };
+
+  const filteredEpicVisibility = useMemo(
+    () => epicItems.filter((epic) => epicMatchesFilter(epic.jiraKey)),
+    [epicItems, activeFilter, epicMeta],
   );
 
-  const homeCreateDisabled = activeScenarioCount >= 5;
-
-  const activeScenario = useMemo(
-    () => (activeScenarioId ? allState.scenarios.find(sc => sc.id === activeScenarioId && !sc.isPortfolioScenario) : undefined),
-    [allState.scenarios, activeScenarioId],
-  );
-
-  const plannerItems = useMemo((): PlannerItem[] => {
-    const layout = activeScenario?.plannerLayout ?? [];
-    return migratePlannerLayout(layout);
-  }, [activeScenario]);
-
-  const sprints   = allState.sprints       ?? [];
-  const jiraItems = allState.jiraWorkItems ?? [];
-  /** Scenario snapshot Jira list when present — matches capacity/health helpers; improves detail panel resolution. */
-  const jiraItemsForDetailPanel = useMemo((): JiraWorkItem[] => {
-    const snap = activeScenario?.jiraWorkItems;
-    if (snap && snap.length > 0) return snap;
-    return jiraItems;
-  }, [activeScenario?.jiraWorkItems, jiraItems]);
-
-  // ── Scenario management ────────────────────────────────────────────────────
-
-  const handleSelectScenario = useCallback((id: string) => {
-    switchScenario(id);
-  }, []);
-
-  const handleCreateScenario = useCallback((name: string, startMode: 'clone' | 'blank') => {
-    if (startMode === 'clone') {
-      // US-SPT-03: True clone — createScenario deep-copies plannerLayout from the
-      // active scenario when one is open. When called from the home screen (no
-      // active scenario), fall back to initBaselineScenario which populates the
-      // layout from each Jira item's sprint/date fields.
-      // Do NOT call initBaselineScenario when an active scenario exists — it would
-      // overwrite the cloned layout and strip all existing assignees.
-      const hadActiveScenario = activeScenarioId !== null;
-      const newScenario = createScenario(name);
-      switchScenario(newScenario.id);
-      if (!hadActiveScenario) {
-        initBaselineScenario(newScenario.id);
-      }
-      setPlannerUI(prev => ({ ...prev, backlogOpen: false }));
-    } else {
-      // Blank canvas — plannerLayout stays empty; backlog shows all items.
-      const newScenario = createScenario(name);
-      switchScenario(newScenario.id);
-      setPlannerUI(prev => ({ ...prev, backlogOpen: true }));
-    }
-  }, [activeScenarioId]);
-
-  // ── Layout mutations (forwarded from PlannerTimeline) ─────────────────────
-
-  // Ref keeps the latest filteredPlannerItems accessible inside handleItemsChange
-  // without creating a forward-reference (filteredPlannerItems is defined later).
-  const filteredPlannerItemsRef = useRef<PlannerItem[]>([]);
-
-  const handleItemsChange = useCallback((items: PlannerItem[]) => {
-    if (!activeScenarioId) return;
-    // PlannerTimeline only receives filteredPlannerItems, so `items` may be a
-    // filtered subset. We merge to preserve items outside the current filter:
-    //   - untouched: existing items NOT in the filtered view (unchanged)
-    //   - inFilteredView: incoming items that were in the filtered view (updated/removed)
-    //   - trulyNew: incoming items not previously in plannerItems at all (additions)
-    const visibleIds = new Set(filteredPlannerItemsRef.current.map(p => p.id));
-    const existingIds = new Set(plannerItems.map(p => p.id));
-    const untouched       = plannerItems.filter(p => !visibleIds.has(p.id));
-    const inFilteredView  = items.filter(p => visibleIds.has(p.id));
-    const trulyNew        = items.filter(p => !visibleIds.has(p.id) && !existingIds.has(p.id));
-    updatePlannerLayout(activeScenarioId, [...untouched, ...inFilteredView, ...trulyNew]);
-  }, [activeScenarioId, plannerItems]);
-
-  const handleAssignPanelPersist = useCallback((itemId: string, assignees: PlannerAssignment[]) => {
-    if (!activeScenarioId) return;
-    updatePlannerLayout(
-      activeScenarioId,
-      plannerItems.map(p => p.id === itemId ? { ...p, assignees } : p),
-    );
-  }, [activeScenarioId, plannerItems]);
-
-  const handleUpdateAssigneeDays = useCallback((itemId: string, memberId: string, days: number) => {
-    if (!activeScenarioId) return;
-    updatePlannerLayout(
-      activeScenarioId,
-      plannerItems.map(p => p.id !== itemId ? p : {
-        ...p,
-        assignees: p.assignees.map(a => a.memberId === memberId ? { ...a, daysPerSprint: days } : a),
-      }),
-    );
-  }, [activeScenarioId, plannerItems]);
-
-  const handleActiveDragChange = useCallback((preview: DragPreview | null) => {
-    setActiveDragPreview(preview);
-  }, []);
-
-  const handleBulkSchedule = useCallback((itemsToSchedule: JiraWorkItem[]) => {
-    if (!activeScenarioId || !itemsToSchedule.length) return;
-
-    // Find the current sprint number — fall back to first future sprint
-    const now = new Date();
-    const currentSprint = sprints.find(
-      s => s.startDate && s.endDate &&
-           new Date(s.startDate) <= now && now <= new Date(s.endDate),
-    ) ?? sprints.find(s => s.startDate && new Date(s.startDate) > now);
-    const startSprint = currentSprint?.number ?? 1;
-
-    const scheduledSourceIds = new Set(plannerItems.map(p => p.sourceId));
-
-    function makeItem(source: JiraWorkItem, sprint: number): PlannerItem {
-      const defaultSpan: Partial<Record<string, number>> = { epic: 6, feature: 2 };
-      return {
-        id: generateId('planner'),
-        sourceId: source.id,
-        name: source.summary,
-        type: source.type as PlannerItem['type'],
-        jiraKey: source.jiraKey,
-        parentKey: source.parentKey,
-        startSprint: sprint,
-        spanSprints: defaultSpan[source.type] ?? 1,
-        assignees: resolveItemAssignees(source, allState.teamMembers ?? [], allState.jiraItemBizAssignments ?? []),
-        isManual: false,
-        labels: source.labels ?? [],
-        jiraAssignees: source.assigneeName ? [source.assigneeName] : [],
-        jiraStartDate: source.startDate,
-        jiraEndDate: source.dueDate,
-        // Auto-populate from the source work item (inheriting from parent epic if not set)
-        requiredSkillIds: getEffectiveSkills(source, jiraItems),
-      };
-    }
-
-    const added: PlannerItem[] = [];
-
-    for (const ji of itemsToSchedule) {
-      if (scheduledSourceIds.has(ji.id)) continue;
-
-      if (ji.type === 'epic') {
-        added.push(makeItem(ji, startSprint));
-        scheduledSourceIds.add(ji.id);
-
-        const features = jiraItems.filter(f => f.parentKey === ji.jiraKey && f.type === 'feature');
-        for (const feat of features) {
-          if (scheduledSourceIds.has(feat.id)) continue;
-          added.push(makeItem(feat, startSprint));
-          scheduledSourceIds.add(feat.id);
-          jiraItems
-            .filter(s => s.parentKey === feat.jiraKey)
-            .forEach(s => {
-              if (scheduledSourceIds.has(s.id)) return;
-              added.push(makeItem(s, startSprint));
-              scheduledSourceIds.add(s.id);
-            });
-        }
-        // Direct non-feature children of the epic
-        jiraItems
-          .filter(c => c.parentKey === ji.jiraKey && c.type !== 'feature')
-          .forEach(c => {
-            if (scheduledSourceIds.has(c.id)) return;
-            added.push(makeItem(c, startSprint));
-            scheduledSourceIds.add(c.id);
-          });
-      } else {
-        added.push(makeItem(ji, startSprint));
-        scheduledSourceIds.add(ji.id);
-      }
-    }
-
-    if (!added.length) return;
-    handleItemsChange([...plannerItems, ...added]);
-    collapseBacklog();
-  }, [activeScenarioId, sprints, plannerItems, jiraItems, handleItemsChange, collapseBacklog]);
-
-  const handleOpenAssignPanel = useCallback((item: PlannerItem) => {
-    setAssignPanelItemId(item.id);
-    setAssignPanelMemberId(null);
-    setPlannerUI(prev => ({ ...prev, detailItemId: null }));
-  }, []);
-
-  const handlePeopleDropOnBar = useCallback((item: PlannerItem, memberId: string) => {
-    setAssignPanelItemId(item.id);
-    setAssignPanelMemberId(memberId);
-    setPlannerUI(prev => ({ ...prev, detailItemId: null }));
-  }, []);
-
-  const handleLabelDetailClick = useCallback((item: PlannerItem) => {
-    // Always use planner row id so resolveItem finds the row (jiraKey can be missing, empty, or out of sync).
-    setPlannerUI(prev => ({ ...prev, detailItemId: item.id }));
-  }, []);
-
-  const liveAssignPanelItem = useMemo(() => {
-    if (!assignPanelItemId) return null;
-    return plannerItems.find(p => p.id === assignPanelItemId) ?? null;
-  }, [assignPanelItemId, plannerItems]);
-
-  useEffect(() => {
-    if (assignPanelItemId && !plannerItems.some(p => p.id === assignPanelItemId)) {
-      setAssignPanelItemId(null);
-    }
-  }, [assignPanelItemId, plannerItems]);
-
-  // ── SP-17/18: Manual item creation ──────────────────────────────────────────
-
-  const handleCreateSave = useCallback((data: CreateItemData) => {
-    if (!activeScenarioId) return;
-    if (createModal?.editItem) {
-      // Edit mode — update the existing item
-      const updated: PlannerItem = {
-        ...createModal.editItem,
-        name: data.name,
-        type: data.type,
-        parentKey: data.parentKey,
-        labels: data.labels,
-        requiredSkillIds: data.requiredSkillIds ?? [],
-      };
-      handleItemsChange(plannerItems.map(p => p.id === updated.id ? updated : p));
-    } else {
-      // Create mode — add a PlannerItem directly to plannerLayout so it appears
-      // immediately on the timeline under its parent. Manual items have sourceId: ''
-      // (no backing JiraWorkItem) and isManual: true.
-      const syntheticKey = `MANUAL-${Date.now()}`;
-
-      // Inherit the parent's start sprint when available; fall back to the first sprint.
-      const parentItem = data.parentKey
-        ? plannerItems.find(p => p.jiraKey === data.parentKey)
-        : undefined;
-      const startSprint = parentItem?.startSprint ?? sprints[0]?.number ?? 1;
-      // Default span mirrors what PlannerTimeline uses when dragging from backlog.
-      const TYPE_DEFAULT_SPAN: Partial<Record<PlannerItemType, number>> = { epic: 6, feature: 2 };
-      const spanSprints = TYPE_DEFAULT_SPAN[data.type as PlannerItemType] ?? 1;
-
-      const newPlannerItem: PlannerItem = {
-        id: generateId('planner'),
-        sourceId: '',
-        name: data.name,
-        type: data.type as PlannerItemType,
-        jiraKey: syntheticKey,
-        parentKey: data.parentKey,
-        startSprint,
-        spanSprints,
-        assignees: [],
-        isManual: true,
-        labels: data.labels ?? [],
-        jiraAssignees: [],
-        requiredSkillIds: data.requiredSkillIds ?? [],
-      };
-      handleItemsChange([...plannerItems, newPlannerItem]);
-    }
-    setCreateModal(null);
-  }, [activeScenarioId, createModal, plannerItems, handleItemsChange, sprints]);
-
-  // F-SP-09 / US-SP-22: Update required skills on a planner item from the detail panel
-  const handleUpdateRequiredSkills = useCallback((itemId: string, skillIds: string[]) => {
-    handleItemsChange(plannerItems.map(p =>
-      p.id === itemId ? { ...p, requiredSkillIds: skillIds } : p
-    ));
-  }, [plannerItems, handleItemsChange]);
-
-  // SP-18: "+" button on label row
-  const handleAddChild = useCallback((parentItem: PlannerItem) => {
-    const childType: PlannerItemType = parentItem.type === 'epic' ? 'feature' : 'story';
-    setCreateModal({ defaultType: childType, defaultParentKey: parentItem.jiraKey });
-  }, []);
-
-  // SP-19: context menu
-  const handleContextMenu = useCallback((item: PlannerItem, x: number, y: number) => {
-    setContextMenu({ item, x, y });
-  }, []);
-
-  const handleEditItem = useCallback((item: PlannerItem) => {
-    setCreateModal({ editItem: item });
-  }, []);
-
-  const handleDeleteItem = useCallback((item: PlannerItem) => {
-    // Delete the item and all its children, with undo toast
-    const childIds = new Set<string>();
-    const collectChildren = (parentKey: string | undefined) => {
-      if (!parentKey) return;
-      for (const p of plannerItems) {
-        if (p.parentKey === parentKey && !childIds.has(p.id)) {
-          childIds.add(p.id);
-          collectChildren(p.jiraKey);
-        }
-      }
-    };
-    childIds.add(item.id);
-    collectChildren(item.jiraKey);
-
-    const snapshot = plannerItems;
-    handleItemsChange(plannerItems.filter(p => !childIds.has(p.id)));
-
-    const childCount = childIds.size - 1;
-    const msg = childCount > 0
-      ? `Deleted "${item.name}" and ${childCount} child item${childCount !== 1 ? 's' : ''}`
-      : `Deleted "${item.name}"`;
-
-    showToast(msg, {
-      type: 'info',
-      duration: 5000,
-      action: { label: 'Undo', onClick: () => handleItemsChange(snapshot) },
-    });
-  }, [plannerItems, handleItemsChange, showToast]);
-
-  // ── SP-20/21: Filtered items for timeline ─────────────────────────────────
-
-  const hasFilters = filterLabels.length > 0 || filterEpics.length > 0 || !!search;
-
-  // Resolve which member IDs belong to the focused process team
-  const membersInFocusedTeam = useMemo((): Set<string> | null => {
-    if (!plannerUI.focusedProcessTeamId) return null;
-    const id = plannerUI.focusedProcessTeamId;
-    const itIds = (allState.teamMembers ?? [])
-      .filter(m => m.processTeamIds?.includes(id))
-      .map(m => m.id);
-    const bizIds = (allState.businessContacts ?? [])
-      .filter(c => c.processTeamIds?.includes(id))
-      .map(c => c.id);
-    return new Set([...itIds, ...bizIds]);
-  }, [plannerUI.focusedProcessTeamId, allState.teamMembers, allState.businessContacts]);
-
-  const filteredPlannerItems = useMemo(() => {
-    let items = plannerItems;
-
-    // Process team filter — keep items where at least one assignee is in the team
-    if (membersInFocusedTeam !== null) {
-      const teamSet = membersInFocusedTeam;
-      const teamMatchIds = new Set<string>();
-      for (const item of items) {
-        if (item.assignees.some(a => teamSet.has(a.memberId))) {
-          teamMatchIds.add(item.id);
-          // Include ancestors
-          let cur = item;
-          while (cur.parentKey) {
-            const parent = items.find(p => p.jiraKey === cur.parentKey);
-            if (parent) { teamMatchIds.add(parent.id); cur = parent; } else break;
-          }
-        }
-      }
-      // Also include epics that have at least one child matching
-      for (const item of items) {
-        if (item.type === 'epic' && !teamMatchIds.has(item.id)) {
-          const anyChildMatches = items.some(
-            c => c.parentKey === item.jiraKey && teamMatchIds.has(c.id),
-          );
-          if (anyChildMatches) teamMatchIds.add(item.id);
-        }
-      }
-      items = items.filter(p => teamMatchIds.has(p.id));
-    }
-
-    if (!hasFilters) return items;
-
-    const matchingIds = new Set<string>();
-
-    for (const item of plannerItems) {
-      // SP-21: Epic filter
-      if (filterEpics.length > 0) {
-        const isMatchingEpic = item.type === 'epic' && filterEpics.includes(item.jiraKey ?? '');
-        const isChildOfMatchingEpic = plannerItems.some(
-          p => p.type === 'epic' && filterEpics.includes(p.jiraKey ?? '') && item.parentKey === p.jiraKey,
-        );
-        const isGrandchild = plannerItems.some(feat => {
-          if (feat.type !== 'feature') return false;
-          const featParent = plannerItems.find(p => p.type === 'epic' && p.jiraKey === feat.parentKey);
-          return featParent && filterEpics.includes(featParent.jiraKey ?? '') && item.parentKey === feat.jiraKey;
-        });
-        if (!isMatchingEpic && !isChildOfMatchingEpic && !isGrandchild) continue;
-      }
-
-      // SP-20: Label filter (OR within labels, AND with epic filter)
-      if (filterLabels.length > 0) {
-        const itemLabels = item.labels ?? [];
-        const directMatch = filterLabels.some(l => itemLabels.includes(l));
-        if (!directMatch) {
-          // Check bubble: if a child matches, ancestor should be shown
-          const anyDescendantMatch = plannerItems.some(child => {
-            if (child.parentKey !== item.jiraKey) return false;
-            return filterLabels.some(l => (child.labels ?? []).includes(l));
-          });
-          if (!anyDescendantMatch) continue;
-        }
-      }
-
-      matchingIds.add(item.id);
-    }
-
-    // Bubble up: ensure ancestors of matching items are included
-    for (const item of plannerItems) {
-      if (!matchingIds.has(item.id)) continue;
-      // Walk up parentKey chain
-      let current = item;
-      while (current.parentKey) {
-        const parent = plannerItems.find(p => p.jiraKey === current.parentKey);
-        if (parent) {
-          matchingIds.add(parent.id);
-          current = parent;
-        } else break;
-      }
-    }
-
-    items = items.filter(p => matchingIds.has(p.id));
-
-    // Text search: item name/key or assignee name, with ancestor inclusion
-    if (search) {
-      const memberById = new Map(allState.teamMembers.map(m => [m.id, m]));
-      const byKey      = new Map(plannerItems.map(p => [p.jiraKey ?? p.id, p]));
-
-      const directMatches = new Set<string>();
-      for (const item of items) {
-        const assigneeNames = [
-          ...item.jiraAssignees,
-          ...item.assignees.map(a => memberById.get(a.memberId)?.name ?? ''),
-        ].filter(Boolean);
-        if (matchesSearch(search, { name: item.name, jiraKey: item.jiraKey }, assigneeNames)) {
-          directMatches.add(item.id);
-        }
-      }
-
-      const includeIds = new Set(directMatches);
-      for (const id of directMatches) {
-        let cur: PlannerItem | undefined = items.find(p => p.id === id);
-        while (cur?.parentKey) {
-          const parent = byKey.get(cur.parentKey);
-          if (parent) { includeIds.add(parent.id); cur = parent; } else break;
-        }
-      }
-
-      items = items.filter(p => includeIds.has(p.id));
-    }
-
-    return items;
-  }, [plannerItems, filterLabels, filterEpics, hasFilters, membersInFocusedTeam, search, allState.teamMembers]);
-
-  // Keep ref in sync so handleItemsChange can merge filtered vs. full item lists
-  filteredPlannerItemsRef.current = filteredPlannerItems;
-
-  // Unique labels and epics for filter dropdowns
-  const allUniqueLabels = useMemo(() => {
-    const set = new Set<string>();
-    for (const item of plannerItems) {
-      for (const l of item.labels ?? []) set.add(l);
-    }
-    for (const item of jiraItems) {
-      for (const l of item.labels ?? []) set.add(l);
-    }
-    return Array.from(set).sort();
-  }, [plannerItems, jiraItems]);
-
-  const allEpicOptions = useMemo(() => {
-    const epics = plannerItems.filter(p => p.type === 'epic');
-    const jiraEpics = jiraItems.filter(i => i.type === 'epic');
-    const map = new Map<string, string>();
-    for (const e of jiraEpics) map.set(e.jiraKey, e.summary);
-    for (const e of epics) if (e.jiraKey) map.set(e.jiraKey, e.name);
-    return Array.from(map, ([key, name]) => ({ key, name }))
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-  }, [plannerItems, jiraItems]);
-
-  // ── Toolbar badge counts ───────────────────────────────────────────────────
-
-  // Backlog badge: unscheduled epics in jiraItems (not yet placed on timeline)
-  // Team badge: active IT members + non-archived BIZ contacts
-  const teamBadgeCount = useMemo(() => {
-    const itCount = (allState.teamMembers ?? []).filter(m => !m.excludedFromCapacity).length;
-    const bizCount = (allState.businessContacts ?? []).filter(c => !c.archived && !c.excludedFromCapacity).length;
-    return itCount + bizCount;
-  }, [allState.teamMembers, allState.businessContacts]);
-
-  // ── Skills matching toggle (US-SP-27) ───────────────────────────────────────
-  const skillsMatchingEnabled = activeScenario?.skillsMatchingEnabled ?? true;
-
-  // ── Detail panel coexistence (US-UI-21) ────────────────────────────────────
-  // Board mode at < 1440px: auto-close any open side drawer when detailItemId is set.
-  // Timeline mode: detail panel always overlays at z-50 — no drawer auto-close.
-  useEffect(() => {
-    if (!plannerUI.detailItemId) return;
-    if (plannerUI.activeMode !== 'board') return;
-    if (containerWidth >= 1440) return;
-    if (plannerUI.backlogOpen || plannerUI.teamDrawerOpen) {
-      setPlannerUI(prev => ({ ...prev, backlogOpen: false, teamDrawerOpen: false }));
-    }
-  }, [plannerUI.detailItemId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Keyboard shortcuts (B = Backlog, T = Team) ────────────────────────────
-  // Use refs to smart-toggles so the listener never goes stale.
-  const toggleBacklogRef  = useRef(toggleBacklog);
-  const toggleTeamRef     = useRef(toggleTeamDrawer);
-  toggleBacklogRef.current  = toggleBacklog;
-  toggleTeamRef.current     = toggleTeamDrawer;
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'b' || e.key === 'B') toggleBacklogRef.current();
-      if (e.key === 't' || e.key === 'T') toggleTeamRef.current();
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  // Active scenario was removed (e.g. sync) — return to home
-  useEffect(() => {
-    if (!activeScenarioId) return;
-    const exists = allState.scenarios.some(s => s.id === activeScenarioId && !s.isBaseline && !s.isPortfolioScenario);
-    if (!exists) switchScenario(null);
-  }, [activeScenarioId, allState.scenarios]);
-
-  // Local planner session: restore open scenario + UI, or home (redesign §2 / §4).
-  // TODO: Cross-device restore deferred — state is browser-local only
-  useLayoutEffect(() => {
-    const session = readPlannerSession();
-    if (!session) {
-      switchScenario(null);
-      return;
-    }
-    const scenarios = useAppStore.getState().data.scenarios;
-    const sc = scenarios.find(s => s.id === session.activeScenarioId);
-    const canOpen = Boolean(sc && !sc.isBaseline && !sc.archived);
-    if (!canOpen) {
-      clearPlannerSession();
-      switchScenario(null);
-      return;
-    }
-    switchScenario(session.activeScenarioId);
-    setPlannerUI({
-      ...INITIAL_PLANNER_UI,
-      activeMode: session.lastActiveMode,
-      currentQuarterIndex: session.lastActiveQuarter,
-      backlogOpen: session.backlogDrawerOpen,
-    });
-  }, []);
-
-  // Debounced persist of mode / quarter / backlog (same key as activeScenarioId).
-  useEffect(() => {
-    if (!activeScenarioId) return;
-    const t = window.setTimeout(() => {
-      persistPlannerSession({
-        activeScenarioId,
-        lastActiveMode: plannerUI.activeMode === 'board' ? 'board' : 'timeline',
-        lastActiveQuarter: plannerUI.currentQuarterIndex,
-        backlogDrawerOpen: plannerUI.backlogOpen,
+  const filterCounts = useMemo(() => ({
+    all: epicItems.length,
+    portfolio: epicItems.filter((epic) => epicMeta.get(epic.jiraKey)?.onPortfolioBoard).length,
+    'current-plan': epicItems.filter((epic) => epicMeta.get(epic.jiraKey)?.inCurrentPlan).length,
+    'staffing-risk': epicItems.filter((epic) => epicMeta.get(epic.jiraKey)?.staffingRisk).length,
+    external: epicItems.filter((epic) => epicMeta.get(epic.jiraKey)?.usesExternal).length,
+    'has-breakdown': epicItems.filter((epic) => epicMeta.get(epic.jiraKey)?.hasBreakdown).length,
+    'missing-breakdown': epicItems.filter((epic) => !epicMeta.get(epic.jiraKey)?.hasBreakdown).length,
+  }), [epicItems, epicMeta]);
+
+  const jiraItemMetaById = useMemo(() => {
+    const metaMap = new Map<string, CapacityJiraItemMeta>();
+    for (const item of planningState.jiraWorkItems) {
+      if (item.type === 'epic') continue;
+      const epicKey = resolveEpicKey(item);
+      const meta = epicKey ? epicMeta.get(epicKey) : null;
+      metaMap.set(item.id, {
+        epicKey: epicKey ?? undefined,
+        epicSummary: meta?.epic.summary,
+        onPortfolioBoard: meta?.onPortfolioBoard,
+        staffingRisk: meta?.staffingRisk,
+        usesExternal: meta?.usesExternal,
       });
-    }, 500);
-    return () => window.clearTimeout(t);
-  }, [activeScenarioId, plannerUI.activeMode, plannerUI.currentQuarterIndex, plannerUI.backlogOpen]);
+    }
+    return metaMap;
+  }, [epicMeta, planningState.jiraWorkItems]);
 
-  const formatScenarioDate = useCallback((iso: string) => {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const assignedJiraIds = useMemo(
+    () => new Set(
+      (planningState.capacityAssignments ?? [])
+        .map((assignment) => assignment.jiraItemId)
+        .filter((jiraItemId): jiraItemId is string => Boolean(jiraItemId)),
+    ),
+    [planningState.capacityAssignments],
+  );
+  const assignedRequestIds = useMemo(
+    () => new Set(
+      (planningState.capacityAssignments ?? [])
+        .map((assignment) => assignment.capacityRequestId)
+        .filter((capacityRequestId): capacityRequestId is string => Boolean(capacityRequestId)),
+    ),
+    [planningState.capacityAssignments],
+  );
+
+  const backlogJiraItems = useMemo(
+    () =>
+      planningState.jiraWorkItems.filter((item) =>
+        item.statusCategory !== 'done' &&
+        ['feature', 'story', 'task', 'bug'].includes(item.type) &&
+        !assignedJiraIds.has(item.id) &&
+        epicMatchesFilter(resolveEpicKey(item) ?? ''),
+      ),
+    [planningState.jiraWorkItems, assignedJiraIds, activeFilter, epicMeta],
+  );
+
+  const backlogRequests = useMemo(
+    () => (planningState.capacityRequests ?? []).filter((request) => !assignedRequestIds.has(request.id)),
+    [planningState.capacityRequests, assignedRequestIds],
+  );
+
+  const getEntryByDragId = (dragId: string): CapacityBacklogItem | null => {
+    const [kind, rawId] = dragId.split(':');
+    if (kind === 'jira') {
+      const item = backlogJiraItems.find((candidate) => candidate.id === rawId)
+        ?? planningState.jiraWorkItems.find((candidate) => candidate.id === rawId);
+      return item ? { kind: 'jira', item } : null;
+    }
+    if (kind === 'request') {
+      const item = (planningState.capacityRequests ?? []).find((candidate) => candidate.id === rawId);
+      return item ? { kind: 'request', item } : null;
+    }
+    return null;
+  };
+
+  const getSourceItem = (assignment: NonNullable<typeof planningState.capacityAssignments>[number]): CapacityBacklogItem | null => {
+    if (assignment.jiraItemId) {
+      const item = planningState.jiraWorkItems.find((candidate) => candidate.id === assignment.jiraItemId);
+      return item ? { kind: 'jira', item } : null;
+    }
+    if (assignment.capacityRequestId) {
+      const item = (planningState.capacityRequests ?? []).find((candidate) => candidate.id === assignment.capacityRequestId);
+      return item ? { kind: 'request', item } : null;
+    }
+    return null;
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const dragId = String(event.active.id);
+    setActiveEntry(getEntryByDragId(dragId));
+    setPendingDrop(null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const entry = getEntryByDragId(String(event.active.id));
+    setActiveEntry(null);
+    if (!entry || !event.over) {
+      setPendingDrop(null);
+      return;
+    }
+
+    const [memberId, sprintId] = String(event.over.id).split('::');
+    if (!memberId || !sprintId) {
+      setPendingDrop(null);
+      return;
+    }
+
+    setPendingDrop({ memberId, sprintId, entry });
+  };
+
+  const handleConfirmAssign = (entry: CapacityBacklogItem, memberId: string, sprintId: string) => {
+    addCapacityAssignment({
+      memberId,
+      sprintId,
+      jiraItemId: entry.kind === 'jira' ? entry.item.id : undefined,
+      capacityRequestId: entry.kind === 'request' ? entry.item.id : undefined,
+      estimatedDays: estimateItemDays(entry),
+    });
+    setPendingDrop(null);
+  };
+
+  const handleCreateScenario = (name: string) => {
+    createScenario(name);
+  };
+
+  const handleDuplicateScenario = (scenarioId: string | null, name: string) => {
+    const sourceId = scenarioId ?? activeScenarioId;
+    if (!sourceId) {
+      const created = createScenario(name);
+      switchScenario(created.id);
+      return;
+    }
+    const duplicated = duplicateScenario(sourceId, name);
+    if (duplicated) switchScenario(duplicated.id);
+  };
+
+  const handleRenameScenario = (scenarioId: string, name: string) => {
+    updateScenario(scenarioId, { name });
+  };
+
+  const handleDeleteScenario = (scenarioId: string) => {
+    deleteScenario(scenarioId);
+  };
+
+  const handleAssignItOwner = useCallback((workItemId: string, memberId: string | null) => {
+    updateJiraWorkItemAssignee(workItemId, memberId);
   }, []);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const handleAssignBizOwner = useCallback((jiraKey: string, contactId: string | null) => {
+    const existingAssignments = planningState.jiraItemBizAssignments.filter((assignment) => assignment.jiraKey === jiraKey);
+    const primaryAssignment = existingAssignments[0] ?? null;
+
+    if (!contactId) {
+      if (primaryAssignment) removeJiraItemBizAssignment(primaryAssignment.id);
+      return;
+    }
+
+    upsertJiraItemBizAssignment({
+      id: primaryAssignment?.id,
+      jiraKey,
+      contactId,
+      days: primaryAssignment?.days,
+      notes: primaryAssignment?.notes,
+    });
+  }, [planningState.jiraItemBizAssignments]);
 
   return (
-    <>
-      {/* 1200px minimum viewport notice */}
-      <ViewportNotice />
-
-      {/* Main page — hidden below 1200px */}
-      <div className="hidden min-[1200px]:flex flex-col h-full bg-mileway-bg font-sans">
-        {!activeScenarioId ? (
-          <div className="flex flex-col flex-1 min-h-0 overflow-auto px-8 py-8">
-            <div className="max-w-5xl mx-auto w-full flex flex-col flex-1 min-h-0">
-            <div className="flex items-start justify-between gap-4 mb-6">
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-sm text-mileway-text cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={showArchived}
-                    onChange={e => setShowArchived(e.target.checked)}
-                    className="rounded border-mileway-border text-mileway-blue focus:ring-mileway-blue"
-                  />
-                  Show archived
-                </label>
-              </div>
-              <button
-                type="button"
-                disabled={homeCreateDisabled}
-                title={
-                  homeCreateDisabled
-                    ? 'Maximum 5 active scenarios. Archive or delete one to create a new scenario.'
-                    : undefined
-                }
-                onClick={() => !homeCreateDisabled && setHomeCreateOpen(true)}
-                className={[
-                  'px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-fast',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                  homeCreateDisabled
-                    ? 'bg-mileway-bg text-mileway-grey cursor-not-allowed opacity-60'
-                    : 'bg-mileway-blue text-white hover:bg-[#0077C2]',
-                ].join(' ')}
-              >
-                Create Scenario
-              </button>
-            </div>
-
-            {scenarios.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16">
-                <h1 className="text-2xl font-semibold text-mileway-text mb-2">No scenarios yet</h1>
-                <p className="text-sm text-mileway-grey max-w-md mb-8 leading-relaxed">
-                  Create a scenario to start planning without affecting your actuals.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setHomeCreateOpen(true)}
-                  className="px-6 py-3 rounded-xl text-sm font-semibold bg-mileway-blue text-white hover:bg-[#0077C2] transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-                >
-                  Create Scenario
-                </button>
-              </div>
-            ) : listScenarios.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center text-sm text-mileway-grey px-6">
-                No active scenarios. Turn on &quot;Show archived&quot; to see archived plans.
-              </div>
-            ) : (
-              <ul className="flex flex-col gap-3">
-                {listScenarios.map(sc => {
-                  const layout = migratePlannerLayout(sc.plannerLayout ?? []);
-                  const nFeat = layout.filter(p => p.type === 'feature').length;
-                  const nEpic = layout.filter(p => p.type === 'epic').length;
-                  const itemLine =
-                    layout.length === 0
-                      ? 'No items yet'
-                      : `${nFeat} feature${nFeat !== 1 ? 's' : ''} · ${nEpic} epic${nEpic !== 1 ? 's' : ''}`;
-                  const health = scenarioHealthById.get(sc.id) ?? { overloaded: 0, unscheduled: 0 };
-                  const ol = health.overloaded;
-                  const un = health.unscheduled;
-                  const healthStr = `${ol} overloaded sprint${ol !== 1 ? 's' : ''} · ${un} unscheduled`;
-                  const isArchived = Boolean(sc.archived);
-                  const restoreBlocked = activeScenarioCount >= 5;
-
-                  return (
-                    <li
-                      key={sc.id}
-                      className="bg-white border border-[#E2E8F0] rounded-xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shadow-sm"
-                    >
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-mileway-text truncate">{sc.name}</span>
-                          <span
-                            className={[
-                              'text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md',
-                              isArchived ? 'bg-mileway-bg text-[#6B7280]' : 'bg-green-50 text-green-700',
-                            ].join(' ')}
-                          >
-                            {isArchived ? 'Archived' : 'Active'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-mileway-grey">
-                          Created {formatScenarioDate(sc.createdAt)} · Last modified{' '}
-                          {formatScenarioDate(sc.updatedAt)}
-                        </p>
-                        <p className="text-xs text-mileway-text">{itemLine}</p>
-                        <p className="text-xs text-mileway-text">
-                          {ol > 0 && (
-                            <span className="text-[#D97706] font-medium" aria-hidden="true">
-                              ⚠{' '}
-                            </span>
-                          )}
-                          {healthStr}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => switchScenario(sc.id)}
-                          className="text-sm font-medium text-mileway-blue hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded px-1"
-                        >
-                          Open
-                        </button>
-                        {isArchived ? (
-                          <button
-                            type="button"
-                            disabled={restoreBlocked}
-                            title={
-                              restoreBlocked
-                                ? 'Maximum 5 active scenarios. Archive or delete one to restore.'
-                                : 'Restore to active'
-                            }
-                            onClick={() => !restoreBlocked && updateScenario(sc.id, { archived: false })}
-                            className="text-sm font-medium text-mileway-text hover:text-mileway-blue disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded px-1"
-                          >
-                            Restore
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => updateScenario(sc.id, { archived: true })}
-                            className="text-sm font-medium text-mileway-grey hover:text-mileway-text focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded px-1"
-                          >
-                            Archive
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(sc)}
-                          className="text-sm font-medium text-red-600 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded px-1"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-
-            <ScenarioCreateModal
-              isOpen={homeCreateOpen}
-              onClose={() => setHomeCreateOpen(false)}
-              onCreate={handleCreateScenario}
-            />
-            </div>
-          </div>
-        ) : (
+    <div className="flex h-full flex-col bg-[#F8FAFC]">
+      <StageProgressBar currentStage="capacity" onNavigate={setCurrentView} />
+      <PlanningLensHeader
+        title="Delivery Planning"
+        subtitle="Plan imported delivery breakdown first, then layer scenario-only what-if requests where Jira work does not exist yet."
+        scenarios={scenarios}
+        activeScenarioId={activeScenarioId}
+        onSwitch={switchScenario}
+        onCreate={handleCreateScenario}
+        onDuplicate={handleDuplicateScenario}
+        onRename={handleRenameScenario}
+        onDelete={handleDeleteScenario}
+        badges={(
           <>
-        {/* ── Tier 1: Topbar (52px) ──────────────────────────────────────── */}
-        <div
-          className="flex-shrink-0 bg-white border-b border-mileway-border px-6 flex items-center"
-          style={{ height: 52 }}
-        >
-          {/* Left: back + scenario title + context badge */}
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => switchScenario(null)}
-              className="text-sm font-medium text-mileway-grey hover:text-mileway-text focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded-lg px-2 py-1 -ml-1 flex-shrink-0"
-            >
-              ← Back
-            </button>
-            <div className="w-px h-5 bg-mileway-border flex-shrink-0" aria-hidden="true" />
-            <span style={{ fontSize: 15, fontWeight: 600, color: '#1E293B' }} className="flex-shrink-0 truncate max-w-[200px]">
-              {activeScenario?.name ?? 'Scenario'}
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-medium text-[#1D4ED8]">
+              <Layers size={12} />
+              {activeScenario ? activeScenario.name : 'Baseline'}
             </span>
-          </div>
-
-          {/* Right: quarter segmented control + Save button */}
-          <div className="flex-1 flex justify-end items-center gap-3 min-w-0">
-            <div
-              style={{
-                display: 'flex',
-                background: '#F5F8FC',
-                border: '1px solid #DEDFE3',
-                borderRadius: 6,
-                overflow: 'hidden',
-                flexShrink: 0,
-              }}
-            >
-              {quarters.map((q, i) => (
-                <button
-                  key={q}
-                  onClick={() => setPlannerUI(prev => ({ ...prev, currentQuarterIndex: i }))}
-                  style={{
-                    padding: '4px 10px',
-                    fontSize: 11,
-                    fontWeight: selectedQuarter === q ? 600 : 500,
-                    color: selectedQuarter === q ? '#1E293B' : '#94A3B8',
-                    background: selectedQuarter === q ? '#FFFFFF' : 'transparent',
-                    boxShadow: selectedQuarter === q ? '0 1px 3px rgba(0,0,0,.08)' : undefined,
-                    border: 'none',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'background 150ms ease, color 150ms ease, box-shadow 150ms ease',
-                  }}
-                  className="focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue focus-visible:ring-inset"
-                >
-                  {q.replace(/\s(\d{2})(\d{2})$/, " '$2")}
-                </button>
-              ))}
-            </div>
-            <SaveButton />
-          </div>
-        </div>
-
-        {/* ── Tier 2: Tabbar (40px) ───────────────────────────────────────── */}
-        <div
-          className="flex-shrink-0 bg-white border-b border-mileway-border px-6 flex items-center gap-3"
-          style={{ height: 40 }}
-        >
-          {/* Scenario controls: dropdown pill + new scenario + divider */}
-          <ScenarioTabs
-            scenarios={scenarios}
-            activeScenarioId={activeScenarioId}
-            onSelect={handleSelectScenario}
-            onCreate={handleCreateScenario}
-          />
-
-          {/* Mode tabs — Board | Timeline | People | Summary */}
-          <ModeToggle mode={plannerUI.activeMode} onChange={handleModeChange} />
-
-          {/* Generic search — visible in both timeline and board modes */}
-          {activeScenarioId && (
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="px-3 py-1 rounded-lg border border-mileway-border bg-white text-sm text-mileway-text placeholder-mileway-grey focus:outline-none focus:border-mileway-blue focus:ring-1 focus:ring-mileway-blue w-36 transition-colors"
-            />
-          )}
-
-          {/* Timeline-only filters */}
-          {plannerUI.activeMode === 'timeline' && (
-            <>
-              {/* Sprint | Quarter view toggle */}
-              <div className="flex rounded border border-mileway-border overflow-hidden" style={{ fontSize: 11 }}>
-                {(['sprint', 'quarter'] as const).map(mode => (
-                  <button
-                    key={mode}
-                    onClick={() => setPlannerTimelineViewMode(mode)}
-                    className={[
-                      'px-2 py-0.5 font-medium capitalize transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                      plannerTimelineViewMode === mode
-                        ? 'bg-mileway-blue text-white'
-                        : 'text-mileway-grey hover:text-mileway-text hover:bg-white',
-                    ].join(' ')}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <select
-                  value=""
-                  onChange={e => {
-                    const v = e.target.value;
-                    if (v && !filterLabels.includes(v)) setFilterLabels(prev => [...prev, v]);
-                    e.target.value = '';
-                  }}
-                  className="text-xs border border-mileway-border rounded-lg px-2 py-1 text-mileway-text bg-white focus:outline-none focus:border-mileway-blue transition-colors max-w-[120px]"
-                  title="Filter by label"
-                >
-                  <option value="">Labels{filterLabels.length > 0 ? ` (${filterLabels.length})` : ''}</option>
-                  {allUniqueLabels.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-
-                <EpicsFilterPill
-                  options={allEpicOptions}
-                  selected={filterEpics}
-                  onChange={setFilterEpics}
-                />
-
-                {hasFilters && (
-                  <button
-                    onClick={() => { setFilterLabels([]); setFilterEpics([]); setSearch(''); }}
-                    title="Clear all filters"
-                    className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                  >
-                    <X size={12} aria-hidden="true" />
-                    Clear
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Right-side actions */}
-          <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-            {plannerUI.activeMode === 'timeline' && activeScenarioId && (
-              <button
-                type="button"
-                onClick={() => setCreateModal({ defaultType: 'epic' })}
-                title="Add Epic"
-                aria-label="Add Epic"
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium text-mileway-blue bg-mileway-blue-10 hover:bg-mileway-blue hover:text-white transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-              >
-                <Plus size={14} aria-hidden="true" />
-                Add Epic
-              </button>
-            )}
-
-            {activeScenarioId && plannerItems.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPlannerSelectedIds(plannerItems.map(p => p.id));
-                  setPlannerBulkEditOpen(true);
-                }}
-                title="Bulk edit all planner items in this scenario"
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium text-mileway-grey hover:bg-mileway-bg transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
-              >
-                <Edit3 size={14} aria-hidden="true" />
-                Bulk Edit
-              </button>
-            )}
-
-            {activeScenarioId && (
-              <button
-                type="button"
-                onClick={() => toggleSkillsMatching(activeScenarioId)}
-                title={
-                  skillsMatchingEnabled
-                    ? 'Skills matching active — assignments are ranked by skill fit.'
-                    : 'Skills matching off — assignments ranked by capacity only.'
-                }
-                className={[
-                  'flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-fast',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                  skillsMatchingEnabled
-                    ? 'bg-mileway-blue-10 text-mileway-blue'
-                    : 'text-mileway-grey hover:bg-mileway-bg',
-                ].join(' ')}
-              >
-                <GraduationCap size={14} aria-hidden="true" />
-                Skills
-              </button>
-            )}
-
-            <button
-              onClick={toggleTeamDrawer}
-              title={
-                `${plannerUI.teamDrawerOpen ? 'Hide' : 'Show'} team drawer (T)` +
-                (teamBadgeCount > 0 ? ` · ${teamBadgeCount} people` : '')
-              }
-              className={[
-                'flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-fast',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
-                plannerUI.teamDrawerOpen
-                  ? 'bg-mileway-blue-10 text-mileway-blue'
-                  : 'text-mileway-grey hover:bg-mileway-bg',
-              ].join(' ')}
-            >
-              <Users size={14} aria-hidden="true" />
-              Team
-            </button>
-
-          </div>
-        </div>
-
-        {/* ── Content area ─────────────────────────────────────────────────── */}
-        {/* position:relative is the overlay anchor — drawers and the detail panel
-            are absolutely positioned inside this container.
-            contentRef drives the ResizeObserver for soft-responsive coexistence. */}
-        <div ref={contentRef} className="flex-1 relative overflow-hidden">
-
-          {/* Board mode — full-width card grid with BoardToolbar; capacity panel docked at bottom */}
-          {plannerUI.activeMode === 'board' && (
-            <div className="flex flex-col h-full min-h-0">
-              <BoardToolbar
-                selectedQuarter={selectedQuarter}
-                onQuarterChange={q => {
-                  const idx = quarters.indexOf(q);
-                  if (idx >= 0) setPlannerUI(prev => ({ ...prev, currentQuarterIndex: idx }));
-                }}
-                sort={boardSort}
-                onSortChange={setBoardSort}
-              />
-              <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
-                {/* Board mode: separate DndContext — backlog droppable inert here; matches prior pattern */}
-                <DndContext>
-                  <div className="flex flex-row flex-1 min-h-0 min-w-0 w-full h-full overflow-hidden">
-                    <PlannerBacklog
-                      jiraItems={jiraItems}
-                      plannerItems={plannerItems}
-                      expanded={plannerUI.backlogOpen}
-                      onExpand={expandBacklog}
-                      onCollapse={collapseBacklog}
-                      onBulkSchedule={handleBulkSchedule}
-                    />
-                    <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-                    <Suspense
-                      fallback={
-                        <div className="flex-1 flex items-center justify-center h-full">
-                          <Loader2 size={20} className="animate-spin text-mileway-grey" />
-                        </div>
-                      }
-                    >
-                      <PlannerBoard
-                        scenarioId={activeScenarioId ?? ''}
-                        selectedQuarter={selectedQuarter}
-                        sort={boardSort}
-                        onOpenDetail={jiraKey => {
-                const row = plannerItems.find(p => p.jiraKey === jiraKey);
-                setPlannerUI(prev => ({ ...prev, detailItemId: row?.id ?? jiraKey }));
-              }}
-                        overlays={plannerUI.teamDrawerOpen ? (
-                          <PlannerTeamDrawer
-                            selectedQuarter={selectedQuarter}
-                            activeMode="board"
-                            onClose={() => setPlannerUI(prev => ({ ...prev, teamDrawerOpen: false }))}
-                            onMemberFocus={() => {}}
-                            focusedMemberId={null}
-                          />
-                        ) : undefined}
-                      />
-                    </Suspense>
-                    </div>
-                  </div>
-                </DndContext>
-              </div>
-              <PlannerCapacity
-                plannerItems={plannerItems}
-                sprints={sprints}
-                selectedQuarter={selectedQuarter}
-                activeDragPreview={activeDragPreview}
-                isVisible={plannerUI.capacityOpen}
-                labelWidth={260}
-                onUpdateDays={handleUpdateAssigneeDays}
-              />
-            </div>
-          )}
-
-          {/* Timeline mode — DndContext wraps gantt + overlay drawers so all
-              useDraggable/useDroppable hooks share a single context */}
-          {plannerUI.activeMode === 'timeline' && (
-            <DndContext sensors={timelineSensors} collisionDetection={timelineCollisionDetection}>
-              <div className="h-full flex flex-row overflow-hidden min-h-0">
-                {activeScenarioId ? (
-                  <PlannerBacklog
-                    jiraItems={jiraItems}
-                    plannerItems={plannerItems}
-                    expanded={plannerUI.backlogOpen}
-                    onExpand={expandBacklog}
-                    onCollapse={collapseBacklog}
-                    onBulkSchedule={handleBulkSchedule}
-                  />
-                ) : null}
-                <div
-                  className={[
-                    'flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 transition-[padding-right] duration-300',
-                    assignPanelItemId ? 'ease-[cubic-bezier(0.16,1,0.3,1)] pr-[var(--assign-panel-width,440px)]' : '',
-                  ].join(' ')}
-                >
-                  {activeScenarioId ? (
-                    <PlannerTimeline
-                      plannerItems={filteredPlannerItems}
-                      jiraItems={jiraItems}
-                      sprints={sprints}
-                      scenarioId={activeScenarioId}
-                      onItemsChange={handleItemsChange}
-                      onActiveDragChange={handleActiveDragChange}
-                      onBarClick={handleOpenAssignPanel}
-                      onPeopleDropOnBar={handlePeopleDropOnBar}
-                      onOpenAssignFromLabel={handleOpenAssignPanel}
-                      onLabelClick={handleLabelDetailClick}
-                      assignPanelItemId={assignPanelItemId}
-                      onAddChild={handleAddChild}
-                      onContextMenu={handleContextMenu}
-                      focusedMemberId={plannerUI.focusedMemberId}
-                      labelWidth={260}
-                      dragPreview={activeDragPreview}
-                      capacityPanelOpen={plannerUI.capacityOpen}
-                      onCapacityPanelToggle={handleCapacityPanelToggle}
-                      onOverloadedTickerClick={handleOverloadedTickerClick}
-                      onBacklogItemScheduled={collapseBacklog}
-                      onBarUnscheduledToBacklog={expandBacklog}
-                      skillsMatchingEnabled={skillsMatchingEnabled}
-                    />
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
-                      <p className="text-sm font-semibold text-mileway-text">No scenario selected</p>
-                      <p className="text-xs text-mileway-grey max-w-xs leading-relaxed">
-                        Create a scenario using the + button above to start planning on the timeline.
-                      </p>
-                    </div>
-                  )}
-                  <div
-                    className="flex-shrink-0 overflow-hidden transition-[max-height,opacity] duration-150 ease-out"
-                    style={{
-                      maxHeight: plannerUI.capacityOpen ? 300 : 0,
-                      opacity: plannerUI.capacityOpen ? 1 : 0,
-                    }}
-                  >
-                    <PlannerCapacity
-                      ref={capacityPanelRef}
-                      plannerItems={plannerItems}
-                      sprints={sprints}
-                      selectedQuarter={selectedQuarter}
-                      activeDragPreview={activeDragPreview}
-                      isVisible
-                      focusedMemberId={plannerUI.focusedMemberId}
-                      labelWidth={260}
-                      onUpdateDays={handleUpdateAssigneeDays}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Team drawer — absolute overlay on right edge of canvas */}
-              {plannerUI.teamDrawerOpen && (
-                <PlannerTeamDrawer
-                  selectedQuarter={selectedQuarter}
-                  activeMode="timeline"
-                  onClose={() => setPlannerUI(prev => ({ ...prev, teamDrawerOpen: false }))}
-                  onMemberFocus={id => setPlannerUI(prev => ({ ...prev, focusedMemberId: id }))}
-                  focusedMemberId={plannerUI.focusedMemberId}
-                />
-              )}
-            </DndContext>
-          )}
-
-          {/* People view */}
-          {plannerUI.activeMode === 'people' && (
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <PlannerPeopleView
-                plannerItems={plannerItems}
-                sprints={sprints}
-                selectedQuarter={selectedQuarter}
-              />
-            </div>
-          )}
-
-          {/* Summary / KPI view */}
-          {plannerUI.activeMode === 'summary' && (
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <PlannerSummaryView
-                plannerItems={plannerItems}
-                sprints={sprints}
-                selectedQuarter={selectedQuarter}
-              />
-            </div>
-          )}
-
-          {/* Detail panel — z-50, renders over side drawers in both modes */}
-          {plannerUI.detailItemId && (
-            <PlannerDetailPanel
-              detailItemId={plannerUI.detailItemId}
-              plannerItems={plannerItems}
-              jiraItems={jiraItemsForDetailPanel}
-              sprints={sprints}
-              onClose={() => setPlannerUI(prev => ({ ...prev, detailItemId: null }))}
-              onUpdateRequiredSkills={handleUpdateRequiredSkills}
-            />
-          )}
-        </div>
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#DEDFE3] bg-white px-3 py-1 text-xs font-medium text-[#64748B]">
+              <CalendarRange size={12} />
+              {visibleSprints.length} sprints
+            </span>
           </>
         )}
-      </div>
-
-      <Modal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        title="Delete scenario"
-        size="sm"
-        footer={
-          <>
-            <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => {
-                if (deleteTarget) {
-                  deleteScenario(deleteTarget.id);
-                  setDeleteTarget(null);
-                }
-              }}
-            >
-              Delete
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-mileway-text leading-relaxed">
-          Delete <span className="font-semibold">{deleteTarget?.name}</span>? This cannot be undone.
-        </p>
-      </Modal>
-
-      {plannerUI.activeMode === 'timeline' && activeScenarioId && liveAssignPanelItem && (
-        <AssignPanel
-          item={liveAssignPanelItem}
-          plannerItems={plannerItems}
-          selectedQuarter={selectedQuarter}
-          jiraBaseUrl={jiraBaseUrl}
-          jiraItems={jiraItems}
-          onClose={() => { setAssignPanelItemId(null); setAssignPanelMemberId(null); }}
-          onSave={handleAssignPanelPersist}
-          skillsMatchingEnabled={skillsMatchingEnabled}
-          pendingMemberId={assignPanelMemberId}
-        />
-      )}
-
-      {/* SP-17/18/19: Create/Edit modal */}
-      {createModal && (
-        <CreateItemModal
-          editItem={createModal.editItem}
-          defaultType={createModal.defaultType}
-          defaultParentKey={createModal.defaultParentKey}
-          onSave={handleCreateSave}
-          onClose={() => setCreateModal(null)}
-        />
-      )}
-
-      {/* SP-19: Context menu */}
-      {contextMenu && (
-        <PlannerContextMenu
-          target={contextMenu}
-          onEdit={handleEditItem}
-          onDelete={handleDeleteItem}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
-
-      {/* Bulk edit planner items modal */}
-      <BulkEditPlannerItemsModal
-        isOpen={plannerBulkEditOpen}
-        onClose={() => { setPlannerBulkEditOpen(false); setPlannerSelectedIds([]); }}
-        selectedIds={plannerSelectedIds}
+        actions={(
+          <Button variant="primary" size="md" onClick={() => setCurrentView('jira')}>
+            Import Jira Breakdown
+          </Button>
+        )}
       />
-
-      {/* SP-20/21: Active filter chips (shown below toolbar when filters are active) */}
-      {activeScenarioId && hasFilters && plannerUI.activeMode === 'timeline' && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-white rounded-full shadow-lg border border-mileway-border px-4 py-2">
-          <Filter size={12} className="text-mileway-grey" />
-          {filterLabels.map(l => (
-            <span key={l} className="inline-flex items-center gap-1 text-xs font-medium bg-mileway-bg text-mileway-text rounded-full px-2 py-0.5">
-              {l}
-              <button onClick={() => setFilterLabels(prev => prev.filter(x => x !== l))} className="text-mileway-grey hover:text-red-500 focus:outline-none" aria-label={`Remove label filter ${l}`}>×</button>
-            </span>
+      <div className="border-b border-[#DEDFE3] bg-white px-6 py-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { id: 'all', label: 'All epics' },
+            { id: 'portfolio', label: 'On portfolio board' },
+            { id: 'current-plan', label: 'In current plan' },
+            { id: 'staffing-risk', label: 'Staffing risk' },
+            { id: 'external', label: 'Uses external' },
+            { id: 'has-breakdown', label: 'Has Jira breakdown' },
+            { id: 'missing-breakdown', label: 'Missing Jira breakdown' },
+          ].map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => setActiveFilter(filter.id as typeof activeFilter)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                activeFilter === filter.id
+                  ? 'border-[#0089DD] bg-[#E6F2FC] text-[#0089DD]'
+                  : 'border-[#DEDFE3] bg-white text-[#64748B] hover:border-[#BFDBFE] hover:text-[#1E293B]'
+              }`}
+            >
+              {filter.label} · {filterCounts[filter.id as keyof typeof filterCounts]}
+            </button>
           ))}
-          {filterEpics.map(k => {
-            const name = allEpicOptions.find(e => e.key === k)?.name ?? k;
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {filteredEpicVisibility.slice(0, 8).map((epic) => {
+            const meta = epicMeta.get(epic.jiraKey);
             return (
-              <span key={k} className="inline-flex items-center gap-1 text-xs font-medium bg-mileway-blue-10 text-mileway-blue rounded-full px-2 py-0.5">
-                {name.length > 20 ? name.slice(0, 20) + '…' : name}
-                <button onClick={() => setFilterEpics(prev => prev.filter(x => x !== k))} className="text-mileway-blue hover:text-red-500 focus:outline-none" aria-label={`Remove epic filter ${k}`}>×</button>
-              </span>
+              <div key={epic.id} className="rounded-xl border border-[#DEDFE3] bg-[#F8FAFC] px-3 py-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-mono text-[#0089DD]">{epic.jiraKey}</span>
+                  <span className={`rounded-full px-2 py-0.5 ${
+                    meta?.hasBreakdown ? 'bg-[#ECFDF5] text-[#047857]' : 'bg-[#FFF7ED] text-[#C2410C]'
+                  }`}>
+                    {meta?.hasBreakdown ? 'Has breakdown' : 'Missing breakdown'}
+                  </span>
+                </div>
+                <p className="mt-1 max-w-[260px] truncate text-sm font-medium text-[#1E293B]">{epic.summary}</p>
+              </div>
             );
           })}
+          {filteredEpicVisibility.length === 0 ? (
+            <p className="text-sm text-[#94A3B8]">No epics match this filter.</p>
+          ) : null}
+          {filteredEpicVisibility.length > 8 ? (
+            <div className="rounded-xl border border-dashed border-[#DEDFE3] px-3 py-2 text-sm text-[#94A3B8]">
+              +{filteredEpicVisibility.length - 8} more epics
+            </div>
+          ) : null}
         </div>
-      )}
-    </>
+      </div>
+      <DeliveryBreakdownPanel
+        epicItems={filteredEpicVisibility}
+        allItems={planningState.jiraWorkItems}
+        assignedJiraIds={assignedJiraIds}
+        businessAssignments={planningState.jiraItemBizAssignments ?? []}
+        teamMembers={teamMembers}
+        businessContacts={businessContacts}
+        onAssignItOwner={handleAssignItOwner}
+        onAssignBizOwner={handleAssignBizOwner}
+      />
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex min-h-0 flex-1">
+          <CapacityBacklog
+            jiraItems={backlogJiraItems}
+            requests={backlogRequests}
+            sprints={visibleSprints}
+            onAddRequest={addCapacityRequest}
+            onRemoveRequest={removeCapacityRequest}
+            jiraItemMetaById={jiraItemMetaById}
+          />
+          <CapacitySprintGrid
+            teamMembers={teamMembers}
+            sprints={visibleSprints}
+            assignments={planningState.capacityAssignments ?? []}
+            getSourceItem={getSourceItem}
+            onAssign={(entry, memberId, sprintId) => handleConfirmAssign(entry, memberId, sprintId)}
+            onRemoveAssignment={removeCapacityAssignment}
+            pendingDrop={pendingDrop}
+          />
+        </div>
+
+        <DragOverlay>
+          {activeEntry ? <CapacityRequestCard entry={activeEntry} /> : null}
+        </DragOverlay>
+      </DndContext>
+    </div>
   );
 }
