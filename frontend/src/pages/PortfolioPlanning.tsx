@@ -3540,7 +3540,7 @@ function SummaryView({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PortfolioDrawer({
-  open, allEpics, boardEpicKeys, manualEpics, onClose, onSave, onCreateManual, onEditManual, onDeleteManual,
+  open, allEpics, boardEpicKeys, manualEpics, onClose, onSave, onCreateManual, onEditManual, onDeleteManual, portalRoot,
 }: {
   open: boolean;
   allEpics: JiraWorkItem[];
@@ -3551,6 +3551,7 @@ function PortfolioDrawer({
   onCreateManual: () => void;
   onEditManual: (epic: ManualEpic) => void;
   onDeleteManual: (epicKey: string) => void;
+  portalRoot?: HTMLElement | null;
 }) {
   const [search, setSearch]     = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set(boardEpicKeys));
@@ -3783,7 +3784,7 @@ function PortfolioDrawer({
         </div>
       </div>
     </div>,
-    document.body,
+    portalRoot ?? document.body,
   );
 }
 
@@ -5538,6 +5539,7 @@ export function PortfolioPlanning() {
           allEpics={allEpics}
           boardEpicKeys={activeBoardEpicKeys}
           manualEpics={activeManualEpics}
+          portalRoot={ppRootRef.current}
           onClose={() => setDrawerOpen(false)}
           onSave={handleSaveDrawer}
           onCreateManual={() => { setDrawerOpen(false); setManualModalOpen(true); }}
