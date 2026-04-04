@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { closestCenter, DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { CalendarRange, CheckCircle2, Layers3, WifiOff, Workflow } from 'lucide-react';
+import { CalendarRange, CheckCircle2, Layers3, ShieldAlert, Sparkles, WifiOff, Workflow } from 'lucide-react';
 import { AssignPanel } from '../components/planner/AssignPanel';
 import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
 import { PlannerBacklog } from '../components/planner/PlannerBacklog';
@@ -73,7 +73,6 @@ export function ScenarioPlanner() {
   ));
   const sync = useSyncStatus();
 
-  const [backlogExpanded, setBacklogExpanded] = useState(true);
   const [assignPanelItemId, setAssignPanelItemId] = useState<string | null>(null);
   const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [capacityPanelOpen, setCapacityPanelOpen] = useState(true);
@@ -321,6 +320,19 @@ export function ScenarioPlanner() {
     };
   }, [jiraItems, plannerItems]);
 
+  const scenarioSummary = useMemo(() => {
+    const importedFeatures = jiraItems.filter((item) => item.type === 'feature').length;
+    const importedStories = jiraItems.filter((item) => item.type === 'story' || item.type === 'task' || item.type === 'bug').length;
+    const plannedItems = plannerItems.length;
+    const manualItems = plannerItems.filter((item) => item.isManual).length;
+    return {
+      importedFeatures,
+      importedStories,
+      plannedItems,
+      manualItems,
+    };
+  }, [jiraItems, plannerItems]);
+
   const addWorkMenu = (
     <PlanningHeaderActionMenu
       label="Add Work"
@@ -380,53 +392,121 @@ export function ScenarioPlanner() {
             </span>
           ) : null}
         </div>
-        <p className="mt-2 text-sm text-[#64748B]">
-          Imported Jira work stays in the backlog until scheduled. Manual items land on the plan immediately and are marked as planning-only so they stay distinct from Jira reality.
-        </p>
+        <div className="mt-3 flex items-start gap-2 rounded-2xl border border-[#E0E7FF] bg-[#F8FAFF] px-4 py-3 text-sm text-[#475569]">
+          <Sparkles size={16} className="mt-0.5 shrink-0 text-[#4F46E5]" />
+          <p>
+            Imported Jira work stays in the backlog until scheduled. Manual items land on the plan immediately and are marked as planning-only so they stay distinct from Jira reality.
+          </p>
+        </div>
       </div>
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 overflow-hidden p-6">
         <DndContext sensors={sensors} collisionDetection={closestCenter}>
-          <div className="flex h-full min-h-0">
-            <PlannerBacklog
-              jiraItems={jiraItems}
-              plannerItems={plannerItems}
-              expanded={backlogExpanded}
-              onExpand={() => setBacklogExpanded(true)}
-              onCollapse={() => setBacklogExpanded(false)}
-              onBulkSchedule={(items) => scheduleImportedItemsAtSprint(items, visibleSprints[0]?.number ?? 1)}
-            />
+          <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)_280px] gap-6">
+            <div className="min-h-0 overflow-hidden rounded-[28px] border border-[#DEDFE3] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+              <PlannerBacklog
+                jiraItems={jiraItems}
+                plannerItems={plannerItems}
+                expanded
+                variant="embedded"
+                onExpand={() => {}}
+                onCollapse={() => {}}
+                onBulkSchedule={(items) => scheduleImportedItemsAtSprint(items, visibleSprints[0]?.number ?? 1)}
+              />
+            </div>
 
-            <PlannerTimeline
-              plannerItems={plannerItems}
-              jiraItems={jiraItems}
-              sprints={visibleSprints}
-              scenarioId={activeScenarioId ?? 'baseline'}
-              onItemsChange={onItemsChange}
-              onBarClick={(item) => {
-                setDetailItemId(null);
-                setAssignPanelItemId(item.id);
-              }}
-              onOpenAssignFromLabel={(item) => {
-                setDetailItemId(null);
-                setAssignPanelItemId(item.id);
-              }}
-              assignPanelItemId={assignPanelItemId}
-              onAddChild={(parentItem) => setCreateModalState({
-                defaultType: parentItem.type === 'epic' ? 'feature' : 'story',
-                defaultParentKey: parentItem.jiraKey,
-              })}
-              onLabelClick={(item) => {
-                setAssignPanelItemId(null);
-                setDetailItemId(item.jiraKey ?? item.id);
-              }}
-              capacityPanelOpen={capacityPanelOpen}
-              onCapacityPanelToggle={() => setCapacityPanelOpen((value) => !value)}
-              onOverloadedTickerClick={() => setCapacityPanelOpen(true)}
-              onBacklogItemScheduled={() => setBacklogExpanded(false)}
-              onBarUnscheduledToBacklog={() => setBacklogExpanded(true)}
-              skillsMatchingEnabled={scenarioForPlanner?.skillsMatchingEnabled ?? true}
-            />
+            <div className="min-h-0 overflow-hidden rounded-[32px] border border-[#D9E2EC] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+              <div className="border-b border-[#EEF2F7] px-6 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-base font-semibold text-[#1E293B]">Imported Delivery Breakdown</h2>
+                    <p className="mt-1 text-sm text-[#64748B]">
+                      Capacity planning happens on imported features and stories, with both IT and business assignments.
+                    </p>
+                  </div>
+                  <div className="inline-flex rounded-full border border-[#DEDFE3] bg-[#F8FAFC] p-1 text-xs font-medium text-[#64748B]">
+                    <span className="rounded-full bg-white px-3 py-1 text-[#0F172A] shadow-sm">Timeline</span>
+                    <span className="px-3 py-1">Summary</span>
+                  </div>
+                </div>
+              </div>
+
+              <PlannerTimeline
+                plannerItems={plannerItems}
+                jiraItems={jiraItems}
+                sprints={visibleSprints}
+                scenarioId={activeScenarioId ?? 'baseline'}
+                onItemsChange={onItemsChange}
+                onBarClick={(item) => {
+                  setDetailItemId(null);
+                  setAssignPanelItemId(item.id);
+                }}
+                onOpenAssignFromLabel={(item) => {
+                  setDetailItemId(null);
+                  setAssignPanelItemId(item.id);
+                }}
+                assignPanelItemId={assignPanelItemId}
+                onAddChild={(parentItem) => setCreateModalState({
+                  defaultType: parentItem.type === 'epic' ? 'feature' : 'story',
+                  defaultParentKey: parentItem.jiraKey,
+                })}
+                onLabelClick={(item) => {
+                  setAssignPanelItemId(null);
+                  setDetailItemId(item.jiraKey ?? item.id);
+                }}
+                capacityPanelOpen={capacityPanelOpen}
+                onCapacityPanelToggle={() => setCapacityPanelOpen((value) => !value)}
+                onOverloadedTickerClick={() => setCapacityPanelOpen(true)}
+                onBacklogItemScheduled={() => {}}
+                onBarUnscheduledToBacklog={() => {}}
+                skillsMatchingEnabled={scenarioForPlanner?.skillsMatchingEnabled ?? true}
+              />
+            </div>
+
+            <aside className="flex min-h-0 flex-col gap-4">
+              <div className="rounded-[28px] border border-[#DEDFE3] bg-white px-5 py-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Scenario Summary</span>
+                <h3 className="mt-2 text-lg font-semibold text-[#1E293B]">{activeScenario?.name ?? 'Baseline'}</h3>
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[#64748B]">Imported features</span>
+                    <strong className="text-[#1E293B]">{scenarioSummary.importedFeatures}</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[#64748B]">Stories and tasks</span>
+                    <strong className="text-[#1E293B]">{scenarioSummary.importedStories}</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[#64748B]">Items on plan</span>
+                    <strong className="text-[#1E293B]">{scenarioSummary.plannedItems}</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[#64748B]">Planning-only items</span>
+                    <strong className="text-[#4338CA]">{scenarioSummary.manualItems}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-[#DEDFE3] bg-white px-5 py-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+                <div className="flex items-center gap-2 text-[#B45309]">
+                  <ShieldAlert size={16} />
+                  <span className="text-sm font-semibold">Delivery Risks</span>
+                </div>
+                <div className="mt-4 space-y-3 text-sm text-[#475569]">
+                  <div className="rounded-2xl bg-[#FFF7ED] px-3 py-3 text-[#9A3412]">
+                    {summary.staffingRiskCount} planned items still miss either IT or business ownership.
+                  </div>
+                  <div className="rounded-2xl bg-[#F8FAFC] px-3 py-3">
+                    {summary.importedBacklogCount} imported items are still unscheduled in this delivery scenario.
+                  </div>
+                  <div className="rounded-2xl bg-[#F8FAFC] px-3 py-3">
+                    {summary.missingBreakdownCount > 0
+                      ? `${summary.missingBreakdownCount} epics still need Jira feature or story breakdown before detailed delivery planning is complete.`
+                      : 'All visible epics have delivery breakdown available for planning.'}
+                  </div>
+                </div>
+              </div>
+            </aside>
           </div>
         </DndContext>
 
