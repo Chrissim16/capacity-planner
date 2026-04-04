@@ -2821,7 +2821,7 @@ export function BreakdownView({
 
 function SummaryView({
   processTeams, boardEpics, peopleSummaries, phasePlansMap, assignMap,
-  absenceLookup, weeks, quarter, quarterOpt, state, jiraBaseUrl,
+  absenceLookup, weeks, quarterOpt, state, jiraBaseUrl,
   activeScenarioName, baselinePhasePlans, baselinePhaseAssignments,
 }: {
   processTeams: ProcessTeam[];
@@ -2831,7 +2831,6 @@ function SummaryView({
   assignMap: Map<string, PhaseAssignmentsByInstance>;
   absenceLookup: Record<string, number>;
   weeks: PortfolioWeek[];
-  quarter: string;
   quarterOpt: QOpt;
   state: ReturnType<typeof useCurrentState>;
   jiraBaseUrl: string;
@@ -5452,7 +5451,6 @@ export function PortfolioPlanning() {
             assignMap={assignMap}
             absenceLookup={absenceLookup}
             weeks={weeks}
-            quarter={quarter}
             quarterOpt={activeQuarterOpt}
             state={baselineState}
             jiraBaseUrl={jiraBaseUrl}
