@@ -109,6 +109,14 @@ async function renderPage(node: ReactNode) {
   return { host, root };
 }
 
+async function clickButton(host: HTMLElement, label: string) {
+  const button = Array.from(host.querySelectorAll('button')).find((candidate) => candidate.textContent?.includes(label));
+  expect(button).toBeTruthy();
+  await act(async () => {
+    button!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
 describe('ScenarioPlanner render', () => {
   it('mounts without entering a nested update loop', async () => {
     useAppStore.getState().setData(makeState());
@@ -306,5 +314,152 @@ describe('ScenarioPlanner render', () => {
     expect(text).toContain('Jira');
     expect(text).toContain('Needs breakdown');
     expect(text).toContain('Carryover');
+  });
+
+  it('uses a working timeline and summary tab layout without the old header pills or sidebar cards', async () => {
+    useAppStore.getState().setData(makeState({
+      teamMembers: [
+        {
+          id: 'member-1',
+          name: 'Alex Doe',
+          roleId: 'role-1',
+          processTeamId: 'pt-1',
+          squadIds: [],
+          weeklyCapacity: 5,
+          annualLeaveDays: 0,
+          publicHolidayIds: [],
+          costPerDay: 750,
+          currency: 'EUR',
+          workerType: 'internal',
+          email: 'alex@example.com',
+        },
+      ],
+      businessContacts: [
+        {
+          id: 'biz-1',
+          name: 'Jamie Biz',
+          email: 'jamie@example.com',
+          department: 'Operations',
+          annualLeaveDays: 0,
+          weeklyCapacity: 5,
+          publicHolidayIds: [],
+          excludedFromCapacity: false,
+          archived: false,
+        },
+      ],
+      jiraWorkItems: [
+        {
+          id: 'jira-epic-1',
+          connectionId: 'jira-1',
+          jiraKey: 'EPIC-1',
+          jiraId: 'jira-epic-1',
+          summary: 'Fraud controls',
+          type: 'epic',
+          typeName: 'Epic',
+          status: 'In Progress',
+          statusCategory: 'indeterminate',
+          labels: [],
+          components: [],
+          created: '2026-01-01',
+          updated: '2026-01-05',
+        },
+        {
+          id: 'jira-feature-1',
+          connectionId: 'jira-1',
+          jiraKey: 'FEAT-1',
+          jiraId: 'jira-feature-1',
+          parentKey: 'EPIC-1',
+          summary: 'Case workflow',
+          type: 'feature',
+          typeName: 'Feature',
+          status: 'In Progress',
+          statusCategory: 'indeterminate',
+          labels: [],
+          components: [],
+          created: '2026-01-01',
+          updated: '2026-01-05',
+        },
+        {
+          id: 'jira-story-1',
+          connectionId: 'jira-1',
+          jiraKey: 'STORY-1',
+          jiraId: 'jira-story-1',
+          parentKey: 'FEAT-1',
+          summary: 'Implement decision rules',
+          type: 'story',
+          typeName: 'Story',
+          status: 'In Progress',
+          statusCategory: 'indeterminate',
+          labels: [],
+          components: [],
+          created: '2026-01-01',
+          updated: '2026-01-05',
+        },
+      ],
+      jiraItemBizAssignments: [
+        { id: 'assign-1', jiraKey: 'STORY-1', contactId: 'biz-1' },
+      ],
+      scenarios: [
+        {
+          id: 'baseline-1',
+          name: 'Baseline',
+          createdAt: '2026-04-03T00:00:00.000Z',
+          updatedAt: '2026-04-03T00:00:00.000Z',
+          isBaseline: true,
+          plannerLayout: [
+            {
+              id: 'planner-story-1',
+              sourceId: 'jira-story-1',
+              name: 'Implement decision rules',
+              type: 'story',
+              jiraKey: 'STORY-1',
+              parentKey: 'FEAT-1',
+              startSprint: 1,
+              spanSprints: 1,
+              assignees: [],
+              isManual: false,
+              labels: [],
+              jiraAssignees: [],
+              requiredSkillIds: [],
+            },
+          ],
+          jiraWorkItems: [],
+          jiraItemBizAssignments: [],
+          teamMembers: [],
+          timeOff: [],
+          projects: [],
+          assignments: [],
+          capacityRequests: [],
+          capacityAssignments: [],
+          portfolioBoardEpicKeys: [],
+          portfolioManualEpics: [],
+          portfolioPhasePlans: [],
+          portfolioPhaseAssignments: [],
+          skillsMatchingEnabled: true,
+        },
+      ],
+    }));
+
+    const { host } = await renderPage(<ScenarioPlanner />);
+
+    expect(host.textContent).toContain('Delivery Backlog');
+    expect(host.textContent).toContain('Delivery Timeline');
+    expect(host.textContent).not.toContain('Scenario Summary');
+    expect(host.textContent).not.toContain('Delivery Risks');
+    expect(host.textContent).not.toContain('delivery sprints');
+    expect(host.textContent).not.toContain('imported items unscheduled');
+
+    await clickButton(host, 'Summary');
+
+    expect(host.textContent).toContain('Imported Delivery Breakdown');
+    expect(host.textContent).toContain('Imported features');
+    expect(host.textContent).toContain('Scheduled items');
+    expect(host.textContent).not.toContain('Delivery Backlog');
+
+    await clickButton(host, 'Timeline');
+
+    expect(host.textContent).toContain('Delivery Backlog');
+    expect(host.textContent).toContain('Delivery Timeline');
+    expect(host.textContent).not.toContain('Imported Delivery Breakdown');
   });
 });

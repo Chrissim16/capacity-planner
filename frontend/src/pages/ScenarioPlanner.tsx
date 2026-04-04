@@ -1,36 +1,32 @@
 import { useMemo, useState } from 'react';
 import { closestCenter, DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { CalendarRange, CheckCircle2, Layers3, ShieldAlert, Sparkles, WifiOff, Workflow } from 'lucide-react';
 import { AssignPanel } from '../components/planner/AssignPanel';
 import { CreateItemModal, type CreateItemData } from '../components/planner/CreateItemModal';
 import { PlannerBacklog } from '../components/planner/PlannerBacklog';
 import { PlannerDetailPanel } from '../components/planner/PlannerDetailPanel';
 import { PlannerTimeline } from '../components/planner/PlannerTimeline';
+import { DeliveryBreakdownPanel } from '../components/planning/DeliveryBreakdownPanel';
 import { PlanningHeaderActionMenu } from '../components/planning/PlanningHeaderActionMenu';
 import { PlanningLensHeader } from '../components/planning/PlanningLensHeader';
-import {
-  PLANNING_INFO_BANNER_CLASS,
-  PLANNING_PAGE_SURFACE_CLASS,
-  PLANNING_PANEL_CLASS,
-  PLANNING_PANEL_EMPHASIS_CLASS,
-  PLANNING_STAT_CHIP_CLASS,
-} from '../components/planning/planningShell';
+import { PLANNING_PAGE_SURFACE_CLASS } from '../components/planning/planningShell';
 import {
   createScenario,
   deleteScenario,
   duplicateScenario,
   generateId,
   generateJiraId,
+  removeJiraItemBizAssignment,
   switchScenario,
+  updateJiraWorkItemAssignee,
   updatePlannerLayoutForCurrentContext,
   updateScenario,
+  upsertJiraItemBizAssignment,
 } from '../stores/actions';
 import {
   useActiveScenario,
   useActiveScenarioId,
   useAppStore,
   useCurrentState,
-  useSyncStatus,
 } from '../stores/appStore';
 import type { PlannerItem, PlannerItemType, PlannerAssignment, Scenario } from '../types';
 import { migratePlannerLayout } from '../utils/plannerMigration';
@@ -51,24 +47,6 @@ function defaultSpan(type: PlannerItemType): number {
   return TYPE_SPAN[type] ?? 1;
 }
 
-function hasOwnerOnTrack(item: PlannerItem, track: PlannerAssignment['track']): boolean {
-  return item.assignees.some((assignee) => assignee.track === track);
-}
-
-function saveStateLabel(status: ReturnType<typeof useSyncStatus>['status']): string {
-  if (status === 'offline') return 'Local only';
-  if (status === 'saving') return 'Saving';
-  if (status === 'error') return 'Not saved';
-  return 'Saved';
-}
-
-function saveStateTone(status: ReturnType<typeof useSyncStatus>['status']): string {
-  if (status === 'offline') return 'border-[#DEDFE3] bg-white text-[#94A3B8]';
-  if (status === 'saving') return 'border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]';
-  if (status === 'error') return 'border-[#FECACA] bg-[#FEF2F2] text-[#DC2626]';
-  return 'border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]';
-}
-
 function hasImportedBreakdown(epicKey: string, jiraItems: Array<{ parentKey?: string | null }>): boolean {
   return jiraItems.some((item) => item.parentKey === epicKey);
 }
@@ -82,11 +60,11 @@ export function ScenarioPlanner() {
   const scenarios = useAppStore(useShallow((state) =>
     state.data.scenarios.filter((scenario) => !scenario.archived && !scenario.isBaseline),
   ));
-  const sync = useSyncStatus();
 
   const [assignPanelItemId, setAssignPanelItemId] = useState<string | null>(null);
   const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [capacityPanelOpen, setCapacityPanelOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'timeline' | 'summary'>('timeline');
   const [createModalState, setCreateModalState] = useState<{
     defaultType: PlannerItemType;
     defaultParentKey?: string;
@@ -309,28 +287,6 @@ export function ScenarioPlanner() {
 
   const activeAssignItem = assignPanelItemId ? plannerItemsById.get(assignPanelItemId) ?? null : null;
 
-  const summary = useMemo(() => {
-    const scheduledSourceIds = new Set(plannerItems.map((item) => item.sourceId));
-    const importedBacklogCount = jiraItems.filter((item) => !scheduledSourceIds.has(item.id)).length;
-    const scheduledEpicCount = plannerItems.filter((item) => item.type === 'epic').length;
-    const planningOnlyCount = plannerItems.filter((item) => item.isManual).length;
-    const staffingRiskCount = plannerItems.filter(
-      (item) => !hasOwnerOnTrack(item, 'IT') || !hasOwnerOnTrack(item, 'BIZ'),
-    ).length;
-    const missingBreakdownCount = jiraItems.filter((item) => {
-      if (item.type !== 'epic') return false;
-      return !jiraItems.some((candidate) => candidate.parentKey === item.jiraKey);
-    }).length;
-
-    return {
-      importedBacklogCount,
-      scheduledEpicCount,
-      planningOnlyCount,
-      staffingRiskCount,
-      missingBreakdownCount,
-    };
-  }, [jiraItems, plannerItems]);
-
   const breakdownMissingEpicKeys = useMemo(
     () => new Set(
       jiraItems
@@ -358,18 +314,14 @@ export function ScenarioPlanner() {
     );
   }, [plannerItems, visibleSprints]);
 
-  const scenarioSummary = useMemo(() => {
-    const importedFeatures = jiraItems.filter((item) => item.type === 'feature').length;
-    const importedStories = jiraItems.filter((item) => item.type === 'story' || item.type === 'task' || item.type === 'bug').length;
-    const plannedItems = plannerItems.length;
-    const manualItems = plannerItems.filter((item) => item.isManual).length;
-    return {
-      importedFeatures,
-      importedStories,
-      plannedItems,
-      manualItems,
-    };
-  }, [jiraItems, plannerItems]);
+  const assignedJiraIds = useMemo(
+    () => new Set(
+      plannerItems
+        .filter((item) => !item.isManual)
+        .map((item) => item.sourceId),
+    ),
+    [plannerItems],
+  );
 
   const addWorkMenu = (
     <PlanningHeaderActionMenu
@@ -384,45 +336,18 @@ export function ScenarioPlanner() {
     />
   );
 
-  const headerFooter = (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`${PLANNING_STAT_CHIP_CLASS} ${saveStateTone(sync.status)}`}>
-          {sync.status === 'offline' ? <WifiOff size={13} /> : <CheckCircle2 size={13} />}
-          {saveStateLabel(sync.status)}
-        </span>
-        <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#DEDFE3] bg-white text-[#64748B]`}>
-          <CalendarRange size={13} />
-          {visibleSprints.length} delivery sprints
-        </span>
-        <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#DEDFE3] bg-white text-[#64748B]`}>
-          <Workflow size={13} />
-          {summary.importedBacklogCount} imported items unscheduled
-        </span>
-        <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#DEDFE3] bg-white text-[#64748B]`}>
-          <Layers3 size={13} />
-          {summary.scheduledEpicCount} epics on plan
-        </span>
-        <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#E0E7FF] bg-[#F8FAFF] text-[#4338CA]`}>
-          {summary.planningOnlyCount} planning-only items
-        </span>
-        <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C]`}>
-          {summary.staffingRiskCount} items need staffing
-        </span>
-        {summary.missingBreakdownCount > 0 ? (
-          <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]`}>
-            {summary.missingBreakdownCount} epics not ready for detailed delivery planning
-          </span>
-        ) : null}
-      </div>
-      <div className={PLANNING_INFO_BANNER_CLASS}>
-        <Sparkles size={16} className="mt-0.5 shrink-0 text-[#4F46E5]" />
-        <p>
-          Imported Jira work stays visible until scheduled. Planning-only items stay explicitly marked so what-if work remains separate from Jira-backed delivery reality.
-        </p>
-      </div>
-    </div>
-  );
+  const handleAssignItOwner = (workItemId: string, memberId: string | null) => {
+    updateJiraWorkItemAssignee(workItemId, memberId);
+  };
+
+  const handleAssignBizOwner = (jiraKey: string, contactId: string | null) => {
+    const existingAssignments = (planningState.jiraItemBizAssignments ?? []).filter((assignment) => assignment.jiraKey === jiraKey);
+    existingAssignments.forEach((assignment) => removeJiraItemBizAssignment(assignment.id));
+
+    if (contactId) {
+      upsertJiraItemBizAssignment({ jiraKey, contactId });
+    }
+  };
 
   return (
     <div className={`flex h-full flex-col ${PLANNING_PAGE_SURFACE_CLASS}`}>
@@ -437,123 +362,115 @@ export function ScenarioPlanner() {
         onRename={handleRenameScenario}
         onDelete={handleDeleteScenario}
         primaryAction={addWorkMenu}
-        showSaveState={false}
-        footer={headerFooter}
+        showSaveState
       />
 
-      <div className="relative min-h-0 flex-1 overflow-hidden p-6">
-        <DndContext sensors={sensors} collisionDetection={closestCenter}>
-          <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)_280px] gap-6">
-            <div className={`min-h-0 overflow-hidden ${PLANNING_PANEL_CLASS}`}>
-              <PlannerBacklog
-                jiraItems={jiraItems}
-                plannerItems={plannerItems}
-                expanded
-                variant="embedded"
-                onExpand={() => {}}
-                onCollapse={() => {}}
-                onBulkSchedule={(items) => scheduleImportedItemsAtSprint(items, visibleSprints[0]?.number ?? 1)}
-              />
+      <div className="border-b border-[#E2E8F0] bg-white px-6">
+        <div className="flex h-10 items-stretch">
+          <button
+            type="button"
+            className={[
+              'flex items-center border-b-2 px-4 text-sm font-medium transition-colors',
+              activeTab === 'timeline'
+                ? 'border-[#0089DD] text-[#0089DD]'
+                : 'border-transparent text-[#64748B] hover:text-[#1E293B]',
+            ].join(' ')}
+            onClick={() => setActiveTab('timeline')}
+            aria-pressed={activeTab === 'timeline'}
+          >
+            Timeline
+          </button>
+          <button
+            type="button"
+            className={[
+              'flex items-center border-b-2 px-4 text-sm font-medium transition-colors',
+              activeTab === 'summary'
+                ? 'border-[#0089DD] text-[#0089DD]'
+                : 'border-transparent text-[#64748B] hover:text-[#1E293B]',
+            ].join(' ')}
+            onClick={() => setActiveTab('summary')}
+            aria-pressed={activeTab === 'summary'}
+          >
+            Summary
+          </button>
+        </div>
+      </div>
+
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {activeTab === 'timeline' ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter}>
+            <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)]">
+              <section className="min-h-0 overflow-hidden border-r border-[#E2E8F0] bg-white">
+                <PlannerBacklog
+                  jiraItems={jiraItems}
+                  plannerItems={plannerItems}
+                  expanded
+                  variant="embedded"
+                  onExpand={() => {}}
+                  onCollapse={() => {}}
+                  onBulkSchedule={(items) => scheduleImportedItemsAtSprint(items, visibleSprints[0]?.number ?? 1)}
+                />
+              </section>
+
+              <section className="min-h-0 overflow-hidden bg-white">
+                <div className="border-b border-[#E2E8F0] px-6 py-4">
+                  <h2 className="text-base font-semibold text-[#1E293B]">Delivery Timeline</h2>
+                  <p className="mt-1 text-sm text-[#64748B]">
+                    Jira-backed work and planning-only items share one sprint plan, while hierarchy and readiness stay explicit.
+                  </p>
+                </div>
+
+                <PlannerTimeline
+                  plannerItems={plannerItems}
+                  jiraItems={jiraItems}
+                  sprints={visibleSprints}
+                  scenarioId={activeScenarioId ?? 'baseline'}
+                  onItemsChange={onItemsChange}
+                  onBarClick={(item) => {
+                    setDetailItemId(null);
+                    setAssignPanelItemId(item.id);
+                  }}
+                  onOpenAssignFromLabel={(item) => {
+                    setDetailItemId(null);
+                    setAssignPanelItemId(item.id);
+                  }}
+                  assignPanelItemId={assignPanelItemId}
+                  onAddChild={(parentItem) => setCreateModalState({
+                    defaultType: parentItem.type === 'epic' ? 'feature' : 'story',
+                    defaultParentKey: parentItem.jiraKey,
+                  })}
+                  onLabelClick={(item) => {
+                    setAssignPanelItemId(null);
+                    setDetailItemId(item.jiraKey ?? item.id);
+                  }}
+                  capacityPanelOpen={capacityPanelOpen}
+                  onCapacityPanelToggle={() => setCapacityPanelOpen((value) => !value)}
+                  onOverloadedTickerClick={() => setCapacityPanelOpen(true)}
+                  onBacklogItemScheduled={() => {}}
+                  onBarUnscheduledToBacklog={() => {}}
+                  skillsMatchingEnabled={scenarioForPlanner?.skillsMatchingEnabled ?? true}
+                  breakdownMissingEpicKeys={breakdownMissingEpicKeys}
+                  carryoverEpicKeys={carryoverEpicKeys}
+                />
+              </section>
             </div>
-
-            <div className={`min-h-0 overflow-hidden ${PLANNING_PANEL_EMPHASIS_CLASS}`}>
-              <div className="border-b border-[#EEF2F7] px-6 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-base font-semibold text-[#1E293B]">Delivery Timeline</h2>
-                    <p className="mt-1 text-sm text-[#64748B]">
-                      Jira-backed work and planning-only items share one sprint plan, while hierarchy and readiness stay explicit.
-                    </p>
-                  </div>
-                  <div className="inline-flex rounded-full border border-[#DEDFE3] bg-[#F8FAFC] p-1 text-xs font-medium text-[#64748B]">
-                    <span className="rounded-full bg-white px-3 py-1 text-[#0F172A] shadow-sm">Timeline</span>
-                    <span className="px-3 py-1">Summary</span>
-                  </div>
-                </div>
-              </div>
-
-              <PlannerTimeline
-                plannerItems={plannerItems}
-                jiraItems={jiraItems}
-                sprints={visibleSprints}
-                scenarioId={activeScenarioId ?? 'baseline'}
-                onItemsChange={onItemsChange}
-                onBarClick={(item) => {
-                  setDetailItemId(null);
-                  setAssignPanelItemId(item.id);
-                }}
-                onOpenAssignFromLabel={(item) => {
-                  setDetailItemId(null);
-                  setAssignPanelItemId(item.id);
-                }}
-                assignPanelItemId={assignPanelItemId}
-                onAddChild={(parentItem) => setCreateModalState({
-                  defaultType: parentItem.type === 'epic' ? 'feature' : 'story',
-                  defaultParentKey: parentItem.jiraKey,
-                })}
-                onLabelClick={(item) => {
-                  setAssignPanelItemId(null);
-                  setDetailItemId(item.jiraKey ?? item.id);
-                }}
-                capacityPanelOpen={capacityPanelOpen}
-                onCapacityPanelToggle={() => setCapacityPanelOpen((value) => !value)}
-                onOverloadedTickerClick={() => setCapacityPanelOpen(true)}
-                onBacklogItemScheduled={() => {}}
-                onBarUnscheduledToBacklog={() => {}}
-                skillsMatchingEnabled={scenarioForPlanner?.skillsMatchingEnabled ?? true}
-                breakdownMissingEpicKeys={breakdownMissingEpicKeys}
-                carryoverEpicKeys={carryoverEpicKeys}
-              />
-            </div>
-
-            <aside className="flex min-h-0 flex-col gap-4">
-              <div className={`${PLANNING_PANEL_CLASS} px-5 py-5`}>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Scenario Summary</span>
-                <h3 className="mt-2 text-lg font-semibold text-[#1E293B]">{activeScenario?.name ?? 'Baseline'}</h3>
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#64748B]">Imported features</span>
-                    <strong className="text-[#1E293B]">{scenarioSummary.importedFeatures}</strong>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#64748B]">Stories and tasks</span>
-                    <strong className="text-[#1E293B]">{scenarioSummary.importedStories}</strong>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#64748B]">Items on plan</span>
-                    <strong className="text-[#1E293B]">{scenarioSummary.plannedItems}</strong>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#64748B]">Planning-only items</span>
-                    <strong className="text-[#4338CA]">{scenarioSummary.manualItems}</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div className={`${PLANNING_PANEL_CLASS} px-5 py-5`}>
-                <div className="flex items-center gap-2 text-[#B45309]">
-                  <ShieldAlert size={16} />
-                  <span className="text-sm font-semibold">Delivery Risks</span>
-                </div>
-                <div className="mt-4 space-y-3 text-sm text-[#475569]">
-                  <div className="rounded-2xl bg-[#FFF7ED] px-3 py-3 text-[#9A3412]">
-                    {summary.staffingRiskCount} planned items still miss either IT or business ownership.
-                  </div>
-                  <div className="rounded-2xl bg-[#F8FAFC] px-3 py-3">
-                    {summary.importedBacklogCount} imported items are still unscheduled in this delivery scenario.
-                  </div>
-                  <div className="rounded-2xl bg-[#F8FAFC] px-3 py-3">
-                    {summary.missingBreakdownCount > 0
-                      ? `${summary.missingBreakdownCount} epics are visible but still need imported Jira breakdown before detailed delivery planning is ready.`
-                      : 'All visible epics have Jira breakdown available for detailed delivery planning.'}
-                  </div>
-                </div>
-              </div>
-            </aside>
+          </DndContext>
+        ) : (
+          <div className="h-full overflow-y-auto bg-white">
+            <DeliveryBreakdownPanel
+              epicItems={jiraItems.filter((item) => item.type === 'epic')}
+              allItems={jiraItems}
+              assignedJiraIds={assignedJiraIds}
+              businessAssignments={planningState.jiraItemBizAssignments ?? []}
+              teamMembers={planningState.teamMembers ?? []}
+              businessContacts={planningState.businessContacts ?? []}
+              onAssignItOwner={handleAssignItOwner}
+              onAssignBizOwner={handleAssignBizOwner}
+            />
           </div>
-        </DndContext>
+        )}
 
-        {detailItemId ? (
+        {activeTab === 'timeline' && detailItemId ? (
           <PlannerDetailPanel
             detailItemId={detailItemId}
             plannerItems={plannerItems}
@@ -565,7 +482,7 @@ export function ScenarioPlanner() {
         ) : null}
       </div>
 
-      {activeAssignItem ? (
+      {activeTab === 'timeline' && activeAssignItem ? (
         <AssignPanel
           item={activeAssignItem}
           plannerItems={plannerItems}

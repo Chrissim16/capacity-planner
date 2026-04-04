@@ -9,7 +9,6 @@ import {
   UserCircle2,
 } from 'lucide-react';
 import type { BusinessContact, JiraItemBizAssignment, JiraWorkItem, TeamMember } from '../../types';
-import { PLANNING_PANEL_CLASS } from './planningShell';
 
 interface DeliveryBreakdownPanelProps {
   epicItems: JiraWorkItem[];
@@ -344,7 +343,7 @@ export function DeliveryBreakdownPanel({
 
   return (
     <section className="border-b border-[#DEDFE3] bg-[#F8FAFC] px-6 py-5">
-      <div className={PLANNING_PANEL_CLASS}>
+      <div className="overflow-hidden rounded-none border border-[#E2E8F0] bg-white">
         <div className="flex flex-col gap-4 border-b border-[#EEF2F7] px-5 py-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-[#1E293B]">Imported Delivery Breakdown</h2>
