@@ -69,7 +69,6 @@ import { PlanningHeaderActionMenu } from '../components/planning/PlanningHeaderA
 import { CostDrawer } from '../components/portfolio/CostDrawer';
 import { Button } from '../components/ui/Button';
 import { buildPortfolioCostSummary, type PortfolioCostSummary } from '../utils/costing';
-import { formatCurrency } from '../utils/currency';
 import { AddManualEpicModal } from './AddManualEpicModal';
 import { BulkReplacePersonModal } from './BulkReplacePersonModal';
 import { CostsView } from './CostsView';

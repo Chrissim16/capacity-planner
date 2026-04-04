@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { PortfolioCostSummary } from '../types';
+import type { InitiativeCostSummary, PortfolioCostSummary } from '../utils/costing';
 import { formatCurrency } from '../utils/currency';
 
 export interface CostsViewProps {
@@ -19,11 +19,14 @@ export function CostsView({
 }: CostsViewProps) {
   const costDeltaByInitiative = useMemo(() => {
     if (!baselinePortfolioCostSummary) return new Map<string, number>();
-    const baselineMap = new Map(
-      baselinePortfolioCostSummary.initiatives.map((initiative) => [initiative.initiativeId, initiative.totalCost]),
+    const baselineMap = new Map<string, number>(
+      baselinePortfolioCostSummary.initiatives.map((initiative: InitiativeCostSummary) => [
+        initiative.initiativeId,
+        initiative.totalCost,
+      ]),
     );
-    return new Map(
-      portfolioCostSummary.initiatives.map((initiative) => [
+    return new Map<string, number>(
+      portfolioCostSummary.initiatives.map((initiative: InitiativeCostSummary) => [
         initiative.initiativeId,
         initiative.totalCost - (baselineMap.get(initiative.initiativeId) ?? 0),
       ]),
@@ -32,7 +35,7 @@ export function CostsView({
 
   const totalCostDelta = useMemo(() => {
     let total = 0;
-    costDeltaByInitiative.forEach((delta) => {
+    costDeltaByInitiative.forEach((delta: number) => {
       total += delta;
     });
     return total;
