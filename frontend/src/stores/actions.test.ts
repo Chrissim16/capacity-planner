@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { AppState, InitiativeCostRecord, Scenario } from '../types';
-import { createScenario, deleteScenario, duplicateScenario } from './actions';
+import type { AppState, InitiativeCostRecord, PlannerItem, Scenario } from '../types';
+import { createScenario, deleteScenario, duplicateScenario, updatePlannerLayoutForCurrentContext } from './actions';
 import { useAppStore } from './appStore';
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
@@ -206,5 +206,49 @@ describe('scenario initiative cost lifecycle', () => {
       expect.objectContaining({ id: 'other-scenario-cost', scenarioId: 'scenario-2' }),
       expect.objectContaining({ id: 'portfolio-cost-1', initiativeKind: 'portfolio_epic', scenarioId: undefined }),
     ]);
+  });
+
+  it('keeps plannerLayout scoped to the active shared scenario', () => {
+    const sourceScenario = makeScenario({
+      plannerLayout: [{
+        id: 'old-item',
+        sourceId: 'old-item',
+        name: 'Old item',
+        type: 'epic',
+        jiraKey: 'EPIC-OLD',
+        startSprint: 1,
+        spanSprints: 1,
+        assignees: [],
+        isManual: false,
+        labels: [],
+        jiraAssignees: [],
+        requiredSkillIds: [],
+      }],
+    });
+    useAppStore.getState().setData(makeState({
+      scenarios: [sourceScenario],
+      activeScenarioId: sourceScenario.id,
+    }));
+
+    const nextLayout: PlannerItem[] = [{
+      id: 'planner-1',
+      sourceId: 'planner-1',
+      name: 'Delivery item',
+      type: 'feature',
+      jiraKey: 'FEAT-1',
+      parentKey: 'EPIC-OLD',
+      startSprint: 2,
+      spanSprints: 1,
+      assignees: [],
+      isManual: false,
+      labels: [],
+      jiraAssignees: [],
+      requiredSkillIds: [],
+    }];
+    updatePlannerLayoutForCurrentContext(nextLayout);
+
+    const updatedScenario = useAppStore.getState().data.scenarios[0];
+    expect(updatedScenario.plannerLayout).toEqual(nextLayout);
+    expect(useAppStore.getState().data.activeScenarioId).toBe(sourceScenario.id);
   });
 });

@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
 import type { Scenario } from '../../types';
 import { useAppStore, useSyncStatus } from '../../stores/appStore';
 import { PlanScenarioSwitcher } from './PlanScenarioSwitcher';
+import { PLANNING_HEADER_CLASS } from './planningShell';
 
 interface PlanningLensHeaderProps {
   title: string;
@@ -17,6 +18,7 @@ interface PlanningLensHeaderProps {
   context?: ReactNode;
   controls?: ReactNode;
   primaryAction?: ReactNode;
+  footer?: ReactNode;
   showSaveState?: boolean;
 }
 
@@ -80,38 +82,42 @@ export function PlanningLensHeader({
   context,
   controls,
   primaryAction,
+  footer,
   showSaveState = true,
 }: PlanningLensHeaderProps) {
   return (
-    <div className="relative z-[320] border-b border-[#DEDFE3] bg-white px-6 py-3">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-6">
-        <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Planning Lens</div>
-          <h1 className="mt-1.5 text-xl font-bold leading-tight text-[#1E293B]">{title}</h1>
-          {subtitle.trim() ? (
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-[#64748B]">{subtitle}</p>
-          ) : null}
-          {context ? (
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-[#94A3B8]">
-              {context}
-            </div>
-          ) : null}
-        </div>
+    <div className={PLANNING_HEADER_CLASS}>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-6">
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Planning Lens</div>
+            <h1 className="mt-1.5 text-xl font-bold leading-tight text-[#1E293B]">{title}</h1>
+            {subtitle.trim() ? (
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-[#64748B]">{subtitle}</p>
+            ) : null}
+            {context ? (
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-[#94A3B8]">
+                {context}
+              </div>
+            ) : null}
+          </div>
 
-        <div className="flex w-full flex-wrap items-center gap-1.5 xl:w-auto xl:flex-nowrap xl:justify-end">
-          {showSaveState ? <PlanningLensSyncState /> : null}
-          <PlanScenarioSwitcher
-            scenarios={scenarios}
-            activeScenarioId={activeScenarioId}
-            onSwitch={onSwitch}
-            onCreate={onCreate}
-            onDuplicate={onDuplicate}
-            onRename={onRename}
-            onDelete={onDelete}
-          />
-          {controls}
-          {primaryAction}
+          <div className="flex w-full flex-wrap items-center gap-1.5 xl:w-auto xl:flex-nowrap xl:justify-end">
+            {showSaveState ? <PlanningLensSyncState /> : null}
+            <PlanScenarioSwitcher
+              scenarios={scenarios}
+              activeScenarioId={activeScenarioId}
+              onSwitch={onSwitch}
+              onCreate={onCreate}
+              onDuplicate={onDuplicate}
+              onRename={onRename}
+              onDelete={onDelete}
+            />
+            {controls}
+            {primaryAction}
+          </div>
         </div>
+        {footer ? <div>{footer}</div> : null}
       </div>
     </div>
   );

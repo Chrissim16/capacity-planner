@@ -9,6 +9,7 @@ import {
   UserCircle2,
 } from 'lucide-react';
 import type { BusinessContact, JiraItemBizAssignment, JiraWorkItem, TeamMember } from '../../types';
+import { PLANNING_PANEL_CLASS } from './planningShell';
 
 interface DeliveryBreakdownPanelProps {
   epicItems: JiraWorkItem[];
@@ -343,7 +344,7 @@ export function DeliveryBreakdownPanel({
 
   return (
     <section className="border-b border-[#DEDFE3] bg-[#F8FAFC] px-6 py-5">
-      <div className="rounded-2xl border border-[#DEDFE3] bg-white shadow-sm">
+      <div className={PLANNING_PANEL_CLASS}>
         <div className="flex flex-col gap-4 border-b border-[#EEF2F7] px-5 py-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-[#1E293B]">Imported Delivery Breakdown</h2>
@@ -380,7 +381,7 @@ export function DeliveryBreakdownPanel({
         {summary.missingBreakdownCount > 0 ? (
           <div className="flex items-center gap-2 border-b border-[#EEF2F7] bg-[#FFF7ED] px-5 py-3 text-sm text-[#9A3412]">
             <AlertTriangle size={16} />
-            <span>{summary.missingBreakdownCount} epic{summary.missingBreakdownCount === 1 ? '' : 's'} still need Jira breakdown before detailed delivery planning.</span>
+            <span>{summary.missingBreakdownCount} epic{summary.missingBreakdownCount === 1 ? '' : 's'} are visible but not yet ready for detailed delivery planning.</span>
           </div>
         ) : null}
 
@@ -443,7 +444,7 @@ export function DeliveryBreakdownPanel({
                 {epicExpanded ? (
                   epicMissingBreakdown ? (
                     <div className="px-12 pb-4 text-sm text-[#94A3B8]">
-                      This epic is on the portfolio board, but it does not yet have imported feature or story breakdown to plan in delivery.
+                      This epic is already in planning, but it does not yet have imported feature or story breakdown to support detailed delivery planning.
                     </div>
                   ) : (
                     <div className="pb-3">
@@ -559,7 +560,7 @@ export function DeliveryBreakdownPanel({
                                 ))
                               ) : (
                                 <div className="px-16 py-3 text-sm text-[#94A3B8]">
-                                  This feature has no child stories or tasks imported yet.
+                                  This feature is visible, but its story or task breakdown has not been imported yet.
                                 </div>
                               )
                             ) : null}

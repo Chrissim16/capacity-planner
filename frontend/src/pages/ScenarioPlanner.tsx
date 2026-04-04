@@ -9,6 +9,13 @@ import { PlannerTimeline } from '../components/planner/PlannerTimeline';
 import { PlanningHeaderActionMenu } from '../components/planning/PlanningHeaderActionMenu';
 import { PlanningLensHeader } from '../components/planning/PlanningLensHeader';
 import {
+  PLANNING_INFO_BANNER_CLASS,
+  PLANNING_PAGE_SURFACE_CLASS,
+  PLANNING_PANEL_CLASS,
+  PLANNING_PANEL_EMPHASIS_CLASS,
+  PLANNING_STAT_CHIP_CLASS,
+} from '../components/planning/planningShell';
+import {
   createScenario,
   deleteScenario,
   duplicateScenario,
@@ -60,6 +67,10 @@ function saveStateTone(status: ReturnType<typeof useSyncStatus>['status']): stri
   if (status === 'saving') return 'border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]';
   if (status === 'error') return 'border-[#FECACA] bg-[#FEF2F2] text-[#DC2626]';
   return 'border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]';
+}
+
+function hasImportedBreakdown(epicKey: string, jiraItems: Array<{ parentKey?: string | null }>): boolean {
+  return jiraItems.some((item) => item.parentKey === epicKey);
 }
 
 export function ScenarioPlanner() {
@@ -320,6 +331,33 @@ export function ScenarioPlanner() {
     };
   }, [jiraItems, plannerItems]);
 
+  const breakdownMissingEpicKeys = useMemo(
+    () => new Set(
+      jiraItems
+        .filter((item) => item.type === 'epic')
+        .filter((item) => !hasImportedBreakdown(item.jiraKey, jiraItems))
+        .map((item) => item.jiraKey),
+    ),
+    [jiraItems],
+  );
+
+  const carryoverEpicKeys = useMemo(() => {
+    const currentSprintNumber = visibleSprints.find((sprint) => {
+      if (!sprint.startDate || !sprint.endDate) return false;
+      const now = new Date();
+      return new Date(sprint.startDate) <= now && now <= new Date(sprint.endDate);
+    })?.number;
+
+    if (!currentSprintNumber) return new Set<string>();
+
+    return new Set(
+      plannerItems
+        .filter((item) => item.type === 'epic' && item.jiraKey)
+        .filter((item) => item.startSprint < currentSprintNumber && item.startSprint + item.spanSprints - 1 >= currentSprintNumber)
+        .map((item) => item.jiraKey!),
+    );
+  }, [plannerItems, visibleSprints]);
+
   const scenarioSummary = useMemo(() => {
     const importedFeatures = jiraItems.filter((item) => item.type === 'feature').length;
     const importedStories = jiraItems.filter((item) => item.type === 'story' || item.type === 'task' || item.type === 'bug').length;
@@ -346,8 +384,48 @@ export function ScenarioPlanner() {
     />
   );
 
+  const headerFooter = (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`${PLANNING_STAT_CHIP_CLASS} ${saveStateTone(sync.status)}`}>
+          {sync.status === 'offline' ? <WifiOff size={13} /> : <CheckCircle2 size={13} />}
+          {saveStateLabel(sync.status)}
+        </span>
+        <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#DEDFE3] bg-white text-[#64748B]`}>
+          <CalendarRange size={13} />
+          {visibleSprints.length} delivery sprints
+        </span>
+        <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#DEDFE3] bg-white text-[#64748B]`}>
+          <Workflow size={13} />
+          {summary.importedBacklogCount} imported items unscheduled
+        </span>
+        <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#DEDFE3] bg-white text-[#64748B]`}>
+          <Layers3 size={13} />
+          {summary.scheduledEpicCount} epics on plan
+        </span>
+        <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#E0E7FF] bg-[#F8FAFF] text-[#4338CA]`}>
+          {summary.planningOnlyCount} planning-only items
+        </span>
+        <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C]`}>
+          {summary.staffingRiskCount} items need staffing
+        </span>
+        {summary.missingBreakdownCount > 0 ? (
+          <span className={`${PLANNING_STAT_CHIP_CLASS} border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]`}>
+            {summary.missingBreakdownCount} epics not ready for detailed delivery planning
+          </span>
+        ) : null}
+      </div>
+      <div className={PLANNING_INFO_BANNER_CLASS}>
+        <Sparkles size={16} className="mt-0.5 shrink-0 text-[#4F46E5]" />
+        <p>
+          Imported Jira work stays visible until scheduled. Planning-only items stay explicitly marked so what-if work remains separate from Jira-backed delivery reality.
+        </p>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="flex h-full flex-col bg-[#F8FAFC]">
+    <div className={`flex h-full flex-col ${PLANNING_PAGE_SURFACE_CLASS}`}>
       <PlanningLensHeader
         title="Delivery Planning"
         subtitle="Plan feature and story delivery capacity after Jira breakdown and approval."
@@ -360,50 +438,13 @@ export function ScenarioPlanner() {
         onDelete={handleDeleteScenario}
         primaryAction={addWorkMenu}
         showSaveState={false}
+        footer={headerFooter}
       />
-
-      <div className="border-b border-[#DEDFE3] bg-white px-6 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium ${saveStateTone(sync.status)}`}>
-            {sync.status === 'offline' ? <WifiOff size={13} /> : <CheckCircle2 size={13} />}
-            {saveStateLabel(sync.status)}
-          </span>
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#DEDFE3] bg-white px-2.5 text-xs font-medium text-[#64748B]">
-            <CalendarRange size={13} />
-            {visibleSprints.length} delivery sprints
-          </span>
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#DEDFE3] bg-white px-2.5 text-xs font-medium text-[#64748B]">
-            <Workflow size={13} />
-            {summary.importedBacklogCount} imported items unscheduled
-          </span>
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#DEDFE3] bg-white px-2.5 text-xs font-medium text-[#64748B]">
-            <Layers3 size={13} />
-            {summary.scheduledEpicCount} epics on plan
-          </span>
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#E0E7FF] bg-[#F8FAFF] px-2.5 text-xs font-medium text-[#4338CA]">
-            {summary.planningOnlyCount} planning-only items
-          </span>
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#FED7AA] bg-[#FFF7ED] px-2.5 text-xs font-medium text-[#C2410C]">
-            {summary.staffingRiskCount} items need staffing
-          </span>
-          {summary.missingBreakdownCount > 0 ? (
-            <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#FDE68A] bg-[#FFFBEB] px-2.5 text-xs font-medium text-[#B45309]">
-              {summary.missingBreakdownCount} epics still need Jira breakdown
-            </span>
-          ) : null}
-        </div>
-        <div className="mt-3 flex items-start gap-2 rounded-2xl border border-[#E0E7FF] bg-[#F8FAFF] px-4 py-3 text-sm text-[#475569]">
-          <Sparkles size={16} className="mt-0.5 shrink-0 text-[#4F46E5]" />
-          <p>
-            Imported Jira work stays in the backlog until scheduled. Manual items land on the plan immediately and are marked as planning-only so they stay distinct from Jira reality.
-          </p>
-        </div>
-      </div>
 
       <div className="relative min-h-0 flex-1 overflow-hidden p-6">
         <DndContext sensors={sensors} collisionDetection={closestCenter}>
           <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)_280px] gap-6">
-            <div className="min-h-0 overflow-hidden rounded-[28px] border border-[#DEDFE3] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+            <div className={`min-h-0 overflow-hidden ${PLANNING_PANEL_CLASS}`}>
               <PlannerBacklog
                 jiraItems={jiraItems}
                 plannerItems={plannerItems}
@@ -415,13 +456,13 @@ export function ScenarioPlanner() {
               />
             </div>
 
-            <div className="min-h-0 overflow-hidden rounded-[32px] border border-[#D9E2EC] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+            <div className={`min-h-0 overflow-hidden ${PLANNING_PANEL_EMPHASIS_CLASS}`}>
               <div className="border-b border-[#EEF2F7] px-6 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-base font-semibold text-[#1E293B]">Imported Delivery Breakdown</h2>
+                    <h2 className="text-base font-semibold text-[#1E293B]">Delivery Timeline</h2>
                     <p className="mt-1 text-sm text-[#64748B]">
-                      Capacity planning happens on imported features and stories, with both IT and business assignments.
+                      Jira-backed work and planning-only items share one sprint plan, while hierarchy and readiness stay explicit.
                     </p>
                   </div>
                   <div className="inline-flex rounded-full border border-[#DEDFE3] bg-[#F8FAFC] p-1 text-xs font-medium text-[#64748B]">
@@ -460,11 +501,13 @@ export function ScenarioPlanner() {
                 onBacklogItemScheduled={() => {}}
                 onBarUnscheduledToBacklog={() => {}}
                 skillsMatchingEnabled={scenarioForPlanner?.skillsMatchingEnabled ?? true}
+                breakdownMissingEpicKeys={breakdownMissingEpicKeys}
+                carryoverEpicKeys={carryoverEpicKeys}
               />
             </div>
 
             <aside className="flex min-h-0 flex-col gap-4">
-              <div className="rounded-[28px] border border-[#DEDFE3] bg-white px-5 py-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+              <div className={`${PLANNING_PANEL_CLASS} px-5 py-5`}>
                 <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">Scenario Summary</span>
                 <h3 className="mt-2 text-lg font-semibold text-[#1E293B]">{activeScenario?.name ?? 'Baseline'}</h3>
                 <div className="mt-4 space-y-3">
@@ -487,7 +530,7 @@ export function ScenarioPlanner() {
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-[#DEDFE3] bg-white px-5 py-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+              <div className={`${PLANNING_PANEL_CLASS} px-5 py-5`}>
                 <div className="flex items-center gap-2 text-[#B45309]">
                   <ShieldAlert size={16} />
                   <span className="text-sm font-semibold">Delivery Risks</span>
@@ -501,8 +544,8 @@ export function ScenarioPlanner() {
                   </div>
                   <div className="rounded-2xl bg-[#F8FAFC] px-3 py-3">
                     {summary.missingBreakdownCount > 0
-                      ? `${summary.missingBreakdownCount} epics still need Jira feature or story breakdown before detailed delivery planning is complete.`
-                      : 'All visible epics have delivery breakdown available for planning.'}
+                      ? `${summary.missingBreakdownCount} epics are visible but still need imported Jira breakdown before detailed delivery planning is ready.`
+                      : 'All visible epics have Jira breakdown available for detailed delivery planning.'}
                   </div>
                 </div>
               </div>
