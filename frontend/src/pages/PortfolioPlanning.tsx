@@ -5320,7 +5320,7 @@ export function PortfolioPlanning() {
       <div className="pp-tabbar">
         <button className={`pp-tab${activeTab === 'epic'    ? ' on' : ''}`} onClick={() => setActiveTab('epic')}>⬡ Plan</button>
         <button className={`pp-tab${activeTab === 'people'  ? ' on' : ''}`} onClick={() => setActiveTab('people')}>◎ People</button>
-        <button className={`pp-tab${activeTab === 'costs'   ? ' on' : ''}`} onClick={() => setActiveTab('costs')}>💰 Costs</button>
+        <button className={`pp-tab${activeTab === 'costs'   ? ' on' : ''}`} onClick={() => setActiveTab('costs')}>◫ Costs</button>
         <button className={`pp-tab${activeTab === 'summary' ? ' on' : ''}`} onClick={() => setActiveTab('summary')}>▦ Summary</button>
       </div>
 

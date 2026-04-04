@@ -42,9 +42,10 @@ export function CostsView({
   }, [costDeltaByInitiative]);
 
   return (
-    <div className="flex flex-col gap-8 p-8">
+    <div className="pp-view on overflow-y-auto">
+      <div className="flex min-h-full flex-col gap-8 p-8">
       {/* Cost Overview */}
-      <div>
+        <div>
         <div className="pp-sec-hd">
           <span className="pp-sec-title">Cost Overview</span>
           <span className="pp-sec-sub">Reporting currency: {portfolioCostSummary.reportingCurrency}</span>
@@ -67,7 +68,7 @@ export function CostsView({
             </div>
           ))}
         </div>
-      </div>
+        </div>
 
       {/* Cost Delta (for scenarios) */}
       {activeScenarioName && baselinePortfolioCostSummary && (
@@ -160,6 +161,7 @@ export function CostsView({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
