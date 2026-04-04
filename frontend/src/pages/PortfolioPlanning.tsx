@@ -3154,81 +3154,187 @@ function SummaryView({
 
   return (
     <div className="pp-view on">
-      <div className="pp-sv">
-        <div>
-          <div className="pp-sec-hd">
-            <span className="pp-sec-title">Portfolio Health</span>
-            <span className="pp-sec-sub">{quarter}</span>
-          </div>
-          <div className="pp-health-grid">
-            <div className="pp-health-card">
-              <span className="pp-health-label">Planned vs available</span>
-              <div className="pp-health-value">
-                {Math.round(totalPlannedDays)} / {Math.round(totalAvailableDays)}d
-              </div>
-              <div className="pp-health-meta">
-                <span className={`pp-health-chip ${utilTier(portfolioUtilization)}`}>
-                  {Math.round(portfolioUtilization * 100)}% utilized
-                </span>
-              </div>
-            </div>
-            <div className="pp-health-card">
-              <span className="pp-health-label">People at risk</span>
-              <div className="pp-health-value">{overCapacityPeopleCount + nearCapacityPeopleCount}</div>
-              <div className="pp-health-meta">
-                <span className="pp-health-note">{overCapacityPeopleCount} over</span>
-                <span className="pp-health-note">{nearCapacityPeopleCount} near</span>
-              </div>
-            </div>
-            <div className="pp-health-card">
-              <span className="pp-health-label">Unstaffed epics</span>
-              <div className="pp-health-value">{unstaffedEpicCount}</div>
-              <div className="pp-health-meta">
-                <span className="pp-health-note">{boardEpics.length} epics on the board</span>
+      <div className="pp-sv pp-sv-dense">
+        {/* Hero Section: Scenario Delta + Health KPIs */}
+        <div className="pp-sv-hero-section">
+          {/* Left: Scenario Delta */}
+          {baselineDelta && (
+            <div className="pp-scenario-hero">
+              <div className="pp-section-title-compact">Scenario Impact</div>
+              <div className="pp-scenario-metrics-dense">
+                {[
+                  { label: 'Planned Days', value: baselineDelta.plannedDays, suffix: 'd' },
+                  { label: 'Over Capacity', value: baselineDelta.overCapacityPeople },
+                  { label: 'Unstaffed Epics', value: baselineDelta.unstaffedEpics },
+                ].map(item => (
+                  <div key={item.label} className="pp-scenario-metric-row">
+                    <span className="pp-scenario-metric-label">{item.label}</span>
+                    <span className="pp-scenario-metric-value">
+                      {item.value > 0 ? '+' : ''}{item.value}{item.suffix ?? ''}
+                      {item.value !== 0 && (
+                        <span className={`pp-scenario-metric-delta ${item.value > 0 ? 'worse' : 'better'}`}>
+                          {item.value > 0 ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="pp-health-card">
-              <span className="pp-health-label">Missing phase dates</span>
-              <div className="pp-health-value">{missingPhaseDateCount}</div>
-              <div className="pp-health-meta">
-                <span className="pp-health-note">Assigned phases without a start date</span>
+          )}
+
+          {/* Right: Portfolio Health KPIs (compact 2x2) */}
+          <div className="pp-section-card">
+            <div className="pp-section-title-compact">Portfolio Health</div>
+            <div className="pp-kpi-grid-mini">
+              <div className="pp-kpi-mini">
+                <div className="pp-kpi-mini-value">{Math.round(portfolioUtilization * 100)}%</div>
+                <div className="pp-kpi-mini-label">Utilization</div>
+              </div>
+              <div className="pp-kpi-mini">
+                <div className="pp-kpi-mini-value" style={{ color: '#EF4444' }}>{overCapacityPeopleCount}</div>
+                <div className="pp-kpi-mini-label">Over Capacity</div>
+              </div>
+              <div className="pp-kpi-mini">
+                <div className="pp-kpi-mini-value" style={{ color: '#F59E0B' }}>{unstaffedEpicCount}</div>
+                <div className="pp-kpi-mini-label">Unstaffed</div>
+              </div>
+              <div className="pp-kpi-mini">
+                <div className="pp-kpi-mini-value" style={{ color: '#F59E0B' }}>{missingPhaseDateCount}</div>
+                <div className="pp-kpi-mini-label">Missing Dates</div>
               </div>
             </div>
           </div>
         </div>
 
-        {baselineDelta && (
-          <div>
-            <div className="pp-sec-hd">
-              <span className="pp-sec-title">Scenario Delta</span>
-              <span className="pp-sec-sub">Compared with baseline for {activeScenarioName}</span>
-            </div>
-            <div className="pp-delta-grid">
-              {[
-                { label: 'Planned days', value: baselineDelta.plannedDays, suffix: 'd' },
-                { label: 'Over-capacity people', value: baselineDelta.overCapacityPeople },
-                { label: 'Near-capacity people', value: baselineDelta.nearCapacityPeople },
-                { label: 'Unstaffed epics', value: baselineDelta.unstaffedEpics },
-                { label: 'Missing phase dates', value: baselineDelta.missingPhaseDates },
-              ].map(item => (
-                <div key={item.label} className="pp-delta-card">
-                  <span className="pp-delta-label">{item.label}</span>
-                  <span className={`pp-delta-value ${item.value > 0 ? 'worse' : item.value < 0 ? 'better' : 'same'}`}>
-                    {item.value > 0 ? '+' : ''}{item.value}{item.suffix ?? ''}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Two-Column Main Content */}
+        <div className="pp-sv-2col">
 
-        {epicEffortCards.length > 0 && (
-          <div>
-            <div className="pp-sec-hd">
-              <span className="pp-sec-title">Effort by Epic</span>
-              <span className="pp-sec-sub">Ranked view of IT vs business effort</span>
+          {/* Left Column: Team Capacity */}
+          <div className="pp-sv-col-left">
+            <div className="pp-section-card">
+              <div className="pp-section-title-compact">Team Capacity</div>
+              <div className="pp-bar-chart-compact">
+                {kpiCards.map(c => (
+                  <div key={c.id} className="pp-bar-row-compact">
+                    <div className="pp-bar-label-compact">{c.name}</div>
+                    <div className="pp-bar-container-compact">
+                      <div
+                        className={`pp-kpi-bar-fill ${c.tier}`}
+                        style={{
+                          width: `${Math.min(100, c.utilPct * 100)}%`,
+                          height: '100%',
+                          borderRadius: '3px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          paddingLeft: '4px',
+                          color: 'white',
+                          fontSize: '9px',
+                          fontWeight: '600',
+                        }}
+                      >
+                        {Math.min(100, c.utilPct * 100).toFixed(0)}%
+                      </div>
+                    </div>
+                    <div className="pp-bar-status-compact">{c.tier === 'over' ? 'Over' : c.tier === 'near' ? 'Near' : 'OK'}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="pp-effort-list">
+
+            {/* Capacity Alerts Table */}
+            {alertRows.length > 0 && (
+              <div className="pp-section-card">
+                <div className="pp-section-title-compact">Capacity Alerts (85%+)</div>
+                <table className="pp-mini-table">
+                  <thead>
+                    <tr>
+                      <th>Person</th>
+                      <th style={{ textAlign: 'right' }}>%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {alertRows.slice(0, 5).map(r => (
+                      <tr key={r.id}>
+                        <td>{r.name}</td>
+                        <td style={{ textAlign: 'right', fontWeight: '600', color: r.tier === 'over' ? '#EF4444' : '#F59E0B' }}>
+                          {Math.round(r.utilPct * 100)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Risks & Top Epics */}
+          <div className="pp-sv-col-right">
+            {/* Priority Risks */}
+            {portfolioRisks.length > 0 && (
+              <div className="pp-section-card">
+                <div className="pp-section-title-compact">Priority Risks</div>
+                <div className="pp-risk-cards">
+                  {portfolioRisks.slice(0, 4).map(risk => (
+                    <div key={risk.id} className={`pp-risk-card-compact ${risk.severity}`}>
+                      <div className="pp-risk-card-title">{risk.label}</div>
+                      <div className="pp-risk-card-detail">{risk.summary}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top Epics */}
+            {epicEffortCards.length > 0 && (
+              <div className="pp-section-card">
+                <div className="pp-section-title-compact">Top 3 Epics by Effort</div>
+                <table className="pp-mini-table">
+                  <thead>
+                    <tr>
+                      <th>Epic</th>
+                      <th style={{ textAlign: 'right' }}>Days</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {epicEffortCards.slice(0, 3).map(card => (
+                      <tr key={card.epic.jiraKey}>
+                        <td><strong>{card.epic.jiraKey}</strong></td>
+                        <td style={{ textAlign: 'right' }}><strong>{Math.round(card.totalDays)}</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Collapsible: Effort by Epic */}
+        <div className="pp-collapsible-section">
+          <button
+            className="pp-collapsible-toggle"
+            onClick={(e: any) => {
+              const section = e.target.closest('.pp-collapsible-section');
+              if (section) {
+                const content = section.querySelector('.pp-effort-list');
+                const isOpen = section.classList.contains('open');
+                section.classList.toggle('open');
+                if (content) {
+                  content.style.display = isOpen ? 'none' : 'block';
+                }
+              }
+            }}
+          >
+            + Show all epics by effort
+          </button>
+          {epicEffortCards.length > 0 && (
+            <div>
+              <div className="pp-sec-hd">
+                <span className="pp-sec-title">Effort by Epic</span>
+                <span className="pp-sec-sub">Complete ranked view</span>
+              </div>
+              <div className="pp-effort-list" style={{ display: 'none' }}>
               <div className="pp-effort-head">
                 <div className="pp-effort-head-cell">Epic</div>
                 <div className="pp-effort-head-cell">Effort split</div>
@@ -3274,44 +3380,35 @@ function SummaryView({
                 );
               })}
             </div>
-          </div>
-        )}
-
-        {/* KPI cards */}
-        <div>
-          <div className="pp-sec-hd">
-            <span className="pp-sec-title">Capacity by Team</span>
-            <span className="pp-sec-sub">{quarter}</span>
-          </div>
-          <div className="pp-kpi-grid">
-            {kpiCards.map(c => (
-              <div key={c.id} className="pp-kpi-card">
-                <div className="pp-kpi-card-top">
-                  <span className="pp-kpi-team">{c.name}</span>
-                  {c.utilPct > 1 && <span className="pp-kpi-badge over">Over</span>}
-                  {c.utilPct > 0.85 && c.utilPct <= 1 && <span className="pp-kpi-badge over" style={{ background: '#FEF3C7', color: '#B45309' }}>Near</span>}
-                </div>
-                <div className="pp-kpi-nums">
-                  <span className="pp-kpi-est">{Math.round(c.estDays)}</span>
-                  <span className="pp-kpi-avail">/ {Math.round(c.totalAvail)}d</span>
-                </div>
-                <div className="pp-kpi-bar">
-                  <div className={`pp-kpi-bar-fill ${c.tier}`} style={{ width: `${Math.min(100, c.utilPct * 100)}%` }} />
-                </div>
-                <div className="pp-kpi-members">{c.memberCount} {c.memberCount === 1 ? 'person' : 'people'}</div>
-              </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Compact Gantt */}
-        {boardEpics.length > 0 && (
-          <div>
-            <div className="pp-sec-hd">
-              <span className="pp-sec-title">Portfolio Timeline</span>
-              <span className="pp-sec-sub">Risk badges highlight epics needing attention</span>
-            </div>
-            <div className="pp-cg-wrap">
+        {/* Collapsible: Portfolio Timeline */}
+        <div className="pp-collapsible-section">
+          <button
+            className="pp-collapsible-toggle"
+            onClick={(e: any) => {
+              const section = e.target.closest('.pp-collapsible-section');
+              if (section) {
+                const content = section.querySelector('.pp-cg-wrap');
+                const isOpen = section.classList.contains('open');
+                section.classList.toggle('open');
+                if (content) {
+                  content.style.display = isOpen ? 'none' : 'block';
+                }
+              }
+            }}
+          >
+            + Show Portfolio Timeline
+          </button>
+          {boardEpics.length > 0 && (
+            <div>
+              <div className="pp-sec-hd">
+                <span className="pp-sec-title">Portfolio Timeline</span>
+                <span className="pp-sec-sub">Risk badges highlight epics needing attention</span>
+              </div>
+              <div className="pp-cg-wrap" style={{ display: 'none' }}>
               <div className="pp-cg-head">
                 <div className="pp-cg-label-col"><span className="pp-cg-label-hd">Epic</span></div>
                 <div className="pp-cg-weeks-hd">
@@ -3375,76 +3472,9 @@ function SummaryView({
                   </div>
                 );
               })}
-            </div>
-          </div>
-        )}
-
-        {/* Capacity alerts */}
-        <div>
-          <div className="pp-sec-hd">
-            <span className="pp-sec-title">Portfolio Risks</span>
-            <span className="pp-sec-sub">People and epics that need attention first</span>
-          </div>
-          <div className="pp-risk-wrap">
-            <div className="pp-risk-hd">
-              <div className="pp-risk-hd-cell">Severity</div>
-              <div className="pp-risk-hd-cell">Type</div>
-              <div className="pp-risk-hd-cell">Item</div>
-              <div className="pp-risk-hd-cell">Issue</div>
-              <div className="pp-risk-hd-cell">Detail</div>
-            </div>
-            {portfolioRisks.length === 0 ? (
-              <div className="pp-pct-empty">No over-allocated or near-capacity team members — looking good!</div>
-            ) : portfolioRisks.map(risk => (
-              <div key={risk.id} className="pp-risk-row">
-                <div className="pp-risk-cell">
-                  <span className={`pp-risk-pill ${risk.severity}`}>{risk.severity === 'high' ? 'High' : 'Medium'}</span>
-                </div>
-                <div className="pp-risk-cell">{risk.kind === 'person' ? 'Person' : 'Epic'}</div>
-                <div className="pp-risk-cell pp-risk-item">{risk.label}</div>
-                <div className="pp-risk-cell">{risk.summary}</div>
-                <div className="pp-risk-cell pp-risk-detail">{risk.detail}</div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Capacity alerts */}
-        <div>
-          <div className="pp-sec-hd">
-            <span className="pp-sec-title">Capacity Alerts</span>
-            <span className="pp-sec-sub">Over-allocated and near-capacity members</span>
-          </div>
-          <div className="pp-pct-wrap">
-            <div className="pp-pct-hd">
-              <div className="pp-pct-hd-cell">Person</div>
-              <div className="pp-pct-hd-cell">Estimated</div>
-              <div className="pp-pct-hd-cell">Available</div>
-              <div className="pp-pct-hd-cell">Utilisation</div>
-              <div className="pp-pct-hd-cell">Delta</div>
             </div>
-            {alertRows.length === 0 ? (
-              <div className="pp-pct-empty">No over-allocated or near-capacity team members — looking good!</div>
-            ) : alertRows.map(r => (
-              <div key={r.id} className="pp-pct-row">
-                <div className="pp-pct-cell pp-pct-person">
-                  <div className="pp-av" style={{ background: avColor(r.id) }}>{initials(r.name)}</div>
-                  {r.name}
-                </div>
-                <div className="pp-pct-cell">{Math.round(r.estDays)}d</div>
-                <div className="pp-pct-cell">{Math.round(r.availDays)}d</div>
-                <div className="pp-pct-cell pp-pct-bar-cell">
-                  <div className="pp-pct-bar">
-                    <div className={`pp-pct-bar-fill ${r.tier}`} style={{ width: `${Math.min(100, r.utilPct * 100)}%` }} />
-                  </div>
-                  <span className="pp-pct-bar-label">{Math.round(r.utilPct * 100)}%</span>
-                </div>
-                <div className="pp-pct-cell">
-                  <span className={`pp-pct-delta ${r.tier}`}>{r.delta > 0 ? '+' : ''}{Math.round(r.delta)}d</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -2602,3 +2602,259 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-dr-manual-btn:hover { background: var(--offwh); }
 .pp-dr-manual-btn.delete:hover { color: #EF4444; background: #FEF2F2; }
 .pp-dr-manual-btn.edit:hover   { color: var(--blue); background: var(--blue-lt); }
+
+/* ── Dense Compact Cards Layout ──────────────────────────────────────────── */
+/* Reduced padding and gaps for space efficiency on wide screens */
+
+.pp-sv-dense {
+  padding: 12px;
+  gap: 12px;
+}
+
+.pp-sv-hero-section {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.pp-scenario-hero {
+  background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+  border: 1px solid #BFDBFE;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pp-scenario-hero .pp-sec-hd {
+  margin-bottom: 10px;
+}
+
+.pp-scenario-metrics-dense {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.pp-scenario-metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pp-scenario-metric-label {
+  color: #1E40AF;
+  font-weight: 500;
+}
+
+.pp-scenario-metric-value {
+  font-weight: 600;
+  color: #1E3A8A;
+}
+
+.pp-scenario-metric-delta {
+  font-size: 11px;
+  margin-left: 8px;
+}
+
+.pp-scenario-metric-delta.worse { color: #DC2626; }
+.pp-scenario-metric-delta.better { color: #16A34A; }
+.pp-scenario-metric-delta.same { color: #999; }
+
+.pp-kpi-grid-mini {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.pp-kpi-mini {
+  background: #FAFAFA;
+  border: 1px solid #EEE;
+  border-radius: 4px;
+  padding: 8px;
+  text-align: center;
+}
+
+.pp-kpi-mini-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2563EB;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.pp-kpi-mini-label {
+  font-size: 11px;
+  color: #999;
+}
+
+.pp-sv-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pp-sv-col-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pp-sv-col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pp-section-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pp-bar-chart-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pp-bar-row-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pp-bar-label-compact {
+  width: 100px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pp-bar-container-compact {
+  flex: 1;
+  height: 20px;
+  background: #F0F0F0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.pp-bar-status-compact {
+  width: 40px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: right;
+  color: #666;
+}
+
+.pp-risk-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pp-risk-card-compact {
+  padding: 8px;
+  border-left: 3px solid;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.pp-risk-card-compact.high {
+  background: #FEE2E2;
+  border-color: #EF4444;
+  color: #991B1B;
+}
+
+.pp-risk-card-compact.medium {
+  background: #FEF3C7;
+  border-color: #F59E0B;
+  color: #92400E;
+}
+
+.pp-risk-card-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.pp-risk-card-detail {
+  font-size: 10px;
+  color: inherit;
+  opacity: 0.9;
+}
+
+.pp-mini-table {
+  width: 100%;
+  font-size: 11px;
+  border-collapse: collapse;
+}
+
+.pp-mini-table th {
+  background: #F9FAFB;
+  padding: 6px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: #666;
+  border-bottom: 1px solid #EEE;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.pp-mini-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #F5F5F5;
+  font-size: 11px;
+}
+
+.pp-mini-table tr:hover {
+  background: #F9FAFB;
+}
+
+.pp-section-title-compact {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.pp-collapsible-section {
+  display: none;
+}
+
+.pp-collapsible-section.open {
+  display: block;
+}
+
+.pp-collapsible-toggle {
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.pp-collapsible-toggle:hover {
+  color: #0078C4;
+}
+
+/* Responsive: Stack to single column at smaller widths */
+@media (max-width: 1200px) {
+  .pp-sv-hero-section {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-sv-2col {
+    grid-template-columns: 1fr;
+  }
+}
