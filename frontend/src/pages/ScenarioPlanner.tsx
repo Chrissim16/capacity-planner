@@ -400,8 +400,8 @@ export function ScenarioPlanner() {
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {activeTab === 'timeline' ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter}>
-            <div className="relative h-full min-h-0 overflow-hidden bg-white">
-              <div className="absolute inset-y-0 left-0 z-30">
+            <div className="flex h-full min-h-0 overflow-hidden bg-white">
+              <div className="h-full min-h-0 flex-shrink-0">
                 <PlannerBacklog
                   jiraItems={jiraItems}
                   plannerItems={plannerItems}
@@ -413,7 +413,7 @@ export function ScenarioPlanner() {
                 />
               </div>
 
-              <section className="h-full min-h-0 overflow-hidden bg-white">
+              <section className="min-w-0 flex-1 h-full min-h-0 overflow-hidden bg-white">
                 <div className="border-b border-[#E2E8F0] px-6 py-4">
                   <h2 className="text-base font-semibold text-[#1E293B]">Delivery Timeline</h2>
                   <p className="mt-1 text-sm text-[#64748B]">

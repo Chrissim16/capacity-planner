@@ -3611,6 +3611,7 @@ function PortfolioDrawer({
     return (
       <div style={{ position: 'relative' }}>
         <button
+          type="button"
           className={`pp-flt-btn${selItems.size > 0 ? ' active' : ''}${openDd === id ? ' open' : ''}`}
           onClick={() => setOpenDd(prev => prev === id ? null : id)}
         >
@@ -3661,7 +3662,7 @@ function PortfolioDrawer({
       <div className="pp-drawer open" role="dialog" aria-modal="true" aria-label="Add Epics to Portfolio">
         <div className="pp-dr-head">
           <span className="pp-dr-title">Add Epics to Portfolio</span>
-          <button className="pp-dr-close" onClick={onClose}>×</button>
+          <button type="button" className="pp-dr-close" onClick={onClose}>×</button>
         </div>
         <div className="pp-dr-filters">
           <div className="pp-dr-search">
@@ -3722,11 +3723,13 @@ function PortfolioDrawer({
                     </span>
                   )}
                   <button
+                    type="button"
                     className="pp-dr-manual-btn edit"
                     title="Edit"
                     onClick={ev => { ev.stopPropagation(); onEditManual(e); }}
                   >✎</button>
                   <button
+                    type="button"
                     className="pp-dr-manual-btn delete"
                     title="Delete permanently"
                     onClick={ev => {
@@ -3770,11 +3773,11 @@ function PortfolioDrawer({
           ))}
         </div>
         <div className="pp-dr-footer">
-          <button className="pp-btn pp-dr-create-btn" onClick={onCreateManual}>
+          <button type="button" className="pp-btn pp-dr-create-btn" onClick={onCreateManual}>
             + Create Manual Epic
           </button>
-          <button className="pp-btn" onClick={onClose}>Cancel</button>
-          <button className="pp-btn primary" onClick={() => onSave([...selected])}>
+          <button type="button" className="pp-btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="pp-btn primary" onClick={() => onSave([...selected])}>
             Add to portfolio
           </button>
         </div>
