@@ -153,8 +153,16 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
     ) => {
       const requestId = ++activeRequestId;
       const { preserveLoading = false, retryTransientFailure = true } = options;
+      const previousState = stateRef.current;
+      const shouldBlockWithLoading =
+        !preserveLoading &&
+        (
+          previousState.user?.id !== sessionUser.id ||
+          previousState.role == null ||
+          previousState.accessIssue != null
+        );
 
-      if (!preserveLoading && !cancelled) {
+      if (shouldBlockWithLoading && !cancelled) {
         setState((prev) => ({
           user: prev.user?.id === sessionUser.id ? prev.user : sessionUser,
           role: prev.user?.id === sessionUser.id ? prev.role : null,
@@ -173,7 +181,6 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
         return;
       }
 
-      const previousState = stateRef.current;
       if (shouldKeepPreviousRole(previousState, sessionUser, roleResult)) {
         setState({
           user: sessionUser,
@@ -235,7 +242,12 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
 
       // For all other events (SIGNED_IN, INITIAL_SESSION, USER_UPDATED) re-fetch
       // the role so genuine role changes propagate.
-      await applyRoleForUser(sessionUser);
+      await applyRoleForUser(sessionUser, {
+        preserveLoading:
+          stateRef.current.user?.id === sessionUser.id &&
+          stateRef.current.role != null &&
+          stateRef.current.accessIssue == null,
+      });
     });
 
     const refreshIfNeeded = async () => {
@@ -248,7 +260,10 @@ export function useCurrentUser(): CurrentUserState & { can: (action: AppAction) 
         return;
       }
 
-      await applyRoleForUser(currentState.user, { retryTransientFailure: false });
+      await applyRoleForUser(currentState.user, {
+        preserveLoading: true,
+        retryTransientFailure: false,
+      });
     };
 
     window.addEventListener('focus', refreshIfNeeded);
