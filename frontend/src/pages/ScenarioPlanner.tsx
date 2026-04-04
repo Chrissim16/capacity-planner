@@ -64,6 +64,7 @@ export function ScenarioPlanner() {
   const [assignPanelItemId, setAssignPanelItemId] = useState<string | null>(null);
   const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [capacityPanelOpen, setCapacityPanelOpen] = useState(true);
+  const [backlogOpen, setBacklogOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'timeline' | 'summary'>('timeline');
   const [createModalState, setCreateModalState] = useState<{
     defaultType: PlannerItemType;
@@ -399,20 +400,20 @@ export function ScenarioPlanner() {
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {activeTab === 'timeline' ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter}>
-            <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)]">
-              <section className="min-h-0 overflow-hidden border-r border-[#E2E8F0] bg-white">
+            <div className="relative h-full min-h-0 overflow-hidden bg-white">
+              <div className="absolute inset-y-0 left-0 z-30">
                 <PlannerBacklog
                   jiraItems={jiraItems}
                   plannerItems={plannerItems}
-                  expanded
-                  variant="embedded"
-                  onExpand={() => {}}
-                  onCollapse={() => {}}
+                  expanded={backlogOpen}
+                  variant="drawer"
+                  onExpand={() => setBacklogOpen(true)}
+                  onCollapse={() => setBacklogOpen(false)}
                   onBulkSchedule={(items) => scheduleImportedItemsAtSprint(items, visibleSprints[0]?.number ?? 1)}
                 />
-              </section>
+              </div>
 
-              <section className="min-h-0 overflow-hidden bg-white">
+              <section className="h-full min-h-0 overflow-hidden bg-white">
                 <div className="border-b border-[#E2E8F0] px-6 py-4">
                   <h2 className="text-base font-semibold text-[#1E293B]">Delivery Timeline</h2>
                   <p className="mt-1 text-sm text-[#64748B]">
@@ -446,8 +447,8 @@ export function ScenarioPlanner() {
                   capacityPanelOpen={capacityPanelOpen}
                   onCapacityPanelToggle={() => setCapacityPanelOpen((value) => !value)}
                   onOverloadedTickerClick={() => setCapacityPanelOpen(true)}
-                  onBacklogItemScheduled={() => {}}
-                  onBarUnscheduledToBacklog={() => {}}
+                  onBacklogItemScheduled={() => setBacklogOpen(false)}
+                  onBarUnscheduledToBacklog={() => setBacklogOpen(true)}
                   skillsMatchingEnabled={scenarioForPlanner?.skillsMatchingEnabled ?? true}
                   breakdownMissingEpicKeys={breakdownMissingEpicKeys}
                   carryoverEpicKeys={carryoverEpicKeys}

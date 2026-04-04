@@ -761,26 +761,33 @@ export function AssignPanel({
   const gridMinWidth = cells.length > 6 ? cells.length * 72 : undefined;
 
   const ui = (
-    <div
-      className={[
-        'assign-panel fixed inset-y-0 right-0 z-[55] flex flex-col border-l transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
-        panelEntered ? 'translate-x-0' : 'translate-x-full',
-      ].join(' ')}
-      style={{
-        width: 'var(--assign-panel-width, 440px)',
-        borderColor: 'var(--assign-panel-border)',
-        boxShadow: 'var(--assign-panel-shadow)',
-        backgroundColor: 'var(--color-surface)',
-      }}
-      ref={panelRef}
-      role="dialog"
-      aria-labelledby="assign-panel-title"
-    >
-      {/* Header */}
-      <header
-        className="flex-shrink-0 border-b border-mileway-border"
-        style={{ padding: '16px 20px 14px' }}
+    <>
+      <div
+        className="fixed inset-0 z-[54] bg-[rgba(15,23,42,0.12)] backdrop-blur-[2px]"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        className={[
+          'assign-panel fixed inset-y-0 right-0 z-[55] flex flex-col border-l transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          panelEntered ? 'translate-x-0' : 'translate-x-full',
+        ].join(' ')}
+        style={{
+          width: 'var(--assign-panel-width, 440px)',
+          borderColor: 'var(--assign-panel-border)',
+          boxShadow: 'var(--assign-panel-shadow)',
+          backgroundColor: 'var(--color-surface)',
+        }}
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="assign-panel-title"
       >
+        {/* Header */}
+        <header
+          className="flex-shrink-0 border-b border-mileway-border"
+          style={{ padding: '16px 20px 14px' }}
+        >
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
             <span className={typePillClass(draft.type)}>{draft.type}</span>
@@ -1151,8 +1158,9 @@ export function AssignPanel({
         >
           {savedFlash ? 'Saved ✓' : 'Save changes'}
         </button>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </>
   );
 
   return createPortal(ui, document.body);
