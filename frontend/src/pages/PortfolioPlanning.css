@@ -36,11 +36,11 @@
   --topbar-h:  52px;
   --tabbar-h:  40px;
   --drawer-w:  420px;
-  --row-epic:   40px;
-  --row-phase:  38px;
-  --row-person: 34px;
-  --row-add:    28px;
-  --row-p-hd:   52px;
+  --row-epic:   48px;
+  --row-phase:  44px;
+  --row-person: 40px;
+  --row-add:    34px;
+  --row-p-hd:   56px;
   --row-p-cap:  26px;
 
   font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
@@ -423,11 +423,12 @@
 .ev-epic {
   height: var(--row-epic);
   display: grid;
-  grid-template-columns: 16px 88px minmax(0, 1fr) 24px 52px 20px 20px;
+  grid-template-columns: 20px 76px minmax(0, 1fr) 28px 56px 22px 22px;
   align-items: center;
   background: var(--offwh);
   border-bottom: 1px solid var(--border);
-  padding: 0 12px;
+  border-left: 3px solid var(--blue);
+  padding: 0 16px 0 13px;
   gap: 8px;
   cursor: pointer;
   user-select: none;
@@ -435,13 +436,13 @@
 }
 .ev-epic:hover { background: #EEF2F8; }
 .pp-chev {
-  width: 16px; height: 16px;
+  width: 20px; height: 20px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--txt3);
-  font-size: 9px;
+  font-size: 10px;
   transition: transform 150ms;
 }
 .pp-chev.open { transform: rotate(90deg); }
@@ -454,7 +455,7 @@
 .ev-epic-key-slot { justify-content: flex-start; }
 .ev-epic-cost-slot { justify-content: center; }
 .pp-jkey {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--blue);
   background: var(--blue-lt);
@@ -477,7 +478,7 @@ a.pp-jkey, a.pv-assign-key, a.pp-cg-epic-key {
 a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   text-decoration: underline;
 }
-.ev-epic-name { font-size: 13px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-epic-name { font-size: 14px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ev-epic-cost-btn {
   width: 24px;
   height: 24px;
@@ -508,10 +509,10 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   border-color: #FDBA74;
 }
 .ev-epic-total {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--txt2);
   flex-shrink: 0;
-  min-width: 52px;
+  min-width: 56px;
   text-align: right;
 }
 .ev-epic-phase-toggle {
@@ -549,7 +550,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .ev-phase {
   height: var(--row-phase);
   display: flex; align-items: center;
-  padding: 0 12px 0 32px;
+  padding: 0 16px 0 36px;
   gap: 8px;
   border-bottom: 1px solid var(--bord-lt);
   user-select: none;
@@ -557,7 +558,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   position: relative;
 }
 .ev-phase:hover { background: var(--offwh); }
-.ev-phase.duplicate { padding-left: 32px; }
+.ev-phase.duplicate { padding-left: 36px; }
 .ev-phase.is-dragging {
   opacity: 0.55;
   background: #F0F7FF;
@@ -566,8 +567,8 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .ev-phase.drag-over-after::after {
   content: '';
   position: absolute;
-  left: 28px;
-  right: 10px;
+  left: 32px;
+  right: 14px;
   height: 2px;
   border-radius: 999px;
   background: var(--blue);
@@ -611,8 +612,8 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   cursor: grabbing;
 }
 .pp-ph-label {
-  font-size: 11px; font-weight: 600;
-  padding: 2px 8px; border-radius: 4px; flex-shrink: 0;
+  font-size: 12px; font-weight: 600;
+  padding: 3px 9px; border-radius: 4px; flex-shrink: 0;
 }
 .pp-ph-label.d { background: var(--d-bg); color: var(--d-c); }
 .pp-ph-label.b { background: var(--b-bg); color: var(--b-c); }
@@ -638,7 +639,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .ph-edit-trigger:hover .ph-desc-preview { color: var(--txt1); }
 .ph-desc-preview {
   max-width: 100%;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--txt3);
   white-space: nowrap;
   overflow: hidden;
@@ -906,8 +907,8 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   background: var(--blue-lt);
   border-color: rgba(0, 137, 221, 0.15);
 }
-.ph-dur { font-size: 11px; font-weight: 600; color: var(--txt1); flex-shrink: 0; }
-.ph-total { font-size: 11px; color: var(--txt2); flex-shrink: 0; min-width: 44px; text-align: right; }
+.ph-dur { font-size: 12px; font-weight: 600; color: var(--txt1); flex-shrink: 0; }
+.ph-total { font-size: 12px; color: var(--txt2); flex-shrink: 0; min-width: 44px; text-align: right; }
 .ph-expand { cursor: pointer; flex-shrink: 0; }
 .ph-remove {
   width: 18px; height: 18px;
@@ -923,7 +924,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .ev-person {
   height: var(--row-person);
   display: flex; align-items: center;
-  padding: 0 12px 0 48px;
+  padding: 0 16px 0 58px;
   gap: 8px;
   border-bottom: 1px solid var(--bord-lt);
   background: var(--white);
@@ -931,24 +932,24 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 .ev-person:hover { background: #F8FAFD; }
 .pp-av {
-  width: 22px; height: 22px;
+  width: 24px; height: 24px;
   border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 600; color: #fff;
+  font-size: 11px; font-weight: 600; color: #fff;
 }
-.ev-pname { font-size: 12px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ev-prole { font-size: 10px; color: var(--txt3); flex-shrink: 0; }
+.ev-pname { font-size: 13px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-prole { font-size: 11px; color: var(--txt3); flex-shrink: 0; }
 
 /* Skill match dot badge */
 .pp-skill-dot {
-  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   flex-shrink: 0; margin-left: 4px; align-self: center;
 }
 .pp-skill-dot.matched { background: #16A34A; }
 .pp-skill-dot.partial { background: #D97706; }
 .pp-skill-dot.missing { background: #DC2626; }
 .ev-days {
-  font-size: 12px; font-weight: 600; min-width: 36px; text-align: right; flex-shrink: 0;
+  font-size: 13px; font-weight: 600; min-width: 36px; text-align: right; flex-shrink: 0;
   cursor: text; border-radius: 4px; padding: 2px 5px; color: var(--txt1); transition: background 100ms;
 }
 .ev-person:hover .ev-days { background: #F5F8FC; }
@@ -969,7 +970,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 
 .ev-days-inp {
   width: 52px; border: 1px solid #0089DD; border-radius: 4px;
-  padding: 3px 6px; font-size: 12px; font-family: inherit; font-weight: 600;
+  padding: 3px 6px; font-size: 13px; font-family: inherit; font-weight: 600;
   text-align: center; display: none; background: var(--white); color: var(--txt1);
 }
 .ev-days-inp:focus { outline: none; box-shadow: 0 0 0 2px rgba(0, 137, 221, .15); }
@@ -999,8 +1000,8 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .ev-add-person {
   height: var(--row-add);
   display: flex; align-items: center; gap: 5px;
-  padding: 0 12px 0 48px;
-  color: var(--txt3); font-size: 11px; cursor: pointer;
+  padding: 0 16px 0 58px;
+  color: var(--txt3); font-size: 12px; cursor: pointer;
   border-bottom: 1px solid var(--bord-lt);
   transition: all 100ms; user-select: none;
 }
@@ -1008,13 +1009,13 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 
 /* ── Gantt ───────────────────────────────────────────────────────────────── */
 .pp-g-head { position: sticky; top: 0; z-index: 20; background: var(--white); border-bottom: 1px solid var(--border); }
-.pp-g-months { height: 24px; display: flex; border-bottom: 1px solid var(--bord-lt); }
+.pp-g-months { height: 28px; display: flex; border-bottom: 1px solid var(--bord-lt); }
 .pp-g-month {
-  font-size: 11px; font-weight: 600; color: var(--txt2);
+  font-size: 12px; font-weight: 600; color: var(--txt2);
   display: flex; align-items: center; padding: 0 8px;
   border-right: 1px solid var(--bord-lt); flex-shrink: 0;
 }
-.pp-g-weeks { height: 28px; display: flex; }
+.pp-g-weeks { height: 32px; display: flex; }
 .pp-g-week {
   width: var(--week-w); flex-shrink: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1022,10 +1023,10 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 .pp-g-week.ms          { border-right-color: var(--border); }
 .pp-g-week.today-week  { background: var(--blue-lt); }
-.pp-g-wnum  { font-size: 10px; font-weight: 600; color: var(--txt3); }
+.pp-g-wnum  { font-size: 11px; font-weight: 600; color: var(--txt3); }
 .pp-g-wdate { font-size: 10px; color: var(--txt3); }
 
-.pp-g-epic   { height: var(--row-epic);   border-bottom: 1px solid var(--border);  position: relative; background: var(--offwh); overflow: visible; }
+.pp-g-epic   { height: var(--row-epic);   border-bottom: 1px solid var(--border);  border-left: 3px solid var(--blue); position: relative; background: var(--offwh); overflow: visible; }
 .pp-g-phase  { height: var(--row-phase);  border-bottom: 1px solid var(--bord-lt); position: relative; background: var(--white); }
 .pp-g-person { height: var(--row-person); border-bottom: 1px solid var(--bord-lt); position: relative; background: var(--white); }
 .pp-g-add    { height: var(--row-add);    border-bottom: 1px solid var(--bord-lt); position: relative; background: var(--white); }
@@ -1053,14 +1054,14 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 .pp-g-phase.empty-phase:hover .pp-set-start-hint { opacity: 1; }
 
-.pp-today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--blue); z-index: 10; pointer-events: none; opacity: .7; }
+.pp-today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--blue); z-index: 10; pointer-events: none; opacity: .8; box-shadow: 0 0 4px rgba(0, 137, 221, 0.35); }
 
 /* Phase bar — always draggable */
 .pp-pbar {
-  position: absolute; top: 7px; height: 24px; border-radius: 4px;
+  position: absolute; top: 10px; height: 24px; border-radius: 6px;
   border: 1.5px solid transparent;
   display: flex; align-items: center; padding: 0 10px;
-  font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   z-index: 3; user-select: none; transition: box-shadow 100ms; cursor: grab; min-width: 10px;
   touch-action: none;
 }
@@ -1204,7 +1205,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-g-pv-asgn { height: var(--row-person); border-bottom: 1px solid var(--bord-lt); position: relative; background: var(--white); }
 
 .pp-abar {
-  position: absolute; top: 7px; height: 20px; border-radius: 4px;
+  position: absolute; top: 10px; height: 20px; border-radius: 4px;
   display: flex; align-items: center; padding: 0 7px;
   font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   z-index: 3; user-select: none;
