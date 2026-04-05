@@ -1378,7 +1378,6 @@ function EpicView({
             const member   = isTeam ? undefined : memberMap.get(assign.memberId);
             const contact  = isTeam ? undefined : contactMap.get(assign.memberId);
             const name     = member?.name ?? contact?.name ?? assign.memberId;
-            const role     = member?.role ?? contact?.title ?? '';
             const rowKey   = `${phKey}_${assign.memberId}`;
             const isEditing = editingKey === rowKey;
 
