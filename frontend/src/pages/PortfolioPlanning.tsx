@@ -1253,7 +1253,6 @@ function EpicView({
             onDragOver={isReorderable ? (event) => handlePhaseDragOver(epicKey, row.phaseInstanceId, event) : undefined}
             onDrop={isReorderable ? (event) => handlePhaseDrop(epicKey, row.phaseInstanceId, event) : undefined}
           >
-            <button className="ph-add" onClick={e => { e.stopPropagation(); onAddPhaseInstance(epicKey, ph, row.phaseInstanceId); }} title={`Add another ${PH_LBL[ph]} phase`}>+</button>
             {isReorderable && (
               <button
                 className="ph-drag"
@@ -1277,6 +1276,7 @@ function EpicView({
                 </svg>
               </button>
             )}
+            <button className="ph-add" onClick={e => { e.stopPropagation(); onAddPhaseInstance(epicKey, ph, row.phaseInstanceId); }} title={`Add another ${PH_LBL[ph]} phase`}>+</button>
             <span className={`pp-chev ph-expand${pCollapsed ? '' : ' open'}`}>▶</span>
             <span className={`pp-ph-label ${PH_KEY[ph]}`}>{getPhaseDisplayLabel(ph, row.phaseOrdinal)}</span>
             {editingPhaseKey === phKey ? (
@@ -1442,7 +1442,6 @@ function EpicView({
               nameEl = (
                 <>
                   <span className="ev-pname">{name}</span>
-                  <span className="ev-prole">{role}</span>
                   {skillTier && (
                     <span
                       className={`pp-skill-dot ${skillTier}`}
