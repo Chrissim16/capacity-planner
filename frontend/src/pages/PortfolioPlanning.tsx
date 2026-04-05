@@ -1094,29 +1094,33 @@ function EpicView({
     lpRows.push(
       <div key={`e-${epicKey}`} className="ev-epic" onClick={() => onToggleEpic(epicKey)}>
         <span className={`pp-chev${collapsed ? '' : ' open'}`}>▶</span>
-        {jiraBaseUrl && !epicKey.startsWith('MAN-')
-          ? <a href={`${jiraBaseUrl}/browse/${epicKey}`} target="_blank" rel="noopener noreferrer" className="pp-jkey">{epicKey}</a>
-          : <span className="pp-jkey">{epicKey}</span>
-        }
+        <span className="ev-epic-key-slot">
+          {jiraBaseUrl && !epicKey.startsWith('MAN-')
+            ? <a href={`${jiraBaseUrl}/browse/${epicKey}`} target="_blank" rel="noopener noreferrer" className="pp-jkey">{epicKey}</a>
+            : <span className="pp-jkey">{epicKey}</span>
+          }
+        </span>
         <span className="ev-epic-name">{epic.summary}</span>
-        {costSummary && (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpenCostDrawer(epicKey);
-            }}
-            className={`ev-epic-cost-btn${costSummary.missingRateCount > 0 ? ' warn' : ''}`}
-            title={costSummary.missingRateCount > 0
-              ? `Open cost details. Missing rates: ${costSummary.missingRateLabels.join(', ')}`
-              : 'Open cost details'}
-            aria-label={costSummary.missingRateCount > 0
-              ? `Open cost details for ${epicKey}. Missing rates for ${costSummary.missingRateLabels.join(', ')}`
-              : `Open cost details for ${epicKey}`}
-          >
-            <span aria-hidden="true">€</span>
-          </button>
-        )}
+        <span className="ev-epic-cost-slot">
+          {costSummary && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenCostDrawer(epicKey);
+              }}
+              className={`ev-epic-cost-btn${costSummary.missingRateCount > 0 ? ' warn' : ''}`}
+              title={costSummary.missingRateCount > 0
+                ? `Open cost details. Missing rates: ${costSummary.missingRateLabels.join(', ')}`
+                : 'Open cost details'}
+              aria-label={costSummary.missingRateCount > 0
+                ? `Open cost details for ${epicKey}. Missing rates for ${costSummary.missingRateLabels.join(', ')}`
+                : `Open cost details for ${epicKey}`}
+            >
+              <span aria-hidden="true">€</span>
+            </button>
+          )}
+        </span>
         {totalDays > 0 && <span className="ev-epic-total">{totalDays}d</span>}
         <button
           className="ev-epic-phase-toggle"

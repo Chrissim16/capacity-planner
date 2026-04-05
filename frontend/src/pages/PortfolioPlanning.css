@@ -422,7 +422,8 @@
 /* ── Epic rows ───────────────────────────────────────────────────────────── */
 .ev-epic {
   height: var(--row-epic);
-  display: flex;
+  display: grid;
+  grid-template-columns: 16px 88px minmax(0, 1fr) 24px 52px 20px 20px;
   align-items: center;
   background: var(--offwh);
   border-bottom: 1px solid var(--border);
@@ -444,6 +445,14 @@
   transition: transform 150ms;
 }
 .pp-chev.open { transform: rotate(90deg); }
+.ev-epic-key-slot,
+.ev-epic-cost-slot {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.ev-epic-key-slot { justify-content: flex-start; }
+.ev-epic-cost-slot { justify-content: center; }
 .pp-jkey {
   font-size: 10px;
   font-weight: 600;
@@ -452,6 +461,14 @@
   padding: 2px 6px;
   border-radius: 4px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 a.pp-jkey, a.pv-assign-key, a.pp-cg-epic-key {
   text-decoration: none;
@@ -490,7 +507,13 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   background: #FFEDD5;
   border-color: #FDBA74;
 }
-.ev-epic-total { font-size: 11px; color: var(--txt2); flex-shrink: 0; }
+.ev-epic-total {
+  font-size: 11px;
+  color: var(--txt2);
+  flex-shrink: 0;
+  min-width: 52px;
+  text-align: right;
+}
 .ev-epic-phase-toggle {
   width: 20px;
   height: 20px;
