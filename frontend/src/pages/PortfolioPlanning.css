@@ -891,7 +891,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   border-color: rgba(0, 137, 221, 0.15);
 }
 .ph-dur { font-size: 12px; font-weight: 400; color: var(--txt2); flex-shrink: 0; }
-.ph-total { font-size: 13px; font-weight: 600; color: var(--txt1); flex-shrink: 0; min-width: 36px; text-align: right; margin-right: 26px; }
+.ph-total { font-size: 13px; font-weight: 600; color: var(--txt1); flex-shrink: 0; min-width: 36px; text-align: right; margin-right: 34px; }
 .ph-expand { cursor: pointer; flex-shrink: 0; }
 .ph-remove {
   width: 18px; height: 18px;
@@ -1009,7 +1009,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-g-wnum  { font-size: 11px; font-weight: 600; color: var(--txt3); }
 .pp-g-wdate { font-size: 10px; color: var(--txt3); }
 
-.pp-g-epic   { height: var(--row-epic);   border-bottom: 1px solid var(--border);  border-left: 3px solid var(--blue); position: relative; background: var(--offwh); overflow: visible; }
+.pp-g-epic   { height: var(--row-epic);   border-bottom: 1px solid var(--border);  box-shadow: inset 3px 0 0 var(--blue); position: relative; background: var(--offwh); overflow: visible; }
 .pp-g-phase  { height: var(--row-phase);  border-bottom: 1px solid var(--bord-lt); position: relative; background: var(--white); }
 .pp-g-person { height: var(--row-person); border-bottom: 1px solid var(--bord-lt); position: relative; background: var(--white); }
 .pp-g-add    { height: var(--row-add);    border-bottom: 1px solid var(--bord-lt); position: relative; background: var(--white); }
@@ -1037,7 +1037,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 .pp-g-phase.empty-phase:hover .pp-set-start-hint { opacity: 1; }
 
-.pp-today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--blue); z-index: 10; pointer-events: none; opacity: .8; box-shadow: 0 0 4px rgba(0, 137, 221, 0.35); }
+.pp-today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--blue); z-index: 50; pointer-events: none; opacity: .8; box-shadow: 0 0 4px rgba(0, 137, 221, 0.35); }
 
 /* Phase bar — always draggable */
 .pp-pbar {

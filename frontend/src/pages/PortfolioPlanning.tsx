@@ -1305,11 +1305,9 @@ function EpicView({
             {editingPhaseKey !== phKey && durStr && <span className="ph-dur">{durStr}</span>}
             {editingPhaseKey !== phKey && <span className="ph-total">{totalPhDays > 0 ? `${Math.round(totalPhDays * 10) / 10}d` : ''}</span>}
             {editingPhaseKey !== phKey && (
-              isDuplicate
-                ? <button className="ph-remove" onClick={e => { e.stopPropagation(); onRemovePhaseInstance(epicKey, row.phaseInstanceId); }} title="Remove this phase">×</button>
-                : hasStart
-                  ? <button className="ph-remove" onClick={e => { e.stopPropagation(); onClearPhase(epicKey, ph, row.phaseInstanceId); }} title="Clear dates">×</button>
-                  : null
+              hasStart && !isDuplicate
+                ? <button className="ph-remove" onClick={e => { e.stopPropagation(); onClearPhase(epicKey, ph, row.phaseInstanceId); }} title="Clear dates">×</button>
+                : <button className="ph-remove" onClick={e => { e.stopPropagation(); onRemovePhaseInstance(epicKey, row.phaseInstanceId); }} title="Remove this phase">×</button>
             )}
           </div>
         );
@@ -1433,7 +1431,6 @@ function EpicView({
               nameEl = (
                 <>
                   <span className="ev-pname">{teamName} Team</span>
-                  <span className="pp-picker-badge team">Team</span>
                 </>
               );
             } else {
