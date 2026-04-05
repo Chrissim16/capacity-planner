@@ -423,7 +423,7 @@
 .ev-epic {
   height: var(--row-epic);
   display: grid;
-  grid-template-columns: 20px 76px minmax(0, 1fr) 28px 56px 22px 22px;
+  grid-template-columns: 20px 76px minmax(0, 1fr) 28px 44px 44px 22px 22px;
   align-items: center;
   background: var(--offwh);
   border-bottom: 1px solid var(--border);
@@ -498,11 +498,17 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .ev-epic-cost-btn:hover { color: var(--txt2); background: var(--offwh); }
 .ev-epic-cost-btn.warn { color: var(--util-near); }
 .ev-epic-cost-btn.warn:hover { color: var(--util-over); background: var(--offwh); }
-.ev-epic-total {
+.ev-epic-dur {
   font-size: 12px;
+  font-weight: 400;
   color: var(--txt2);
-  flex-shrink: 0;
-  min-width: 56px;
+  text-align: right;
+}
+.ev-epic-total {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--txt1);
+  min-width: 44px;
   text-align: right;
 }
 .ev-epic-phase-toggle {
@@ -891,7 +897,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   border-color: rgba(0, 137, 221, 0.15);
 }
 .ph-dur { font-size: 12px; font-weight: 400; color: var(--txt2); flex-shrink: 0; }
-.ph-total { font-size: 13px; font-weight: 600; color: var(--txt1); flex-shrink: 0; min-width: 36px; text-align: right; margin-right: 34px; }
+.ph-total { font-size: 13px; font-weight: 600; color: var(--txt1); flex-shrink: 0; min-width: 44px; text-align: right; margin-right: 34px; }
 .ph-expand { cursor: pointer; flex-shrink: 0; }
 .ph-remove {
   width: 18px; height: 18px;

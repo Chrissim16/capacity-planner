@@ -1090,6 +1090,18 @@ function EpicView({
     const totalDays = phaseRows.reduce((sum, row) => sum + row.assignments.reduce((acc, assignment) => acc + assignment.days, 0), 0);
     const costSummary = costSummaryByEpic.get(epicKey) ?? null;
 
+    // Compute epic-level duration: earliest phase start → latest phase end
+    const epicStartDates = phaseRows.map(r => r.plan?.startDate).filter((d): d is string => !!d);
+    const epicEndDates   = phaseRows.map(r => r.plan?.endDate).filter((d): d is string => !!d);
+    const epicDurStr = (epicStartDates.length > 0 && epicEndDates.length > 0)
+      ? (() => {
+          const earliest = epicStartDates.slice().sort()[0];
+          const latest   = epicEndDates.slice().sort().reverse()[0];
+          const wks = weeksBetween(earliest, latest);
+          return wks > 0 ? `${wks}wk` : '';
+        })()
+      : '';
+
     // ── Epic row
     lpRows.push(
       <div key={`e-${epicKey}`} className="ev-epic" onClick={() => onToggleEpic(epicKey)}>
@@ -1121,7 +1133,8 @@ function EpicView({
             </button>
           )}
         </span>
-        {totalDays > 0 && <span className="ev-epic-total">{totalDays}d</span>}
+        <span className="ev-epic-dur">{epicDurStr}</span>
+        <span className="ev-epic-total">{totalDays > 0 ? `${totalDays}d` : ''}</span>
         <button
           className="ev-epic-phase-toggle"
           type="button"
