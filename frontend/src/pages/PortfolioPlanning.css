@@ -927,6 +927,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   gap: 8px;
   border-bottom: 1px solid var(--bord-lt);
   background: var(--white);
+  position: relative;
   transition: background 100ms;
 }
 .ev-person:hover { background: #F8FAFD; }
@@ -948,8 +949,11 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-skill-dot.partial { background: #D97706; }
 .pp-skill-dot.missing { background: #DC2626; }
 .ev-days {
-  font-size: 13px; font-weight: 600; min-width: 36px; text-align: right; flex-shrink: 0;
-  margin-right: 55px;
+  position: absolute;
+  right: 71px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px; font-weight: 600; min-width: 36px; text-align: right;
   cursor: text; border-radius: 4px; padding: 2px 5px; color: var(--txt1); transition: background 100ms;
 }
 .ev-person:hover .ev-days { background: #F5F8FC; }
