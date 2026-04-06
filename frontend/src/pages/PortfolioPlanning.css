@@ -527,11 +527,13 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  opacity: 0;
   transition: all 100ms;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
+.ev-epic:hover .ev-epic-phase-toggle { opacity: 1; }
 .ev-epic-phase-toggle:hover {
   background: var(--offwh);
   color: var(--txt1);
