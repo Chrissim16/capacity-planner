@@ -939,6 +939,7 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-skill-dot.missing { background: #DC2626; }
 .ev-days {
   font-size: 13px; font-weight: 600; min-width: 36px; text-align: right; flex-shrink: 0;
+  margin-right: 55px;
   cursor: text; border-radius: 4px; padding: 2px 5px; color: var(--txt1); transition: background 100ms;
 }
 .ev-person:hover .ev-days { background: #F5F8FC; }
