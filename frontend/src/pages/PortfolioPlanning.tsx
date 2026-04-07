@@ -5108,10 +5108,18 @@ export function PortfolioPlanning() {
     if (!startDate) return;
 
     const startDay = dateToDay(startDate, tStart);
-    const endDay = plan0?.endDate ? dateToDay(plan0.endDate, tStart) : null;
+    const assignments = assignMap.get(epicKey)?.get(phaseInstanceId) ?? [];
+    const inferredBarWidth = plan0
+      ? (phaseBarWidthDays(plan0, tStart) ?? calcBarWidthDays(assignments, absenceLookup))
+      : calcBarWidthDays(assignments, absenceLookup);
+    const endDay = plan0?.endDate
+      ? dateToDay(plan0.endDate, tStart)
+      : inferredBarWidth > 0
+        ? startDay + inferredBarWidth
+        : null;
 
     let resolvedMode: 'move' | 'resize-start' | 'resize-end' = 'move';
-    if (mode === 'auto' && plan0?.endDate) {
+    if (mode === 'auto' && endDay !== null) {
       const rect = e.currentTarget.getBoundingClientRect();
       const edgeZone = Math.min(8, Math.max(5, rect.width * 0.18));
       if (e.clientX <= rect.left + edgeZone) resolvedMode = 'resize-start';
@@ -5140,7 +5148,7 @@ export function PortfolioPlanning() {
     };
     setPhasePreviewCollection([initialPreview]);
     e.currentTarget.setPointerCapture(e.pointerId);
-  }, [phasePlansMap, setPhasePreviewCollection, tStart]);
+  }, [absenceLookup, assignMap, phasePlansMap, setPhasePreviewCollection, tStart]);
 
   const handleEpicPhasePointerDown = useCallback((
     epicKey: string,
