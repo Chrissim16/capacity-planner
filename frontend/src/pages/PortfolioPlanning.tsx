@@ -3908,6 +3908,43 @@ function AssignmentActionsPopover({
   onRemove: () => void;
   onClose: () => void;
 }) {
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({ visibility: 'hidden' });
+
+  const updatePopoverPosition = useCallback(() => {
+    const popoverEl = popoverRef.current;
+    const viewportPadding = 12;
+    const gap = 6;
+    const width = 240;
+    const height = popoverEl?.offsetHeight ?? 220;
+    const fitsBelow = anchorRect.bottom + gap + height <= window.innerHeight - viewportPadding;
+    const top = fitsBelow
+      ? anchorRect.bottom + gap
+      : Math.max(viewportPadding, anchorRect.top - height - gap);
+    const left = Math.max(12, Math.min(anchorRect.left - 160, window.innerWidth - width - viewportPadding));
+
+    setPopoverStyle((prev) => {
+      if (prev.top === top && prev.left === left && prev.width === width) {
+        return prev;
+      }
+      return { top, left, width };
+    });
+  }, [anchorRect]);
+
+  useLayoutEffect(() => {
+    updatePopoverPosition();
+  }, [updatePopoverPosition]);
+
+  useEffect(() => {
+    const handleViewportChange = () => updatePopoverPosition();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [updatePopoverPosition]);
+
   useEffect(() => {
     const handler = (event: MouseEvent) => {
       const el = document.getElementById('pp-assignment-actions-popover');
@@ -3917,13 +3954,13 @@ function AssignmentActionsPopover({
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
 
-  const style: CSSProperties = {
-    top: anchorRect.bottom + 6,
-    left: Math.max(12, Math.min(anchorRect.left - 160, window.innerWidth - 252)),
-  };
-
   return createPortal(
-    <div id="pp-assignment-actions-popover" className="pp-assignment-actions" style={style}>
+    <div
+      ref={popoverRef}
+      id="pp-assignment-actions-popover"
+      className="pp-assignment-actions"
+      style={popoverStyle}
+    >
       <div className="pp-assignment-actions-head">
         <div className="pp-assignment-actions-title">{displayName}</div>
         <div className="pp-assignment-actions-copy">Choose one staffing action for this assignment.</div>
