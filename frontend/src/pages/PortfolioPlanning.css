@@ -2111,6 +2111,96 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 .pp-btn.secondary:hover { background: var(--offwh); border-color: #CBD5E1; }
 
+/* ── Bulk Replace Person Modal ───────────────────────────────────────────── */
+.pp-replace-modal { width: 520px; }
+
+/* Replace icon button — hidden until row is hovered */
+.ev-person-replace {
+  opacity: 0; flex-shrink: 0;
+  background: none; border: none; cursor: pointer;
+  color: #94A3B8; padding: 2px 4px; border-radius: 4px;
+  line-height: 1; display: flex; align-items: center;
+}
+.ev-person:hover .ev-person-replace { opacity: 1; }
+.ev-person-replace:hover { color: var(--blue); background: #EBF5FC; }
+
+/* From / To person chips */
+.pp-replace-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--offwh);
+}
+.pp-replace-chip-name { font-size: 13px; font-weight: 500; color: var(--txt1); flex: 1; }
+.pp-replace-change-btn {
+  margin-left: auto; flex-shrink: 0;
+  background: none; border: none; cursor: pointer;
+  font-size: 11px; color: var(--blue); text-decoration: underline; padding: 0;
+}
+.pp-replace-change-btn:hover { opacity: 0.8; }
+
+/* Inline picker */
+.pp-replace-picker-wrap {
+  border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+}
+.pp-replace-to-input {
+  width: 100%; box-sizing: border-box;
+  padding: 7px 10px; font-size: 13px; font-family: inherit;
+  border: none; border-bottom: 1px solid var(--border); outline: none;
+  background: var(--white);
+}
+.pp-replace-to-input:focus { border-bottom-color: var(--blue); }
+.pp-replace-to-list { max-height: 160px; overflow-y: auto; }
+
+/* Preview list */
+.pp-replace-preview-list {
+  border: 1px solid var(--border); border-radius: 6px;
+  overflow: hidden; font-size: 12px;
+}
+.pp-replace-preview-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.pp-replace-preview-row:last-child { border-bottom: none; }
+.pp-replace-preview-row.conflict { background: #FFF7ED; }
+.pp-replace-checkbox { flex-shrink: 0; cursor: pointer; }
+.pp-replace-preview-epic {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 500; color: var(--txt1);
+}
+.pp-replace-preview-phase {
+  flex-shrink: 0; font-size: 11px; color: var(--txt2);
+  background: var(--offwh); border: 1px solid var(--border);
+  border-radius: 3px; padding: 1px 5px;
+}
+.pp-replace-preview-days {
+  flex-shrink: 0; font-size: 12px; color: var(--txt2);
+  min-width: 28px; text-align: right;
+}
+.pp-replace-preview-days.editable {
+  color: var(--blue); cursor: pointer; text-decoration: underline dotted;
+}
+.pp-replace-days-input {
+  width: 52px; flex-shrink: 0;
+  padding: 1px 5px; font-size: 12px; font-family: inherit;
+  border: 1px solid var(--blue); border-radius: 4px; outline: none;
+  text-align: right;
+}
+.pp-replace-skip-badge {
+  flex-shrink: 0; font-size: 10px; font-weight: 600;
+  padding: 1px 6px; border-radius: 3px;
+  background: #FED7AA; color: #C2410C;
+}
+.pp-replace-status-badge {
+  flex-shrink: 0; font-size: 10px; font-weight: 600;
+  padding: 1px 6px; border-radius: 3px;
+}
+.pp-replace-status-badge.ok  { background: #DCFCE7; color: #15803D; }
+.pp-replace-status-badge.off { background: var(--offwh); color: #94A3B8; }
+.pp-replace-empty { font-size: 12px; color: #94A3B8; padding: 10px 0; text-align: center; }
+
 .pp-dr-footer { gap: 8px; }
 .pp-dr-create-btn {
   margin-right: auto;

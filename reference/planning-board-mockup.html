@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planning Board</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --page-bg:     #ECEAF6;
+      --white:       #FFFFFF;
+      --text:        #111827;
+      --text-muted:  #6B7280;
+      --text-faint:  #9CA3AF;
+      --border:      #EFEFEF;
+      --border-mid:  #E4E4E4;
+      --teal:        #0ED3CF;
+      --teal-dark:   #0D9488;
+      --teal-bg:     #F0FDFB;
+      --green:       #22C55E;
+      --orange:      #F97316;
+      --red:         #EF4444;
+      --font:        'DM Sans', system-ui, sans-serif;
+      --shadow-sm:   0 1px 4px rgba(0,0,0,0.05);
+      --shadow-md:   0 4px 16px rgba(0,0,0,0.07);
+      --shadow-lg:   0 8px 32px rgba(0,0,0,0.09);
+      --p-alpha:     #0D9488;
+      --p-beta:      #F59E0B;
+      --p-gamma:     #6366F1;
+      --p-delta:     #EC4899;
+    }
+    body {
+      font-family: var(--font);
+      background: var(--page-bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .app-card {
+      width: 100%; max-width: 1280px;
+      height: calc(100vh - 48px);
+      background: var(--white);
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    /* ── Top bar ── */
+    .topbar {
+      height: 52px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px 0 16px; flex-shrink: 0;
+    }
+    /* ── Banner ── */
+    .banner {
+      background: var(--teal-bg); border-bottom: 1px solid #CCFBF1;
+      padding: 9px 20px; display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    /* ── Body ── */
+    .body { display: flex; flex: 1; overflow: hidden; }
+    /* ── Nav ── */
+    .nav {
+      width: 52px; border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 14px 0; gap: 2px; flex-shrink: 0;
+    }
+    .nav-item {
+      width: 36px; height: 36px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-faint); cursor: pointer;
+      transition: background 120ms, color 120ms;
+    }
+    .nav-item:hover { background: #F5F5F5; color: var(--text-muted); }
+    .nav-item.active { background: var(--teal-bg); color: var(--teal-dark); }
+    /* ── Bench ── */
+    .bench {
+      width: 200px; border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto;
+    }
+    .bench.right { border-right: none; border-left: 1px solid var(--border); }
+    .bench-header { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
+    .bench-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); }
+    .proj-card {
+      padding: 11px 14px; border-bottom: 1px solid var(--border);
+      cursor: grab; transition: background 120ms;
+      border-left: 3px solid transparent;
+    }
+    .proj-card:hover { background: #FAFAFA; }
+    .proj-card.alpha { border-left-color: var(--p-alpha); }
+    .proj-card.beta  { border-left-color: var(--p-beta); }
+    .proj-card.gamma { border-left-color: var(--p-gamma); }
+    .proj-card.delta { border-left-color: var(--p-delta); }
+    .proj-card.placed { opacity: 0.4; cursor: not-allowed; }
+    /* ── Canvas ── */
+    .canvas { flex: 1; display: flex; flex-direction: column; overflow: auto; }
+
+    /* ── Canvas sub-header (view toggle) ── */
+    .canvas-subheader {
+      height: 40px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; flex-shrink: 0; background: var(--white);
+      position: sticky; top: 0; z-index: 11;
+    }
+    .view-toggle {
+      display: flex; align-items: center;
+      background: #F5F5F5; border-radius: 7px; padding: 2px; gap: 1px;
+    }
+    .vt-btn {
+      font-size: 11px; font-weight: 500;
+      padding: 4px 12px; border-radius: 5px;
+      border: none; background: transparent;
+      color: var(--text-faint); cursor: pointer;
+      font-family: var(--font);
+      display: flex; align-items: center; gap: 5px;
+      transition: background 120ms, color 120ms;
+    }
+    .vt-btn.active {
+      background: var(--white); color: var(--text);
+      font-weight: 600; box-shadow: var(--shadow-sm);
+    }
+    /* ── Time axis ── */
+    .time-axis {
+      background: var(--white); border-bottom: 1px solid var(--border-mid);
+      display: grid; grid-template-columns: 180px repeat(7, 1fr);
+      position: sticky; top: 40px; z-index: 10;
+    }
+    .axis-name { padding: 10px 16px; border-right: 1px solid var(--border); }
+    .axis-month {
+      padding: 10px 0; text-align: center; border-right: 1px solid var(--border);
+      font-size: 11px; font-weight: 600; color: var(--text-faint);
+      letter-spacing: 0.04em; position: relative;
+    }
+    .axis-month.active { color: var(--teal-dark); }
+    .axis-month.active::after {
+      content: ''; position: absolute; bottom: -3px; left: 50%;
+      transform: translateX(-50%);
+      width: 6px; height: 6px; border-radius: 50%; background: var(--teal-dark);
+    }
+    .axis-month:last-child { border-right: none; }
+
+    /* ── Swimlane rows (Team view) ── */
+    .s-row {
+      display: grid; grid-template-columns: 180px repeat(7, 1fr);
+      border-bottom: 1px solid var(--border);
+      position: relative; transition: background 120ms;
+    }
+    .s-row::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+      background: var(--teal); opacity: 0; transition: opacity 120ms;
+    }
+    .s-row:hover { background: #FAFAFA; }
+    .s-row:hover::before { opacity: 1; }
+    .s-name {
+      padding: 0 14px; border-right: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; height: 58px;
+    }
+    .avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; flex-shrink: 0;
+    }
+    .s-cell {
+      border-right: 1px solid var(--border);
+      display: flex; align-items: center; padding: 10px 6px;
+    }
+    .s-cell:last-child { border-right: none; }
+    .s-cell.q2 { background: #FDFDFF; }
+
+    /* ── Blocks (Team view) ── */
+    .block {
+      width: 100%; height: 34px; border-radius: 7px;
+      border: 1px solid var(--border-mid); background: var(--white);
+      box-shadow: var(--shadow-sm);
+      display: flex; align-items: center; padding: 0 10px; gap: 6px;
+      cursor: grab; position: relative; overflow: hidden;
+      transition: box-shadow 120ms, transform 120ms;
+    }
+    .block::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+    .block:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .block.alpha::before { background: var(--p-alpha); }
+    .block.draft { border-style: dashed; }
+    .block-label { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap; }
+    .block-sub   { font-size: 10px; color: var(--text-faint); white-space: nowrap; }
+    .block-actions { display: none; align-items: center; gap: 3px; margin-left: auto; }
+    .block:hover .block-actions { display: flex; }
+    .btn-xs {
+      font-size: 10px; font-weight: 600; padding: 2px 7px;
+      border-radius: 5px; border: 1px solid var(--border-mid);
+      background: var(--white); cursor: pointer; font-family: var(--font);
+      color: var(--text-muted); transition: background 120ms;
+    }
+    .btn-xs:hover { background: #F5F5F5; }
+    .btn-xs.confirm { background: var(--teal-dark); color: #fff; border-color: var(--teal-dark); }
+
+    /* ── Epic view rows ── */
+    #epics-view { display: none; }
+    .e-row {
+      display: grid; grid-template-columns: 180px repeat(7, 1fr);
+      border-bottom: 1px solid var(--border);
+      position: relative; transition: background 120ms;
+      cursor: pointer;
+    }
+    .e-row:hover { background: #FAFAFA; }
+    .e-row::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+      opacity: 0; transition: opacity 120ms;
+    }
+    .e-row:hover::before { opacity: 1; }
+    .e-row.epic-row::before  { background: var(--p-alpha); }
+    .e-row.beta-row::before  { background: var(--p-beta); }
+
+    .e-name {
+      padding: 0 14px; border-right: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .e-name.indent-1 { padding-left: 28px; }
+    .e-name.indent-2 { padding-left: 44px; }
+    .e-cell {
+      border-right: 1px solid var(--border);
+      display: flex; align-items: center; padding: 8px 6px;
+    }
+    .e-cell:last-child { border-right: none; }
+    .e-cell.q2 { background: #FDFDFF; }
+
+    /* row heights */
+    .e-row.is-epic    { }
+    .e-row.is-feature { }
+    .e-row.is-story   { }
+    .e-name.is-epic    { height: 52px; }
+    .e-name.is-feature { height: 44px; }
+    .e-name.is-story   { height: 38px; }
+
+    /* ── Epic Gantt bars ── */
+    .ebar {
+      width: 100%; border-radius: 6px;
+      border: 1px solid var(--border-mid); background: var(--white);
+      box-shadow: var(--shadow-sm);
+      display: flex; align-items: center; padding: 0 8px; gap: 5px;
+      position: relative; overflow: hidden;
+      transition: box-shadow 120ms;
+    }
+    .ebar::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+    .ebar:hover { box-shadow: var(--shadow-md); }
+    .ebar.epic   { height: 30px; }
+    .ebar.feature { height: 24px; }
+    .ebar.story  { height: 18px; border-style: dashed; }
+
+    .ebar.alpha::before  { background: var(--p-alpha); }
+    .ebar.beta::before   { background: var(--p-beta); }
+    .ebar.gamma::before  { background: var(--p-gamma); }
+
+    /* ── Type badge ── */
+    .type-badge {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; padding: 1px 5px; border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .type-epic    { background: #E0F2FE; color: #0369A1; }
+    .type-feature { background: #F3E8FF; color: #6D28D9; }
+    .type-story   { background: #F0FDF4; color: #166534; }
+    .type-bug     { background: #FFF1F2; color: #9F1239; }
+    .type-task    { background: #F5F5F5; color: #6B7280; }
+
+    /* ── Status dot ── */
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .s-todo     { background: #D1D5DB; }
+    .s-progress { background: #60A5FA; }
+    .s-done     { background: var(--green); }
+
+    /* ── Chevron ── */
+    .chevron {
+      width: 14px; height: 14px; color: var(--text-faint); flex-shrink: 0;
+      transition: transform 200ms;
+    }
+    .chevron.open { transform: rotate(90deg); }
+
+    /* ── Assignee pips ── */
+    .assignee-pips { display: flex; align-items: center; gap: -2px; margin-left: auto; }
+    .pip {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid var(--white);
+      font-size: 8px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Dividers ── */
+    .s-divider {
+      display: grid; grid-template-columns: 180px 1fr;
+      border-bottom: 1px solid var(--border); background: #FAFAFA;
+    }
+    .warn-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--orange); flex-shrink: 0; }
+    /* ── Drop hint ── */
+    .drop-hint { font-size: 11px; color: var(--text-faint); font-style: italic; padding-left: 16px; opacity: 0; transition: opacity 150ms; }
+    .s-row:hover .drop-hint, .e-row:hover .drop-hint { opacity: 1; }
+
+    /* ── Cap bar ── */
+    .cap-bar { height: 3px; border-radius: 9999px; background: #F0F0F0; overflow: hidden; margin-top: 4px; }
+    .cap-fill { height: 100%; border-radius: 9999px; }
+    /* ── Person card ── */
+    .person-card { padding: 11px 14px; border-bottom: 1px solid var(--border); cursor: grab; transition: background 120ms; }
+    .person-card:hover { background: #FAFAFA; }
+    .skill { font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 9999px; background: #F4F4F4; color: var(--text-muted); }
+    .skill.warn { background: #FFF7ED; color: #c2540a; }
+    .fit { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 9999px; }
+    .fit.good { background: #ECFDF5; color: #065F46; }
+    .fit.ok   { background: #FFF7ED; color: #9A3412; }
+    .fit.low  { background: #F5F5F5; color: var(--text-faint); }
+    /* ── Buttons ── */
+    .btn { font-family: var(--font); font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: opacity 120ms; }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--teal-dark); color: #fff; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border-mid); color: var(--text-muted); }
+    .btn-green  { background: var(--green); color: #fff; }
+    /* ── Warning tray ── */
+    .warning-tray { height: 40px; border-top: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 18px; flex-shrink: 0; }
+    .warn-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+    /* ── Confirm anim ── */
+    @keyframes settle { from { opacity: 0.5; transform: scaleY(0.96); } to { opacity: 1; transform: scaleY(1); } }
+    .settling { animation: settle 200ms ease forwards; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #E0E0E0; border-radius: 9999px; }
+  </style>
+</head>
+<body>
+<div class="app-card">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div style="display:flex; align-items:center; gap:16px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div style="width:26px; height:26px; border-radius:7px; background:var(--teal-dark); display:flex; align-items:center; justify-content:center;">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="4" height="4" rx="1" fill="white"/><rect x="7" y="1" width="4" height="4" rx="1" fill="white" opacity=".5"/><rect x="1" y="7" width="4" height="4" rx="1" fill="white" opacity=".5"/><rect x="7" y="7" width="4" height="4" rx="1" fill="white" opacity=".25"/></svg>
+        </div>
+        <span style="font-size:13px; font-weight:600;">Mileway</span>
+      </div>
+      <span style="color:var(--border-mid);">/</span>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <div style="width:8px; height:8px; border-radius:50%; background:var(--teal);"></div>
+        <span style="font-size:13px; font-weight:500;">Q2 Accelerated Plan</span>
+        <svg width="12" height="12" fill="none" stroke="var(--text-faint)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </div>
+      <button class="btn btn-ghost" style="font-size:11px; padding:4px 10px; gap:4px;">
+        <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></svg>
+        vs Baseline
+      </button>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div style="display:flex; align-items:center; background:#F5F5F5; border-radius:8px; padding:3px; gap:1px;">
+        <button style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:6px; border:none; background:var(--white); color:var(--text); cursor:pointer; font-family:var(--font); box-shadow:var(--shadow-sm);">Month</button>
+        <button style="font-size:11px; padding:4px 10px; border-radius:6px; border:none; background:transparent; color:var(--text-faint); cursor:pointer; font-family:var(--font);">Sprint</button>
+        <button style="font-size:11px; padding:4px 10px; border-radius:6px; border:none; background:transparent; color:var(--text-faint); cursor:pointer; font-family:var(--font);">Quarter</button>
+      </div>
+      <button class="btn btn-ghost" style="font-size:11px; padding:5px 12px;">
+        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Auto-Assign
+      </button>
+      <button class="btn btn-green" style="font-size:11px; padding:5px 12px;">
+        Promote to Baseline
+        <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- BANNER -->
+  <div class="banner" id="wizard-banner">
+    <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--teal-dark);">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+      <span><strong>Wizard placed Alpha in Q2</strong> — 2 draft assignments below. Confirm to lock in.</span>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button onclick="confirmAll()" class="btn btn-primary" style="font-size:11px; padding:5px 12px;">Confirm all</button>
+      <button onclick="dismissBanner()" class="btn btn-ghost" style="font-size:11px; padding:5px 12px;">Dismiss</button>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- NAV -->
+    <nav class="nav">
+      <div style="width:26px; height:26px; border-radius:7px; background:var(--teal-dark); display:flex; align-items:center; justify-content:center; margin-bottom:10px;">
+        <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="4" height="4" rx="1" fill="white"/><rect x="7" y="1" width="4" height="4" rx="1" fill="white" opacity=".5"/><rect x="1" y="7" width="4" height="4" rx="1" fill="white" opacity=".5"/><rect x="7" y="7" width="4" height="4" rx="1" fill="white" opacity=".25"/></svg>
+      </div>
+      <div class="nav-item" title="Dashboard"><svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg></div>
+      <div class="nav-item" title="Timeline"><svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
+      <div class="nav-item" title="Epics"><svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+      <div class="nav-item" title="Team"><svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
+      <div class="nav-item active" title="Planning Board"><svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg></div>
+      <div style="flex:1;"></div>
+      <div class="nav-item"><svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
+    </nav>
+
+    <!-- PROJECT BENCH -->
+    <aside class="bench">
+      <div class="bench-header">
+        <p class="bench-title">Projects</p>
+        <p style="font-size:11px; color:var(--text-faint); margin-top:2px;">Drag onto canvas</p>
+      </div>
+      <div class="proj-card alpha placed">
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+          <span style="font-size:12px; font-weight:600;">Alpha</span>
+          <span style="font-size:10px; font-weight:600; color:var(--p-alpha); text-transform:uppercase;">Placed</span>
+        </div>
+        <p style="font-size:11px; color:var(--text-faint);">React · UX · Q2</p>
+      </div>
+      <div class="proj-card beta">
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+          <span style="font-size:12px; font-weight:600;">Beta</span>
+          <div style="width:6px; height:6px; border-radius:50%; background:var(--red); margin-top:3px;"></div>
+        </div>
+        <p style="font-size:11px; color:var(--text-faint);">Node · DevOps · Q3–Q4</p>
+      </div>
+      <div class="proj-card gamma">
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+          <span style="font-size:12px; font-weight:600;">Gamma</span>
+          <div style="width:6px; height:6px; border-radius:50%; background:#D1D5DB; margin-top:3px;"></div>
+        </div>
+        <p style="font-size:11px; color:var(--text-faint);">React · QA</p>
+      </div>
+      <div class="proj-card delta">
+        <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+          <span style="font-size:12px; font-weight:600;">Delta</span>
+          <div style="width:6px; height:6px; border-radius:50%; background:#D1D5DB; margin-top:3px;"></div>
+        </div>
+        <p style="font-size:11px; color:var(--text-faint);">PM · Unscheduled</p>
+      </div>
+      <div style="margin-top:auto; padding:12px;">
+        <button class="btn btn-ghost" style="width:100%; justify-content:center; font-size:11px; padding:7px;">
+          <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          New project
+        </button>
+      </div>
+    </aside>
+
+    <!-- CANVAS -->
+    <main class="canvas">
+
+      <!-- Sub-header: view toggle -->
+      <div class="canvas-subheader">
+        <div class="view-toggle">
+          <button class="vt-btn active" id="btn-team" onclick="switchView('team')">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Team
+          </button>
+          <button class="vt-btn" id="btn-epics" onclick="switchView('epics')">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Epics
+          </button>
+        </div>
+        <p style="font-size:11px; color:var(--text-faint);" id="canvas-hint">Swimlanes by team member</p>
+      </div>
+
+      <!-- Time axis (shared) -->
+      <div class="time-axis">
+        <div class="axis-name"><span style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-faint);" id="axis-label">Team</span></div>
+        <div class="axis-month">Jan</div>
+        <div class="axis-month">Feb</div>
+        <div class="axis-month">Mar</div>
+        <div class="axis-month active">Apr</div>
+        <div class="axis-month active">May</div>
+        <div class="axis-month active">Jun</div>
+        <div class="axis-month" style="border-right:none;">Jul</div>
+      </div>
+
+      <!-- ════ TEAM VIEW ════ -->
+      <div id="team-view">
+
+        <!-- Alice -->
+        <div class="s-row">
+          <div class="s-name">
+            <div class="avatar" style="background:#FEF3C7; color:#92400E;">AL</div>
+            <div>
+              <p style="font-size:13px; font-weight:500;">Alice</p>
+              <p style="font-size:10px; color:var(--orange); font-weight:600;">91% · near</p>
+            </div>
+          </div>
+          <div class="s-cell"></div><div class="s-cell"></div><div class="s-cell"></div>
+          <div class="s-cell q2" style="grid-column:span 3; padding:10px 8px;">
+            <div class="block alpha draft" id="block-alice">
+              <span class="block-label" style="font-style:italic;">Alpha</span>
+              <span class="block-sub">Apr – Jun · draft</span>
+              <div class="block-actions">
+                <button class="btn-xs confirm" onclick="confirmBlock('block-alice')">Confirm</button>
+                <button class="btn-xs">Swap</button>
+              </div>
+            </div>
+          </div>
+          <div class="s-cell"></div>
+        </div>
+
+        <!-- Bob -->
+        <div class="s-row">
+          <div class="s-name">
+            <div class="avatar" style="background:#DBEAFE; color:#1e40af;">BO</div>
+            <div>
+              <p style="font-size:13px; font-weight:500;">Bob</p>
+              <p style="font-size:10px; color:var(--green); font-weight:600;">60% · healthy</p>
+            </div>
+          </div>
+          <div class="s-cell" style="grid-column:span 7;"><span class="drop-hint">Drop a project here, or drag Bob onto a block</span></div>
+        </div>
+
+        <!-- Carol -->
+        <div class="s-row">
+          <div class="s-name">
+            <div class="avatar" style="background:#FFE4E6; color:#9f1239;">CA</div>
+            <div>
+              <p style="font-size:13px; font-weight:500;">Carol</p>
+              <p style="font-size:10px; color:var(--green); font-weight:600;">68% · healthy</p>
+            </div>
+          </div>
+          <div class="s-cell"></div><div class="s-cell"></div><div class="s-cell"></div>
+          <div class="s-cell q2" style="grid-column:span 3; padding:10px 8px;">
+            <div class="block alpha draft" id="block-carol" style="border-color:#FED7AA;">
+              <span class="block-label" style="font-style:italic;">Alpha</span>
+              <div class="warn-dot"></div>
+              <span class="block-sub">UX gap</span>
+              <div class="block-actions">
+                <button class="btn-xs confirm" onclick="confirmBlock('block-carol')">Confirm</button>
+                <button class="btn-xs">Swap</button>
+              </div>
+            </div>
+          </div>
+          <div class="s-cell"></div>
+        </div>
+
+        <!-- Dana -->
+        <div class="s-row">
+          <div class="s-name">
+            <div class="avatar" style="background:#DCFCE7; color:#166534;">DA</div>
+            <div>
+              <p style="font-size:13px; font-weight:500;">Dana</p>
+              <p style="font-size:10px; color:var(--green); font-weight:600;">55% · healthy</p>
+            </div>
+          </div>
+          <div class="s-cell" style="grid-column:span 7;"><span class="drop-hint">Drop a project here, or drag Dana onto a block</span></div>
+        </div>
+
+        <!-- BIZ divider -->
+        <div class="s-divider">
+          <div style="padding:6px 14px; border-right:1px solid var(--border);"><span style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#7C3AED;">Business</span></div>
+          <div style="padding:6px 16px;"><span style="font-size:10px; color:var(--text-faint);">UAT · testing · hypercare</span></div>
+        </div>
+        <div class="s-row">
+          <div class="s-name">
+            <div class="avatar" style="background:#F5F3FF; color:#7C3AED;">EV</div>
+            <div>
+              <p style="font-size:13px; font-weight:500;">Eve</p>
+              <p style="font-size:10px; color:#7C3AED; font-weight:500;">Finance · UAT</p>
+            </div>
+          </div>
+          <div class="s-cell" style="grid-column:span 7;"><span class="drop-hint">No business assignments yet</span></div>
+        </div>
+
+      </div><!-- /team-view -->
+
+      <!-- ════ EPICS VIEW ════ -->
+      <div id="epics-view">
+
+        <!-- ════════════════════════════════ ALPHA EPIC -->
+        <div class="e-row is-epic epic-row" onclick="toggleSection('alpha-children')">
+          <div class="e-name is-epic">
+            <svg class="chevron open" id="chev-alpha" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <span class="type-badge type-epic">Epic</span>
+            <div>
+              <p style="font-size:12px; font-weight:600;">Alpha — Platform Modernisation</p>
+              <p style="font-size:10px; color:var(--text-faint);">CP-100 · 3 features · 11 stories · 54 SP</p>
+            </div>
+            <div style="display:flex; margin-left:auto;">
+              <div class="pip" style="background:#FEF3C7; color:#92400E;">AL</div>
+              <div class="pip" style="background:#FFE4E6; color:#9f1239; margin-left:-5px;">CA</div>
+              <div class="pip" style="background:#DCFCE7; color:#166534; margin-left:-5px;">DA</div>
+            </div>
+          </div>
+          <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+          <div class="e-cell q2" style="grid-column:span 3; padding:8px;">
+            <div class="ebar epic alpha" style="width:100%;">
+              <span style="font-size:10px; font-weight:600; color:var(--text);">Alpha</span>
+              <span style="font-size:10px; color:var(--text-faint); margin-left:4px;">Apr – Jun</span>
+              <div style="display:flex; align-items:center; gap:4px; margin-left:auto;">
+                <span style="font-size:9px; color:var(--text-faint);">6 / 11 done</span>
+                <div class="status-dot s-progress"></div>
+              </div>
+            </div>
+          </div>
+          <div class="e-cell"></div>
+        </div>
+
+        <div id="alpha-children">
+
+          <!-- ── Feature 1: User Authentication ── -->
+          <div class="e-row is-feature epic-row" onclick="toggleSection('alpha-f1')">
+            <div class="e-name is-feature indent-1">
+              <svg class="chevron open" id="chev-alpha-f1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="type-badge type-feature">Feature</span>
+              <div>
+                <p style="font-size:12px; font-weight:500;">User Authentication</p>
+                <p style="font-size:10px; color:var(--text-faint);">CP-101 · 4 stories · 13 SP · Alice</p>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+                <span style="font-size:9px; color:var(--green); font-weight:600;">3 done</span>
+                <div class="pip" style="background:#FEF3C7; color:#92400E;">AL</div>
+              </div>
+            </div>
+            <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+            <div class="e-cell q2" style="grid-column:span 2; padding:8px;">
+              <div class="ebar feature alpha" style="width:100%;">
+                <span style="font-size:10px; font-weight:500; color:var(--text);">User Auth</span>
+                <div class="status-dot s-progress" style="margin-left:auto;"></div>
+              </div>
+            </div>
+            <div class="e-cell q2"></div><div class="e-cell"></div>
+          </div>
+
+          <div id="alpha-f1">
+            <!-- Login page UI — Done -->
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">Login page UI</p><p style="font-size:10px; color:var(--text-faint);">CP-102 · 3 SP · Alice</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;">
+                  <span style="font-size:9px; color:var(--green); font-weight:600;">Done</span>
+                  <div class="status-dot s-done"></div>
+                </div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:65%; background:#F0FDF4; border-color:#A7F3D0;">
+                  <span style="font-size:9px; color:#166534; font-weight:600;">CP-102</span>
+                </div>
+              </div>
+              <div class="e-cell q2"></div><div class="e-cell q2"></div><div class="e-cell"></div>
+            </div>
+            <!-- JWT token service — In Progress -->
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">JWT token service</p><p style="font-size:10px; color:var(--text-faint);">CP-103 · 5 SP · Alice</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;">
+                  <span style="font-size:9px; color:#3B82F6; font-weight:600;">In Progress</span>
+                  <div class="status-dot s-progress"></div>
+                </div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:90%;">
+                  <span style="font-size:9px; color:var(--text-muted);">CP-103</span>
+                </div>
+              </div>
+              <div class="e-cell q2"></div><div class="e-cell q2"></div><div class="e-cell"></div>
+            </div>
+            <!-- Password reset — To Do -->
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">Password reset flow</p><p style="font-size:10px; color:var(--text-faint);">CP-104 · 3 SP · Alice</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;">
+                  <span style="font-size:9px; color:var(--text-faint);">To Do</span>
+                  <div class="status-dot s-todo"></div>
+                </div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:75%;">
+                  <span style="font-size:9px; color:var(--text-muted);">CP-104</span>
+                </div>
+              </div>
+              <div class="e-cell q2"></div><div class="e-cell"></div>
+            </div>
+            <!-- Bug: Session timeout — To Do -->
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-bug">Bug</span>
+                <div><p style="font-size:11px;">Session timeout crash</p><p style="font-size:10px; color:var(--text-faint);">CP-105 · 2 SP · Carol</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;">
+                  <span style="font-size:9px; color:var(--text-faint);">To Do</span>
+                  <div class="status-dot s-todo"></div>
+                </div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:55%; background:#FFF1F2; border-color:#FECDD3;">
+                  <span style="font-size:9px; color:#9F1239; font-weight:600;">CP-105</span>
+                </div>
+              </div>
+              <div class="e-cell q2"></div><div class="e-cell"></div>
+            </div>
+          </div><!-- /alpha-f1 -->
+
+          <!-- ── Feature 2: Dashboard ── -->
+          <div class="e-row is-feature epic-row" onclick="toggleSection('alpha-f2')">
+            <div class="e-name is-feature indent-1">
+              <svg class="chevron open" id="chev-alpha-f2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="type-badge type-feature">Feature</span>
+              <div>
+                <p style="font-size:12px; font-weight:500;">Dashboard</p>
+                <p style="font-size:10px; color:var(--text-faint);">CP-110 · 4 stories · 21 SP · Carol, Dana</p>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+                <span style="font-size:9px; color:var(--text-faint);">0 done</span>
+                <div class="pip" style="background:#FFE4E6; color:#9f1239;">CA</div>
+                <div class="pip" style="background:#DCFCE7; color:#166534; margin-left:-5px;">DA</div>
+              </div>
+            </div>
+            <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+            <div class="e-cell q2"></div>
+            <div class="e-cell q2" style="grid-column:span 2; padding:8px;">
+              <div class="ebar feature alpha" style="width:100%;">
+                <span style="font-size:10px; font-weight:500; color:var(--text);">Dashboard</span>
+                <div class="status-dot s-todo" style="margin-left:auto;"></div>
+              </div>
+            </div>
+            <div class="e-cell"></div>
+          </div>
+
+          <div id="alpha-f2">
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">KPI summary cards</p><p style="font-size:10px; color:var(--text-faint);">CP-111 · 5 SP · Dana</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--text-faint);">To Do</span><div class="status-dot s-todo"></div></div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:85%;"><span style="font-size:9px; color:var(--text-muted);">CP-111</span></div>
+              </div>
+              <div class="e-cell q2"></div><div class="e-cell"></div>
+            </div>
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">Chart widgets</p><p style="font-size:10px; color:var(--text-faint);">CP-112 · 8 SP · Carol</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--text-faint);">To Do</span><div class="status-dot s-todo"></div></div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:100%;"><span style="font-size:9px; color:var(--text-muted);">CP-112</span></div>
+              </div>
+              <div class="e-cell q2"></div><div class="e-cell"></div>
+            </div>
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-task">Task</span>
+                <div><p style="font-size:11px;">Write dashboard specs</p><p style="font-size:10px; color:var(--text-faint);">CP-113 · 2 SP · Dana</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;">
+                  <span style="font-size:9px; color:var(--green); font-weight:600;">Done</span>
+                  <div class="status-dot s-done"></div>
+                </div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:50%; background:#F0FDF4; border-color:#A7F3D0;">
+                  <span style="font-size:9px; color:#166534; font-weight:600;">CP-113</span>
+                </div>
+              </div>
+              <div class="e-cell q2"></div><div class="e-cell q2"></div><div class="e-cell"></div>
+            </div>
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">Filter &amp; search bar</p><p style="font-size:10px; color:var(--text-faint);">CP-114 · 6 SP · Carol</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--text-faint);">To Do</span><div class="status-dot s-todo"></div></div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2"></div><div class="e-cell q2"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:70%;"><span style="font-size:9px; color:var(--text-muted);">CP-114</span></div>
+              </div>
+              <div class="e-cell"></div>
+            </div>
+          </div><!-- /alpha-f2 -->
+
+          <!-- ── Feature 3: Data Export ── -->
+          <div class="e-row is-feature epic-row" onclick="toggleSection('alpha-f3')">
+            <div class="e-name is-feature indent-1">
+              <svg class="chevron open" id="chev-alpha-f3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="type-badge type-feature">Feature</span>
+              <div>
+                <p style="font-size:12px; font-weight:500;">Data Export</p>
+                <p style="font-size:10px; color:var(--text-faint);">CP-120 · 3 stories · 20 SP · Dana</p>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+                <span style="font-size:9px; color:var(--green); font-weight:600;">3 done</span>
+                <div class="pip" style="background:#DCFCE7; color:#166534;">DA</div>
+              </div>
+            </div>
+            <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+            <div class="e-cell q2" style="grid-column:span 3; padding:8px;">
+              <div class="ebar feature alpha" style="width:100%;">
+                <span style="font-size:10px; font-weight:500; color:var(--text);">Data Export</span>
+                <div style="display:flex; align-items:center; gap:4px; margin-left:auto;">
+                  <span style="font-size:9px; color:var(--green); font-weight:600;">Done</span>
+                  <div class="status-dot s-done"></div>
+                </div>
+              </div>
+            </div>
+            <div class="e-cell"></div>
+          </div>
+
+          <div id="alpha-f3">
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">CSV export</p><p style="font-size:10px; color:var(--text-faint);">CP-121 · 3 SP · Dana</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--green); font-weight:600;">Done</span><div class="status-dot s-done"></div></div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:60%; background:#F0FDF4; border-color:#A7F3D0;">
+                  <span style="font-size:9px; color:#166534; font-weight:600;">CP-121</span>
+                </div>
+              </div>
+              <div class="e-cell q2"></div><div class="e-cell q2"></div><div class="e-cell"></div>
+            </div>
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">PDF report generation</p><p style="font-size:10px; color:var(--text-faint);">CP-122 · 8 SP · Dana</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--green); font-weight:600;">Done</span><div class="status-dot s-done"></div></div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:80%; background:#F0FDF4; border-color:#A7F3D0;">
+                  <span style="font-size:9px; color:#166534; font-weight:600;">CP-122</span>
+                </div>
+              </div>
+              <div class="e-cell q2"></div><div class="e-cell q2"></div><div class="e-cell"></div>
+            </div>
+            <div class="e-row is-story epic-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-task">Task</span>
+                <div><p style="font-size:11px;">Schedule export jobs</p><p style="font-size:10px; color:var(--text-faint);">CP-123 · 5 SP · Dana</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--green); font-weight:600;">Done</span><div class="status-dot s-done"></div></div>
+              </div>
+              <div class="e-cell"></div><div class="e-cell"></div><div class="e-cell"></div>
+              <div class="e-cell q2"></div>
+              <div class="e-cell q2" style="padding:11px 8px;">
+                <div class="ebar story alpha" style="width:70%; background:#F0FDF4; border-color:#A7F3D0;">
+                  <span style="font-size:9px; color:#166534; font-weight:600;">CP-123</span>
+                </div>
+              </div>
+              <div class="e-cell q2"></div><div class="e-cell"></div>
+            </div>
+          </div><!-- /alpha-f3 -->
+
+        </div><!-- /alpha-children -->
+
+        <!-- ════════════════════════════════ BETA EPIC -->
+        <div class="e-row is-epic beta-row" onclick="toggleSection('beta-children')">
+          <div class="e-name is-epic">
+            <svg class="chevron open" id="chev-beta" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <span class="type-badge type-epic">Epic</span>
+            <div>
+              <p style="font-size:12px; font-weight:600;">Beta — Infrastructure Upgrade</p>
+              <p style="font-size:10px; color:var(--text-faint);">CP-200 · 2 features · 7 stories · 41 SP</p>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+              <span style="font-size:9px; color:var(--orange); font-weight:600; background:#FFF7ED; padding:1px 6px; border-radius:9999px;">Not assigned</span>
+              <div class="pip" style="background:#DBEAFE; color:#1e40af;">BO</div>
+            </div>
+          </div>
+          <!-- Beta bar starts Jul, extends beyond viewport -->
+          <div class="e-cell" style="grid-column:span 6;"></div>
+          <div class="e-cell" style="padding:8px 8px;">
+            <div class="ebar epic" style="width:100%; border-left-color:var(--p-beta); border-radius:6px 0 0 6px; border-right:none; background:linear-gradient(to right, #FFFBEB, #FEF9C3);">
+              <span style="font-size:10px; font-weight:600; color:#92400E;">Beta</span>
+              <span style="font-size:10px; color:#B45309; margin-left:4px;">Jul →</span>
+              <svg width="10" height="10" style="margin-left:auto; color:#B45309;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div id="beta-children">
+
+          <!-- Feature: CI/CD Pipeline -->
+          <div class="e-row is-feature beta-row" onclick="toggleSection('beta-f1')">
+            <div class="e-name is-feature indent-1">
+              <svg class="chevron open" id="chev-beta-f1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="type-badge type-feature">Feature</span>
+              <div>
+                <p style="font-size:12px; font-weight:500;">CI/CD Pipeline</p>
+                <p style="font-size:10px; color:var(--text-faint);">CP-201 · 4 stories · 26 SP · Bob</p>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+                <span style="font-size:9px; color:var(--text-faint);">0 done</span>
+                <div class="pip" style="background:#DBEAFE; color:#1e40af;">BO</div>
+              </div>
+            </div>
+            <div class="e-cell" style="grid-column:span 6;"></div>
+            <div class="e-cell" style="padding:8px 8px;">
+              <div class="ebar feature" style="width:100%; border-left-color:var(--p-beta); border-radius:6px 0 0 6px; border-right:none;">
+                <span style="font-size:10px; font-weight:500; color:#92400E;">CI/CD</span>
+                <svg width="9" height="9" style="margin-left:auto; color:var(--text-faint);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div id="beta-f1">
+            <div class="e-row is-story beta-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">Docker containerisation</p><p style="font-size:10px; color:var(--text-faint);">CP-202 · 8 SP · Bob</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--text-faint);">To Do</span><div class="status-dot s-todo"></div></div>
+              </div>
+              <div class="e-cell" style="grid-column:span 6;"></div>
+              <div class="e-cell" style="padding:11px 8px;">
+                <div class="ebar story" style="width:60%; border-left-color:var(--p-beta);"><span style="font-size:9px; color:var(--text-muted);">CP-202</span></div>
+              </div>
+            </div>
+            <div class="e-row is-story beta-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">GitHub Actions setup</p><p style="font-size:10px; color:var(--text-faint);">CP-203 · 5 SP · Bob</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--text-faint);">To Do</span><div class="status-dot s-todo"></div></div>
+              </div>
+              <div class="e-cell" style="grid-column:span 6;"></div>
+              <div class="e-cell" style="padding:11px 8px;">
+                <div class="ebar story" style="width:80%; border-left-color:var(--p-beta);"><span style="font-size:9px; color:var(--text-muted);">CP-203</span></div>
+              </div>
+            </div>
+            <div class="e-row is-story beta-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">Auto-deploy to staging</p><p style="font-size:10px; color:var(--text-faint);">CP-204 · 8 SP · Bob</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--text-faint);">To Do</span><div class="status-dot s-todo"></div></div>
+              </div>
+              <div class="e-cell" style="grid-column:span 6;"></div>
+              <div class="e-cell" style="padding:11px 8px;">
+                <div class="ebar story" style="width:90%; border-left-color:var(--p-beta);"><span style="font-size:9px; color:var(--text-muted);">CP-204</span></div>
+              </div>
+            </div>
+            <div class="e-row is-story beta-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-task">Task</span>
+                <div><p style="font-size:11px;">Document pipeline runbook</p><p style="font-size:10px; color:var(--text-faint);">CP-205 · 3 SP · Bob</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--text-faint);">To Do</span><div class="status-dot s-todo"></div></div>
+              </div>
+              <div class="e-cell" style="grid-column:span 6;"></div>
+              <div class="e-cell" style="padding:11px 8px;">
+                <div class="ebar story" style="width:50%; border-left-color:var(--p-beta);"><span style="font-size:9px; color:var(--text-muted);">CP-205</span></div>
+              </div>
+            </div>
+          </div><!-- /beta-f1 -->
+
+          <!-- Feature: Monitoring -->
+          <div class="e-row is-feature beta-row" onclick="toggleSection('beta-f2')">
+            <div class="e-name is-feature indent-1">
+              <svg class="chevron open" id="chev-beta-f2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="type-badge type-feature">Feature</span>
+              <div>
+                <p style="font-size:12px; font-weight:500;">Monitoring &amp; Alerting</p>
+                <p style="font-size:10px; color:var(--text-faint);">CP-210 · 3 stories · 15 SP · Bob</p>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+                <span style="font-size:9px; color:var(--text-faint);">0 done</span>
+                <div class="pip" style="background:#DBEAFE; color:#1e40af;">BO</div>
+              </div>
+            </div>
+            <div class="e-cell" style="grid-column:span 6;"></div>
+            <div class="e-cell" style="padding:8px 8px;">
+              <div class="ebar feature" style="width:100%; border-left-color:var(--p-beta); border-radius:6px 0 0 6px; border-right:none;">
+                <span style="font-size:10px; font-weight:500; color:#92400E;">Monitoring</span>
+                <svg width="9" height="9" style="margin-left:auto; color:var(--text-faint);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div id="beta-f2">
+            <div class="e-row is-story beta-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">Datadog integration</p><p style="font-size:10px; color:var(--text-faint);">CP-211 · 5 SP · Bob</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--text-faint);">To Do</span><div class="status-dot s-todo"></div></div>
+              </div>
+              <div class="e-cell" style="grid-column:span 6;"></div>
+              <div class="e-cell" style="padding:11px 8px;">
+                <div class="ebar story" style="width:65%; border-left-color:var(--p-beta);"><span style="font-size:9px; color:var(--text-muted);">CP-211</span></div>
+              </div>
+            </div>
+            <div class="e-row is-story beta-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-story">Story</span>
+                <div><p style="font-size:11px;">PagerDuty alert rules</p><p style="font-size:10px; color:var(--text-faint);">CP-212 · 5 SP · Bob</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--text-faint);">To Do</span><div class="status-dot s-todo"></div></div>
+              </div>
+              <div class="e-cell" style="grid-column:span 6;"></div>
+              <div class="e-cell" style="padding:11px 8px;">
+                <div class="ebar story" style="width:80%; border-left-color:var(--p-beta);"><span style="font-size:9px; color:var(--text-muted);">CP-212</span></div>
+              </div>
+            </div>
+            <div class="e-row is-story beta-row">
+              <div class="e-name is-story indent-2" style="height:38px;">
+                <span class="type-badge type-task">Task</span>
+                <div><p style="font-size:11px;">SLO dashboard setup</p><p style="font-size:10px; color:var(--text-faint);">CP-213 · 5 SP · Bob</p></div>
+                <div style="display:flex; align-items:center; gap:5px; margin-left:auto;"><span style="font-size:9px; color:var(--text-faint);">To Do</span><div class="status-dot s-todo"></div></div>
+              </div>
+              <div class="e-cell" style="grid-column:span 6;"></div>
+              <div class="e-cell" style="padding:11px 8px;">
+                <div class="ebar story" style="width:55%; border-left-color:var(--p-beta);"><span style="font-size:9px; color:var(--text-muted);">CP-213</span></div>
+              </div>
+            </div>
+          </div><!-- /beta-f2 -->
+
+        </div><!-- /beta-children -->
+
+      </div><!-- /epics-view -->
+
+    </main>
+
+    <!-- TEAM BENCH -->
+    <aside class="bench right">
+      <div class="bench-header">
+        <p class="bench-title">Team</p>
+        <p style="font-size:11px; color:var(--teal-dark); margin-top:2px; font-weight:500;">Sorted by fit · Alpha</p>
+      </div>
+
+      <div class="person-card">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <div style="display:flex; align-items:center; gap:7px;">
+            <div class="avatar" style="width:24px; height:24px; font-size:9px; background:#DCFCE7; color:#166534;">DA</div>
+            <span style="font-size:13px; font-weight:500;">Dana</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font-size:11px; font-weight:600; color:var(--green);">55%</span>
+            <span class="fit good">0.81</span>
+          </div>
+        </div>
+        <div class="cap-bar"><div class="cap-fill" style="width:55%; background:var(--green);"></div></div>
+        <div style="display:flex; flex-wrap:wrap; gap:3px; margin-top:6px;">
+          <span class="skill">React</span><span class="skill">UX</span>
+        </div>
+        <p style="font-size:10px; color:var(--text-faint); margin-top:5px;">45 days free Q2</p>
+      </div>
+
+      <div class="person-card">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <div style="display:flex; align-items:center; gap:7px;">
+            <div class="avatar" style="width:24px; height:24px; font-size:9px; background:#FEF3C7; color:#92400E;">AL</div>
+            <span style="font-size:13px; font-weight:500;">Alice</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font-size:11px; font-weight:600; color:var(--orange);">91%</span>
+            <span class="fit ok">0.72</span>
+          </div>
+        </div>
+        <div class="cap-bar"><div class="cap-fill" style="width:91%; background:var(--orange);"></div></div>
+        <div style="display:flex; flex-wrap:wrap; gap:3px; margin-top:6px;">
+          <span class="skill">React</span><span class="skill">UX</span><span class="skill">PM</span>
+        </div>
+        <p style="font-size:10px; color:var(--text-faint); margin-top:5px;">9 days free Q2</p>
+      </div>
+
+      <div class="person-card">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <div style="display:flex; align-items:center; gap:7px;">
+            <div class="avatar" style="width:24px; height:24px; font-size:9px; background:#FFE4E6; color:#9f1239;">CA</div>
+            <span style="font-size:13px; font-weight:500;">Carol</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font-size:11px; font-weight:600; color:var(--green);">68%</span>
+            <span class="fit ok">0.61</span>
+          </div>
+        </div>
+        <div class="cap-bar"><div class="cap-fill" style="width:68%; background:var(--green);"></div></div>
+        <div style="display:flex; flex-wrap:wrap; gap:3px; margin-top:6px;">
+          <span class="skill">React</span><span class="skill warn">⚠ UX gap</span>
+        </div>
+        <p style="font-size:10px; color:var(--text-faint); margin-top:5px;">32 days free Q2</p>
+      </div>
+
+      <div class="person-card">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <div style="display:flex; align-items:center; gap:7px;">
+            <div class="avatar" style="width:24px; height:24px; font-size:9px; background:#DBEAFE; color:#1e40af;">BO</div>
+            <span style="font-size:13px; font-weight:500;">Bob</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font-size:11px; font-weight:600; color:var(--green);">60%</span>
+            <span class="fit low">0.38</span>
+          </div>
+        </div>
+        <div class="cap-bar"><div class="cap-fill" style="width:60%; background:var(--green);"></div></div>
+        <div style="display:flex; flex-wrap:wrap; gap:3px; margin-top:6px;">
+          <span class="skill">Node</span><span class="skill">DevOps</span>
+        </div>
+        <p style="font-size:10px; color:var(--text-faint); margin-top:5px;">40 days free Q2</p>
+      </div>
+
+      <div style="padding:12px; margin-top:auto;">
+        <button class="btn btn-ghost" style="width:100%; justify-content:center; font-size:11px; padding:7px;">
+          <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Add member
+        </button>
+      </div>
+    </aside>
+
+  </div><!-- /body -->
+
+  <!-- WARNING TRAY -->
+  <div class="warning-tray">
+    <div class="warn-item"><div class="warn-dot"></div><span><strong>Alice at 91%</strong> — near capacity</span></div>
+    <div style="width:1px; height:14px; background:var(--border);"></div>
+    <div class="warn-item"><div class="warn-dot"></div><span><strong>Carol · Alpha</strong> — UX skill not matched</span></div>
+    <div style="width:1px; height:14px; background:var(--border);"></div>
+    <div class="warn-item" style="color:var(--text-faint);">2 draft assignments pending</div>
+    <button class="btn btn-ghost" style="margin-left:auto; font-size:11px; padding:4px 10px;">Review all</button>
+  </div>
+
+</div>
+
+<script>
+  function switchView(v) {
+    const teamView  = document.getElementById('team-view');
+    const epicsView = document.getElementById('epics-view');
+    const btnTeam   = document.getElementById('btn-team');
+    const btnEpics  = document.getElementById('btn-epics');
+    const hint      = document.getElementById('canvas-hint');
+    const axisLabel = document.getElementById('axis-label');
+
+    if (v === 'team') {
+      teamView.style.display  = 'block';
+      epicsView.style.display = 'none';
+      btnTeam.classList.add('active');
+      btnEpics.classList.remove('active');
+      hint.textContent = 'Swimlanes by team member';
+      axisLabel.textContent = 'Team';
+    } else {
+      teamView.style.display  = 'none';
+      epicsView.style.display = 'block';
+      btnTeam.classList.remove('active');
+      btnEpics.classList.add('active');
+      hint.textContent = 'Epic → Feature → Story hierarchy';
+      axisLabel.textContent = 'Epic / Feature';
+    }
+  }
+
+  function toggleSection(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isHidden = el.style.display === 'none';
+    el.style.display = isHidden ? '' : 'none';
+    // flip chevron
+    const chevMap = { 'alpha-children': 'chev-alpha', 'alpha-f1-children': 'chev-alpha-f1', 'alpha-f2-children': 'chev-alpha-f2', 'beta-children': 'chev-beta' };
+    const chevId = chevMap[id];
+    if (chevId) {
+      const chev = document.getElementById(chevId);
+      if (chev) chev.classList.toggle('open', isHidden);
+    }
+  }
+
+  function dismissBanner() {
+    const b = document.getElementById('wizard-banner');
+    b.style.transition = 'opacity 200ms, max-height 300ms, padding 300ms';
+    b.style.opacity = '0'; b.style.maxHeight = '0';
+    b.style.overflow = 'hidden'; b.style.padding = '0 20px';
+  }
+
+  function confirmBlock(id) {
+    const block = document.getElementById(id);
+    if (!block) return;
+    block.classList.remove('draft'); block.classList.add('settling');
+    const label = block.querySelector('.block-label');
+    if (label) label.style.fontStyle = 'normal';
+    const sub = block.querySelector('.block-sub');
+    if (sub) sub.textContent = 'Apr – Jun · 45 days';
+    const dot = block.querySelector('.warn-dot');
+    if (dot) dot.remove();
+    block.style.borderColor = '';
+    const actions = block.querySelector('.block-actions');
+    if (actions) actions.remove();
+  }
+
+  function confirmAll() {
+    ['block-alice','block-carol'].forEach(confirmBlock);
+    dismissBanner();
+  }
+</script>
+</body>
+</html>

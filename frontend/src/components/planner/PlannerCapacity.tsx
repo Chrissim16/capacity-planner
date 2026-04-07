@@ -19,7 +19,7 @@
 import { useState, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { ChevronRight, ChevronDown, AlertTriangle } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
-import { calculateSprintCapacity } from '../../utils/capacity';
+import { calculateBusinessCapacity, calculateSprintCapacity } from '../../utils/capacity';
 import type { PlannerItem, Sprint, ProcessTeam } from '../../types';
 import type { DragPreview } from './PlannerTimeline';
 
@@ -482,16 +482,21 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
   // Build PersonRow for BIZ contacts
   const contactRows = useMemo((): PersonRow[] => {
     const activeContacts = (state.businessContacts ?? []).filter(c => !c.archived && !c.excludedFromCapacity);
-    const sprintWorkdays = 10;
     return activeContacts.map(c => {
-      const scale = (c.workingDaysPerWeek ?? 5) / 5;
-      const bauPerSprint = Math.round((c.bauReserveDays ?? 5) / 6);
-      const perSprintAvail = Math.max(0, Math.round(sprintWorkdays * scale) - bauPerSprint);
       const cells = quarterSprints.map(s => {
         const contributions = computeLoadContributions(c.id, s.number, plannerItems, activeDragPreview);
+        const cap = calculateBusinessCapacity(
+          c,
+          s.startDate,
+          s.endDate,
+          [],
+          state.businessTimeOff ?? [],
+          state.publicHolidays ?? [],
+          [],
+        );
         return {
           load: contributions.reduce((sum, e) => sum + e.days, 0),
-          avail: perSprintAvail,
+          avail: Math.max(0, cap.availableDays - cap.allocatedDays),
           contributions,
           sprintNumber: s.number,
         };
@@ -506,7 +511,7 @@ export const PlannerCapacity = forwardRef<PlannerCapacityHandle, PlannerCapacity
         isOverloaded: cells.some(cl => cl.avail > 0 && cl.load > cl.avail),
       };
     });
-  }, [state.businessContacts, quarterSprints, plannerItems, activeDragPreview]);
+  }, [state.businessContacts, state.businessTimeOff, state.publicHolidays, quarterSprints, plannerItems, activeDragPreview]);
 
   const allRows = useMemo(() => [...memberRows, ...contactRows], [memberRows, contactRows]);
 

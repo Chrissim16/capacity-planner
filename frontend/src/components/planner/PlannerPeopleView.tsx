@@ -10,7 +10,7 @@
 import { useState, useMemo } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { useCurrentState } from '../../stores/appStore';
-import { calculateSprintCapacity } from '../../utils/capacity';
+import { calculateBusinessCapacity, calculateSprintCapacity } from '../../utils/capacity';
 import type { PlannerItem, Sprint } from '../../types';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -117,9 +117,7 @@ export function PlannerPeopleView({
         return [{ itemId: item.id, title: item.name || item.type, startSprint: item.startSprint, spanSprints: item.spanSprints, daysPerSprint: a.daysPerSprint }];
       });
       if (items.length === 0) continue;
-      const bizScale = (c.workingDaysPerWeek ?? 5) / 5;
-      const bizBauPerSprint = Math.round((c.bauReserveDays ?? 5) / 6);
-      rows.push({ id: c.id, name: c.name, role: c.title ?? c.department ?? 'BIZ', track: 'BIZ', processTeamIds: c.processTeamIds ?? [], bizScale, bizBauPerSprint, items });
+      rows.push({ id: c.id, name: c.name, role: c.title ?? c.department ?? 'BIZ', track: 'BIZ', processTeamIds: c.processTeamIds ?? [], bizScale: 1, bizBauPerSprint: 0, items });
     }
 
     return rows;
@@ -140,7 +138,18 @@ export function PlannerPeopleView({
           try { return Math.max(0, calculateSprintCapacity(row.id, s, [], state).availableDays); }
           catch { return 0; }
         }
-        return Math.max(0, Math.round(10 * row.bizScale) - row.bizBauPerSprint);
+        const contact = state.businessContacts?.find(c => c.id === row.id);
+        if (!contact) return 0;
+        const cap = calculateBusinessCapacity(
+          contact,
+          s.startDate,
+          s.endDate,
+          [],
+          state.businessTimeOff ?? [],
+          state.publicHolidays ?? [],
+          [],
+        );
+        return Math.max(0, cap.availableDays - cap.allocatedDays);
       });
       map.set(row.id, vals);
     }

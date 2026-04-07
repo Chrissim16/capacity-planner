@@ -41,13 +41,14 @@ import type {
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
 import { migratePlannerLayout } from '../utils/plannerMigration';
+import { bauPercentToLegacyDays } from '../utils/bau';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEFAULT VALUES — must stay in sync with appStore.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS: Settings = {
-  bauReserveDays: 5,
+  bauReservePercent: 8,
   hoursPerDay: 8,
   defaultView: 'dashboard',
   quartersToShow: 4,
@@ -184,6 +185,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       maxConcurrentProjects: m.max_concurrent_projects ?? 2,
       workingDaysPerWeek: m.working_days_per_week ?? 5,
       bauOverride: m.bau_override ?? false,
+      bauReservePercent: m.bau_reserve_percent ?? undefined,
       bauReserveDays: m.bau_reserve_days ?? undefined,
       squadId: m.squad_id ?? undefined,
       processTeamIds: Array.isArray(m.process_team_ids) ? m.process_team_ids : [],
@@ -325,6 +327,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       countryId: c.country_id,
       workingDaysPerWeek: c.working_days_per_week ?? 5,
       workingHoursPerDay: c.working_hours_per_day ?? 8,
+      bauReservePercent: c.bau_reserve_percent ?? undefined,
       bauReserveDays: c.bau_reserve_days ?? 5,
       processTeamIds: Array.isArray(c.process_team_ids) ? c.process_team_ids : [],
       businessTeamIds: Array.isArray(c.business_team_ids) ? c.business_team_ids : [],
@@ -506,7 +509,10 @@ const BASE_MEMBER_ROW = (m: TeamMember) => ({
   skill_ids: m.skillIds, max_concurrent_projects: m.maxConcurrentProjects,
   working_days_per_week: m.workingDaysPerWeek ?? 5,
   bau_override: m.bauOverride ?? false,
-  bau_reserve_days: m.bauOverride ? (m.bauReserveDays ?? 0) : null,
+  bau_reserve_percent: m.bauOverride ? (m.bauReservePercent ?? null) : null,
+  bau_reserve_days: m.bauOverride
+    ? (m.bauReserveDays ?? (m.bauReservePercent != null ? bauPercentToLegacyDays(m.bauReservePercent) : 0))
+    : null,
   email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
   synced_from_jira: m.syncedFromJira ?? false,
   needs_enrichment: m.needsEnrichment ?? false, is_active: true,
@@ -537,14 +543,25 @@ const MEMBER_ROW_NO_CAPACITY_OVERRIDES = (m: TeamMember) => ({
   squad_id: m.squadId ?? null,
   process_team_ids: m.processTeamIds ?? [],
   excluded_from_capacity: m.excludedFromCapacity ?? false,
-  name_manually_edited: m.nameManuallyEdited ?? false,
+});
+
+const MEMBER_ROW_NO_CAPACITY_OR_EXCLUDED = (m: TeamMember) => ({
+  id: m.id, name: m.name, role: m.role, country_id: m.countryId,
+  skill_ids: m.skillIds, max_concurrent_projects: m.maxConcurrentProjects,
+  email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
+  synced_from_jira: m.syncedFromJira ?? false,
+  needs_enrichment: m.needsEnrichment ?? false, is_active: true,
+  squad_id: m.squadId ?? null,
+  process_team_ids: m.processTeamIds ?? [],
 });
 
 const MEMBER_ROW_NO_NAME_OVERRIDE = (m: TeamMember) => ({
   ...LEGACY_MEMBER_ROW(m),
   working_days_per_week: m.workingDaysPerWeek ?? 5,
   bau_override: m.bauOverride ?? false,
-  bau_reserve_days: m.bauOverride ? (m.bauReserveDays ?? 0) : null,
+  bau_reserve_days: m.bauOverride
+    ? (m.bauReserveDays ?? (m.bauReservePercent != null ? bauPercentToLegacyDays(m.bauReservePercent) : 0))
+    : null,
   squad_id: m.squadId ?? null,
   process_team_ids: m.processTeamIds ?? [],
   excluded_from_capacity: m.excludedFromCapacity ?? false,
@@ -554,7 +571,9 @@ const MEMBER_ROW_NO_EXCLUDED = (m: TeamMember) => ({
   ...LEGACY_MEMBER_ROW(m),
   working_days_per_week: m.workingDaysPerWeek ?? 5,
   bau_override: m.bauOverride ?? false,
-  bau_reserve_days: m.bauOverride ? (m.bauReserveDays ?? 0) : null,
+  bau_reserve_days: m.bauOverride
+    ? (m.bauReserveDays ?? (m.bauReservePercent != null ? bauPercentToLegacyDays(m.bauReservePercent) : 0))
+    : null,
   squad_id: m.squadId ?? null,
   process_team_ids: m.processTeamIds ?? [],
 });
@@ -565,13 +584,39 @@ const softDeleteMembers = async (idsToRemove: string[]) => {
   }
 };
 
+async function syncTeamMembersWithoutCapacityOverrides(members: TeamMember[]): Promise<void> {
+  try {
+    await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('excluded_from_capacity')) {
+      try {
+        await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OR_EXCLUDED, softDeleteMembers);
+      } catch (err2) {
+        const msg2 = err2 instanceof Error ? err2.message : String(err2);
+        if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
+          await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
+        } else {
+          throw err2;
+        }
+      }
+      return;
+    }
+    if (msg.includes('squad_id') || msg.includes('process_team_ids')) {
+      await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
+      return;
+    }
+    throw err;
+  }
+}
+
 async function syncTeamMembers(members: TeamMember[]): Promise<void> {
   try {
     await upsertAndPrune('team_members', members, EXTENDED_MEMBER_ROW, softDeleteMembers);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('working_days_per_week') || msg.includes('bau_override') || msg.includes('bau_reserve_days')) {
-      await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
+    if (msg.includes('working_days_per_week') || msg.includes('bau_override') || msg.includes('bau_reserve_days') || msg.includes('bau_reserve_percent')) {
+      await syncTeamMembersWithoutCapacityOverrides(members);
       return;
     }
     if (msg.includes('name_manually_edited')) {
@@ -579,8 +624,8 @@ async function syncTeamMembers(members: TeamMember[]): Promise<void> {
         await upsertAndPrune('team_members', members, MEMBER_ROW_NO_NAME_OVERRIDE, softDeleteMembers);
       } catch (err2) {
         const msg2 = err2 instanceof Error ? err2.message : String(err2);
-        if (msg2.includes('working_days_per_week') || msg2.includes('bau_override') || msg2.includes('bau_reserve_days')) {
-          await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
+        if (msg2.includes('working_days_per_week') || msg2.includes('bau_override') || msg2.includes('bau_reserve_days') || msg2.includes('bau_reserve_percent')) {
+          await syncTeamMembersWithoutCapacityOverrides(members);
         } else if (msg2.includes('excluded_from_capacity')) {
           await upsertAndPrune('team_members', members, MEMBER_ROW_NO_EXCLUDED, softDeleteMembers);
         } else if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
@@ -592,7 +637,7 @@ async function syncTeamMembers(members: TeamMember[]): Promise<void> {
         await upsertAndPrune('team_members', members, MEMBER_ROW_NO_EXCLUDED, softDeleteMembers);
       } catch (err2) {
         const msg2 = err2 instanceof Error ? err2.message : String(err2);
-        if (msg2.includes('working_days_per_week') || msg2.includes('bau_override') || msg2.includes('bau_reserve_days')) {
+        if (msg2.includes('working_days_per_week') || msg2.includes('bau_override') || msg2.includes('bau_reserve_days') || msg2.includes('bau_reserve_percent')) {
           await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
         } else if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
           await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
@@ -745,7 +790,9 @@ const FULL_BIZ_CONTACT_ROW = (c: BusinessContact) => ({
   id: c.id, name: c.name, title: c.title ?? null, department: c.department ?? null,
   email: c.email ?? null, country_id: c.countryId,
   working_days_per_week: c.workingDaysPerWeek ?? 5, working_hours_per_day: c.workingHoursPerDay ?? 8,
-  bau_reserve_days: c.bauReserveDays ?? 5, process_team_ids: c.processTeamIds ?? [],
+  bau_reserve_percent: c.bauReservePercent ?? null,
+  bau_reserve_days: c.bauReserveDays ?? (c.bauReservePercent != null ? bauPercentToLegacyDays(c.bauReservePercent) : 5),
+  process_team_ids: c.processTeamIds ?? [],
   business_team_ids: c.businessTeamIds ?? [],
   notes: c.notes ?? null, archived: c.archived ?? false,
   excluded_from_capacity: c.excludedFromCapacity ?? false,
@@ -762,6 +809,7 @@ const LEGACY_BIZ_CONTACT_ROW = (c: BusinessContact) => ({
   id: c.id, name: c.name, title: c.title ?? null, department: c.department ?? null,
   email: c.email ?? null, country_id: c.countryId,
   working_days_per_week: c.workingDaysPerWeek ?? 5, working_hours_per_day: c.workingHoursPerDay ?? 8,
+  bau_reserve_days: c.bauReserveDays ?? (c.bauReservePercent != null ? bauPercentToLegacyDays(c.bauReservePercent) : 5),
   notes: c.notes ?? null, archived: c.archived ?? false, updated_at: new Date().toISOString(),
 });
 
@@ -779,11 +827,11 @@ async function syncBusinessContacts(contacts: BusinessContact[]): Promise<void> 
         await upsertAndPrune('business_contacts', contacts, BIZ_CONTACT_ROW_NO_EXCLUDED);
       } catch (err2) {
         const msg2 = err2 instanceof Error ? err2.message : String(err2);
-        if (msg2.includes('bau_reserve_days') || msg2.includes('process_team_ids') || msg2.includes('business_team_ids')) {
+        if (msg2.includes('bau_reserve_days') || msg2.includes('bau_reserve_percent') || msg2.includes('process_team_ids') || msg2.includes('business_team_ids')) {
           await upsertAndPrune('business_contacts', contacts, LEGACY_BIZ_CONTACT_ROW);
         } else { throw err2; }
       }
-    } else if (msg.includes('bau_reserve_days') || msg.includes('process_team_ids') || msg.includes('business_team_ids')) {
+    } else if (msg.includes('bau_reserve_days') || msg.includes('bau_reserve_percent') || msg.includes('process_team_ids') || msg.includes('business_team_ids')) {
       await upsertAndPrune('business_contacts', contacts, LEGACY_BIZ_CONTACT_ROW);
     } else {
       throw err;
