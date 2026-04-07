@@ -5,7 +5,8 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { useCurrentState } from '../../stores/appStore';
 import { addTeamMember, updateTeamMember } from '../../stores/actions';
-import type { TeamMember } from '../../types';
+import { CURRENCY_OPTIONS } from '../../utils/currency';
+import type { CurrencyCode, TeamMember } from '../../types';
 import { getSettingsBauPercent, getTeamMemberBauPercent } from '../../utils/bau';
 
 interface TeamMemberFormProps {
@@ -21,6 +22,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  const skills = state.skills;
  const squads = state.squads;
  const processTeams = state.processTeams;
+ const externalVendors = state.externalVendors;
  
  const [name, setName] = useState('');
  const [email, setEmail] = useState('');
@@ -34,6 +36,10 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  const [bauReservePercent, setBauReservePercent] = useState(String(getSettingsBauPercent(state.settings)));
  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
  const [excludedFromCapacity, setExcludedFromCapacity] = useState(false);
+ const [workerType, setWorkerType] = useState<'internal' | 'external'>('internal');
+ const [externalVendorId, setExternalVendorId] = useState('');
+ const [dailyRateOverride, setDailyRateOverride] = useState('');
+ const [dailyRateCurrency, setDailyRateCurrency] = useState<CurrencyCode | ''>('');
  const [errors, setErrors] = useState<Record<string, string>>({});
 
  // Reset form only when the modal opens or the target member changes.
@@ -54,6 +60,10 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  setBauReservePercent(String(getTeamMemberBauPercent(member, state.settings)));
  setSelectedSkills(member.skillIds || []);
  setExcludedFromCapacity(member.excludedFromCapacity ?? false);
+ setWorkerType(member.workerType ?? 'internal');
+ setExternalVendorId(member.externalVendorId ?? '');
+ setDailyRateOverride(member.dailyRateOverride != null ? String(member.dailyRateOverride) : '');
+ setDailyRateCurrency(member.dailyRateCurrency ?? '');
  } else {
  setName('');
  setEmail('');
@@ -67,6 +77,10 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  setBauReservePercent(String(getSettingsBauPercent(state.settings)));
  setSelectedSkills([]);
  setExcludedFromCapacity(false);
+ setWorkerType('internal');
+ setExternalVendorId('');
+ setDailyRateOverride('');
+ setDailyRateCurrency('');
  }
  setErrors({});
  }, [member?.id, isOpen]);
@@ -92,6 +106,9 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  if (!name.trim()) newErrors.name = 'This field is mandatory';
  if (!role) newErrors.role = 'This field is mandatory';
  if (!countryId) newErrors.countryId = 'This field is mandatory';
+ if ((dailyRateOverride.trim() === '') !== (dailyRateCurrency === '')) {
+ newErrors.dailyRateOverride = 'Rate and currency must be filled together';
+ }
  setErrors(newErrors);
  return Object.keys(newErrors).length === 0;
  };
@@ -113,6 +130,10 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  maxConcurrentProjects,
  skillIds: selectedSkills,
  excludedFromCapacity,
+ workerType,
+ externalVendorId: workerType === 'external' && externalVendorId ? externalVendorId : undefined,
+ dailyRateOverride: dailyRateOverride.trim() === '' ? undefined : Math.max(0, parseFloat(dailyRateOverride) || 0),
+ dailyRateCurrency: dailyRateCurrency || undefined,
  };
 
  // Clear needsEnrichment if country and role are now set
@@ -143,6 +164,10 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  const squadOptions = [
  { value: '', label: 'Not assigned' },
  ...squads.map(s => ({ value: s.id, label: s.name })),
+ ];
+ const vendorOptions = [
+ { value: '', label: 'No linked vendor' },
+ ...externalVendors.map((vendor) => ({ value: vendor.id, label: vendor.name })),
  ];
 
  // Group skills by category
@@ -217,6 +242,27 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  }}
  options={countryOptions}
  error={errors.countryId}
+ />
+ </div>
+
+ <div className="grid grid-cols-2 gap-4">
+ <Select
+ id="worker-type"
+ label="Worker Type"
+ value={workerType}
+ onChange={(e) => setWorkerType(e.target.value as 'internal' | 'external')}
+ options={[
+ { value: 'internal', label: 'Internal' },
+ { value: 'external', label: 'External' },
+ ]}
+ />
+ <Select
+ id="external-vendor"
+ label="Linked Vendor"
+ value={externalVendorId}
+ onChange={(e) => setExternalVendorId(e.target.value)}
+ options={vendorOptions}
+ disabled={workerType !== 'external'}
  />
  </div>
 
@@ -312,6 +358,33 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  onChange={(e) => setBauReservePercent(e.target.value)}
  />
  )}
+
+ <div className="grid grid-cols-2 gap-4">
+ <Input
+ id="daily-rate-override"
+ label="Daily Rate Override"
+ type="number"
+ min={0}
+ step={10}
+ value={dailyRateOverride}
+ error={errors.dailyRateOverride}
+ onChange={(e) => {
+ setDailyRateOverride(e.target.value);
+ if (errors.dailyRateOverride) setErrors(prev => ({ ...prev, dailyRateOverride: '' }));
+ }}
+ hint="Leave blank to use global or vendor-derived rates."
+ />
+ <Select
+ id="daily-rate-currency"
+ label="Rate Currency"
+ value={dailyRateCurrency}
+ onChange={(e) => {
+ setDailyRateCurrency(e.target.value as CurrencyCode | '');
+ if (errors.dailyRateOverride) setErrors(prev => ({ ...prev, dailyRateOverride: '' }));
+ }}
+ options={[{ value: '', label: 'No override currency' }, ...CURRENCY_OPTIONS]}
+ />
+ </div>
 
  <label className="flex items-center justify-between gap-3 py-1 cursor-pointer select-none">
  <div>

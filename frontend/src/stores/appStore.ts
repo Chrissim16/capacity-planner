@@ -7,6 +7,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 import type {
   AppState,
+  Scenario,
   ViewType,
   Filters,
   EpicFilters,
@@ -17,7 +18,7 @@ import type {
   Settings,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
-import { hasPlannerSession } from '../utils/plannerSessionStorage';
+import { normalizeBusinessTeamPlaceholdersInAssignments } from '../utils/businessTeamPlaceholders';
 import { loadFromSupabase, saveToSupabase, scheduleSyncToSupabase } from '../services/supabaseSync';
 import { isSupabaseConfigured } from '../services/supabase';
 
@@ -31,6 +32,7 @@ export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error' | 'offline';
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STORAGE_KEY = 'capacity-planner-data';
+const LEGACY_PORTFOLIO_ACTIVE_SCENARIO_KEY = 'pp.activeScenarioId';
 
 /**
  * Safely write to localStorage, silently handling QuotaExceededError.
@@ -76,6 +78,23 @@ const defaultSettings: Settings = {
   sprintsPerYear: 16,
   byeWeeksAfter: [8, 12],
   holidayWeeksAtEnd: 2,
+  costing: {
+    reportingCurrency: 'EUR',
+    supportedCurrencies: ['EUR', 'GBP', 'USD'],
+    fxToEur: {
+      EUR: 1,
+      GBP: 1.17,
+      USD: 0.92,
+    },
+    internalItDailyRate: {
+      amount: 750,
+      currency: 'EUR',
+    },
+    businessDailyRate: {
+      amount: 650,
+      currency: 'EUR',
+    },
+  },
 };
 
 function mergeSettingsWithDefaults(settings?: Partial<Settings>): Settings {
@@ -85,6 +104,25 @@ function mergeSettingsWithDefaults(settings?: Partial<Settings>): Settings {
     confidenceLevels: {
       ...defaultSettings.confidenceLevels,
       ...(settings?.confidenceLevels ?? {}),
+    },
+    costing: {
+      ...defaultSettings.costing,
+      ...(settings?.costing ?? {}),
+      fxToEur: {
+        ...defaultSettings.costing.fxToEur,
+        ...(settings?.costing?.fxToEur ?? {}),
+      },
+      internalItDailyRate: {
+        ...defaultSettings.costing.internalItDailyRate,
+        ...(settings?.costing?.internalItDailyRate ?? {}),
+      },
+      businessDailyRate: {
+        ...defaultSettings.costing.businessDailyRate,
+        ...(settings?.costing?.businessDailyRate ?? {}),
+      },
+      supportedCurrencies: settings?.costing?.supportedCurrencies?.length
+        ? settings.costing.supportedCurrencies
+        : defaultSettings.costing.supportedCurrencies,
     },
   };
 }
@@ -133,6 +171,10 @@ const defaultAppState: AppState = {
   jiraItemBizAssignments: [],
   projects: [],
   assignments: [],
+  capacityRequests: [],
+  capacityAssignments: [],
+  externalVendors: [],
+  initiativeCosts: [],
 };
 
 function sanitizeActiveScenarioId(
@@ -140,9 +182,70 @@ function sanitizeActiveScenarioId(
   scenarios: AppState['scenarios'],
 ): string | null {
   if (!activeScenarioId) return null;
-  const activeScenario = scenarios.find((scenario) => scenario.id === activeScenarioId);
-  if (!activeScenario || activeScenario.isPortfolioScenario) return null;
-  return activeScenarioId;
+  return scenarios.some((scenario) => scenario.id === activeScenarioId) ? activeScenarioId : null;
+}
+
+function normalizeScenario(
+  scenario: Scenario,
+  businessTeams: AppState['businessTeams'] = [],
+): Scenario {
+  const capacityRequests = Array.isArray(scenario.capacityRequests) ? scenario.capacityRequests : [];
+  const capacityAssignments = Array.isArray(scenario.capacityAssignments) ? scenario.capacityAssignments : [];
+  const plannerLayout = Array.isArray(scenario.plannerLayout) ? scenario.plannerLayout : [];
+  const portfolioBoardEpicKeys = Array.isArray(scenario.portfolioBoardEpicKeys) ? scenario.portfolioBoardEpicKeys : [];
+  const portfolioManualEpics = Array.isArray(scenario.portfolioManualEpics) ? scenario.portfolioManualEpics : [];
+  const portfolioPhasePlans = Array.isArray(scenario.portfolioPhasePlans) ? scenario.portfolioPhasePlans : [];
+  const portfolioPhaseAssignments = Array.isArray(scenario.portfolioPhaseAssignments)
+    ? normalizeBusinessTeamPlaceholdersInAssignments(scenario.portfolioPhaseAssignments, businessTeams)
+    : [];
+  const skillsMatchingEnabled = scenario.skillsMatchingEnabled ?? true;
+
+  if (
+    capacityRequests === scenario.capacityRequests &&
+    capacityAssignments === scenario.capacityAssignments &&
+    plannerLayout === scenario.plannerLayout &&
+    portfolioBoardEpicKeys === scenario.portfolioBoardEpicKeys &&
+    portfolioManualEpics === scenario.portfolioManualEpics &&
+    portfolioPhasePlans === scenario.portfolioPhasePlans &&
+    portfolioPhaseAssignments === scenario.portfolioPhaseAssignments &&
+    skillsMatchingEnabled === scenario.skillsMatchingEnabled
+  ) {
+    return scenario;
+  }
+
+  return {
+    ...scenario,
+    capacityRequests,
+    capacityAssignments,
+    plannerLayout,
+    portfolioBoardEpicKeys,
+    portfolioManualEpics,
+    portfolioPhasePlans,
+    portfolioPhaseAssignments,
+    skillsMatchingEnabled,
+  };
+}
+
+function migrateLegacyPortfolioActiveScenarioId(scenarios: AppState['scenarios']): string | null {
+  try {
+    const legacyScenarioId = localStorage.getItem(LEGACY_PORTFOLIO_ACTIVE_SCENARIO_KEY);
+    if (!legacyScenarioId) return null;
+    if (!scenarios.some((scenario) => scenario.id === legacyScenarioId)) return null;
+    localStorage.removeItem(LEGACY_PORTFOLIO_ACTIVE_SCENARIO_KEY);
+    return legacyScenarioId;
+  } catch {
+    return null;
+  }
+}
+
+function resolveInitialActiveScenarioId(
+  activeScenarioId: string | null | undefined,
+  scenarios: AppState['scenarios'],
+): string | null {
+  const sanitizedActiveScenarioId = sanitizeActiveScenarioId(activeScenarioId, scenarios);
+  if (sanitizedActiveScenarioId) return sanitizedActiveScenarioId;
+  if (activeScenarioId != null) return null;
+  return migrateLegacyPortfolioActiveScenarioId(scenarios);
 }
 
 function getOverlayScenario(data: AppState) {
@@ -152,8 +255,12 @@ function getOverlayScenario(data: AppState) {
 }
 
 function sanitizeAppState(data: AppState): AppState {
-  const activeScenarioId = sanitizeActiveScenarioId(data.activeScenarioId, data.scenarios);
-  return activeScenarioId === data.activeScenarioId ? data : { ...data, activeScenarioId };
+  const scenarios = data.scenarios.map((scenario) => normalizeScenario(scenario, data.businessTeams));
+  const activeScenarioId = sanitizeActiveScenarioId(data.activeScenarioId, scenarios);
+  const scenariosChanged = scenarios.some((scenario, index) => scenario !== data.scenarios[index]);
+
+  if (!scenariosChanged && activeScenarioId === data.activeScenarioId) return data;
+  return { ...data, scenarios, activeScenarioId };
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -201,7 +308,12 @@ const defaultUIState: UIState = {
 
 function migrate(data: Partial<AppState>): AppState {
   const d = { ...data } as Partial<AppState> & Record<string, unknown>;
-  const scenarios = Array.isArray(d.scenarios) ? d.scenarios as AppState['scenarios'] : [];
+  const businessTeams = Array.isArray(d.businessTeams)
+    ? d.businessTeams as AppState['businessTeams']
+    : [];
+  const scenarios = Array.isArray(d.scenarios)
+    ? (d.scenarios as AppState['scenarios']).map((scenario) => normalizeScenario(scenario, businessTeams))
+    : [];
   return sanitizeAppState({
     ...defaultAppState,
     ...d,
@@ -220,8 +332,9 @@ function migrate(data: Partial<AppState>): AppState {
     jiraWorkItems: Array.isArray(d.jiraWorkItems)
       ? d.jiraWorkItems as AppState['jiraWorkItems']
       : [],
+    businessTeams,
     scenarios,
-    activeScenarioId: sanitizeActiveScenarioId((d.activeScenarioId as string | null | undefined) ?? null, scenarios),
+    activeScenarioId: resolveInitialActiveScenarioId((d.activeScenarioId as string | null | undefined) ?? null, scenarios),
     businessContacts: Array.isArray(d.businessContacts)
       ? d.businessContacts as AppState['businessContacts']
       : [],
@@ -233,6 +346,10 @@ function migrate(data: Partial<AppState>): AppState {
       : [],
     projects: Array.isArray(d.projects) ? d.projects as AppState['projects'] : [],
     assignments: Array.isArray(d.assignments) ? d.assignments as AppState['assignments'] : [],
+    capacityRequests: Array.isArray(d.capacityRequests) ? d.capacityRequests as AppState['capacityRequests'] : [],
+    capacityAssignments: Array.isArray(d.capacityAssignments) ? d.capacityAssignments as AppState['capacityAssignments'] : [],
+    externalVendors: Array.isArray(d.externalVendors) ? d.externalVendors as AppState['externalVendors'] : [],
+    initiativeCosts: Array.isArray(d.initiativeCosts) ? d.initiativeCosts as AppState['initiativeCosts'] : [],
   });
 }
 
@@ -376,7 +493,9 @@ export const useAppStore = create<AppStore>()(
         try {
           const cloudData = await withTimeout(loadFromSupabase(), 15000, 'Supabase initial load');
           if (cloudData) {
-            const scenarios = cloudData.scenarios || [];
+            const scenarios = (cloudData.scenarios || []).map((scenario) =>
+              normalizeScenario(scenario, cloudData.businessTeams || [])
+            );
             const hydratedData: AppState = {
               ...defaultAppState,
               ...cloudData,
@@ -387,9 +506,7 @@ export const useAppStore = create<AppStore>()(
               jiraConnections: cloudData.jiraConnections || [],
               jiraWorkItems: cloudData.jiraWorkItems || [],
               scenarios,
-              activeScenarioId: hasPlannerSession()
-                ? sanitizeActiveScenarioId(cloudData.activeScenarioId ?? null, scenarios)
-                : null,
+              activeScenarioId: resolveInitialActiveScenarioId(cloudData.activeScenarioId ?? null, scenarios),
             };
             const nextData = sanitizeAppState(hydratedData);
             set({ data: nextData });
@@ -417,14 +534,23 @@ export const useAppStore = create<AppStore>()(
         }
       },
 
-      setData: (data) => set({ data, error: null }),
+      setData: (data) => set({ data: sanitizeAppState(data), error: null }),
 
       updateData: (updates) => {
         const state = get();
         const data = state.data;
 
         // Scenario-specific fields: overlay into the active scenario if one is set
-        const scenarioFields = ['jiraWorkItems', 'jiraItemBizAssignments', 'teamMembers', 'timeOff', 'projects', 'assignments'] as const;
+        const scenarioFields = [
+          'jiraWorkItems',
+          'jiraItemBizAssignments',
+          'teamMembers',
+          'timeOff',
+          'projects',
+          'assignments',
+          'capacityRequests',
+          'capacityAssignments',
+        ] as const;
         const hasScenarioFieldUpdates = scenarioFields.some(field => field in updates);
 
         const overlayScenario = getOverlayScenario(data);
@@ -536,6 +662,8 @@ export const useAppStore = create<AppStore>()(
             timeOff: activeScenario.timeOff,
             projects: activeScenario.projects ?? [],
             assignments: activeScenario.assignments ?? [],
+            capacityRequests: activeScenario.capacityRequests ?? [],
+            capacityAssignments: activeScenario.capacityAssignments ?? [],
           };
         }
         return data;
@@ -587,7 +715,7 @@ export const useIsInitializing = () => useAppStore((state) => state.isInitializi
 export const useError = () => useAppStore((state) => state.error);
 export const useActiveScenarioId = () => useAppStore((state) => state.data.activeScenarioId);
 export const useScenarios = () => useAppStore(useShallow((state) =>
-  state.data.scenarios.filter(s => !s.isPortfolioScenario)
+  state.data.scenarios.filter(s => !s.archived)
 ));
 export const useIsBaselineWithJira = () => useAppStore((state) =>
   !state.data.activeScenarioId && state.data.jiraConnections.length > 0
@@ -599,7 +727,7 @@ export const useSyncStatus = () => useAppStore(useShallow((state) => ({ status: 
 export const useActiveScenario = () => useAppStore(useShallow((state) => {
   const { activeScenarioId, scenarios } = state.data;
   if (!activeScenarioId) return null;
-  return scenarios.find(s => s.id === activeScenarioId && !s.isPortfolioScenario) || null;
+  return scenarios.find(s => s.id === activeScenarioId) || null;
 }));
 
 export const useCurrentState = () => useAppStore(useShallow((state) => state.getCurrentState()));

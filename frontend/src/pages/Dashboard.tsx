@@ -829,7 +829,7 @@ export function Dashboard() {
  <div className="flex items-center gap-5 px-4 py-2.5 border-t border-[#DEDFE3] bg-[#F0F2F5]/50 /30">
  <LegendDot color="bg-[#DEDFE3]" label="BAU" />
  <LegendDot color="bg-amber-300" label="Time off" />
- <LegendDot color="bg-[#0089DD]" label="Epics" />
+ <LegendDot color="bg-[#0089DD]" label="Planned work" />
  <LegendDot color="bg-red-500" label="Over-allocated" />
  <div className="flex-1" />
  <span className="text-[10px] text-[#94A3B8]">Click any cell to drill down</span>
@@ -940,7 +940,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 
 function OnboardingChecklist({ state, navigate }: {
   state: ReturnType<typeof useCurrentState>;
-  navigate: (view: 'team' | 'projects' | 'settings') => void;
+  navigate: (view: 'team' | 'projects' | 'portfolio-planning' | 'settings') => void;
 }) {
   const jiraWorkItems = globalJiraWorkItems(state.jiraWorkItems ?? [], state.jiraConnections ?? []);
   const steps = [
@@ -955,12 +955,12 @@ function OnboardingChecklist({ state, navigate }: {
  },
  {
      done: jiraWorkItems.some(w => w.type === 'epic'),
-     label: 'Sync your first epic',
+     label: 'Open Portfolio Planning',
      detail: jiraWorkItems.some(w => w.type === 'epic')
-     ? `${jiraWorkItems.filter(w => w.type === 'epic').length} epic${jiraWorkItems.filter(w => w.type === 'epic').length !== 1 ? 's' : ''} synced`
-     : 'Connect Jira and run a sync to import epics',
+     ? `${jiraWorkItems.filter(w => w.type === 'epic').length} epic${jiraWorkItems.filter(w => w.type === 'epic').length !== 1 ? 's' : ''} ready for planning`
+     : 'Import delivery work, then move into Portfolio Planning',
  icon: FolderKanban,
- onClick: () => navigate('projects'),
+ onClick: () => navigate('portfolio-planning'),
  },
  {
  done: state.jiraConnections.length > 0,
@@ -1002,10 +1002,10 @@ function OnboardingChecklist({ state, navigate }: {
  <TrendingUp className="w-7 h-7 text-blue-500" />
  </div>
  <h2 className="text-xl font-bold text-[#1E293B] ">
- Welcome to the Capacity Planner
+ Welcome to the planning journey
  </h2>
  <p className="text-sm text-[#94A3B8] mt-1">
- Complete these steps to get your capacity heatmap up and running.
+ Complete these steps to start your planning journey in Portfolio Planning.
  </p>
  <p className="text-xs text-[#94A3B8] mt-2">
  {completed} of {steps.length} complete
@@ -1041,4 +1041,3 @@ function OnboardingChecklist({ state, navigate }: {
  </Card>
  );
 }
-

@@ -45,9 +45,9 @@ export function ScenarioSelector() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const goToScenariosPage = () => {
+  const goToPlanningPage = () => {
     setIsOpen(false);
-    setCurrentView('scenarios');
+    setCurrentView('portfolio-planning');
   };
 
   return (
@@ -115,11 +115,11 @@ export function ScenarioSelector() {
           <div className="border-t border-[#DEDFE3] my-1" />
 
           <button
-            onClick={goToScenariosPage}
+            onClick={goToPlanningPage}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[#0089DD] hover:bg-[#F5F8FC] transition-colors duration-100"
           >
             <Plus size={16} />
-            <span className="font-medium">New scenario</span>
+            <span className="font-medium">Open planning</span>
             <ExternalLink size={12} className="ml-auto text-[#94A3B8]" />
           </button>
         </div>

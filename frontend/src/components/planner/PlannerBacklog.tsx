@@ -58,6 +58,7 @@ export interface PlannerBacklogProps {
   plannerItems: PlannerItem[];
   /** When false, only the 32px left-edge pill is visible (drawer stays mounted). */
   expanded: boolean;
+  variant?: 'drawer' | 'embedded';
   /** Clicking the collapsed pill — parent sets expanded true */
   onExpand: () => void;
   /** ✕ button and Escape — parent sets expanded false (collapse to pill) */
@@ -220,7 +221,16 @@ function itemFullyVisible(
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, onCollapse, onDropUnschedule: _onDropUnschedule, onBulkSchedule }: PlannerBacklogProps) {
+export function PlannerBacklog({
+  jiraItems,
+  plannerItems,
+  expanded,
+  variant = 'drawer',
+  onExpand,
+  onCollapse,
+  onDropUnschedule: _onDropUnschedule,
+  onBulkSchedule,
+}: PlannerBacklogProps) {
   const [search, setSearch]           = useState('');
   const [epicFilter, setEpicFilter]   = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -237,14 +247,16 @@ export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, on
     onDragCancel: () => setIsDragActive(false),
   });
 
+  const isEmbedded = variant === 'embedded';
+
   // Escape collapses the drawer (only when expanded and no drag is active)
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && expanded && !isDragActive) onCollapse();
+      if (e.key === 'Escape' && expanded && !isDragActive && !isEmbedded) onCollapse();
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [expanded, onCollapse, isDragActive]);
+  }, [expanded, onCollapse, isDragActive, isEmbedded]);
 
   const sections = useMemo(
     () => buildSections(jiraItems, plannerItems),
@@ -324,13 +336,14 @@ export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, on
         isOver ? 'bg-red-50 border-red-300' : 'bg-white border-mileway-border',
       ].join(' ')}
       style={{
-        width: expanded ? BACKLOG_EXPANDED_W : BACKLOG_COLLAPSED_W,
-        transition: 'width 150ms ease, background-color 150ms ease, border-color 150ms ease',
-        boxShadow: expanded ? '4px 0 20px rgba(0,0,0,0.08)' : undefined,
+        width: isEmbedded ? BACKLOG_EXPANDED_W : expanded ? BACKLOG_EXPANDED_W : BACKLOG_COLLAPSED_W,
+        transition: isEmbedded ? 'background-color 150ms ease, border-color 150ms ease' : 'width 150ms ease, background-color 150ms ease, border-color 150ms ease',
+        boxShadow: isEmbedded ? 'none' : expanded ? '4px 0 20px rgba(0,0,0,0.08)' : undefined,
+        borderRightWidth: isEmbedded ? 0 : undefined,
       }}
     >
       {/* Collapsed pill — flush left, full height */}
-      {!expanded && (
+      {!expanded && !isEmbedded && (
         <button
           type="button"
           onClick={onExpand}
@@ -353,7 +366,7 @@ export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, on
           aria-live="polite"
           className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
         >
-          {expanded ? (
+          {expanded || isEmbedded ? (
             <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-100 border-2 border-dashed border-red-400 text-red-700 text-sm font-semibold shadow-sm">
               Drop to unschedule
             </div>
@@ -372,17 +385,17 @@ export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, on
       <div
         className={[
           'relative flex flex-col flex-1 min-h-0 min-w-0 h-full overflow-hidden',
-          expanded ? 'opacity-100' : 'opacity-0 pointer-events-none',
+          expanded || isEmbedded ? 'opacity-100' : 'opacity-0 pointer-events-none',
         ].join(' ')}
         style={{ width: BACKLOG_EXPANDED_W }}
-        aria-hidden={!expanded}
+        aria-hidden={!expanded && !isEmbedded}
       >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-mileway-border flex-shrink-0 flex flex-col gap-2">
+      <div className={`px-4 py-3 border-b border-mileway-border flex-shrink-0 flex flex-col gap-2 ${isEmbedded ? 'bg-[#F8FAFC]' : ''}`}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-mileway-text">Unscheduled</span>
+              <span className="text-sm font-semibold text-mileway-text">Delivery Backlog</span>
               {sections.unscheduledEpicCount > 0 && (
                 <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-mileway-blue text-white leading-none">
                   {sections.unscheduledEpicCount}
@@ -390,16 +403,20 @@ export function PlannerBacklog({ jiraItems, plannerItems, expanded, onExpand, on
               )}
             </div>
             <p className="text-xs text-mileway-grey mt-0.5">
-              {totalUnscheduled} item{totalUnscheduled !== 1 ? 's' : ''} · drag to schedule
+              {isEmbedded
+                ? `${totalUnscheduled} unscheduled items ready for delivery planning`
+                : `${totalUnscheduled} item${totalUnscheduled !== 1 ? 's' : ''} · drag to schedule`}
             </p>
           </div>
-          <button
-            onClick={onCollapse}
-            aria-label="Collapse backlog"
-            className="p-1 rounded text-mileway-grey hover:bg-mileway-bg hover:text-mileway-text transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue flex-shrink-0"
-          >
-            <X size={16} />
-          </button>
+          {!isEmbedded ? (
+            <button
+              onClick={onCollapse}
+              aria-label="Collapse backlog"
+              className="p-1 rounded text-mileway-grey hover:bg-mileway-bg hover:text-mileway-text transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue flex-shrink-0"
+            >
+              <X size={16} />
+            </button>
+          ) : null}
         </div>
         {triageCounts.thisQuarter >= 1 && (
           <button

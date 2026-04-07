@@ -1,15 +1,16 @@
 /**
  * PortfolioPlanning — phase-level effort planning for Jira Epics.
  *
- * Four tabs: Epic View (Gantt with phase bars), People View (per-person
- * utilisation + assignment bars), Breakdown (person/team-first table),
- * Summary (KPI cards + compact Gantt + capacity alerts table).
+ * Three primary tabs: Plan (Gantt with phase bars), People (per-person
+ * utilisation + assignment bars), and Summary (KPI cards + compact Gantt
+ * + capacity alerts table).
  *
  * All styling lives in PortfolioPlanning.css, scoped under .pp-root.
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
+import type { CSSProperties } from 'react';
 import { useCurrentState, useAppStore } from '../stores/appStore';
 import { useShallow } from 'zustand/react/shallow';
 import { calculateCapacity, calculateBusinessCapacityForQuarter } from '../utils/capacity';
@@ -49,15 +50,28 @@ import {
   exportPortfolioPlanToCsv,
   exportPortfolioPlanToExcel,
 } from '../utils/portfolioPlanExport';
+import {
+  getBusinessTeamPlaceholderDisplay,
+  isBusinessTeamPlaceholderId,
+  makeBusinessTeamPlaceholderId,
+} from '../utils/businessTeamPlaceholders';
 import { usePortfolioPlan } from '../hooks/usePortfolioPlan';
 import {
   createPortfolioScenario,
   updatePortfolioScenario,
   deleteScenario,
+  switchScenario as switchGlobalScenario,
+  upsertInitiativeCostRecord,
   type PortfolioScenarioSnapshot,
 } from '../stores/actions';
+import { PlanningLensHeader } from '../components/planning/PlanningLensHeader';
+import { PlanningHeaderActionMenu } from '../components/planning/PlanningHeaderActionMenu';
+import { CostDrawer } from '../components/portfolio/CostDrawer';
+import { Button } from '../components/ui/Button';
+import { buildPortfolioCostSummary, type PortfolioCostSummary } from '../utils/costing';
 import { AddManualEpicModal } from './AddManualEpicModal';
 import { BulkReplacePersonModal } from './BulkReplacePersonModal';
+import { CostsView } from './CostsView';
 import type {
   JiraWorkItem,
   TeamMember,
@@ -70,38 +84,9 @@ import type {
   ProcessTeam,
   BusinessTeam,
   ManualEpic,
-  Scenario,
+  InitiativeCostRecord,
 } from '../types';
 import './PortfolioPlanning.css';
-
-// ── Portfolio scenarios (what-if plans) ──────────────────────────────────────
-const ACTIVE_SCENARIO_KEY = 'pp.activeScenarioId';
-
-function loadActiveScenarioId(): string | null {
-  try { return localStorage.getItem(ACTIVE_SCENARIO_KEY) ?? null; } catch { return null; }
-}
-function saveActiveScenarioId(id: string | null): void {
-  try {
-    if (id === null) localStorage.removeItem(ACTIVE_SCENARIO_KEY);
-    else localStorage.setItem(ACTIVE_SCENARIO_KEY, id);
-  } catch {}
-}
-
-function isPortfolioScenario(scenario: Scenario): boolean {
-  return scenario.isPortfolioScenario === true;
-}
-
-function teamEntryForId(id: string): { name: string; abbr: string } {
-  const name = id.replace('TEAM:', '');
-  const abbr = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase() || name.slice(0, 2).toUpperCase();
-  return { name, abbr };
-}
 
 function manualToJiraWorkItem(m: ManualEpic): JiraWorkItem {
   return {
@@ -394,6 +379,23 @@ type PhasePlanChanges = {
   description?: string | null;
 };
 
+type PortfolioPickerMode = 'add' | 'replace';
+
+type PortfolioPickerTarget = {
+  epicKey: string;
+  phase: PlanningPhase;
+  phaseInstanceId: string;
+  rect: DOMRect;
+  mode: PortfolioPickerMode;
+  assignment?: EpicPhaseAssignment;
+};
+
+type AssignmentActionTarget = {
+  assignment: EpicPhaseAssignment;
+  displayName: string;
+  rect: DOMRect;
+};
+
 function getDefaultPhaseInstanceId(phase: PlanningPhase): string {
   return phase;
 }
@@ -410,6 +412,17 @@ function getPhaseInstanceRows(
   const phaseAssignments = [...assignmentsByInstance.values()].flat();
   const epicKey = phasePlans[0]?.epicKey ?? phaseAssignments[0]?.epicKey ?? '__portfolio_epic__';
   return buildOrderedPhaseEntries(phasePlans, phaseAssignments, epicKey);
+}
+
+function buildPhaseAssignmentsMap(assignments: EpicPhaseAssignment[]): Map<string, PhaseAssignmentsByInstance> {
+  const map = new Map<string, PhaseAssignmentsByInstance>();
+  for (const assignment of assignments) {
+    if (!map.has(assignment.epicKey)) map.set(assignment.epicKey, new Map());
+    const byInstance = map.get(assignment.epicKey)!;
+    if (!byInstance.has(assignment.phaseInstanceId)) byInstance.set(assignment.phaseInstanceId, []);
+    byInstance.get(assignment.phaseInstanceId)!.push(assignment);
+  }
+  return map;
 }
 
 function getCapacityQuarters(qOpt: QOpt): string[] {
@@ -824,6 +837,7 @@ interface EpicViewProps {
   absenceLookup: Record<string, number>;
   memberMap:     Map<string, TeamMember>;
   contactMap:    Map<string, BusinessContact>;
+  businessTeams: BusinessTeam[];
   weeks:         PortfolioWeek[];
   tStart:        Date;
   dayW:          number;
@@ -858,8 +872,11 @@ interface EpicViewProps {
   onPhasePointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPhasePointerUp:   (e: React.PointerEvent<HTMLDivElement>) => void;
   onClearPhase:  (epicKey: string, phase: PlanningPhase, phaseInstanceId: string) => void;
-  onRemoveAssignment: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string) => void;
-  onReplaceAssignment: (memberId: string, displayName: string, track: 'IT' | 'BIZ') => void;
+  onOpenAssignmentActions: (
+    assignment: EpicPhaseAssignment,
+    displayName: string,
+    anchorRect: DOMRect,
+  ) => void;
   onUpdateDays:  (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, days: number) => void;
   onUpdateAllocationMode: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, mode: AllocationMode, daysPerWeek?: number) => void;
   onUpsertSegment: (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, seg: AllocationSegment) => void;
@@ -877,20 +894,23 @@ interface EpicViewProps {
   jiraBaseUrl: string;
   phaseDragPreviewMap: Map<string, PhaseDragPreview>;
   activePhaseInteraction: ActivePhaseInteractionState | null;
+  portfolioCostSummary: PortfolioCostSummary;
+  onOpenCostDrawer: (epicKey: string) => void;
 }
 
 function EpicView({
-  boardEpics, phasePlansMap, assignMap, absenceLookup, memberMap, contactMap,
+  boardEpics, phasePlansMap, assignMap, absenceLookup, memberMap, contactMap, businessTeams,
   weeks, tStart, dayW, panelWidth,
   epicCollapsed, phasePersonCollapsed,
   onToggleEpic, onTogglePhasePersons, onExpandEpicPhases, onCollapseEpicPhases, onRemoveEpic,
   onAddPhaseInstance, onRemovePhaseInstance, onReorderPhaseInstances, onSetPhaseStart,
-  onEpicPhasePointerDown, onPhasePointerDown, onPhasePointerMove, onPhasePointerUp, onClearPhase, onRemoveAssignment, onReplaceAssignment,
+  onEpicPhasePointerDown, onPhasePointerDown, onPhasePointerMove, onPhasePointerUp, onClearPhase,
+  onOpenAssignmentActions,
   onUpdateDays, onUpdateAllocationMode, onUpsertSegment, onRemoveSegment,
   onUpdatePhasePlan, onAddPerson,
   onExpandAll, onCollapseAll, onResizeMouseDown, lpRef, ganttRef,
   onTimelineScroll,
-  personOverloadMap, allJiraItems, jiraBaseUrl, phaseDragPreviewMap, activePhaseInteraction,
+  personOverloadMap, allJiraItems, jiraBaseUrl, phaseDragPreviewMap, activePhaseInteraction, portfolioCostSummary, onOpenCostDrawer,
 }: EpicViewProps) {
   const totalW = weeks.length * (dayW * 5);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -902,6 +922,10 @@ function EpicView({
   const draggingPhaseRef = useRef<{ epicKey: string; phaseInstanceId: string } | null>(null);
   const dragAutoScrollRef = useRef<{ direction: -1 | 0 | 1; frameId: number | null }>({ direction: 0, frameId: null });
   const daysButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const costSummaryByEpic = useMemo(
+    () => new Map(portfolioCostSummary.initiatives.map((initiative) => [initiative.initiativeId, initiative])),
+    [portfolioCostSummary.initiatives],
+  );
 
   const syncGanttFromLp = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
@@ -1069,17 +1093,53 @@ function EpicView({
     );
 
     const totalDays = phaseRows.reduce((sum, row) => sum + row.assignments.reduce((acc, assignment) => acc + assignment.days, 0), 0);
+    const costSummary = costSummaryByEpic.get(epicKey) ?? null;
+
+    // Compute epic-level duration: earliest phase start → latest phase end
+    const epicStartDates = phaseRows.map(r => r.plan?.startDate).filter((d): d is string => !!d);
+    const epicEndDates   = phaseRows.map(r => r.plan?.endDate).filter((d): d is string => !!d);
+    const epicDurStr = (epicStartDates.length > 0 && epicEndDates.length > 0)
+      ? (() => {
+          const earliest = epicStartDates.slice().sort()[0];
+          const latest   = epicEndDates.slice().sort().reverse()[0];
+          const wks = weeksBetween(earliest, latest);
+          return wks > 0 ? `${wks}wk` : '';
+        })()
+      : '';
 
     // ── Epic row
     lpRows.push(
       <div key={`e-${epicKey}`} className="ev-epic" onClick={() => onToggleEpic(epicKey)}>
         <span className={`pp-chev${collapsed ? '' : ' open'}`}>▶</span>
-        {jiraBaseUrl && !epicKey.startsWith('MAN-')
-          ? <a href={`${jiraBaseUrl}/browse/${epicKey}`} target="_blank" rel="noopener noreferrer" className="pp-jkey">{epicKey}</a>
-          : <span className="pp-jkey">{epicKey}</span>
-        }
+        <span className="ev-epic-key-slot">
+          {jiraBaseUrl && !epicKey.startsWith('MAN-')
+            ? <a href={`${jiraBaseUrl}/browse/${epicKey}`} target="_blank" rel="noopener noreferrer" className="pp-jkey">{epicKey}</a>
+            : <span className="pp-jkey">{epicKey}</span>
+          }
+        </span>
         <span className="ev-epic-name">{epic.summary}</span>
-        {totalDays > 0 && <span className="ev-epic-total">{totalDays}d</span>}
+        <span className="ev-epic-cost-slot">
+          {costSummary && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenCostDrawer(epicKey);
+              }}
+              className={`ev-epic-cost-btn${costSummary.missingRateCount > 0 ? ' warn' : ''}`}
+              title={costSummary.missingRateCount > 0
+                ? `Open cost details. Missing rates: ${costSummary.missingRateLabels.join(', ')}`
+                : 'Open cost details'}
+              aria-label={costSummary.missingRateCount > 0
+                ? `Open cost details for ${epicKey}. Missing rates for ${costSummary.missingRateLabels.join(', ')}`
+                : `Open cost details for ${epicKey}`}
+            >
+              <span aria-hidden="true">€</span>
+            </button>
+          )}
+        </span>
+        <span className="ev-epic-dur">{epicDurStr}</span>
+        <span className="ev-epic-total">{totalDays > 0 ? `${totalDays}d` : ''}</span>
         <button
           className="ev-epic-phase-toggle"
           type="button"
@@ -1211,7 +1271,6 @@ function EpicView({
             onDragOver={isReorderable ? (event) => handlePhaseDragOver(epicKey, row.phaseInstanceId, event) : undefined}
             onDrop={isReorderable ? (event) => handlePhaseDrop(epicKey, row.phaseInstanceId, event) : undefined}
           >
-            <button className="ph-add" onClick={e => { e.stopPropagation(); onAddPhaseInstance(epicKey, ph, row.phaseInstanceId); }} title={`Add another ${PH_LBL[ph]} phase`}>+</button>
             {isReorderable && (
               <button
                 className="ph-drag"
@@ -1235,10 +1294,12 @@ function EpicView({
                 </svg>
               </button>
             )}
+            <button className="ph-add" onClick={e => { e.stopPropagation(); onAddPhaseInstance(epicKey, ph, row.phaseInstanceId); }} title={`Add another ${PH_LBL[ph]} phase`}>+</button>
             <span className={`pp-chev ph-expand${pCollapsed ? '' : ' open'}`}>▶</span>
             <span className={`pp-ph-label ${PH_KEY[ph]}`}>{getPhaseDisplayLabel(ph, row.phaseOrdinal)}</span>
             {editingPhaseKey === phKey ? (
               <PhaseEditorPopover
+                key={phKey}
                 startDate={startDate}
                 endDate={endDate}
                 description={phasePlan?.description ?? null}
@@ -1262,11 +1323,9 @@ function EpicView({
             {editingPhaseKey !== phKey && durStr && <span className="ph-dur">{durStr}</span>}
             {editingPhaseKey !== phKey && <span className="ph-total">{totalPhDays > 0 ? `${Math.round(totalPhDays * 10) / 10}d` : ''}</span>}
             {editingPhaseKey !== phKey && (
-              isDuplicate
-                ? <button className="ph-remove" onClick={e => { e.stopPropagation(); onRemovePhaseInstance(epicKey, row.phaseInstanceId); }} title="Remove this phase">×</button>
-                : hasStart
-                  ? <button className="ph-remove" onClick={e => { e.stopPropagation(); onClearPhase(epicKey, ph, row.phaseInstanceId); }} title="Clear dates">×</button>
-                  : null
+              hasStart && !isDuplicate
+                ? <button className="ph-remove" onClick={e => { e.stopPropagation(); onClearPhase(epicKey, ph, row.phaseInstanceId); }} title="Clear dates">×</button>
+                : <button className="ph-remove" onClick={e => { e.stopPropagation(); onRemovePhaseInstance(epicKey, row.phaseInstanceId); }} title="Remove this phase">×</button>
             )}
           </div>
         );
@@ -1331,11 +1390,10 @@ function EpicView({
         // Person rows (if phase section expanded)
         if (!pCollapsed) {
           for (const assign of assignments) {
-            const isTeam   = assign.memberId.startsWith('TEAM:');
+            const isTeam   = isBusinessTeamPlaceholderId(assign.memberId);
             const member   = isTeam ? undefined : memberMap.get(assign.memberId);
             const contact  = isTeam ? undefined : contactMap.get(assign.memberId);
             const name     = member?.name ?? contact?.name ?? assign.memberId;
-            const role     = member?.role ?? contact?.title ?? '';
             const rowKey   = `${phKey}_${assign.memberId}`;
             const isEditing = editingKey === rowKey;
 
@@ -1386,12 +1444,11 @@ function EpicView({
             let avatarEl: React.ReactNode;
             let nameEl: React.ReactNode;
             if (isTeam) {
-              const { name: teamName, abbr } = teamEntryForId(assign.memberId);
+              const { name: teamName, abbr } = getBusinessTeamPlaceholderDisplay(assign.memberId, businessTeams);
               avatarEl = <div className="pp-av team">{abbr}</div>;
               nameEl = (
                 <>
                   <span className="ev-pname">{teamName} Team</span>
-                  <span className="pp-picker-badge team">Team</span>
                 </>
               );
             } else {
@@ -1399,7 +1456,6 @@ function EpicView({
               nameEl = (
                 <>
                   <span className="ev-pname">{name}</span>
-                  <span className="ev-prole">{role}</span>
                   {skillTier && (
                     <span
                       className={`pp-skill-dot ${skillTier}`}
@@ -1454,18 +1510,20 @@ function EpicView({
                 {!isEditing && (
                   <>
                     <button
-                      className="ev-person-replace"
-                      title="Replace in all phases…"
+                      className="ev-person-actions"
+                      type="button"
+                      title="Staffing actions"
                       onClick={e => {
                         e.stopPropagation();
-                        onReplaceAssignment(assign.memberId, name, assign.track);
+                        onOpenAssignmentActions(
+                          assign,
+                          name,
+                          (e.currentTarget as HTMLElement).getBoundingClientRect(),
+                        );
                       }}
                     >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
-                      </svg>
+                      •••
                     </button>
-                    <button className="ev-person-remove" onClick={() => onRemoveAssignment(epicKey, ph, row.phaseInstanceId, assign.memberId)}>×</button>
                   </>
                 )}
               </div>
@@ -1479,7 +1537,7 @@ function EpicView({
                 className="ev-add-person"
                 onClick={e => onAddPerson(epicKey, ph, row.phaseInstanceId, (e.currentTarget as HTMLElement).getBoundingClientRect())}
               >
-                + Add person or team
+                + Add staffing
               </div>
             );
             ganttRows.push(
@@ -1500,8 +1558,24 @@ function EpicView({
         <div className="pp-lp-hd">
           <span className="pp-lp-hd-label">Epic · Phase · Person</span>
           <span style={{ flex: 1 }} />
-          <button className="pp-collapse-btn" onClick={onExpandAll}>Expand all</button>
-          <button className="pp-collapse-btn" onClick={onCollapseAll} style={{ marginLeft: 4 }}>Collapse all</button>
+          <button
+            className="pp-collapse-btn"
+            type="button"
+            onClick={onExpandAll}
+            title="Expand all epics and phase details"
+            aria-label="Expand all epics and phase details"
+          >
+            <span className="pp-collapse-btn-icon" aria-hidden="true">▾▾</span>
+          </button>
+          <button
+            className="pp-collapse-btn"
+            type="button"
+            onClick={onCollapseAll}
+            title="Collapse all epics"
+            aria-label="Collapse all epics"
+          >
+            <span className="pp-collapse-btn-icon" aria-hidden="true">▴▴</span>
+          </button>
         </div>
         <div className="pp-lp-body" ref={lpRef} onScroll={syncGanttFromLp}>
           {lpRows}
@@ -1587,12 +1661,212 @@ interface ActivePhaseInteraction {
   targets: PhaseInteractionTarget[];
 }
 
-function isTeamEntryId(id: string): boolean {
-  return id.startsWith('TEAM:');
+interface SummaryBreakdownPhaseRow {
+  key: string;
+  phase: PlanningPhase;
+  phaseOrder: number;
+  phaseOrdinal: number;
+  phaseLabel: string;
+  totalDays: number;
+  description: string;
+  startDate: string | null;
+  endDate: string | null;
+  dateLabel: string;
 }
 
-function getActorDisplayName(summary: Pick<PersonSummary, 'id' | 'name'>): string {
-  return isTeamEntryId(summary.id) ? `${teamEntryForId(summary.id).name} Team` : summary.name;
+interface SummaryBreakdownActorRow {
+  id: string;
+  name: string;
+  role: string;
+  actorType: 'person' | 'contact' | 'team' | 'unknown';
+  totalDays: number;
+  utilization: number | null;
+  phaseCount: number;
+  phases: SummaryBreakdownPhaseRow[];
+}
+
+interface SummaryBreakdownEpicRow {
+  epic: JiraWorkItem;
+  totalDays: number;
+  itDays: number;
+  bizDays: number;
+  staffingCount: number;
+  peopleCount: number;
+  teamCount: number;
+  actors: SummaryBreakdownActorRow[];
+}
+
+function EpicStaffingBreakdownView({
+  rows,
+  jiraBaseUrl,
+  businessTeams,
+}: {
+  rows: SummaryBreakdownEpicRow[];
+  jiraBaseUrl: string;
+  businessTeams: BusinessTeam[];
+}) {
+  const [expandedStaffingEpics, setExpandedStaffingEpics] = useState<Record<string, boolean>>({});
+  const [expandedStaffingActors, setExpandedStaffingActors] = useState<Record<string, boolean>>({});
+
+  if (rows.length === 0) {
+    return (
+      <div className="pp-empty-state" style={{ width: '100%' }}>
+        <div className="pp-empty-icon">▦</div>
+        <div className="pp-empty-title">No epic staffing yet</div>
+        <div className="pp-empty-sub">Add staffing in Plan view to see epic, team member, and phase drilldowns here.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pp-sbd-wrap">
+      <div className="pp-sbd-table">
+        <div className="pp-sbd-head">
+          <div className="pp-sbd-head-cell">Epic</div>
+          <div className="pp-sbd-head-cell">Staffing</div>
+          <div className="pp-sbd-head-cell">Phase</div>
+          <div className="pp-sbd-head-cell">Description</div>
+          <div className="pp-sbd-head-cell pp-sbd-num">Days</div>
+          <div className="pp-sbd-head-cell">Utilisation</div>
+        </div>
+
+        {rows.map((epicRow) => {
+          const epicExpanded = expandedStaffingEpics[epicRow.epic.jiraKey] ?? false;
+          const staffingLabel = [
+            epicRow.peopleCount > 0 ? `${epicRow.peopleCount} people` : null,
+            epicRow.teamCount > 0 ? `${epicRow.teamCount} teams` : null,
+          ].filter(Boolean).join(' / ');
+
+          return (
+            <div key={epicRow.epic.jiraKey}>
+              <div className="pp-sbd-row epic">
+                <div className="pp-sbd-cell pp-sbd-epic-cell">
+                  <button
+                    type="button"
+                    className={`pp-sbd-toggle${epicExpanded ? ' open' : ''}`}
+                    onClick={() => {
+                      if (epicRow.staffingCount === 0) return;
+                      setExpandedStaffingEpics((prev) => ({
+                        ...prev,
+                        [epicRow.epic.jiraKey]: !prev[epicRow.epic.jiraKey],
+                      }));
+                    }}
+                    aria-label={`${epicExpanded ? 'Collapse' : 'Expand'} ${epicRow.epic.jiraKey}`}
+                    disabled={epicRow.staffingCount === 0}
+                  >
+                    ▶
+                  </button>
+                  {jiraBaseUrl
+                    ? <a href={`${jiraBaseUrl}/browse/${epicRow.epic.jiraKey}`} target="_blank" rel="noopener noreferrer" className="pv-assign-key">{epicRow.epic.jiraKey}</a>
+                    : <span className="pv-assign-key">{epicRow.epic.jiraKey}</span>
+                  }
+                  <div className="pp-sbd-meta">
+                    <div className="pp-sbd-title">{epicRow.epic.summary}</div>
+                    <div className="pp-sbd-sub">{epicRow.staffingCount > 0 ? staffingLabel : 'No staffing assigned yet'}</div>
+                  </div>
+                </div>
+                <div className="pp-sbd-cell pp-sbd-muted">
+                  {epicRow.staffingCount > 0 ? `${epicRow.staffingCount} assigned` : 'No staffing'}
+                </div>
+                <div className="pp-sbd-cell pp-sbd-muted">{epicRow.staffingCount > 0 ? 'Expand to view people and teams' : 'No phase details yet'}</div>
+                <div className="pp-sbd-cell pp-sbd-muted">
+                  {epicRow.totalDays > 0 ? `${formatDays(epicRow.itDays)}d IT / ${formatDays(epicRow.bizDays)}d Biz` : 'Waiting for assignments'}
+                </div>
+                <div className="pp-sbd-cell pp-sbd-num pp-sbd-strong">{formatDays(epicRow.totalDays)}d</div>
+                <div className="pp-sbd-cell" />
+              </div>
+
+              {epicExpanded && epicRow.actors.map((actorRow) => {
+                const actorExpandedKey = `${epicRow.epic.jiraKey}::${actorRow.id}`;
+                const actorExpanded = expandedStaffingActors[actorExpandedKey] ?? false;
+                const teamEntry = actorRow.actorType === 'team'
+                  ? getBusinessTeamPlaceholderDisplay(actorRow.id, businessTeams)
+                  : null;
+                const actorTier = actorRow.utilization === null ? null : utilTier(actorRow.utilization);
+
+                return (
+                  <div key={actorExpandedKey}>
+                    <div className="pp-sbd-row actor">
+                      <div className="pp-sbd-cell" />
+                      <div className="pp-sbd-cell pp-sbd-actor-cell">
+                        <button
+                          type="button"
+                          className={`pp-sbd-toggle${actorExpanded ? ' open' : ''}`}
+                          onClick={() => {
+                            setExpandedStaffingActors((prev) => ({
+                              ...prev,
+                              [actorExpandedKey]: !prev[actorExpandedKey],
+                            }));
+                          }}
+                          aria-label={`${actorExpanded ? 'Collapse' : 'Expand'} ${actorRow.name}`}
+                        >
+                          ▶
+                        </button>
+                        {actorRow.actorType === 'team'
+                          ? <div className="pp-av team pp-sbd-avatar">{teamEntry?.abbr ?? actorRow.name.slice(0, 2).toUpperCase()}</div>
+                          : <div className="pp-av pp-sbd-avatar" style={{ background: avColor(actorRow.id) }}>{initials(actorRow.name)}</div>
+                        }
+                        <div className="pp-sbd-meta">
+                          <div className="pp-sbd-title">{actorRow.name}</div>
+                          <div className="pp-sbd-sub">{actorRow.role}</div>
+                        </div>
+                      </div>
+                      <div className="pp-sbd-cell pp-sbd-muted">{actorRow.phaseCount} phase{actorRow.phaseCount === 1 ? '' : 's'}</div>
+                      <div className="pp-sbd-cell pp-sbd-muted">Assigned across this epic</div>
+                      <div className="pp-sbd-cell pp-sbd-num">{formatDays(actorRow.totalDays)}d</div>
+                      <div className="pp-sbd-cell">
+                        {actorRow.utilization === null || !actorTier
+                          ? <span className="pp-sbd-na">N/A</span>
+                          : (
+                            <div className="pp-breakdown-util">
+                              <div className="pp-breakdown-util-bar">
+                                <div className={`pp-breakdown-util-fill ${actorTier}`} style={{ width: `${Math.min(100, actorRow.utilization * 100)}%` }} />
+                              </div>
+                              <span className={`pp-breakdown-util-pill ${actorTier}`}>{Math.round(actorRow.utilization * 100)}%</span>
+                            </div>
+                          )}
+                      </div>
+                    </div>
+
+                    {actorExpanded && actorRow.phases.map((phaseRow) => (
+                      <div key={`${actorExpandedKey}::${phaseRow.key}`} className="pp-sbd-row phase">
+                        <div className="pp-sbd-cell" />
+                        <div className="pp-sbd-cell" />
+                        <div className="pp-sbd-cell pp-sbd-phase-cell">
+                          <span className={`pp-pv-pp ${PH_KEY[phaseRow.phase]}`}>{phaseRow.phaseLabel}</span>
+                          <span className="pp-sbd-phase-dates">{phaseRow.dateLabel}</span>
+                        </div>
+                        <div className="pp-sbd-cell">
+                          {phaseRow.description
+                            ? <span className="pp-sbd-description">{phaseRow.description}</span>
+                            : <span className="pp-sbd-muted">No description yet</span>}
+                        </div>
+                        <div className="pp-sbd-cell pp-sbd-num">{formatDays(phaseRow.totalDays)}d</div>
+                        <div className="pp-sbd-cell" />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function isTeamEntryId(id: string): boolean {
+  return isBusinessTeamPlaceholderId(id);
+}
+
+function getActorDisplayName(
+  summary: Pick<PersonSummary, 'id' | 'name'>,
+  businessTeams: BusinessTeam[],
+): string {
+  return isTeamEntryId(summary.id)
+    ? `${getBusinessTeamPlaceholderDisplay(summary.id, businessTeams).name} Team`
+    : summary.name;
 }
 
 function getActorRole(summary: Pick<PersonSummary, 'id' | 'role'>): string {
@@ -1619,7 +1893,33 @@ function roundToTenth(value: number): number {
 
 function formatDays(value: number): string {
   const rounded = roundToTenth(value);
-  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+  return Number.isInteger(rounded) ? String(Math.round(rounded)) : rounded.toFixed(1).replace(/\.0$/, '');
+}
+
+function formatPhaseDateRange(startDate: string | null, endDate: string | null): string {
+  const startLabel = startDate
+    ? formatIsoDateLocal(parsePortfolioIsoDate(startDate) ?? new Date(`${startDate}T00:00:00`))
+    : 'Start TBD';
+  const endLabel = endDate
+    ? formatIsoDateLocal(parsePortfolioIsoDate(endDate) ?? new Date(`${endDate}T00:00:00`))
+    : 'End TBD';
+  return `${startLabel} -> ${endLabel}`;
+}
+
+function getSummarySortBucket(summary: Pick<PersonSummary, 'member' | 'contact' | 'id'>): number {
+  if (summary.member) return 0;
+  if (summary.contact) return 1;
+  if (isTeamEntryId(summary.id)) return 2;
+  return 3;
+}
+
+function getActorTypeSortBucket(actorType: SummaryBreakdownActorRow['actorType']): number {
+  switch (actorType) {
+    case 'person': return 0;
+    case 'contact': return 1;
+    case 'team': return 2;
+    default: return 3;
+  }
 }
 
 function getAssignmentDaysForQuarter(
@@ -1682,7 +1982,7 @@ function getVisibleAssignedDaysForEntries(
 function PeopleView({
   peopleSummaries, weeks, tStart, dayW, panelWidth,
   pvExpanded, onTogglePerson,
-  onResizeMouseDown, lpRef, ganttRef, onTimelineScroll, jiraBaseUrl, quarterOpt,
+  onResizeMouseDown, lpRef, ganttRef, onTimelineScroll, jiraBaseUrl, quarterOpt, businessTeams, staffingBreakdownRows,
 }: {
   peopleSummaries: PersonSummary[];
   weeks: PortfolioWeek[];
@@ -1697,9 +1997,14 @@ function PeopleView({
   onTimelineScroll: (el: HTMLDivElement) => void;
   jiraBaseUrl: string;
   quarterOpt: QOpt;
+  businessTeams: BusinessTeam[];
+  staffingBreakdownRows: SummaryBreakdownEpicRow[];
 }) {
   const totalW = weeks.length * (dayW * 5);
   const [sortBy, setSortBy] = useState<'name' | 'utilization'>('name');
+  const [viewMode, setViewMode] = useState<'people' | 'epic'>('people');
+  const bottomScrollbarRef = useRef<HTMLDivElement | null>(null);
+  const horizontalScrollSyncRef = useRef<'gantt' | 'bottom' | null>(null);
   const getVisibleAssignedDays = useCallback(
     (assignments: Array<Pick<PersonAssignEntry, 'assignment' | 'phaseStartDate' | 'phaseEndDate'>>) =>
       getVisibleAssignedDaysForEntries(assignments, quarterOpt),
@@ -1710,12 +2015,31 @@ function PeopleView({
     if (ganttRef.current) ganttRef.current.scrollTop = e.currentTarget.scrollTop;
   }, [ganttRef]);
   const syncLpFromGantt = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (horizontalScrollSyncRef.current === 'bottom') {
+      horizontalScrollSyncRef.current = null;
+    } else if (bottomScrollbarRef.current && bottomScrollbarRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+      horizontalScrollSyncRef.current = 'gantt';
+      bottomScrollbarRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
     if (lpRef.current) lpRef.current.scrollTop = e.currentTarget.scrollTop;
     onTimelineScroll(e.currentTarget);
   }, [lpRef, onTimelineScroll]);
+  const syncGanttFromBottomScrollbar = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (horizontalScrollSyncRef.current === 'gantt') {
+      horizontalScrollSyncRef.current = null;
+      return;
+    }
+    if (ganttRef.current && ganttRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+      horizontalScrollSyncRef.current = 'bottom';
+      ganttRef.current.scrollLeft = e.currentTarget.scrollLeft;
+      onTimelineScroll(ganttRef.current);
+    }
+  }, [ganttRef, onTimelineScroll]);
 
   const sortedPeopleSummaries = useMemo(() => {
     return [...peopleSummaries].sort((a, b) => {
+      const bucketDiff = getSummarySortBucket(a) - getSummarySortBucket(b);
+      if (bucketDiff !== 0) return bucketDiff;
       if (sortBy === 'utilization') {
         const assignedA = getVisibleAssignedDays(a.assignments);
         const assignedB = getVisibleAssignedDays(b.assignments);
@@ -1724,17 +2048,49 @@ function PeopleView({
         if (utilB !== utilA) return utilB - utilA;
       }
 
-      return getActorDisplayName(a).localeCompare(getActorDisplayName(b));
+      return getActorDisplayName(a, businessTeams).localeCompare(getActorDisplayName(b, businessTeams));
     });
-  }, [getVisibleAssignedDays, peopleSummaries, sortBy]);
+  }, [businessTeams, getVisibleAssignedDays, peopleSummaries, sortBy]);
 
-  if (!peopleSummaries.length) {
+  if (!peopleSummaries.length && staffingBreakdownRows.length === 0) {
     return (
       <div className="pp-view on">
         <div className="pp-empty-state" style={{ width: '100%' }}>
           <div className="pp-empty-icon">◎</div>
           <div className="pp-empty-title">No assignments yet</div>
           <div className="pp-empty-sub">Add people to phase rows in the Epic View to see utilisation here.</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (viewMode === 'epic') {
+    return (
+      <div className="pp-view on pp-people-shell">
+        <div className="pp-subview-bar">
+          <div className="pp-subview-copy">
+            <div className="pp-subview-title">People Workspace</div>
+            <div className="pp-subview-sub">Switch between personal utilisation and epic staffing drilldown.</div>
+          </div>
+          <div className="pp-seg pp-subview-seg" role="tablist" aria-label="People tab views">
+            <button className="pp-seg-btn" onClick={() => setViewMode('people')}>People</button>
+            <button className="pp-seg-btn on" onClick={() => setViewMode('epic')}>Epic breakdown</button>
+          </div>
+        </div>
+        <div className="pp-people-body">
+          <div className="pp-sv">
+            <div>
+              <div className="pp-sec-hd">
+                <span className="pp-sec-title">Epic Staffing Breakdown</span>
+                <span className="pp-sec-sub">Epic, staffing, and phase detail</span>
+              </div>
+              <EpicStaffingBreakdownView
+                rows={staffingBreakdownRows}
+                jiraBaseUrl={jiraBaseUrl}
+                businessTeams={businessTeams}
+              />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1769,32 +2125,31 @@ function PeopleView({
       <div key={`pvhd-${pid}`} className="pv-person-hd" onClick={() => onTogglePerson(pid)}>
         <div className={`pp-chev${expanded ? ' open' : ''}`}>▶</div>
         {isTeam
-          ? <div className="pp-av-lg team" style={{ background: '#F5F8FC', color: '#64748B', borderRadius: 6, border: '1px solid #E2E8F0' }}>{teamEntryForId(pid).abbr}</div>
+          ? <div className="pp-av-lg team" style={{ background: '#F5F8FC', color: '#64748B', borderRadius: 6, border: '1px solid #E2E8F0' }}>{getBusinessTeamPlaceholderDisplay(pid, businessTeams).abbr}</div>
           : <div className="pp-av-lg" style={{ background: avColor(pid) }}>{initials(ps.name)}</div>
         }
         <div className="pv-pinfo">
-          <div className="pv-pname">{getActorDisplayName(ps)}</div>
-          <div className="pv-prole">{getActorRole(ps)}</div>
+          <div className="pv-pname">{getActorDisplayName(ps, businessTeams)}</div>
+          <div className="pv-pmeta">
+            <span className="pv-prole">{getActorRole(ps)}</span>
+            <div className="pv-cap-inline">
+              <div className="pv-cap-bar compact">
+                <div
+                  className={`pv-cap-fill ${isTeam ? 'team' : tier}`}
+                  style={{ width: isTeam ? '100%' : `${Math.min(100, utilPct * 100)}%` }}
+                />
+              </div>
+              <span className="pv-cap-label">
+                {isTeam ? `${formatDays(estDays)}d planned` : `${formatDays(estDays)}d / ${formatDays(ps.availDays)}d`}
+              </span>
+            </div>
+          </div>
         </div>
-        {!isTeam && (
+        {!isTeam ? (
           <div className={`pv-util-pill ${tier}`}>
             {Math.round(utilPct * 100)}%
           </div>
-        )}
-      </div>
-    );
-    // Capacity bar row — teams show placeholder instead of utilisation
-    lpRows.push(
-      <div key={`pvcap-${pid}`} className="pv-cap-row">
-        {isTeam
-          ? <span className="pv-team-placeholder">No capacity data — team placeholder</span>
-          : <>
-              <div className="pv-cap-bar">
-                <div className={`pv-cap-fill ${tier}`} style={{ width: `${Math.min(100, utilPct * 100)}%` }} />
-              </div>
-              <span className="pv-cap-label">{estDays}d / {ps.availDays}d</span>
-            </>
-        }
+        ) : null}
       </div>
     );
 
@@ -1809,12 +2164,6 @@ function PeopleView({
             </div>
           ))}
         </div>
-      </div>
-    );
-    // Capacity bar row in gantt (empty — aligns with left panel row)
-    ganttRows.push(
-      <div key={`gpvcap-${pid}`} className="pp-g-pv-cap" style={{ minWidth: totalW }}>
-        <GridBg weeks={weeks} />
       </div>
     );
 
@@ -1853,33 +2202,48 @@ function PeopleView({
   }
 
   return (
-    <div className="pp-view on">
-      <div className="pp-lp" style={{ width: panelWidth }}>
-        <div className="pp-lp-hd">
-          <span className="pp-lp-hd-label">Person · Epic assignments</span>
-          <label className="pv-sort">
-            <span className="pv-sort-label">Sort</span>
-            <select
-              className="pv-sort-select"
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as 'name' | 'utilization')}
-              aria-label="Sort people view"
-            >
-              <option value="name">Name</option>
-              <option value="utilization">Utilization</option>
-            </select>
-          </label>
+    <div className="pp-view on pp-people-shell">
+      <div className="pp-subview-bar">
+        <div className="pp-subview-copy">
+          <div className="pp-subview-title">People Workspace</div>
+          <div className="pp-subview-sub">Switch between personal utilisation and epic staffing drilldown.</div>
         </div>
-        <div className="pp-lp-body" ref={lpRef} onScroll={syncGanttFromLp}>
-          {lpRows}
+        <div className="pp-seg pp-subview-seg" role="tablist" aria-label="People tab views">
+          <button className="pp-seg-btn on" onClick={() => setViewMode('people')}>People</button>
+          <button className="pp-seg-btn" onClick={() => setViewMode('epic')}>Epic breakdown</button>
         </div>
       </div>
-      <div className="pp-lp-resize" onMouseDown={onResizeMouseDown} />
-      <div className="pp-rp">
-        <div className="pp-rp-scroll" ref={ganttRef} onScroll={syncLpFromGantt}>
-          <div className="pp-gantt-inner" style={{ minWidth: totalW }}>
-            <GanttHeader weeks={weeks} totalW={totalW} />
-            {ganttRows}
+      <div className="pp-people-body">
+        <div className="pp-lp" style={{ width: panelWidth }}>
+          <div className="pp-lp-hd">
+            <span className="pp-lp-hd-label">Person · Epic assignments</span>
+            <label className="pv-sort">
+              <span className="pv-sort-label">Sort</span>
+              <select
+                className="pv-sort-select"
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value as 'name' | 'utilization')}
+                aria-label="Sort people view"
+              >
+                <option value="name">Name</option>
+                <option value="utilization">Utilization</option>
+              </select>
+            </label>
+          </div>
+          <div className="pp-lp-body" ref={lpRef} onScroll={syncGanttFromLp}>
+            {lpRows}
+          </div>
+        </div>
+        <div className="pp-lp-resize" onMouseDown={onResizeMouseDown} />
+        <div className="pp-rp">
+          <div className="pp-rp-scroll" ref={ganttRef} onScroll={syncLpFromGantt}>
+            <div className="pp-gantt-inner" style={{ minWidth: totalW }}>
+              <GanttHeader weeks={weeks} totalW={totalW} />
+              {ganttRows}
+            </div>
+          </div>
+          <div className="pp-bottom-scroll" ref={bottomScrollbarRef} onScroll={syncGanttFromBottomScrollbar}>
+            <div className="pp-bottom-scroll-inner" style={{ width: totalW }} />
           </div>
         </div>
       </div>
@@ -1887,6 +2251,7 @@ function PeopleView({
   );
 }
 
+/* Retired hidden breakdown surface. The shipped Portfolio Planning flow is now Plan, People, and Summary only.
 type BreakdownMode = 'people' | 'teams' | 'combined';
 type BreakdownSort = 'name' | 'totalDays';
 type BreakdownPerspective = 'peopleFirst' | 'epicFirst';
@@ -1934,7 +2299,7 @@ type BreakdownEpicRow = {
   actors: BreakdownEpicActorRow[];
 };
 
-function BreakdownView({
+export function BreakdownView({
   peopleSummaries,
   jiraBaseUrl,
   quarterOptions,
@@ -2466,13 +2831,14 @@ function BreakdownView({
   );
 }
 
+*/
 // ─────────────────────────────────────────────────────────────────────────────
 // SUMMARY VIEW
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SummaryView({
   processTeams, boardEpics, peopleSummaries, phasePlansMap, assignMap,
-  absenceLookup, weeks, quarter, quarterOpt, state, jiraBaseUrl,
+  absenceLookup, weeks, quarterOpt, state, jiraBaseUrl,
   activeScenarioName, baselinePhasePlans, baselinePhaseAssignments,
 }: {
   processTeams: ProcessTeam[];
@@ -2482,7 +2848,6 @@ function SummaryView({
   assignMap: Map<string, PhaseAssignmentsByInstance>;
   absenceLookup: Record<string, number>;
   weeks: PortfolioWeek[];
-  quarter: string;
   quarterOpt: QOpt;
   state: ReturnType<typeof useCurrentState>;
   jiraBaseUrl: string;
@@ -2786,7 +3151,7 @@ function SummaryView({
     return peopleSummaries
       .filter(ps => {
         const pid = ps.member?.id ?? ps.contact?.id ?? ps.name;
-        if (pid.startsWith('TEAM:')) return false;
+        if (isBusinessTeamPlaceholderId(pid)) return false;
         const utilPct = ps.availDays > 0 ? getVisibleAssignedDays(ps.assignments) / ps.availDays : 0;
         return utilPct > 0.85;
       })
@@ -2805,81 +3170,187 @@ function SummaryView({
 
   return (
     <div className="pp-view on">
-      <div className="pp-sv">
-        <div>
-          <div className="pp-sec-hd">
-            <span className="pp-sec-title">Portfolio Health</span>
-            <span className="pp-sec-sub">{quarter}</span>
-          </div>
-          <div className="pp-health-grid">
-            <div className="pp-health-card">
-              <span className="pp-health-label">Planned vs available</span>
-              <div className="pp-health-value">
-                {Math.round(totalPlannedDays)} / {Math.round(totalAvailableDays)}d
-              </div>
-              <div className="pp-health-meta">
-                <span className={`pp-health-chip ${utilTier(portfolioUtilization)}`}>
-                  {Math.round(portfolioUtilization * 100)}% utilized
-                </span>
-              </div>
-            </div>
-            <div className="pp-health-card">
-              <span className="pp-health-label">People at risk</span>
-              <div className="pp-health-value">{overCapacityPeopleCount + nearCapacityPeopleCount}</div>
-              <div className="pp-health-meta">
-                <span className="pp-health-note">{overCapacityPeopleCount} over</span>
-                <span className="pp-health-note">{nearCapacityPeopleCount} near</span>
-              </div>
-            </div>
-            <div className="pp-health-card">
-              <span className="pp-health-label">Unstaffed epics</span>
-              <div className="pp-health-value">{unstaffedEpicCount}</div>
-              <div className="pp-health-meta">
-                <span className="pp-health-note">{boardEpics.length} epics on the board</span>
+      <div className="pp-sv pp-sv-dense">
+        {/* Hero Section: Scenario Delta + Health KPIs */}
+        <div className="pp-sv-hero-section">
+          {/* Left: Scenario Delta */}
+          {baselineDelta && (
+            <div className="pp-scenario-hero">
+              <div className="pp-section-title-compact">Scenario Impact</div>
+              <div className="pp-scenario-metrics-dense">
+                {[
+                  { label: 'Planned Days', value: baselineDelta.plannedDays, suffix: 'd' },
+                  { label: 'Over Capacity', value: baselineDelta.overCapacityPeople },
+                  { label: 'Unstaffed Epics', value: baselineDelta.unstaffedEpics },
+                ].map(item => (
+                  <div key={item.label} className="pp-scenario-metric-row">
+                    <span className="pp-scenario-metric-label">{item.label}</span>
+                    <span className="pp-scenario-metric-value">
+                      {item.value > 0 ? '+' : ''}{item.value}{item.suffix ?? ''}
+                      {item.value !== 0 && (
+                        <span className={`pp-scenario-metric-delta ${item.value > 0 ? 'worse' : 'better'}`}>
+                          {item.value > 0 ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="pp-health-card">
-              <span className="pp-health-label">Missing phase dates</span>
-              <div className="pp-health-value">{missingPhaseDateCount}</div>
-              <div className="pp-health-meta">
-                <span className="pp-health-note">Assigned phases without a start date</span>
+          )}
+
+          {/* Right: Portfolio Health KPIs (compact 2x2) */}
+          <div className="pp-section-card">
+            <div className="pp-section-title-compact">Portfolio Health</div>
+            <div className="pp-kpi-grid-mini">
+              <div className="pp-kpi-mini">
+                <div className="pp-kpi-mini-value">{Math.round(portfolioUtilization * 100)}%</div>
+                <div className="pp-kpi-mini-label">Utilization</div>
+              </div>
+              <div className="pp-kpi-mini">
+                <div className="pp-kpi-mini-value" style={{ color: '#EF4444' }}>{overCapacityPeopleCount}</div>
+                <div className="pp-kpi-mini-label">Over Capacity</div>
+              </div>
+              <div className="pp-kpi-mini">
+                <div className="pp-kpi-mini-value" style={{ color: '#F59E0B' }}>{unstaffedEpicCount}</div>
+                <div className="pp-kpi-mini-label">Unstaffed</div>
+              </div>
+              <div className="pp-kpi-mini">
+                <div className="pp-kpi-mini-value" style={{ color: '#F59E0B' }}>{missingPhaseDateCount}</div>
+                <div className="pp-kpi-mini-label">Missing Dates</div>
               </div>
             </div>
           </div>
         </div>
 
-        {baselineDelta && (
-          <div>
-            <div className="pp-sec-hd">
-              <span className="pp-sec-title">Scenario Delta</span>
-              <span className="pp-sec-sub">Compared with baseline for {activeScenarioName}</span>
-            </div>
-            <div className="pp-delta-grid">
-              {[
-                { label: 'Planned days', value: baselineDelta.plannedDays, suffix: 'd' },
-                { label: 'Over-capacity people', value: baselineDelta.overCapacityPeople },
-                { label: 'Near-capacity people', value: baselineDelta.nearCapacityPeople },
-                { label: 'Unstaffed epics', value: baselineDelta.unstaffedEpics },
-                { label: 'Missing phase dates', value: baselineDelta.missingPhaseDates },
-              ].map(item => (
-                <div key={item.label} className="pp-delta-card">
-                  <span className="pp-delta-label">{item.label}</span>
-                  <span className={`pp-delta-value ${item.value > 0 ? 'worse' : item.value < 0 ? 'better' : 'same'}`}>
-                    {item.value > 0 ? '+' : ''}{item.value}{item.suffix ?? ''}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Two-Column Main Content */}
+        <div className="pp-sv-2col">
 
-        {epicEffortCards.length > 0 && (
-          <div>
-            <div className="pp-sec-hd">
-              <span className="pp-sec-title">Effort by Epic</span>
-              <span className="pp-sec-sub">Ranked view of IT vs business effort</span>
+          {/* Left Column: Team Capacity */}
+          <div className="pp-sv-col-left">
+            <div className="pp-section-card">
+              <div className="pp-section-title-compact">Team Capacity</div>
+              <div className="pp-bar-chart-compact">
+                {kpiCards.map(c => (
+                  <div key={c.id} className="pp-bar-row-compact">
+                    <div className="pp-bar-label-compact">{c.name}</div>
+                    <div className="pp-bar-container-compact">
+                      <div
+                        className={`pp-kpi-bar-fill ${c.tier}`}
+                        style={{
+                          width: `${Math.min(100, c.utilPct * 100)}%`,
+                          height: '100%',
+                          borderRadius: '3px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          paddingLeft: '4px',
+                          color: 'white',
+                          fontSize: '9px',
+                          fontWeight: '600',
+                        }}
+                      >
+                        {Math.min(100, c.utilPct * 100).toFixed(0)}%
+                      </div>
+                    </div>
+                    <div className="pp-bar-status-compact">{c.tier === 'over' ? 'Over' : c.tier === 'near' ? 'Near' : 'OK'}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="pp-effort-list">
+
+            {/* Capacity Alerts Table */}
+            {alertRows.length > 0 && (
+              <div className="pp-section-card">
+                <div className="pp-section-title-compact">Capacity Alerts (85%+)</div>
+                <table className="pp-mini-table">
+                  <thead>
+                    <tr>
+                      <th>Person</th>
+                      <th style={{ textAlign: 'right' }}>%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {alertRows.slice(0, 5).map(r => (
+                      <tr key={r.id}>
+                        <td>{r.name}</td>
+                        <td style={{ textAlign: 'right', fontWeight: '600', color: r.tier === 'over' ? '#EF4444' : '#F59E0B' }}>
+                          {Math.round(r.utilPct * 100)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Risks & Top Epics */}
+          <div className="pp-sv-col-right">
+            {/* Priority Risks */}
+            {portfolioRisks.length > 0 && (
+              <div className="pp-section-card">
+                <div className="pp-section-title-compact">Priority Risks</div>
+                <div className="pp-risk-cards">
+                  {portfolioRisks.slice(0, 4).map(risk => (
+                    <div key={risk.id} className={`pp-risk-card-compact ${risk.severity}`}>
+                      <div className="pp-risk-card-title">{risk.label}</div>
+                      <div className="pp-risk-card-detail">{risk.summary}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top Epics */}
+            {epicEffortCards.length > 0 && (
+              <div className="pp-section-card">
+                <div className="pp-section-title-compact">Top 3 Epics by Effort</div>
+                <table className="pp-mini-table">
+                  <thead>
+                    <tr>
+                      <th>Epic</th>
+                      <th style={{ textAlign: 'right' }}>Days</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {epicEffortCards.slice(0, 3).map(card => (
+                      <tr key={card.epic.jiraKey}>
+                        <td><strong>{card.epic.jiraKey}</strong></td>
+                        <td style={{ textAlign: 'right' }}><strong>{Math.round(card.totalDays)}</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Collapsible: Effort by Epic */}
+        <div className="pp-collapsible-section">
+          <button
+            className="pp-collapsible-toggle"
+            onClick={(e: any) => {
+              const section = e.target.closest('.pp-collapsible-section');
+              if (section) {
+                const content = section.querySelector('.pp-effort-list');
+                const isOpen = section.classList.contains('open');
+                section.classList.toggle('open');
+                if (content) {
+                  content.style.display = isOpen ? 'none' : 'block';
+                }
+              }
+            }}
+          >
+            + Show all epics by effort
+          </button>
+          {epicEffortCards.length > 0 && (
+            <div>
+              <div className="pp-sec-hd">
+                <span className="pp-sec-title">Effort by Epic</span>
+                <span className="pp-sec-sub">Complete ranked view</span>
+              </div>
+              <div className="pp-effort-list" style={{ display: 'none' }}>
               <div className="pp-effort-head">
                 <div className="pp-effort-head-cell">Epic</div>
                 <div className="pp-effort-head-cell">Effort split</div>
@@ -2925,44 +3396,35 @@ function SummaryView({
                 );
               })}
             </div>
-          </div>
-        )}
-
-        {/* KPI cards */}
-        <div>
-          <div className="pp-sec-hd">
-            <span className="pp-sec-title">Capacity by Team</span>
-            <span className="pp-sec-sub">{quarter}</span>
-          </div>
-          <div className="pp-kpi-grid">
-            {kpiCards.map(c => (
-              <div key={c.id} className="pp-kpi-card">
-                <div className="pp-kpi-card-top">
-                  <span className="pp-kpi-team">{c.name}</span>
-                  {c.utilPct > 1 && <span className="pp-kpi-badge over">Over</span>}
-                  {c.utilPct > 0.85 && c.utilPct <= 1 && <span className="pp-kpi-badge over" style={{ background: '#FEF3C7', color: '#B45309' }}>Near</span>}
-                </div>
-                <div className="pp-kpi-nums">
-                  <span className="pp-kpi-est">{Math.round(c.estDays)}</span>
-                  <span className="pp-kpi-avail">/ {Math.round(c.totalAvail)}d</span>
-                </div>
-                <div className="pp-kpi-bar">
-                  <div className={`pp-kpi-bar-fill ${c.tier}`} style={{ width: `${Math.min(100, c.utilPct * 100)}%` }} />
-                </div>
-                <div className="pp-kpi-members">{c.memberCount} {c.memberCount === 1 ? 'person' : 'people'}</div>
-              </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Compact Gantt */}
-        {boardEpics.length > 0 && (
-          <div>
-            <div className="pp-sec-hd">
-              <span className="pp-sec-title">Portfolio Timeline</span>
-              <span className="pp-sec-sub">Risk badges highlight epics needing attention</span>
-            </div>
-            <div className="pp-cg-wrap">
+        {/* Collapsible: Portfolio Timeline */}
+        <div className="pp-collapsible-section">
+          <button
+            className="pp-collapsible-toggle"
+            onClick={(e: any) => {
+              const section = e.target.closest('.pp-collapsible-section');
+              if (section) {
+                const content = section.querySelector('.pp-cg-wrap');
+                const isOpen = section.classList.contains('open');
+                section.classList.toggle('open');
+                if (content) {
+                  content.style.display = isOpen ? 'none' : 'block';
+                }
+              }
+            }}
+          >
+            + Show Portfolio Timeline
+          </button>
+          {boardEpics.length > 0 && (
+            <div>
+              <div className="pp-sec-hd">
+                <span className="pp-sec-title">Portfolio Timeline</span>
+                <span className="pp-sec-sub">Risk badges highlight epics needing attention</span>
+              </div>
+              <div className="pp-cg-wrap" style={{ display: 'none' }}>
               <div className="pp-cg-head">
                 <div className="pp-cg-label-col"><span className="pp-cg-label-hd">Epic</span></div>
                 <div className="pp-cg-weeks-hd">
@@ -3026,76 +3488,9 @@ function SummaryView({
                   </div>
                 );
               })}
-            </div>
-          </div>
-        )}
-
-        {/* Capacity alerts */}
-        <div>
-          <div className="pp-sec-hd">
-            <span className="pp-sec-title">Portfolio Risks</span>
-            <span className="pp-sec-sub">People and epics that need attention first</span>
-          </div>
-          <div className="pp-risk-wrap">
-            <div className="pp-risk-hd">
-              <div className="pp-risk-hd-cell">Severity</div>
-              <div className="pp-risk-hd-cell">Type</div>
-              <div className="pp-risk-hd-cell">Item</div>
-              <div className="pp-risk-hd-cell">Issue</div>
-              <div className="pp-risk-hd-cell">Detail</div>
-            </div>
-            {portfolioRisks.length === 0 ? (
-              <div className="pp-pct-empty">No over-allocated or near-capacity team members — looking good!</div>
-            ) : portfolioRisks.map(risk => (
-              <div key={risk.id} className="pp-risk-row">
-                <div className="pp-risk-cell">
-                  <span className={`pp-risk-pill ${risk.severity}`}>{risk.severity === 'high' ? 'High' : 'Medium'}</span>
-                </div>
-                <div className="pp-risk-cell">{risk.kind === 'person' ? 'Person' : 'Epic'}</div>
-                <div className="pp-risk-cell pp-risk-item">{risk.label}</div>
-                <div className="pp-risk-cell">{risk.summary}</div>
-                <div className="pp-risk-cell pp-risk-detail">{risk.detail}</div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Capacity alerts */}
-        <div>
-          <div className="pp-sec-hd">
-            <span className="pp-sec-title">Capacity Alerts</span>
-            <span className="pp-sec-sub">Over-allocated and near-capacity members</span>
-          </div>
-          <div className="pp-pct-wrap">
-            <div className="pp-pct-hd">
-              <div className="pp-pct-hd-cell">Person</div>
-              <div className="pp-pct-hd-cell">Estimated</div>
-              <div className="pp-pct-hd-cell">Available</div>
-              <div className="pp-pct-hd-cell">Utilisation</div>
-              <div className="pp-pct-hd-cell">Delta</div>
             </div>
-            {alertRows.length === 0 ? (
-              <div className="pp-pct-empty">No over-allocated or near-capacity team members — looking good!</div>
-            ) : alertRows.map(r => (
-              <div key={r.id} className="pp-pct-row">
-                <div className="pp-pct-cell pp-pct-person">
-                  <div className="pp-av" style={{ background: avColor(r.id) }}>{initials(r.name)}</div>
-                  {r.name}
-                </div>
-                <div className="pp-pct-cell">{Math.round(r.estDays)}d</div>
-                <div className="pp-pct-cell">{Math.round(r.availDays)}d</div>
-                <div className="pp-pct-cell pp-pct-bar-cell">
-                  <div className="pp-pct-bar">
-                    <div className={`pp-pct-bar-fill ${r.tier}`} style={{ width: `${Math.min(100, r.utilPct * 100)}%` }} />
-                  </div>
-                  <span className="pp-pct-bar-label">{Math.round(r.utilPct * 100)}%</span>
-                </div>
-                <div className="pp-pct-cell">
-                  <span className={`pp-pct-delta ${r.tier}`}>{r.delta > 0 ? '+' : ''}{Math.round(r.delta)}d</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -3107,7 +3502,7 @@ function SummaryView({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PortfolioDrawer({
-  open, allEpics, boardEpicKeys, manualEpics, onClose, onSave, onCreateManual, onEditManual, onDeleteManual,
+  open, allEpics, boardEpicKeys, manualEpics, onClose, onSave, onCreateManual, onEditManual, onDeleteManual, portalRoot,
 }: {
   open: boolean;
   allEpics: JiraWorkItem[];
@@ -3118,6 +3513,7 @@ function PortfolioDrawer({
   onCreateManual: () => void;
   onEditManual: (epic: ManualEpic) => void;
   onDeleteManual: (epicKey: string) => void;
+  portalRoot?: HTMLElement | null;
 }) {
   const [search, setSearch]     = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set(boardEpicKeys));
@@ -3178,6 +3574,7 @@ function PortfolioDrawer({
     return (
       <div style={{ position: 'relative' }}>
         <button
+          type="button"
           className={`pp-flt-btn${selItems.size > 0 ? ' active' : ''}${openDd === id ? ' open' : ''}`}
           onClick={() => setOpenDd(prev => prev === id ? null : id)}
         >
@@ -3220,128 +3617,136 @@ function PortfolioDrawer({
     );
   }
 
-  return (
-    <div className={`pp-drawer${open ? ' open' : ''}`}>
-      <div className="pp-dr-head">
-        <span className="pp-dr-title">Add Epics to Portfolio</span>
-        <button className="pp-dr-close" onClick={onClose}>×</button>
-      </div>
-      <div className="pp-dr-filters">
-        <div className="pp-dr-search">
-          <span style={{ color: 'var(--txt3)', fontSize: 13 }}>🔍</span>
-          <input
-            placeholder="Search by name or key…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+  if (!open) return null;
+
+  return createPortal(
+    <div className="pp-drawer-overlay">
+      <div className="pp-drawer-backdrop" onClick={onClose} />
+      <div className="pp-drawer open" role="dialog" aria-modal="true" aria-label="Add Epics to Portfolio">
+        <div className="pp-dr-head">
+          <span className="pp-dr-title">Add Epics to Portfolio</span>
+          <button type="button" className="pp-dr-close" onClick={onClose}>×</button>
         </div>
-        <div className="pp-dr-filter-row">
-          <FilterDropdown
-            id="label" label="Labels"
-            items={allLabels.filter(l => l.toLowerCase().includes(labelSearch.toLowerCase()))}
-            selItems={selLabels} setSelItems={setSelLabels}
-            searchVal={labelSearch} setSearchVal={setLabelSearch}
-          />
-          <FilterDropdown
-            id="assignee" label="Assignee"
-            items={allAssignees.filter(a => a.toLowerCase().includes(assigneeSearch.toLowerCase()))}
-            selItems={selAssignees} setSelItems={setSelAssignees}
-            searchVal={assigneeSearch} setSearchVal={setAssigneeSearch}
-          />
-          <FilterDropdown
-            id="status" label="Status"
-            items={allStatuses.filter(s => s.toLowerCase().includes(statusSearch.toLowerCase()))}
-            selItems={selStatuses} setSelItems={setSelStatuses}
-            searchVal={statusSearch} setSearchVal={setStatusSearch}
-          />
+        <div className="pp-dr-filters">
+          <div className="pp-dr-search">
+            <span style={{ color: 'var(--txt3)', fontSize: 13 }}>🔍</span>
+            <input
+              placeholder="Search by name or key…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="pp-dr-filter-row">
+            <FilterDropdown
+              id="label" label="Labels"
+              items={allLabels.filter(l => l.toLowerCase().includes(labelSearch.toLowerCase()))}
+              selItems={selLabels} setSelItems={setSelLabels}
+              searchVal={labelSearch} setSearchVal={setLabelSearch}
+            />
+            <FilterDropdown
+              id="assignee" label="Assignee"
+              items={allAssignees.filter(a => a.toLowerCase().includes(assigneeSearch.toLowerCase()))}
+              selItems={selAssignees} setSelItems={setSelAssignees}
+              searchVal={assigneeSearch} setSearchVal={setAssigneeSearch}
+            />
+            <FilterDropdown
+              id="status" label="Status"
+              items={allStatuses.filter(s => s.toLowerCase().includes(statusSearch.toLowerCase()))}
+              selItems={selStatuses} setSelItems={setSelStatuses}
+              searchVal={statusSearch} setSearchVal={setStatusSearch}
+            />
+          </div>
         </div>
-      </div>
-      {/* ── Manual epics section ── */}
-      {manualEpics.length > 0 && (
-        <div className="pp-dr-manual-section">
-          <div className="pp-dr-section-hd">Manual Epics</div>
-          {manualEpics.map(e => (
+        {/* ── Manual epics section ── */}
+        {manualEpics.length > 0 && (
+          <div className="pp-dr-manual-section">
+            <div className="pp-dr-section-hd">Manual Epics</div>
+            {manualEpics.map(e => (
+              <div
+                key={e.epicKey}
+                className={`pp-dr-epic-item pp-dr-manual-item${selected.has(e.epicKey) ? ' checked' : ''}`}
+                onClick={() => {
+                  setSelected(prev => {
+                    const s = new Set(prev);
+                    s.has(e.epicKey) ? s.delete(e.epicKey) : s.add(e.epicKey);
+                    return s;
+                  });
+                }}
+              >
+                <div className={`pp-cb${selected.has(e.epicKey) ? ' on' : ''}`} />
+                <div className="pp-dr-epic-info">
+                  <div className="pp-dr-epic-key">{e.epicKey}</div>
+                  <div className="pp-dr-epic-name">{e.summary}</div>
+                  {e.description && <div className="pp-dr-epic-meta">{e.description}</div>}
+                </div>
+                <div className="pp-dr-manual-actions">
+                  {e.startDate && (
+                    <span className="pp-dr-manual-dates">
+                      {e.startDate.slice(5)} → {e.endDate ? e.endDate.slice(5) : '?'}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="pp-dr-manual-btn edit"
+                    title="Edit"
+                    onClick={ev => { ev.stopPropagation(); onEditManual(e); }}
+                  >✎</button>
+                  <button
+                    type="button"
+                    className="pp-dr-manual-btn delete"
+                    title="Delete permanently"
+                    onClick={ev => {
+                      ev.stopPropagation();
+                      if (confirm(`Delete "${e.summary}" (${e.epicKey}) permanently?`)) {
+                        onDeleteManual(e.epicKey);
+                      }
+                    }}
+                  >🗑</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="pp-dr-list-head">
+          <label className="pp-dr-select-all" onClick={() => {
+            if (allChecked) setSelected(prev => { const s = new Set(prev); filtered.forEach(e => s.delete(e.jiraKey)); return s; });
+            else setSelected(prev => { const s = new Set(prev); filtered.forEach(e => s.add(e.jiraKey)); return s; });
+          }}>
+            <div className={`pp-cb${allChecked ? ' on' : ''}`} />
+            Select all visible
+          </label>
+            <span className="pp-dr-count">{filtered.length} epic{filtered.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div className="pp-dr-list" onClick={() => setOpenDd(null)}>
+          {filtered.map(e => (
             <div
-              key={e.epicKey}
-              className={`pp-dr-epic-item pp-dr-manual-item${selected.has(e.epicKey) ? ' checked' : ''}`}
-              onClick={() => {
-                setSelected(prev => {
-                  const s = new Set(prev);
-                  s.has(e.epicKey) ? s.delete(e.epicKey) : s.add(e.epicKey);
-                  return s;
-                });
-              }}
+              key={e.jiraKey}
+              className={`pp-dr-epic-item${selected.has(e.jiraKey) ? ' checked' : ''}`}
+              onClick={() => toggle(e.jiraKey)}
             >
-              <div className={`pp-cb${selected.has(e.epicKey) ? ' on' : ''}`} />
+              <div className={`pp-cb${selected.has(e.jiraKey) ? ' on' : ''}`} />
               <div className="pp-dr-epic-info">
-                <div className="pp-dr-epic-key">{e.epicKey}</div>
+                <div className="pp-dr-epic-key">{e.jiraKey}</div>
                 <div className="pp-dr-epic-name">{e.summary}</div>
-                {e.description && <div className="pp-dr-epic-meta">{e.description}</div>}
+                {e.assigneeName && <div className="pp-dr-epic-meta">{e.assigneeName}</div>}
               </div>
-              <div className="pp-dr-manual-actions">
-                {e.startDate && (
-                  <span className="pp-dr-manual-dates">
-                    {e.startDate.slice(5)} → {e.endDate ? e.endDate.slice(5) : '?'}
-                  </span>
-                )}
-                <button
-                  className="pp-dr-manual-btn edit"
-                  title="Edit"
-                  onClick={ev => { ev.stopPropagation(); onEditManual(e); }}
-                >✎</button>
-                <button
-                  className="pp-dr-manual-btn delete"
-                  title="Delete permanently"
-                  onClick={ev => {
-                    ev.stopPropagation();
-                    if (confirm(`Delete "${e.summary}" (${e.epicKey}) permanently?`)) {
-                      onDeleteManual(e.epicKey);
-                    }
-                  }}
-                >🗑</button>
-              </div>
+              <div className={`pp-dr-epic-status ${statusDisplayCls(e.status)}`}>{e.status}</div>
             </div>
           ))}
         </div>
-      )}
-
-      <div className="pp-dr-list-head">
-        <label className="pp-dr-select-all" onClick={() => {
-          if (allChecked) setSelected(prev => { const s = new Set(prev); filtered.forEach(e => s.delete(e.jiraKey)); return s; });
-          else setSelected(prev => { const s = new Set(prev); filtered.forEach(e => s.add(e.jiraKey)); return s; });
-        }}>
-          <div className={`pp-cb${allChecked ? ' on' : ''}`} />
-          Select all visible
-        </label>
-          <span className="pp-dr-count">{filtered.length} epic{filtered.length !== 1 ? 's' : ''}</span>
+        <div className="pp-dr-footer">
+          <button type="button" className="pp-btn pp-dr-create-btn" onClick={onCreateManual}>
+            + Create Manual Epic
+          </button>
+          <button type="button" className="pp-btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="pp-btn primary" onClick={() => onSave([...selected])}>
+            Add to portfolio
+          </button>
+        </div>
       </div>
-      <div className="pp-dr-list" onClick={() => setOpenDd(null)}>
-        {filtered.map(e => (
-          <div
-            key={e.jiraKey}
-            className={`pp-dr-epic-item${selected.has(e.jiraKey) ? ' checked' : ''}`}
-            onClick={() => toggle(e.jiraKey)}
-          >
-            <div className={`pp-cb${selected.has(e.jiraKey) ? ' on' : ''}`} />
-            <div className="pp-dr-epic-info">
-              <div className="pp-dr-epic-key">{e.jiraKey}</div>
-              <div className="pp-dr-epic-name">{e.summary}</div>
-              {e.assigneeName && <div className="pp-dr-epic-meta">{e.assigneeName}</div>}
-            </div>
-            <div className={`pp-dr-epic-status ${statusDisplayCls(e.status)}`}>{e.status}</div>
-          </div>
-        ))}
-      </div>
-      <div className="pp-dr-footer">
-        <button className="pp-btn pp-dr-create-btn" onClick={onCreateManual}>
-          + Create Manual Epic
-        </button>
-        <button className="pp-btn" onClick={onClose}>Cancel</button>
-        <button className="pp-btn primary" onClick={() => onSave([...selected])}>
-          Add to portfolio
-        </button>
-      </div>
-    </div>
+    </div>,
+    portalRoot ?? document.body,
   );
 }
 
@@ -3351,6 +3756,7 @@ function PortfolioDrawer({
 
 function PortfolioPickerPopover({
   epicKey: _epicKey, phase: _phase, anchorRect, existingMemberIds, memberMap, contactMap, businessTeams,
+  mode = 'add',
   onSelect, onClose,
 }: {
   epicKey: string;
@@ -3360,34 +3766,48 @@ function PortfolioPickerPopover({
   memberMap: Map<string, TeamMember>;
   contactMap: Map<string, BusinessContact>;
   businessTeams: BusinessTeam[];
+  mode?: PortfolioPickerMode;
   onSelect: (memberId: string, track: 'IT' | 'BIZ') => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
 
-  // Build flat entry list: IT members + BIZ contacts + business teams
-  const entries = useMemo(() => {
-    const it = [...memberMap.values()]
-      .filter(m => !m.excludedFromCapacity)
+  const groups = useMemo(() => {
+    const internalIt = [...memberMap.values()]
+      .filter(m => !m.excludedFromCapacity && m.workerType !== 'external')
       .map(m => ({ id: m.id, name: m.name, sub: m.role ?? '', track: 'IT' as const, isTeam: false }));
-    const biz = [...contactMap.values()]
+    const externalIt = [...memberMap.values()]
+      .filter(m => !m.excludedFromCapacity && m.workerType === 'external')
+      .map(m => ({ id: m.id, name: m.name, sub: m.role ?? 'External partner', track: 'IT' as const, isTeam: false }));
+    const bizContacts = [...contactMap.values()]
       .filter(c => !c.excludedFromCapacity)
-      .map(c => ({ id: c.id, name: c.name, sub: c.title ?? '', track: 'BIZ' as const, isTeam: false }));
-    const teams = businessTeams.map(bt => ({
-      id: `TEAM:${bt.name}`,
+      .map(c => ({ id: c.id, name: c.name, sub: c.title ?? 'Business owner', track: 'BIZ' as const, isTeam: false }));
+    const bizTeams = businessTeams.map(bt => ({
+      id: makeBusinessTeamPlaceholderId(bt.id),
       name: bt.name,
-      sub: 'Business team',
+      sub: 'Business team placeholder',
       track: 'BIZ' as const,
       isTeam: true,
     }));
-    return [...it, ...biz, ...teams].sort((a, b) => a.name.localeCompare(b.name));
+
+    return [
+      { key: 'it', title: 'IT people', description: 'Internal delivery owners and contributors', entries: internalIt.sort((a, b) => a.name.localeCompare(b.name)) },
+      { key: 'external', title: 'External partners', description: 'Vendor or contractor staffing', entries: externalIt.sort((a, b) => a.name.localeCompare(b.name)) },
+      { key: 'biz', title: 'Business owners', description: 'Named business contacts', entries: bizContacts.sort((a, b) => a.name.localeCompare(b.name)) },
+      { key: 'teams', title: 'Business teams', description: 'Placeholder team ownership when a named contact is not set', entries: bizTeams.sort((a, b) => a.name.localeCompare(b.name)) },
+    ] as const;
   }, [memberMap, contactMap, businessTeams]);
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return entries;
+  const filteredGroups = useMemo(() => {
+    if (!query.trim()) return groups.filter(group => group.entries.length > 0);
     const q = query.toLowerCase();
-    return entries.filter(e => e.name.toLowerCase().includes(q) || e.sub.toLowerCase().includes(q));
-  }, [entries, query]);
+    return groups
+      .map(group => ({
+        ...group,
+        entries: group.entries.filter(e => e.name.toLowerCase().includes(q) || e.sub.toLowerCase().includes(q)),
+      }))
+      .filter(group => group.entries.length > 0);
+  }, [groups, query]);
 
   // Dismiss on outside click
   useEffect(() => {
@@ -3400,14 +3820,23 @@ function PortfolioPickerPopover({
   }, [onClose]);
 
   // Position: below the anchor, flip up if near bottom
-  const above = anchorRect.bottom + 240 > window.innerHeight;
+  const estimatedHeight = 360;
+  const above = anchorRect.bottom + estimatedHeight > window.innerHeight;
   const style: React.CSSProperties = {
-    top: above ? anchorRect.top - 244 : anchorRect.bottom + 4,
-    left: Math.min(anchorRect.left, window.innerWidth - 290),
+    top: above ? Math.max(12, anchorRect.top - estimatedHeight) : anchorRect.bottom + 4,
+    left: Math.max(12, Math.min(anchorRect.left, window.innerWidth - 332)),
   };
 
   return (
     <div id="pp-picker-popover" className="pp-picker" style={style}>
+      <div className="pp-picker-head">
+        <div className="pp-picker-title">{mode === 'replace' ? 'Replace staffing assignment' : 'Add staffing'}</div>
+        <div className="pp-picker-copy">
+          {mode === 'replace'
+            ? 'Choose the replacement type clearly: internal IT, external partner, business owner, or business team.'
+            : 'Choose the staffing mix for this phase: internal IT, external partner, business owner, or business team.'}
+        </div>
+      </div>
       <div className="pp-picker-search">
         <span style={{ color: '#94A3B8', fontSize: 13 }}>🔍</span>
         <input
@@ -3418,37 +3847,97 @@ function PortfolioPickerPopover({
         />
       </div>
       <div className="pp-picker-list">
-        {filtered.length === 0
+        {filteredGroups.length === 0
           ? <div className="pp-picker-empty">No results</div>
-          : filtered.map(e => {
-              const isAdded = existingMemberIds.has(e.id);
-              const teamEntry = e.isTeam ? teamEntryForId(e.id) : null;
-              return (
-                <div
-                  key={e.id}
-                  className={`pp-picker-item${isAdded ? ' disabled' : ''}`}
-                  onClick={() => { if (!isAdded) { onSelect(e.id, e.track); } }}
-                >
-                  {e.isTeam
-                    ? <div className="pp-picker-av team">{teamEntry?.abbr ?? e.name.slice(0, 2).toUpperCase()}</div>
-                    : <div className="pp-picker-av" style={{ background: avColor(e.id) }}>{initials(e.name)}</div>
-                  }
-                  <div className="pp-picker-info">
-                    <div className="pp-picker-name">{e.name}{e.isTeam ? ' Team' : ''}</div>
-                    <div className="pp-picker-sub">{e.sub}</div>
-                  </div>
-                  {isAdded
-                    ? <span className="pp-picker-added">Added</span>
-                    : <span className={`pp-picker-badge ${e.isTeam ? 'team' : e.track.toLowerCase()}`}>
-                        {e.isTeam ? 'Team' : e.track}
-                      </span>
-                  }
+          : filteredGroups.map(group => (
+              <div key={group.key} className="pp-picker-section">
+                <div className="pp-picker-section-head">
+                  <div className="pp-picker-section-title">{group.title}</div>
+                  <div className="pp-picker-section-copy">{group.description}</div>
                 </div>
-              );
-            })
+                {group.entries.map(e => {
+                  const isAdded = existingMemberIds.has(e.id);
+                  const teamEntry = e.isTeam ? getBusinessTeamPlaceholderDisplay(e.id, businessTeams) : null;
+                  return (
+                    <div
+                      key={e.id}
+                      className={`pp-picker-item${isAdded ? ' disabled' : ''}`}
+                      onClick={() => { if (!isAdded) { onSelect(e.id, e.track); } }}
+                    >
+                      {e.isTeam
+                        ? <div className="pp-picker-av team">{teamEntry?.abbr ?? e.name.slice(0, 2).toUpperCase()}</div>
+                        : <div className="pp-picker-av" style={{ background: avColor(e.id) }}>{initials(e.name)}</div>
+                      }
+                      <div className="pp-picker-info">
+                        <div className="pp-picker-name">{e.name}{e.isTeam ? ' Team' : ''}</div>
+                        <div className="pp-picker-sub">{e.sub}</div>
+                      </div>
+                      {isAdded
+                        ? <span className="pp-picker-added">Added</span>
+                        : <span className={`pp-picker-badge ${e.isTeam ? 'team' : e.track.toLowerCase()}`}>
+                            {e.isTeam ? 'Team' : e.track}
+                          </span>
+                      }
+                    </div>
+                  );
+                })}
+              </div>
+            ))
         }
       </div>
     </div>
+  );
+}
+
+function AssignmentActionsPopover({
+  anchorRect,
+  displayName,
+  onReplaceThis,
+  onReplaceEverywhere,
+  onRemove,
+  onClose,
+}: {
+  anchorRect: DOMRect;
+  displayName: string;
+  onReplaceThis: () => void;
+  onReplaceEverywhere: () => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      const el = document.getElementById('pp-assignment-actions-popover');
+      if (el && !el.contains(event.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const style: CSSProperties = {
+    top: anchorRect.bottom + 6,
+    left: Math.max(12, Math.min(anchorRect.left - 160, window.innerWidth - 252)),
+  };
+
+  return createPortal(
+    <div id="pp-assignment-actions-popover" className="pp-assignment-actions" style={style}>
+      <div className="pp-assignment-actions-head">
+        <div className="pp-assignment-actions-title">{displayName}</div>
+        <div className="pp-assignment-actions-copy">Choose one staffing action for this assignment.</div>
+      </div>
+      <button type="button" className="pp-assignment-action-btn" onClick={onReplaceThis}>
+        Replace in this phase
+        <span>Choose a different person, external, owner, or team for this one row.</span>
+      </button>
+      <button type="button" className="pp-assignment-action-btn" onClick={onReplaceEverywhere}>
+        Replace across plan
+        <span>Open the multi-row replacement flow for every matching assignment.</span>
+      </button>
+      <button type="button" className="pp-assignment-action-btn danger" onClick={onRemove}>
+        Remove from this phase
+        <span>Delete only this staffing row and keep the rest of the plan unchanged.</span>
+      </button>
+    </div>,
+    document.body,
   );
 }
 
@@ -3460,14 +3949,13 @@ export function PortfolioPlanning() {
   const baselineState = useAppStore(useShallow(s => s.data));
   const plan  = usePortfolioPlan();
   const scenarios = useAppStore(useShallow(s => s.data.scenarios));
+  const activeScenarioId = baselineState.activeScenarioId;
 
   // ── UI state ───────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'breakdown' | 'summary'>('epic');
+  const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'costs' | 'summary'>('epic');
   const [drawerOpen, setDrawerOpen]           = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [editingManualEpic, setEditingManualEpic] = useState<ManualEpic | null>(null);
-  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(loadActiveScenarioId);
-  const [renamingScenarioId, setRenamingScenarioId] = useState<string | null>(null);
   const [activeQIdx, setActiveQIdx] = useState(1);
   const [exportingFormat, setExportingFormat] = useState<'excel' | 'csv' | 'pdf' | null>(null);
   const [epicCollapsed, setEpicCollapsed]   = useState<Record<string, boolean>>({});
@@ -3475,9 +3963,9 @@ export function PortfolioPlanning() {
   const [pvExpanded, setPvExpanded] = useState<Record<string, boolean>>({});
   const [weekW, setWeekW]           = useState(52);
   const [panelWidth, setPanelWidth] = useState(460);
-  const [pickerTarget, setPickerTarget] = useState<{
-    epicKey: string; phase: PlanningPhase; phaseInstanceId: string; rect: DOMRect;
-  } | null>(null);
+  const [pickerTarget, setPickerTarget] = useState<PortfolioPickerTarget | null>(null);
+  const [selectedCostEpicKey, setSelectedCostEpicKey] = useState<string | null>(null);
+  const [assignmentActionTarget, setAssignmentActionTarget] = useState<AssignmentActionTarget | null>(null);
   const [replaceTarget, setReplaceTarget] = useState<{
     fromMemberId: string; fromName: string; fromTrack: 'IT' | 'BIZ';
   } | null>(null);
@@ -3578,13 +4066,13 @@ export function PortfolioPlanning() {
     const conn = baselineState.jiraConnections.find(c => c.isActive);
     return conn?.jiraBaseUrl.replace(/\/+$/, '') ?? '';
   }, [baselineState.jiraConnections]);
-  const portfolioScenarios = useMemo(
-    () => scenarios.filter(isPortfolioScenario),
-    [scenarios]
+  const visibleScenarios = useMemo(
+    () => scenarios.filter((scenario) => !scenario.archived),
+    [scenarios],
   );
 
   // Active scenario (null = live base plan)
-  const activeScenario = portfolioScenarios.find(s => s.id === activeScenarioId) ?? null;
+  const activeScenario = scenarios.find((scenario) => scenario.id === activeScenarioId) ?? null;
   const activeBoardEpicKeys = activeScenario?.portfolioBoardEpicKeys ?? plan.boardEpicKeys;
   const activeManualEpics = activeScenario?.portfolioManualEpics ?? plan.manualEpics;
   const activePhasePlansRaw = activeScenario?.portfolioPhasePlans ?? plan.phasePlans;
@@ -3595,14 +4083,37 @@ export function PortfolioPlanning() {
       : baselineState.jiraWorkItems),
     [activeScenario?.jiraWorkItems, baselineState.jiraWorkItems],
   );
+  const baselinePhasePlanByKey = useMemo(() => {
+    const map = new Map<string, EpicPhasePlan>();
+    for (const item of plan.phasePlans) {
+      const phaseInstanceId = item.phaseInstanceId ?? item.phase;
+      map.set(`${item.epicKey}::${phaseInstanceId}`, {
+        ...item,
+        phaseInstanceId,
+        phaseOrder: item.phaseOrder ?? 0,
+        description: item.description ?? null,
+      });
+    }
+    return map;
+  }, [plan.phasePlans]);
   const activePhasePlans = useMemo(
-    () => activePhasePlansRaw.map(item => ({
-      ...item,
-      phaseInstanceId: item.phaseInstanceId ?? item.phase,
-      phaseOrder: item.phaseOrder ?? 0,
-      description: item.description ?? null,
-    })),
-    [activePhasePlansRaw],
+    () => {
+      const merged = new Map<string, EpicPhasePlan>(baselinePhasePlanByKey);
+      for (const item of activePhasePlansRaw) {
+        const phaseInstanceId = item.phaseInstanceId ?? item.phase;
+        const key = `${item.epicKey}::${phaseInstanceId}`;
+        const baseline = baselinePhasePlanByKey.get(key);
+        merged.set(key, {
+          ...baseline,
+          ...item,
+          phaseInstanceId,
+          phaseOrder: item.phaseOrder ?? baseline?.phaseOrder ?? 0,
+          description: item.description ?? baseline?.description ?? null,
+        });
+      }
+      return [...merged.values()];
+    },
+    [activePhasePlansRaw, baselinePhasePlanByKey],
   );
   const activePhaseAssignments = useMemo(
     () => activePhaseAssignmentsRaw.map(item => ({ ...item, phaseInstanceId: item.phaseInstanceId ?? item.phase })),
@@ -3611,8 +4122,7 @@ export function PortfolioPlanning() {
 
   useEffect(() => {
     if (activeScenarioId !== null && !activeScenario) {
-      setActiveScenarioId(null);
-      saveActiveScenarioId(null);
+      switchGlobalScenario(null);
     }
   }, [activeScenarioId, activeScenario]);
 
@@ -3639,6 +4149,12 @@ export function PortfolioPlanning() {
       return null;
     }).filter(Boolean) as JiraWorkItem[];
   }, [activeBoardEpicKeys, activeJiraItems, manualEpicMap]);
+
+  useEffect(() => {
+    if (selectedCostEpicKey && !boardEpics.some((epic) => epic.jiraKey === selectedCostEpicKey)) {
+      setSelectedCostEpicKey(null);
+    }
+  }, [boardEpics, selectedCostEpicKey]);
 
   const memberMap  = useMemo(() => new Map(baselineState.teamMembers.map(m => [m.id, m])), [baselineState.teamMembers]);
   const contactMap = useMemo(() => new Map(baselineState.businessContacts.map(c => [c.id, c])), [baselineState.businessContacts]);
@@ -3669,6 +4185,26 @@ export function PortfolioPlanning() {
     }
     return m;
   }, [activePhaseAssignments]);
+  const baselineAssignMap = useMemo(
+    () => buildPhaseAssignmentsMap(plan.phaseAssignments),
+    [plan.phaseAssignments],
+  );
+  const portfolioCostSummary = useMemo(
+    () => buildPortfolioCostSummary(baselineState, boardEpics, assignMap),
+    [assignMap, baselineState, boardEpics],
+  );
+  const baselinePortfolioCostSummary = useMemo(
+    () => activeScenario ? buildPortfolioCostSummary(baselineState, boardEpics, baselineAssignMap) : null,
+    [activeScenario, baselineAssignMap, baselineState, boardEpics],
+  );
+  const selectedCostEpic = useMemo(
+    () => boardEpics.find((epic) => epic.jiraKey === selectedCostEpicKey) ?? null,
+    [boardEpics, selectedCostEpicKey],
+  );
+  const selectedCostSummary = useMemo(
+    () => portfolioCostSummary.initiatives.find((initiative) => initiative.initiativeId === selectedCostEpicKey) ?? null,
+    [portfolioCostSummary.initiatives, selectedCostEpicKey],
+  );
 
   const absenceLookup = useMemo(
     () => buildAbsenceLookup(activeQuarterOpt, baselineState.teamMembers, baselineState),
@@ -3722,6 +4258,152 @@ export function PortfolioPlanning() {
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [activeQuarterOpt, boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, baselineState, tStart]);
 
+  const peopleSummaryById = useMemo(
+    () => new Map(peopleSummaries.map((summary) => [summary.id, summary])),
+    [peopleSummaries],
+  );
+
+  const staffingBreakdownRows = useMemo((): SummaryBreakdownEpicRow[] => {
+    return boardEpics
+      .map((epic) => {
+        const phaseRows = getPhaseInstanceRows(
+          phasePlansMap.get(epic.jiraKey) ?? new Map(),
+          assignMap.get(epic.jiraKey) ?? new Map(),
+        );
+
+        const actorMap = new Map<string, {
+          id: string;
+          name: string;
+          role: string;
+          actorType: 'person' | 'contact' | 'team' | 'unknown';
+          totalDays: number;
+          availableDays: number | null;
+          phases: Map<string, SummaryBreakdownPhaseRow>;
+        }>();
+
+        let totalDays = 0;
+        let itDays = 0;
+        let bizDays = 0;
+
+        for (const row of phaseRows) {
+          const phaseStartDate = row.plan?.startDate ?? null;
+          const phaseEndDate = row.plan?.endDate ?? null;
+          const phaseDescription = row.plan?.description?.trim() ?? '';
+
+          for (const assignment of row.assignments) {
+            const visibleDays = getAssignmentDaysForQuarter({
+              assignment,
+              phaseStartDate,
+              phaseEndDate,
+            }, activeQuarterOpt);
+
+            if (visibleDays <= 0) continue;
+
+            totalDays += visibleDays;
+            if (assignment.track === 'IT') itDays += visibleDays;
+            else bizDays += visibleDays;
+
+            const actorSummary = peopleSummaryById.get(assignment.memberId);
+            const member = memberMap.get(assignment.memberId);
+            const contact = contactMap.get(assignment.memberId);
+            const isTeam = isBusinessTeamPlaceholderId(assignment.memberId);
+
+            const actorName = actorSummary
+              ? getActorDisplayName(actorSummary, baselineState.businessTeams)
+              : isTeam
+                ? `${getBusinessTeamPlaceholderDisplay(assignment.memberId, baselineState.businessTeams).name} Team`
+                : member?.name ?? contact?.name ?? assignment.memberId;
+            const actorRole = actorSummary
+              ? getActorRole(actorSummary)
+              : isTeam
+                ? 'Business team'
+                : member?.role ?? contact?.title ?? 'Reference only';
+            const actorType = isTeam
+              ? 'team' as const
+              : contact
+                ? 'contact' as const
+                : member
+                  ? 'person' as const
+                  : 'unknown' as const;
+
+            if (!actorMap.has(assignment.memberId)) {
+              actorMap.set(assignment.memberId, {
+                id: assignment.memberId,
+                name: actorName,
+                role: actorRole,
+                actorType,
+                totalDays: 0,
+                availableDays: actorType === 'team' ? null : actorSummary?.availDays ?? null,
+                phases: new Map(),
+              });
+            }
+
+            const actorRow = actorMap.get(assignment.memberId)!;
+            actorRow.totalDays += visibleDays;
+
+            const phaseKey = `${row.phase}-${row.phaseInstanceId}`;
+            if (!actorRow.phases.has(phaseKey)) {
+              actorRow.phases.set(phaseKey, {
+                key: phaseKey,
+                phase: row.phase,
+                phaseOrder: row.phaseOrder,
+                phaseOrdinal: row.phaseOrdinal,
+                phaseLabel: getPhaseDisplayLabel(row.phase, row.phaseOrdinal),
+                totalDays: 0,
+                description: phaseDescription,
+                startDate: phaseStartDate,
+                endDate: phaseEndDate,
+                dateLabel: formatPhaseDateRange(phaseStartDate, phaseEndDate),
+              });
+            }
+            actorRow.phases.get(phaseKey)!.totalDays += visibleDays;
+          }
+        }
+
+        const actors = [...actorMap.values()]
+          .map((actor): SummaryBreakdownActorRow => ({
+            id: actor.id,
+            name: actor.name,
+            role: actor.role,
+            actorType: actor.actorType,
+            totalDays: roundToTenth(actor.totalDays),
+            utilization: actor.availableDays && actor.availableDays > 0
+              ? actor.totalDays / actor.availableDays
+              : null,
+            phaseCount: actor.phases.size,
+            phases: [...actor.phases.values()]
+              .map((phaseRow) => ({ ...phaseRow, totalDays: roundToTenth(phaseRow.totalDays) }))
+              .sort((a, b) => a.phaseOrder - b.phaseOrder || a.phaseLabel.localeCompare(b.phaseLabel)),
+          }))
+          .sort((a, b) => (
+            getActorTypeSortBucket(a.actorType) - getActorTypeSortBucket(b.actorType)
+            || b.totalDays - a.totalDays
+            || a.name.localeCompare(b.name)
+          ));
+
+        return {
+          epic,
+          totalDays: roundToTenth(totalDays),
+          itDays: roundToTenth(itDays),
+          bizDays: roundToTenth(bizDays),
+          staffingCount: actors.length,
+          peopleCount: actors.filter((actor) => actor.actorType !== 'team').length,
+          teamCount: actors.filter((actor) => actor.actorType === 'team').length,
+          actors,
+        };
+      })
+      .sort((a, b) => b.totalDays - a.totalDays || a.epic.jiraKey.localeCompare(b.epic.jiraKey));
+  }, [
+    activeQuarterOpt,
+    assignMap,
+    baselineState.businessTeams,
+    boardEpics,
+    contactMap,
+    memberMap,
+    peopleSummaryById,
+    phasePlansMap,
+  ]);
+
   // Maps memberId → overload tier ('over' | 'near') for quarter-level capacity
   const personOverloadMap = useMemo((): Map<string, 'over' | 'near'> => {
     const m = new Map<string, 'over' | 'near'>();
@@ -3774,7 +4456,7 @@ export function PortfolioPlanning() {
   }, [drawerOpen, panelWidth, quarterSegments, visibleSegmentIdx]);
 
   useEffect(() => {
-    if (activeTab === 'summary' || activeTab === 'breakdown') return;
+    if (activeTab === 'summary') return;
 
     const ganttEl = activeTab === 'epic' ? epicGanttRef.current : pvGanttRef.current;
     if (!ganttEl) return;
@@ -3842,8 +4524,11 @@ export function PortfolioPlanning() {
 
   // ── Person / team picker ───────────────────────────────────────────────────
   const handleAddPerson = useCallback((epicKey: string, phase: PlanningPhase, phaseInstanceId: string, rect: DOMRect) => {
+    setAssignmentActionTarget(null);
     setPickerTarget(prev =>
-      prev?.epicKey === epicKey && prev?.phaseInstanceId === phaseInstanceId ? null : { epicKey, phase, phaseInstanceId, rect }
+      prev?.epicKey === epicKey && prev?.phaseInstanceId === phaseInstanceId && prev.mode === 'add'
+        ? null
+        : { epicKey, phase, phaseInstanceId, rect, mode: 'add' }
     );
   }, []);
 
@@ -3865,6 +4550,13 @@ export function PortfolioPlanning() {
       portfolioPhasePlans: next.phasePlans,
       portfolioPhaseAssignments: next.phaseAssignments,
     });
+  }, [activeScenario]);
+
+  const handleSaveInitiativeCosts = useCallback((
+    record: Omit<InitiativeCostRecord, 'id' | 'updatedAt'> & { id?: string },
+  ) => {
+    if (activeScenario) return;
+    upsertInitiativeCostRecord(record);
   }, [activeScenario]);
 
   const handleAddPhaseInstance = useCallback(async (
@@ -4120,6 +4812,28 @@ export function PortfolioPlanning() {
     }
   }, [handleRemoveAssignment, handleUpsertAssignment, handleUpsertSegment]);
 
+  const handleReplaceSingleAssignment = useCallback(async (
+    assignment: EpicPhaseAssignment,
+    toMemberId: string,
+    toTrack: 'IT' | 'BIZ',
+  ) => {
+    await handleRemoveAssignment(assignment.epicKey, assignment.phase, assignment.phaseInstanceId, assignment.memberId);
+    await handleUpsertAssignment(
+      assignment.epicKey,
+      assignment.phase,
+      assignment.phaseInstanceId,
+      toMemberId,
+      assignment.days,
+      toTrack,
+      { allocationMode: assignment.allocationMode, daysPerWeek: assignment.daysPerWeek },
+    );
+    if (assignment.allocationMode === 'segments' && assignment.segments) {
+      for (const seg of assignment.segments) {
+        await handleUpsertSegment(assignment.epicKey, assignment.phase, assignment.phaseInstanceId, toMemberId, seg);
+      }
+    }
+  }, [handleRemoveAssignment, handleUpsertAssignment, handleUpsertSegment]);
+
   const handleRemoveEpic = useCallback((epicKey: string) => {
     if (activeScenario) {
       updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
@@ -4195,26 +4909,27 @@ export function PortfolioPlanning() {
       phasePlans: activePhasePlans,
       phaseAssignments: activePhaseAssignments,
     });
-    setActiveScenarioId(created.id);
-    saveActiveScenarioId(created.id);
+    switchGlobalScenario(created.id);
   }, [activeBoardEpicKeys, activeManualEpics, activePhasePlans, activePhaseAssignments]);
 
   const renameScenario = useCallback((id: string, name: string) => {
     updatePortfolioScenario(id, { name });
   }, []);
 
+  const handleCreateScenario = useCallback((name: string) => {
+    forkCurrentPlan(name);
+  }, [forkCurrentPlan]);
+
+  const handleDuplicateScenario = useCallback((_scenarioId: string | null, name: string) => {
+    forkCurrentPlan(name);
+  }, [forkCurrentPlan]);
+
   const handleDeleteScenario = useCallback((id: string) => {
     deleteScenario(id);
-    if (activeScenarioId === id) {
-      setActiveScenarioId(null);
-      saveActiveScenarioId(null);
-    }
-  }, [activeScenarioId]);
+  }, []);
 
-  const switchScenario = useCallback((id: string | null) => {
-    setActiveScenarioId(id);
-    saveActiveScenarioId(id);
-    setRenamingScenarioId(null);
+  const handleSwitchScenario = useCallback((id: string | null) => {
+    switchGlobalScenario(id);
   }, []);
 
   // ── Drag to reposition / resize phase bar ────────────────────────────────
@@ -4594,92 +5309,64 @@ export function PortfolioPlanning() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="pp-root" ref={ppRootRef}>
-      {/* Topbar */}
-      <div className={`pp-topbar${drawerOpen ? ' drawer-open' : ''}`}>
-        <div className="pp-tb-title">
-          Portfolio Planning
-          <span className="pp-tb-badge">VS Finance · {quarter}</span>
-        </div>
-        <div className="pp-seg">
-          {quarterIndicatorOpts.map((q, i) => (
-            <button
-              key={i}
-              className={`pp-seg-btn${i === activeQIdx ? ' on' : ''}`}
-              onClick={() => handleQuarterIndicatorClick(i)}
-            >
-              {q.label}
-            </button>
-          ))}
-        </div>
-        <div className="pp-divider" />
-        <button className="pp-btn secondary" onClick={handleExportExcel} disabled={exportingFormat !== null}>
-          {exportingFormat === 'excel' ? 'Exporting…' : 'Export Excel'}
-        </button>
-        <button className="pp-btn secondary" onClick={handleExportCsv} disabled={exportingFormat !== null}>
-          {exportingFormat === 'csv' ? 'Exporting…' : 'Export CSV'}
-        </button>
-        <button className="pp-btn secondary" onClick={handleExportPdf} disabled={exportingFormat !== null}>
-          {exportingFormat === 'pdf' ? 'Exporting…' : 'Export PDF'}
-        </button>
-        <button className="pp-btn primary" onClick={() => setDrawerOpen(true)}>
-          + Add Epics
-        </button>
-      </div>
-
-      {/* Scenario bar */}
-      <div className="pp-scenario-bar">
-        <button
-          className={`pp-scenario-pill${activeScenarioId === null ? ' on' : ''}`}
-          onClick={() => switchScenario(null)}
-        >
-          Main Plan
-        </button>
-        {portfolioScenarios.map(s => (
-          <span key={s.id} className={`pp-scenario-pill-wrap${activeScenarioId === s.id ? ' on' : ''}`}>
-            {renamingScenarioId === s.id ? (
-              <input
-                className="pp-scenario-rename-inp"
-                defaultValue={s.name}
-                autoFocus
-                onBlur={e => { renameScenario(s.id, e.target.value || s.name); setRenamingScenarioId(null); }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') e.currentTarget.blur();
-                  if (e.key === 'Escape') { setRenamingScenarioId(null); }
-                }}
-              />
-            ) : (
-              <button
-                className={`pp-scenario-pill${activeScenarioId === s.id ? ' on' : ''}`}
-                onClick={() => switchScenario(s.id)}
-                onDoubleClick={() => setRenamingScenarioId(s.id)}
-                title="Double-click to rename"
-              >
-                {s.name}
-              </button>
-            )}
-            <button
-              className="pp-scenario-delete"
-              onClick={() => handleDeleteScenario(s.id)}
-              title="Delete scenario"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        <button
-          className="pp-scenario-fork-btn"
-          onClick={() => forkCurrentPlan(`Plan ${portfolioScenarios.length + 2}`)}
-          title="Duplicate current plan as a new scenario"
-        >
-          + Duplicate
-        </button>
-      </div>
+      <PlanningLensHeader
+        title="Portfolio Planning"
+        subtitle=""
+        scenarios={visibleScenarios}
+        activeScenarioId={activeScenarioId}
+        onSwitch={handleSwitchScenario}
+        onCreate={handleCreateScenario}
+        onDuplicate={handleDuplicateScenario}
+        onRename={renameScenario}
+        onDelete={handleDeleteScenario}
+        controls={(
+          <>
+            <div className="inline-flex h-8 items-center rounded-md border border-[#DEDFE3] bg-[#F8FAFC] p-0.5">
+              {quarterIndicatorOpts.map((q, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={[
+                    'inline-flex h-7 items-center rounded-[5px] px-2 text-xs font-medium transition-colors',
+                    i === activeQIdx
+                      ? 'bg-white text-[#1E293B] shadow-sm'
+                      : 'text-[#64748B] hover:text-[#1E293B]',
+                  ].join(' ')}
+                  onClick={() => handleQuarterIndicatorClick(i)}
+                  aria-pressed={i === activeQIdx}
+                >
+                  {q.label}
+                </button>
+              ))}
+            </div>
+            <PlanningHeaderActionMenu
+              label={exportingFormat ? 'Exporting…' : 'Export'}
+              disabled={exportingFormat !== null}
+              items={[
+                { label: 'Excel workbook', onSelect: () => { void handleExportExcel(); } },
+                { label: 'CSV data', onSelect: handleExportCsv },
+                { label: 'PDF report', onSelect: () => { void handleExportPdf(); } },
+              ]}
+            />
+          </>
+        )}
+        primaryAction={(
+          <Button
+            variant="primary"
+            size="sm"
+            className="h-8 rounded-md px-2.5 text-xs"
+            onClick={() => setDrawerOpen(true)}
+          >
+            Add Epics
+          </Button>
+        )}
+      />
 
       {/* Tab bar */}
       <div className="pp-tabbar">
-        <button className={`pp-tab${activeTab === 'epic'    ? ' on' : ''}`} onClick={() => setActiveTab('epic')}>⬡ Epic View</button>
-        <button className={`pp-tab${activeTab === 'people'  ? ' on' : ''}`} onClick={() => setActiveTab('people')}>◎ People View</button>
-        <button className={`pp-tab${activeTab === 'breakdown' ? ' on' : ''}`} onClick={() => setActiveTab('breakdown')}>▤ Breakdown</button>
+        <button className={`pp-tab${activeTab === 'epic'    ? ' on' : ''}`} onClick={() => setActiveTab('epic')}>⬡ Plan</button>
+        <button className={`pp-tab${activeTab === 'people'  ? ' on' : ''}`} onClick={() => setActiveTab('people')}>◎ People</button>
+        <button className={`pp-tab${activeTab === 'costs'   ? ' on' : ''}`} onClick={() => setActiveTab('costs')}>◫ Costs</button>
         <button className={`pp-tab${activeTab === 'summary' ? ' on' : ''}`} onClick={() => setActiveTab('summary')}>▦ Summary</button>
       </div>
 
@@ -4693,6 +5380,7 @@ export function PortfolioPlanning() {
             absenceLookup={absenceLookup}
             memberMap={memberMap}
             contactMap={contactMap}
+            businessTeams={baselineState.businessTeams}
             weeks={weeks}
             tStart={tStart}
             dayW={dayW}
@@ -4715,9 +5403,8 @@ export function PortfolioPlanning() {
             onPhasePointerMove={handlePhasePointerMove}
             onPhasePointerUp={handlePhasePointerUp}
             onClearPhase={handleClearPhase}
-            onRemoveAssignment={handleRemoveAssignment}
-            onReplaceAssignment={(memberId, name, track) =>
-              setReplaceTarget({ fromMemberId: memberId, fromName: name, fromTrack: track })
+            onOpenAssignmentActions={(assignment, displayName, anchorRect) =>
+              setAssignmentActionTarget({ assignment, displayName, rect: anchorRect })
             }
             onUpdateDays={(epicKey, phase, phaseInstanceId, memberId, days) => {
               const existing = activePhaseAssignments.find(a => a.epicKey === epicKey && a.phaseInstanceId === phaseInstanceId && a.memberId === memberId);
@@ -4739,6 +5426,8 @@ export function PortfolioPlanning() {
             jiraBaseUrl={jiraBaseUrl}
             phaseDragPreviewMap={phaseDragPreviewMap}
             activePhaseInteraction={activePhaseInteraction}
+            portfolioCostSummary={portfolioCostSummary}
+            onOpenCostDrawer={setSelectedCostEpicKey}
           />
         )}
         {activeTab === 'people' && (
@@ -4756,16 +5445,18 @@ export function PortfolioPlanning() {
             onTimelineScroll={handleTimelineScroll}
             jiraBaseUrl={jiraBaseUrl}
             quarterOpt={activeQuarterOpt}
+            businessTeams={baselineState.businessTeams}
+            staffingBreakdownRows={staffingBreakdownRows}
           />
         )}
-        {activeTab === 'breakdown' && (
-          <BreakdownView
-            peopleSummaries={peopleSummaries}
-            jiraBaseUrl={jiraBaseUrl}
-            quarterOptions={quarterIndicatorOpts}
-            quarterOpt={activeQuarterOpt}
-            activeQuarterIdx={activeQIdx}
-            onQuarterChange={handleQuarterIndicatorClick}
+        {activeTab === 'costs' && (
+          <CostsView
+            boardEpics={boardEpics}
+            portfolioCostSummary={portfolioCostSummary}
+            baselinePortfolioCostSummary={baselinePortfolioCostSummary}
+            quarter={quarter}
+            activeScenarioName={activeScenario?.name ?? null}
+            onOpenCostDrawer={setSelectedCostEpicKey}
           />
         )}
         {activeTab === 'summary' && (
@@ -4777,7 +5468,6 @@ export function PortfolioPlanning() {
             assignMap={assignMap}
             absenceLookup={absenceLookup}
             weeks={weeks}
-            quarter={quarter}
             quarterOpt={activeQuarterOpt}
             state={baselineState}
             jiraBaseUrl={jiraBaseUrl}
@@ -4819,6 +5509,7 @@ export function PortfolioPlanning() {
           allEpics={allEpics}
           boardEpicKeys={activeBoardEpicKeys}
           manualEpics={activeManualEpics}
+          portalRoot={ppRootRef.current}
           onClose={() => setDrawerOpen(false)}
           onSave={handleSaveDrawer}
           onCreateManual={() => { setDrawerOpen(false); setManualModalOpen(true); }}
@@ -4838,11 +5529,51 @@ export function PortfolioPlanning() {
             memberMap={memberMap}
             contactMap={contactMap}
             businessTeams={baselineState.businessTeams}
+            mode={pickerTarget.mode}
             onSelect={(memberId, track) => {
-              handleUpsertAssignment(pickerTarget.epicKey, pickerTarget.phase, pickerTarget.phaseInstanceId, memberId, 0, track);
+              if (pickerTarget.mode === 'replace' && pickerTarget.assignment) {
+                handleReplaceSingleAssignment(pickerTarget.assignment, memberId, track);
+              } else {
+                handleUpsertAssignment(pickerTarget.epicKey, pickerTarget.phase, pickerTarget.phaseInstanceId, memberId, 0, track);
+              }
               setPickerTarget(null);
             }}
             onClose={() => setPickerTarget(null)}
+          />
+        )}
+        {assignmentActionTarget && (
+          <AssignmentActionsPopover
+            anchorRect={assignmentActionTarget.rect}
+            displayName={assignmentActionTarget.displayName}
+            onReplaceThis={() => {
+              setPickerTarget({
+                epicKey: assignmentActionTarget.assignment.epicKey,
+                phase: assignmentActionTarget.assignment.phase,
+                phaseInstanceId: assignmentActionTarget.assignment.phaseInstanceId,
+                rect: assignmentActionTarget.rect,
+                mode: 'replace',
+                assignment: assignmentActionTarget.assignment,
+              });
+              setAssignmentActionTarget(null);
+            }}
+            onReplaceEverywhere={() => {
+              setReplaceTarget({
+                fromMemberId: assignmentActionTarget.assignment.memberId,
+                fromName: assignmentActionTarget.displayName,
+                fromTrack: assignmentActionTarget.assignment.track,
+              });
+              setAssignmentActionTarget(null);
+            }}
+            onRemove={() => {
+              handleRemoveAssignment(
+                assignmentActionTarget.assignment.epicKey,
+                assignmentActionTarget.assignment.phase,
+                assignmentActionTarget.assignment.phaseInstanceId,
+                assignmentActionTarget.assignment.memberId,
+              );
+              setAssignmentActionTarget(null);
+            }}
+            onClose={() => setAssignmentActionTarget(null)}
           />
         )}
         {replaceTarget && (
@@ -4861,6 +5592,15 @@ export function PortfolioPlanning() {
             onClose={() => setReplaceTarget(null)}
           />
         )}
+        <CostDrawer
+          isOpen={selectedCostEpicKey !== null}
+          epic={selectedCostEpic}
+          summary={selectedCostSummary}
+          reportingCurrency={portfolioCostSummary.reportingCurrency}
+          readOnly={activeScenario !== null}
+          onClose={() => setSelectedCostEpicKey(null)}
+          onSave={handleSaveInitiativeCosts}
+        />
       </div>
     </div>
   );

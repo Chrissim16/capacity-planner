@@ -13,7 +13,8 @@ import {
  addBusinessTimeOff,
  removeBusinessTimeOff,
 } from '../../stores/actions';
-import type { BusinessContact } from '../../types';
+import { CURRENCY_OPTIONS, formatCurrency } from '../../utils/currency';
+import type { BusinessContact, CurrencyCode } from '../../types';
 
 const blankContact = (): Omit<BusinessContact, 'id'> => ({
  name: '',
@@ -25,6 +26,8 @@ const blankContact = (): Omit<BusinessContact, 'id'> => ({
  workingHoursPerDay: 8,
   notes: '',
   archived: false,
+  dailyRateOverride: undefined,
+  dailyRateCurrency: undefined,
 });
 
 export function BusinessContactsSection() {
@@ -90,6 +93,12 @@ export function BusinessContactsSection() {
 
  const handleSave = () => {
  if (!validateForm()) return;
+ const hasRate = form.dailyRateOverride != null;
+ const hasCurrency = !!form.dailyRateCurrency;
+ if (hasRate !== hasCurrency) {
+ setFormErrors(prev => ({ ...prev, dailyRateOverride: 'Rate and currency must be set together' }));
+ return;
+ }
  const payload = { ...form, businessTeamIds: selectedBusinessTeamIds };
  if (editContact) {
  updateBusinessContact(editContact.id, payload);
@@ -156,6 +165,9 @@ export function BusinessContactsSection() {
  {contact.title && contact.department && <span>·</span>}
  {contact.department && <span>{contact.department}</span>}
  {country && <span>· {country.flag} {country.name}</span>}
+ {contact.dailyRateOverride != null && contact.dailyRateCurrency && (
+   <span>· {formatCurrency(contact.dailyRateOverride, contact.dailyRateCurrency)}</span>
+ )}
  </div>
  </div>
  <div className="flex items-center gap-1 shrink-0">
@@ -323,6 +335,35 @@ export function BusinessContactsSection() {
  max="24"
  value={String(form.workingHoursPerDay ?? 8)}
  onChange={e => setForm(f => ({ ...f, workingHoursPerDay: parseInt(e.target.value) || 8 }))}
+ />
+ </div>
+ <div className="grid grid-cols-2 gap-4">
+ <Input
+ label="Daily Rate Override"
+ type="number"
+ min="0"
+ step="10"
+ value={form.dailyRateOverride != null ? String(form.dailyRateOverride) : ''}
+ error={formErrors.dailyRateOverride}
+ onChange={e => {
+   if (formErrors.dailyRateOverride) setFormErrors(prev => ({ ...prev, dailyRateOverride: '' }));
+   setForm(f => ({
+     ...f,
+     dailyRateOverride: e.target.value.trim() === '' ? undefined : Math.max(0, parseFloat(e.target.value) || 0),
+   }));
+ }}
+ />
+ <Select
+ label="Override Currency"
+ value={form.dailyRateCurrency ?? ''}
+ onChange={e => {
+   if (formErrors.dailyRateOverride) setFormErrors(prev => ({ ...prev, dailyRateOverride: '' }));
+   setForm(f => ({
+     ...f,
+     dailyRateCurrency: e.target.value ? e.target.value as CurrencyCode : undefined,
+   }));
+ }}
+ options={[{ value: '', label: 'No override currency' }, ...CURRENCY_OPTIONS]}
  />
  </div>
  {businessTeams.length > 0 && (

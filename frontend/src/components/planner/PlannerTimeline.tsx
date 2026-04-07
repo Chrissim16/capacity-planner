@@ -1,10 +1,10 @@
 /**
- * PlannerTimeline — Sprint-level Gantt for the Scenario Planner.
+ * PlannerTimeline — Sprint-level Gantt for Delivery Planning.
  *
  * Bars are position:absolute, left/width as percentages of a 6-sprint canvas.
  * Sprint numbers (not dates) drive positioning — simpler than JiraGantt.
  *
- * NOTE: DndContext lives here temporarily. It will be lifted to ScenarioPlanner
+ * NOTE: DndContext lives here temporarily. It will be lifted to Delivery Planning
  * during page assembly so PlannerBacklog's useDroppable({ id: 'backlog' }) joins
  * the same context and the unschedule drop zone works natively.
  *
@@ -306,6 +306,10 @@ export interface PlannerTimelineProps {
   skillsMatchingEnabled?: boolean;
   /** SP-10: fires when a team member card is dropped onto a timeline bar — passes item + memberId. */
   onPeopleDropOnBar?: (item: PlannerItem, memberId: string) => void;
+  /** Epics visible in the delivery lens but not yet decomposed into imported child work. */
+  breakdownMissingEpicKeys?: Set<string>;
+  /** Epics that started before the current sprint and continue into it. */
+  carryoverEpicKeys?: Set<string>;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -559,6 +563,8 @@ function LabelCell({
   onLabelClick,
   onOpenAssignFromLabel,
   skillGapTooltip,
+  breakdownMissing,
+  carryover,
 }: {
   item: PlannerItem;
   hasChildren: boolean;
@@ -574,14 +580,33 @@ function LabelCell({
   onOpenAssignFromLabel?: (item: PlannerItem) => void;
   /** US-SP-25: tooltip text for skill gap badge (direct gap or rollup). */
   skillGapTooltip?: string | null;
+  breakdownMissing?: boolean;
+  carryover?: boolean;
 }) {
   const indent = (INDENT[item.type] ?? 0) + 12;
   const canAddChild = onAddChild && (item.type === 'epic' || item.type === 'feature');
+  const sourceBadge = item.isManual
+    ? { label: 'Planning only', className: 'border-[#C7D2FE] bg-[#EEF2FF] text-[#4338CA]' }
+    : { label: 'Jira', className: 'border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]' };
+  const hierarchyTone = item.type === 'epic'
+    ? {
+        rowClass: 'bg-[#F6F8FB] border-[#D9E2EC] hover:bg-[#EEF3F9]',
+        titleClass: 'text-[14px] font-semibold text-[#0F172A]',
+      }
+    : item.type === 'feature'
+      ? {
+          rowClass: 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC]',
+          titleClass: 'text-[13px] font-medium text-[#1E293B]',
+        }
+      : {
+          rowClass: 'bg-white border-mileway-divider hover:bg-[#F8FAFC]',
+          titleClass: 'text-[12px] font-medium text-[#334155]',
+        };
 
   return (
     <div
-      className={`group flex items-center gap-1.5 h-full border-b hover:bg-mileway-bg transition-colors duration-fast ${item.type === 'epic' ? 'bg-mileway-bg border-mileway-border' : 'bg-white border-mileway-divider'}`}
-      style={{ paddingLeft: indent, paddingRight: 8 }}
+      className={`group flex h-full items-center gap-2 border-b transition-colors duration-fast ${hierarchyTone.rowClass}`}
+      style={{ paddingLeft: indent, paddingRight: 10 }}
       onContextMenu={onContextMenu ? e => { e.preventDefault(); onContextMenu(item, e.clientX, e.clientY); } : undefined}
     >
       {/* Expand / collapse chevron */}
@@ -599,50 +624,57 @@ function LabelCell({
         {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
       </button>
 
-      {/* Manual item badge (SP-17) */}
-      {item.isManual && (
-        <span
-          className="flex-shrink-0"
-          title="Manually created — not in Jira"
-        >
-          <Pencil size={10} className="text-mileway-grey" />
+      {item.isManual ? (
+        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4338CA]" title="Planning-only item">
+          <Pencil size={10} />
         </span>
-      )}
+      ) : null}
 
       {/* Name — opens AssignPanel (Timeline); → button opens detail only */}
       {onOpenAssignFromLabel ? (
         <button
           type="button"
           onClick={() => onOpenAssignFromLabel(item)}
-          className="flex-1 min-w-0 text-sm text-mileway-text truncate text-left hover:text-mileway-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue rounded"
-          style={{ fontWeight: item.type === 'epic' ? 600 : 400 }}
+          className={`flex-1 min-w-0 truncate rounded text-left hover:text-mileway-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue ${hierarchyTone.titleClass}`}
         >
           {item.name}
         </button>
       ) : (
         <span
-          className="flex-1 min-w-0 text-sm text-mileway-text truncate"
-          style={{ fontWeight: item.type === 'epic' ? 600 : 400 }}
+          className={`flex-1 min-w-0 truncate ${hierarchyTone.titleClass}`}
         >
           {item.name}
         </span>
       )}
 
-      {item.jiraKey && (
-        <span
-          className="flex-shrink-0"
-          style={{
-            fontSize: 10,
-            fontWeight: 600,
-            color: '#0089DD',
-            background: '#E6F2FC',
-            padding: '2px 6px',
-            borderRadius: 4,
-          }}
-        >
-          {item.jiraKey}
+      <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-1.5">
+        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${sourceBadge.className}`}>
+          {sourceBadge.label}
         </span>
-      )}
+        {breakdownMissing ? (
+          <span
+            className="inline-flex items-center rounded-full border border-[#FED7AA] bg-[#FFF7ED] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#C2410C]"
+            title="Imported epic is visible, but detailed Jira breakdown is not available yet."
+          >
+            Needs breakdown
+          </span>
+        ) : null}
+        {carryover ? (
+          <span
+            className="inline-flex items-center rounded-full border border-[#D1FAE5] bg-[#ECFDF5] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#047857]"
+            title="Epic started before the current sprint and is continuing through it."
+          >
+            Carryover
+          </span>
+        ) : null}
+        {item.jiraKey && (
+          <span
+            className="inline-flex items-center rounded-full bg-[#E6F2FC] px-2 py-0.5 text-[10px] font-semibold text-[#0089DD]"
+          >
+            {item.jiraKey}
+          </span>
+        )}
+      </div>
 
       {skillGapTooltip && (
         <span
@@ -1046,6 +1078,8 @@ export function PlannerTimeline({
   onBarUnscheduledToBacklog,
   skillsMatchingEnabled = true,
   onPeopleDropOnBar,
+  breakdownMissingEpicKeys,
+  carryoverEpicKeys,
 }: PlannerTimelineProps) {
   const [expandedIds, setExpandedIds]         = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll]             = useState(false);
@@ -1710,6 +1744,8 @@ export function PlannerTimeline({
                       onContextMenu={onContextMenu}
                       onLabelClick={onLabelClick}
                       onOpenAssignFromLabel={onOpenAssignFromLabel}
+                      breakdownMissing={item.type === 'epic' && Boolean(item.jiraKey && breakdownMissingEpicKeys?.has(item.jiraKey))}
+                      carryover={item.type === 'epic' && Boolean(item.jiraKey && carryoverEpicKeys?.has(item.jiraKey))}
                       skillGapTooltip={
                         (() => {
                           const gap = skillGapMap.get(item.id);

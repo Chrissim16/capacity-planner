@@ -235,7 +235,7 @@ export function Timeline() {
  <div className="space-y-6">
  <PageHeader
  title="Timeline"
- subtitle="Q1–Q4 2026 · VS Finance · Mileway BV"
+ subtitle="Supporting capacity view for baseline Jira timing, team availability, and assignment fit."
  actions={
  <div className="flex items-center gap-3">
  {/* View Toggle */}

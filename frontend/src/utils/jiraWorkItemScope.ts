@@ -1,9 +1,9 @@
 import type { JiraWorkItem, JiraConnection } from '../types';
 
 /**
- * Returns items whose connection is NOT flagged as Scenario Planner only.
- * Used by all non-planner views (Dashboard, Timeline, Team, Projects, Command Palette)
- * so Discovery board items stay out of delivery-focused surfaces.
+ * Returns items whose connection is NOT flagged as planning-pages only.
+ * Used by all non-planning views (Dashboard, Timeline, Team, Projects, Command Palette)
+ * so planning-only items stay out of shared delivery surfaces.
  */
 export function globalJiraWorkItems(
   items: JiraWorkItem[],

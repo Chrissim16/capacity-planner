@@ -1,5 +1,5 @@
 /**
- * PlannerBoard — Quarterly staffing board for the Scenario Planner.
+ * PlannerBoard — Quarterly staffing board for Delivery Planning.
  *
  * Epic cards are full-width droppable targets — show fit-colour border during member drag.
  * Team member drag source is now PlannerTeamDrawer (passed as `overlays`), sharing this DndContext.

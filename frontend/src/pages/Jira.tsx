@@ -3,7 +3,7 @@
  *
  * US-057 / US-058: The Jira tab is now a read-only overview of what has been
  * synced from Jira. All mapping/planning happens automatically via
- * autoCreateProjects + autoCreateAssignments, or in the Epics tab.
+ * autoCreateProjects + autoCreateAssignments, or in the planning pages.
  *
  * Manual mapping dropdowns have been removed. The only user action here is
  * "Auto-link now" which runs buildProjectsFromJira on already-synced items
@@ -307,14 +307,14 @@ export function Jira() {
  </Card>
  )}
 
- {/* Go to Epics CTA */}
+ {/* Go to Delivery Planning CTA */}
  <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#F0F2F5] /50 border border-[#DEDFE3] ">
  <GitBranch size={16} className="text-[#94A3B8] shrink-0" />
  <p className="text-sm text-[#94A3B8] flex-1">
- View capacity assignments, features, and team allocations in the <strong>Epics</strong> tab.
+ View staffing assignments, Jira breakdown, and team allocations in <strong>Delivery Planning</strong>.
  </p>
- <Button variant="secondary" size="sm" onClick={() => setView('projects')}>
- Go to Epics →
+ <Button variant="secondary" size="sm" onClick={() => setView('planner')}>
+ Go to Delivery Planning →
  </Button>
  </div>
 
