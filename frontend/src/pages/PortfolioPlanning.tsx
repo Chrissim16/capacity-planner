@@ -55,6 +55,10 @@ import {
   isBusinessTeamPlaceholderId,
   makeBusinessTeamPlaceholderId,
 } from '../utils/businessTeamPlaceholders';
+import {
+  applyScenarioAssignmentReplacement,
+  cloneSegmentsForReplacement,
+} from '../utils/portfolioAssignmentReplacement';
 import { usePortfolioPlan } from '../hooks/usePortfolioPlan';
 import {
   createPortfolioScenario,
@@ -4707,7 +4711,7 @@ export function PortfolioPlanning() {
 
   const handleUpsertAssignment = useCallback(async (
     epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, days: number, track: 'IT' | 'BIZ',
-    options?: { allocationMode?: AllocationMode; daysPerWeek?: number }
+    options?: { allocationMode?: AllocationMode; daysPerWeek?: number; replaceMemberId?: string }
   ) => {
     const mode = options?.allocationMode ?? 'flat';
     const dpw  = options?.daysPerWeek;
@@ -4726,7 +4730,11 @@ export function PortfolioPlanning() {
         return { ...s, phaseAssignments: newAssignments };
       });
     } else {
-      await plan.upsertAssignment(epicKey, phase, phaseInstanceId, memberId, days, track, { allocationMode: mode, daysPerWeek: dpw });
+      await plan.upsertAssignment(epicKey, phase, phaseInstanceId, memberId, days, track, {
+        allocationMode: mode,
+        daysPerWeek: dpw,
+        replaceMemberId: options?.replaceMemberId,
+      });
     }
   }, [activeScenario, updateActiveScenario, plan]);
 
@@ -4791,6 +4799,52 @@ export function PortfolioPlanning() {
     }
   }, [activeScenario, updateActiveScenario, plan]);
 
+  const handleReplaceAssignment = useCallback(async (
+    assignment: EpicPhaseAssignment,
+    toMemberId: string,
+    toTrack: 'IT' | 'BIZ',
+    days: number,
+  ): Promise<void> => {
+    const replacementSegments = cloneSegmentsForReplacement(assignment.segments);
+
+    if (activeScenario) {
+      const now = new Date().toISOString();
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
+        ...s,
+        phaseAssignments: applyScenarioAssignmentReplacement(
+          s.phaseAssignments,
+          assignment,
+          toMemberId,
+          toTrack,
+          days,
+          replacementSegments,
+          now,
+        ),
+      }));
+      return;
+    }
+
+    await handleRemoveAssignment(assignment.epicKey, assignment.phase, assignment.phaseInstanceId, assignment.memberId);
+    await handleUpsertAssignment(
+      assignment.epicKey,
+      assignment.phase,
+      assignment.phaseInstanceId,
+      toMemberId,
+      days,
+      toTrack,
+      {
+        allocationMode: assignment.allocationMode,
+        daysPerWeek: assignment.daysPerWeek,
+        replaceMemberId: assignment.memberId,
+      },
+    );
+    if (assignment.allocationMode === 'segments' && replacementSegments) {
+      for (const segment of replacementSegments) {
+        await handleUpsertSegment(assignment.epicKey, assignment.phase, assignment.phaseInstanceId, toMemberId, segment);
+      }
+    }
+  }, [activeScenario, updateActiveScenario, handleRemoveAssignment, handleUpsertAssignment, handleUpsertSegment]);
+
   const handleBulkReplaceAssignment = useCallback(async (
     fromMemberId: string,
     toMemberId: string,
@@ -4798,41 +4852,22 @@ export function PortfolioPlanning() {
     selectedRows: Array<{ assignment: EpicPhaseAssignment; overrideDays: number }>,
   ): Promise<void> => {
     for (const { assignment: a, overrideDays } of selectedRows) {
-      await handleRemoveAssignment(a.epicKey, a.phase, a.phaseInstanceId, fromMemberId);
-      await handleUpsertAssignment(
-        a.epicKey, a.phase, a.phaseInstanceId, toMemberId,
-        overrideDays, toTrack,
-        { allocationMode: a.allocationMode, daysPerWeek: a.daysPerWeek },
+      await handleReplaceAssignment(
+        { ...a, memberId: fromMemberId },
+        toMemberId,
+        toTrack,
+        overrideDays,
       );
-      if (a.allocationMode === 'segments' && a.segments) {
-        for (const seg of a.segments) {
-          await handleUpsertSegment(a.epicKey, a.phase, a.phaseInstanceId, toMemberId, seg);
-        }
-      }
     }
-  }, [handleRemoveAssignment, handleUpsertAssignment, handleUpsertSegment]);
+  }, [handleReplaceAssignment]);
 
   const handleReplaceSingleAssignment = useCallback(async (
     assignment: EpicPhaseAssignment,
     toMemberId: string,
     toTrack: 'IT' | 'BIZ',
   ) => {
-    await handleRemoveAssignment(assignment.epicKey, assignment.phase, assignment.phaseInstanceId, assignment.memberId);
-    await handleUpsertAssignment(
-      assignment.epicKey,
-      assignment.phase,
-      assignment.phaseInstanceId,
-      toMemberId,
-      assignment.days,
-      toTrack,
-      { allocationMode: assignment.allocationMode, daysPerWeek: assignment.daysPerWeek },
-    );
-    if (assignment.allocationMode === 'segments' && assignment.segments) {
-      for (const seg of assignment.segments) {
-        await handleUpsertSegment(assignment.epicKey, assignment.phase, assignment.phaseInstanceId, toMemberId, seg);
-      }
-    }
-  }, [handleRemoveAssignment, handleUpsertAssignment, handleUpsertSegment]);
+    await handleReplaceAssignment(assignment, toMemberId, toTrack, assignment.days);
+  }, [handleReplaceAssignment]);
 
   const handleRemoveEpic = useCallback((epicKey: string) => {
     if (activeScenario) {
