@@ -38,16 +38,23 @@ import type {
   BusinessContact,
   BusinessTimeOff,
   JiraItemBizAssignment,
+  CapacityRequest,
+  CapacityAssignment,
+  ExternalVendor,
+  InitiativeCostRecord,
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
 import { migratePlannerLayout } from '../utils/plannerMigration';
+import { bauPercentToLegacyDays } from '../utils/bau';
+import { normalizeBusinessTeamPlaceholdersInAssignments } from '../utils/businessTeamPlaceholders';
+import { getPlanningGroupTrack, normalizePlanningGroup } from '../utils/planningGroups';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEFAULT VALUES — must stay in sync with appStore.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS: Settings = {
-  bauReserveDays: 5,
+  bauReservePercent: 8,
   hoursPerDay: 8,
   defaultView: 'dashboard',
   quartersToShow: 4,
@@ -65,6 +72,23 @@ const DEFAULT_SETTINGS: Settings = {
   sprintsPerYear: 16,
   byeWeeksAfter: [8, 12],
   holidayWeeksAtEnd: 2,
+  costing: {
+    reportingCurrency: 'EUR',
+    supportedCurrencies: ['EUR', 'GBP', 'USD'],
+    fxToEur: {
+      EUR: 1,
+      GBP: 1.17,
+      USD: 0.92,
+    },
+    internalItDailyRate: {
+      amount: 750,
+      currency: 'EUR',
+    },
+    businessDailyRate: {
+      amount: 650,
+      currency: 'EUR',
+    },
+  },
 };
 
 const DEFAULT_JIRA_SETTINGS: JiraSettings = {
@@ -106,6 +130,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       teamMembersRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes,
       bizContactsRes, bizTimeOffRes, bizJiraItemsRes,
+      externalVendorsRes, initiativeCostsRes,
     ] = await Promise.all([
       supabase.from('roles').select('*').order('name'),
       supabase.from('countries').select('*').order('name'),
@@ -125,6 +150,8 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       supabase.from('business_contacts').select('*').order('name'),
       supabase.from('business_time_off').select('*'),
       supabase.from('jira_item_biz_assignments').select('*'),
+      supabase.from('external_vendors').select('*').order('name'),
+      supabase.from('initiative_costs').select('*').order('updated_at', { ascending: false }),
     ]);
 
     const allResults = [
@@ -133,6 +160,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       teamMembersRes, timeOffRes, settingsRes,
       sprintsRes, jiraConnectionsRes, jiraWorkItemsRes, scenariosRes,
       bizContactsRes, bizTimeOffRes, bizJiraItemsRes,
+      externalVendorsRes, initiativeCostsRes,
     ];
     const errorCount = allResults.filter(r => r.error).length;
 
@@ -172,8 +200,15 @@ export async function loadFromSupabase(): Promise<AppState | null> {
     }));
 
     const businessTeams: BusinessTeam[] = (businessTeamsRes.data ?? []).map(bt => ({
-      id: bt.id, name: bt.name,
-    }));
+      id: bt.id,
+      name: bt.name,
+      category: bt.category ?? 'business_team',
+      track: bt.track ?? getPlanningGroupTrack({ category: bt.category ?? 'business_team' }),
+      externalVendorId: bt.external_vendor_id ?? undefined,
+      archived: bt.archived ?? false,
+      dailyRateOverride: bt.daily_rate_override != null ? Number(bt.daily_rate_override) : undefined,
+      dailyRateCurrency: bt.daily_rate_currency ?? undefined,
+    })).map(normalizePlanningGroup);
 
     const teamMembers: TeamMember[] = (teamMembersRes.data ?? []).map(m => ({
       id: m.id,
@@ -184,6 +219,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       maxConcurrentProjects: m.max_concurrent_projects ?? 2,
       workingDaysPerWeek: m.working_days_per_week ?? 5,
       bauOverride: m.bau_override ?? false,
+      bauReservePercent: m.bau_reserve_percent ?? undefined,
       bauReserveDays: m.bau_reserve_days ?? undefined,
       squadId: m.squad_id ?? undefined,
       processTeamIds: Array.isArray(m.process_team_ids) ? m.process_team_ids : [],
@@ -193,6 +229,11 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       needsEnrichment: m.needs_enrichment ?? false,
       excludedFromCapacity: m.excluded_from_capacity ?? false,
       nameManuallyEdited: m.name_manually_edited ?? false,
+      workerType: m.worker_type ?? undefined,
+      assignmentCategory: m.assignment_category ?? (m.worker_type === 'external' ? 'external_partner' : undefined),
+      externalVendorId: m.external_vendor_id ?? undefined,
+      dailyRateOverride: m.daily_rate_override != null ? Number(m.daily_rate_override) : undefined,
+      dailyRateCurrency: m.daily_rate_currency ?? undefined,
     }));
 
     const timeOff: TimeOff[] = (timeOffRes.data ?? []).map(t => ({
@@ -287,6 +328,8 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       timeOff: Array.isArray(s.time_off) ? s.time_off : [],
       projects: Array.isArray(s.projects) ? s.projects : [],
       assignments: Array.isArray(s.assignments) ? s.assignments : [],
+      capacityRequests: Array.isArray(s.capacity_requests) ? s.capacity_requests : [],
+      capacityAssignments: Array.isArray(s.capacity_assignments) ? s.capacity_assignments : [],
       plannerLayout: migratePlannerLayout(
         Array.isArray(s.planner_layout) ? s.planner_layout : []
       ),
@@ -309,12 +352,37 @@ export async function loadFromSupabase(): Promise<AppState | null> {
         ...DEFAULT_SETTINGS.confidenceLevels,
         ...(storedSettings.confidenceLevels ?? {}),
       },
+      costing: {
+        ...DEFAULT_SETTINGS.costing,
+        ...(storedSettings.costing ?? {}),
+        fxToEur: {
+          ...DEFAULT_SETTINGS.costing.fxToEur,
+          ...(storedSettings.costing?.fxToEur ?? {}),
+        },
+        internalItDailyRate: {
+          ...DEFAULT_SETTINGS.costing.internalItDailyRate,
+          ...(storedSettings.costing?.internalItDailyRate ?? {}),
+        },
+        businessDailyRate: {
+          ...DEFAULT_SETTINGS.costing.businessDailyRate,
+          ...(storedSettings.costing?.businessDailyRate ?? {}),
+        },
+        supportedCurrencies: storedSettings.costing?.supportedCurrencies?.length
+          ? storedSettings.costing.supportedCurrencies
+          : DEFAULT_SETTINGS.costing.supportedCurrencies,
+      },
     };
     const jiraSettings: JiraSettings = {
       ...DEFAULT_JIRA_SETTINGS,
       ...((settingsMap.jiraSettings as Partial<JiraSettings>) ?? {}),
     };
     const activeScenarioId: string | null = (settingsMap.activeScenarioId as string | null) ?? null;
+    const capacityRequests: CapacityRequest[] = Array.isArray(settingsMap.capacityRequests)
+      ? settingsMap.capacityRequests as CapacityRequest[]
+      : [];
+    const capacityAssignments: CapacityAssignment[] = Array.isArray(settingsMap.capacityAssignments)
+      ? settingsMap.capacityAssignments as CapacityAssignment[]
+      : [];
 
     const businessContacts: BusinessContact[] = (bizContactsRes.data ?? []).map(c => ({
       id: c.id,
@@ -325,12 +393,26 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       countryId: c.country_id,
       workingDaysPerWeek: c.working_days_per_week ?? 5,
       workingHoursPerDay: c.working_hours_per_day ?? 8,
+      bauReservePercent: c.bau_reserve_percent ?? undefined,
       bauReserveDays: c.bau_reserve_days ?? 5,
       processTeamIds: Array.isArray(c.process_team_ids) ? c.process_team_ids : [],
       businessTeamIds: Array.isArray(c.business_team_ids) ? c.business_team_ids : [],
       notes: c.notes ?? undefined,
       archived: c.archived ?? false,
       excludedFromCapacity: c.excluded_from_capacity ?? false,
+      dailyRateOverride: c.daily_rate_override != null ? Number(c.daily_rate_override) : undefined,
+      dailyRateCurrency: c.daily_rate_currency ?? undefined,
+    }));
+
+    const externalVendors: ExternalVendor[] = (externalVendorsRes.data ?? []).map(v => ({
+      id: v.id,
+      name: v.name,
+      dailyRate: Number(v.daily_rate ?? 0),
+      currency: v.currency,
+      notes: v.notes ?? undefined,
+      archived: v.archived ?? false,
+      countsTowardCapacity: v.counts_toward_capacity ?? false,
+      workingDaysPerWeek: v.working_days_per_week ?? undefined,
     }));
 
     const businessTimeOff: BusinessTimeOff[] = (bizTimeOffRes.data ?? []).map(t => ({
@@ -348,6 +430,17 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       contactId: r.contact_id,
       days: r.days != null ? Number(r.days) : undefined,
       notes: r.notes ?? undefined,
+    }));
+
+    const initiativeCosts: InitiativeCostRecord[] = (initiativeCostsRes.data ?? []).map(r => ({
+      id: r.id,
+      initiativeKind: r.initiative_kind,
+      initiativeId: r.initiative_id,
+      scenarioId: r.scenario_id ?? undefined,
+      contingencyPct: Number(r.contingency_pct ?? 0),
+      hardware: r.hardware ?? null,
+      licenses: Array.isArray(r.licenses) ? r.licenses : [],
+      updatedAt: r.updated_at,
     }));
 
     const hasAnyData =
@@ -394,6 +487,10 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       jiraItemBizAssignments,
       projects: [],
       assignments: [],
+      capacityRequests,
+      capacityAssignments,
+      externalVendors,
+      initiativeCosts,
     };
   } catch (err) {
     console.error('[Sync] Unexpected error loading from Supabase:', err);
@@ -430,11 +527,19 @@ export async function saveToSupabase(state: AppState): Promise<void> {
     ['sprints',                      syncSprints(state.sprints)],
     ['jira_connections',             syncJiraConnections(state.jiraConnections)],
     ['jira_work_items',              syncJiraWorkItems(state.jiraWorkItems)],
-    ['scenarios',                    syncScenarios(state.scenarios)],
-    ['settings',                     syncSettings(state.settings, state.jiraSettings, state.activeScenarioId)],
+    ['scenarios',                    syncScenarios(state.scenarios, state.businessTeams ?? [])],
+    ['settings',                     syncSettings(
+      state.settings,
+      state.jiraSettings,
+      state.activeScenarioId,
+      state.capacityRequests ?? [],
+      state.capacityAssignments ?? [],
+    )],
     ['business_contacts',            syncBusinessContacts(state.businessContacts ?? [])],
     ['business_time_off',            syncBusinessTimeOff(state.businessTimeOff ?? [])],
     ['jira_item_biz_assignments',    syncJiraItemBizAssignments(state.jiraItemBizAssignments ?? [])],
+    ['external_vendors',             syncExternalVendors(state.externalVendors ?? [])],
+    ['initiative_costs',             syncInitiativeCosts(state.initiativeCosts ?? [])],
   ];
 
   const results = await Promise.allSettled(tasks.map(([, p]) => p));
@@ -490,9 +595,31 @@ async function syncProcessTeams(processTeams: ProcessTeam[]): Promise<void> {
 
 async function syncBusinessTeams(businessTeams: BusinessTeam[]): Promise<void> {
   try {
-    await upsertAndPrune('business_teams', businessTeams, bt => ({ id: bt.id, name: bt.name }));
+    await upsertAndPrune('business_teams', businessTeams, bt => ({
+      id: bt.id,
+      name: bt.name,
+      category: bt.category ?? 'business_team',
+      track: bt.track ?? getPlanningGroupTrack(bt),
+      external_vendor_id: bt.externalVendorId ?? null,
+      archived: bt.archived ?? false,
+      daily_rate_override: bt.dailyRateOverride ?? null,
+      daily_rate_currency: bt.dailyRateCurrency ?? null,
+    }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('category') || msg.includes('track') || msg.includes('external_vendor_id') || msg.includes('archived')) {
+      await upsertAndPrune('business_teams', businessTeams, bt => ({
+        id: bt.id,
+        name: bt.name,
+        daily_rate_override: bt.dailyRateOverride ?? null,
+        daily_rate_currency: bt.dailyRateCurrency ?? null,
+      }));
+      return;
+    }
+    if (msg.includes('daily_rate_override') || msg.includes('daily_rate_currency')) {
+      await upsertAndPrune('business_teams', businessTeams, bt => ({ id: bt.id, name: bt.name }));
+      return;
+    }
     if (msg.includes('business_teams') && (msg.includes('does not exist') || msg.includes('relation'))) {
       console.warn('[Sync] business_teams table not found — run migration 036. Skipping.');
       return;
@@ -501,63 +628,71 @@ async function syncBusinessTeams(businessTeams: BusinessTeam[]): Promise<void> {
   }
 }
 
-const BASE_MEMBER_ROW = (m: TeamMember) => ({
-  id: m.id, name: m.name, role: m.role, country_id: m.countryId,
-  skill_ids: m.skillIds, max_concurrent_projects: m.maxConcurrentProjects,
-  working_days_per_week: m.workingDaysPerWeek ?? 5,
-  bau_override: m.bauOverride ?? false,
-  bau_reserve_days: m.bauOverride ? (m.bauReserveDays ?? 0) : null,
-  email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
-  synced_from_jira: m.syncedFromJira ?? false,
-  needs_enrichment: m.needsEnrichment ?? false, is_active: true,
-  excluded_from_capacity: m.excludedFromCapacity ?? false,
-  name_manually_edited: m.nameManuallyEdited ?? false,
-});
+type MemberSyncRowOptions = {
+  includeCapacity: boolean;
+  includeExcluded: boolean;
+  includeHierarchy: boolean;
+  includeNameOverride: boolean;
+  includePlanningMetadata: boolean;
+  includeRateOverrides: boolean;
+};
 
-const EXTENDED_MEMBER_ROW = (m: TeamMember) => ({
-  ...BASE_MEMBER_ROW(m),
-  squad_id: m.squadId ?? null,
-  process_team_ids: m.processTeamIds ?? [],
-});
+const MEMBER_CAPACITY_COLUMNS = ['working_days_per_week', 'bau_override', 'bau_reserve_days', 'bau_reserve_percent'];
+const MEMBER_EXCLUDED_COLUMNS = ['excluded_from_capacity'];
+const MEMBER_HIERARCHY_COLUMNS = ['squad_id', 'process_team_ids'];
+const MEMBER_NAME_OVERRIDE_COLUMNS = ['name_manually_edited'];
+const MEMBER_PLANNING_COLUMNS = ['worker_type', 'assignment_category', 'external_vendor_id'];
+const MEMBER_RATE_COLUMNS = ['daily_rate_override', 'daily_rate_currency'];
 
-const LEGACY_MEMBER_ROW = (m: TeamMember) => ({
-  id: m.id, name: m.name, role: m.role, country_id: m.countryId,
-  skill_ids: m.skillIds, max_concurrent_projects: m.maxConcurrentProjects,
-  email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
-  synced_from_jira: m.syncedFromJira ?? false,
-  needs_enrichment: m.needsEnrichment ?? false, is_active: true,
-});
+function messageIncludesAny(msg: string, columns: string[]): boolean {
+  return columns.some((column) => msg.includes(column));
+}
 
-const MEMBER_ROW_NO_CAPACITY_OVERRIDES = (m: TeamMember) => ({
-  id: m.id, name: m.name, role: m.role, country_id: m.countryId,
-  skill_ids: m.skillIds, max_concurrent_projects: m.maxConcurrentProjects,
-  email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
-  synced_from_jira: m.syncedFromJira ?? false,
-  needs_enrichment: m.needsEnrichment ?? false, is_active: true,
-  squad_id: m.squadId ?? null,
-  process_team_ids: m.processTeamIds ?? [],
-  excluded_from_capacity: m.excludedFromCapacity ?? false,
-  name_manually_edited: m.nameManuallyEdited ?? false,
-});
-
-const MEMBER_ROW_NO_NAME_OVERRIDE = (m: TeamMember) => ({
-  ...LEGACY_MEMBER_ROW(m),
-  working_days_per_week: m.workingDaysPerWeek ?? 5,
-  bau_override: m.bauOverride ?? false,
-  bau_reserve_days: m.bauOverride ? (m.bauReserveDays ?? 0) : null,
-  squad_id: m.squadId ?? null,
-  process_team_ids: m.processTeamIds ?? [],
-  excluded_from_capacity: m.excludedFromCapacity ?? false,
-});
-
-const MEMBER_ROW_NO_EXCLUDED = (m: TeamMember) => ({
-  ...LEGACY_MEMBER_ROW(m),
-  working_days_per_week: m.workingDaysPerWeek ?? 5,
-  bau_override: m.bauOverride ?? false,
-  bau_reserve_days: m.bauOverride ? (m.bauReserveDays ?? 0) : null,
-  squad_id: m.squadId ?? null,
-  process_team_ids: m.processTeamIds ?? [],
-});
+function buildMemberSyncRow(
+  m: TeamMember,
+  options: MemberSyncRowOptions,
+): Record<string, unknown> {
+  return {
+    id: m.id,
+    name: m.name,
+    role: m.role,
+    country_id: m.countryId,
+    skill_ids: m.skillIds,
+    max_concurrent_projects: m.maxConcurrentProjects,
+    email: m.email ?? null,
+    jira_account_id: m.jiraAccountId ?? null,
+    synced_from_jira: m.syncedFromJira ?? false,
+    needs_enrichment: m.needsEnrichment ?? false,
+    is_active: true,
+    ...(options.includeCapacity ? {
+      working_days_per_week: m.workingDaysPerWeek ?? 5,
+      bau_override: m.bauOverride ?? false,
+      bau_reserve_percent: m.bauOverride ? (m.bauReservePercent ?? null) : null,
+      bau_reserve_days: m.bauOverride
+        ? (m.bauReserveDays ?? (m.bauReservePercent != null ? bauPercentToLegacyDays(m.bauReservePercent) : 0))
+        : null,
+    } : {}),
+    ...(options.includeExcluded ? {
+      excluded_from_capacity: m.excludedFromCapacity ?? false,
+    } : {}),
+    ...(options.includeNameOverride ? {
+      name_manually_edited: m.nameManuallyEdited ?? false,
+    } : {}),
+    ...(options.includePlanningMetadata ? {
+      worker_type: m.workerType ?? null,
+      assignment_category: m.assignmentCategory ?? null,
+      external_vendor_id: m.externalVendorId ?? null,
+    } : {}),
+    ...(options.includeRateOverrides ? {
+      daily_rate_override: m.dailyRateOverride ?? null,
+      daily_rate_currency: m.dailyRateCurrency ?? null,
+    } : {}),
+    ...(options.includeHierarchy ? {
+      squad_id: m.squadId ?? null,
+      process_team_ids: m.processTeamIds ?? [],
+    } : {}),
+  };
+}
 
 const softDeleteMembers = async (idsToRemove: string[]) => {
   if (idsToRemove.length > 0) {
@@ -566,42 +701,49 @@ const softDeleteMembers = async (idsToRemove: string[]) => {
 };
 
 async function syncTeamMembers(members: TeamMember[]): Promise<void> {
-  try {
-    await upsertAndPrune('team_members', members, EXTENDED_MEMBER_ROW, softDeleteMembers);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('working_days_per_week') || msg.includes('bau_override') || msg.includes('bau_reserve_days')) {
-      await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
+  const options: MemberSyncRowOptions = {
+    includeCapacity: true,
+    includeExcluded: true,
+    includeHierarchy: true,
+    includeNameOverride: true,
+    includePlanningMetadata: true,
+    includeRateOverrides: true,
+  };
+
+  while (true) {
+    try {
+      await upsertAndPrune('team_members', members, m => buildMemberSyncRow(m, options), softDeleteMembers);
       return;
-    }
-    if (msg.includes('name_manually_edited')) {
-      try {
-        await upsertAndPrune('team_members', members, MEMBER_ROW_NO_NAME_OVERRIDE, softDeleteMembers);
-      } catch (err2) {
-        const msg2 = err2 instanceof Error ? err2.message : String(err2);
-        if (msg2.includes('working_days_per_week') || msg2.includes('bau_override') || msg2.includes('bau_reserve_days')) {
-          await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
-        } else if (msg2.includes('excluded_from_capacity')) {
-          await upsertAndPrune('team_members', members, MEMBER_ROW_NO_EXCLUDED, softDeleteMembers);
-        } else if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
-          await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
-        } else { throw err2; }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      let changed = false;
+
+      if (options.includeCapacity && messageIncludesAny(msg, MEMBER_CAPACITY_COLUMNS)) {
+        options.includeCapacity = false;
+        changed = true;
       }
-    } else if (msg.includes('excluded_from_capacity')) {
-      try {
-        await upsertAndPrune('team_members', members, MEMBER_ROW_NO_EXCLUDED, softDeleteMembers);
-      } catch (err2) {
-        const msg2 = err2 instanceof Error ? err2.message : String(err2);
-        if (msg2.includes('working_days_per_week') || msg2.includes('bau_override') || msg2.includes('bau_reserve_days')) {
-          await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
-        } else if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
-          await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
-        } else { throw err2; }
+      if (options.includeExcluded && messageIncludesAny(msg, MEMBER_EXCLUDED_COLUMNS)) {
+        options.includeExcluded = false;
+        changed = true;
       }
-    } else if (msg.includes('squad_id') || msg.includes('process_team_ids')) {
-      await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
-    } else {
-      throw err;
+      if (options.includeHierarchy && messageIncludesAny(msg, MEMBER_HIERARCHY_COLUMNS)) {
+        options.includeHierarchy = false;
+        changed = true;
+      }
+      if (options.includeNameOverride && messageIncludesAny(msg, MEMBER_NAME_OVERRIDE_COLUMNS)) {
+        options.includeNameOverride = false;
+        changed = true;
+      }
+      if (options.includePlanningMetadata && messageIncludesAny(msg, MEMBER_PLANNING_COLUMNS)) {
+        options.includePlanningMetadata = false;
+        changed = true;
+      }
+      if (options.includeRateOverrides && messageIncludesAny(msg, MEMBER_RATE_COLUMNS)) {
+        options.includeRateOverrides = false;
+        changed = true;
+      }
+
+      if (!changed) throw err;
     }
   }
 }
@@ -688,7 +830,7 @@ async function syncJiraWorkItems(items: JiraWorkItem[]): Promise<void> {
   }));
 }
 
-async function syncScenarios(scenarios: Scenario[]): Promise<void> {
+async function syncScenarios(scenarios: Scenario[], businessTeams: BusinessTeam[]): Promise<void> {
   await upsertAndPrune('scenarios', scenarios, s => ({
     id: s.id,
     name: s.name,
@@ -705,10 +847,15 @@ async function syncScenarios(scenarios: Scenario[]): Promise<void> {
     team_members: s.teamMembers,
     time_off: s.timeOff,
     planner_layout: s.plannerLayout != null ? s.plannerLayout : null,
+    capacity_requests: s.capacityRequests ?? [],
+    capacity_assignments: s.capacityAssignments ?? [],
     portfolio_board_epic_keys: s.portfolioBoardEpicKeys ?? [],
     portfolio_manual_epics: s.portfolioManualEpics ?? [],
     portfolio_phase_plans: s.portfolioPhasePlans ?? [],
-    portfolio_phase_assignments: s.portfolioPhaseAssignments ?? [],
+    portfolio_phase_assignments: normalizeBusinessTeamPlaceholdersInAssignments(
+      s.portfolioPhaseAssignments ?? [],
+      businessTeams,
+    ),
     last_edited_by: s.lastEditedBy ?? null,
     skills_matching_enabled: s.skillsMatchingEnabled ?? true,
   }));
@@ -717,11 +864,15 @@ async function syncScenarios(scenarios: Scenario[]): Promise<void> {
 async function syncSettings(
   settings: Settings,
   jiraSettings: JiraSettings,
-  activeScenarioId: string | null
+  activeScenarioId: string | null,
+  capacityRequests: CapacityRequest[],
+  capacityAssignments: CapacityAssignment[],
 ): Promise<void> {
   const { error } = await supabase.from('settings').upsert([
-    { key: 'settings',     value: settings     as unknown },
-    { key: 'jiraSettings', value: jiraSettings as unknown },
+    { key: 'settings',            value: settings as unknown },
+    { key: 'jiraSettings',        value: jiraSettings as unknown },
+    { key: 'capacityRequests',    value: capacityRequests as unknown },
+    { key: 'capacityAssignments', value: capacityAssignments as unknown },
   ], { onConflict: 'key' });
 
   if (error) throw new Error(`settings upsert failed: ${error.message}`);
@@ -737,6 +888,50 @@ async function syncSettings(
   }
 }
 
+async function syncExternalVendors(vendors: ExternalVendor[]): Promise<void> {
+  try {
+    await upsertAndPrune('external_vendors', vendors, (v) => ({
+      id: v.id,
+      name: v.name,
+      daily_rate: v.dailyRate,
+      currency: v.currency,
+      notes: v.notes ?? null,
+      archived: v.archived ?? false,
+      counts_toward_capacity: v.countsTowardCapacity ?? false,
+      working_days_per_week: v.workingDaysPerWeek ?? null,
+    }));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('external_vendors') && (msg.includes('does not exist') || msg.includes('relation'))) {
+      console.warn('[Sync] external_vendors table not found — run migration 048. Skipping.');
+      return;
+    }
+    throw err;
+  }
+}
+
+async function syncInitiativeCosts(records: InitiativeCostRecord[]): Promise<void> {
+  try {
+    await upsertAndPrune('initiative_costs', records, (r) => ({
+      id: r.id,
+      initiative_kind: r.initiativeKind,
+      initiative_id: r.initiativeId,
+      scenario_id: r.scenarioId ?? null,
+      contingency_pct: r.contingencyPct,
+      hardware: r.hardware ?? null,
+      licenses: r.licenses ?? [],
+      updated_at: r.updatedAt,
+    }));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('initiative_costs') && (msg.includes('does not exist') || msg.includes('relation'))) {
+      console.warn('[Sync] initiative_costs table not found — run migration 049. Skipping.');
+      return;
+    }
+    throw err;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BUSINESS CONTACT SYNC (graceful column fallback for incremental migrations)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -745,8 +940,12 @@ const FULL_BIZ_CONTACT_ROW = (c: BusinessContact) => ({
   id: c.id, name: c.name, title: c.title ?? null, department: c.department ?? null,
   email: c.email ?? null, country_id: c.countryId,
   working_days_per_week: c.workingDaysPerWeek ?? 5, working_hours_per_day: c.workingHoursPerDay ?? 8,
-  bau_reserve_days: c.bauReserveDays ?? 5, process_team_ids: c.processTeamIds ?? [],
+  bau_reserve_percent: c.bauReservePercent ?? null,
+  bau_reserve_days: c.bauReserveDays ?? (c.bauReservePercent != null ? bauPercentToLegacyDays(c.bauReservePercent) : 5),
+  process_team_ids: c.processTeamIds ?? [],
   business_team_ids: c.businessTeamIds ?? [],
+  daily_rate_override: c.dailyRateOverride ?? null,
+  daily_rate_currency: c.dailyRateCurrency ?? null,
   notes: c.notes ?? null, archived: c.archived ?? false,
   excluded_from_capacity: c.excludedFromCapacity ?? false,
   updated_at: new Date().toISOString(),
@@ -762,6 +961,7 @@ const LEGACY_BIZ_CONTACT_ROW = (c: BusinessContact) => ({
   id: c.id, name: c.name, title: c.title ?? null, department: c.department ?? null,
   email: c.email ?? null, country_id: c.countryId,
   working_days_per_week: c.workingDaysPerWeek ?? 5, working_hours_per_day: c.workingHoursPerDay ?? 8,
+  bau_reserve_days: c.bauReserveDays ?? (c.bauReservePercent != null ? bauPercentToLegacyDays(c.bauReservePercent) : 5),
   notes: c.notes ?? null, archived: c.archived ?? false, updated_at: new Date().toISOString(),
 });
 
@@ -774,16 +974,16 @@ async function syncBusinessContacts(contacts: BusinessContact[]): Promise<void> 
       console.warn('[Sync] business_contacts table not found — run migration 011. Skipping.');
       return;
     }
-    if (msg.includes('excluded_from_capacity')) {
+    if (msg.includes('excluded_from_capacity') || msg.includes('daily_rate_override') || msg.includes('daily_rate_currency')) {
       try {
         await upsertAndPrune('business_contacts', contacts, BIZ_CONTACT_ROW_NO_EXCLUDED);
       } catch (err2) {
         const msg2 = err2 instanceof Error ? err2.message : String(err2);
-        if (msg2.includes('bau_reserve_days') || msg2.includes('process_team_ids') || msg2.includes('business_team_ids')) {
+        if (msg2.includes('bau_reserve_days') || msg2.includes('bau_reserve_percent') || msg2.includes('process_team_ids') || msg2.includes('business_team_ids') || msg2.includes('daily_rate_override') || msg2.includes('daily_rate_currency')) {
           await upsertAndPrune('business_contacts', contacts, LEGACY_BIZ_CONTACT_ROW);
         } else { throw err2; }
       }
-    } else if (msg.includes('bau_reserve_days') || msg.includes('process_team_ids') || msg.includes('business_team_ids')) {
+    } else if (msg.includes('bau_reserve_days') || msg.includes('bau_reserve_percent') || msg.includes('process_team_ids') || msg.includes('business_team_ids') || msg.includes('daily_rate_override') || msg.includes('daily_rate_currency')) {
       await upsertAndPrune('business_contacts', contacts, LEGACY_BIZ_CONTACT_ROW);
     } else {
       throw err;

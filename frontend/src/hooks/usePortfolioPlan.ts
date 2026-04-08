@@ -17,6 +17,7 @@ import {
   getPlaceholderInsertIndex,
   upsertPhaseSequencePlans,
 } from '../utils/portfolioPhaseOrdering';
+import { filterAssignmentsForReplacementUpsert } from '../utils/portfolioAssignmentReplacement';
 
 const BOARD_KEY   = 'pp.boardEpicKeys';
 const MANUAL_KEY  = 'pp.manualEpics';
@@ -64,7 +65,7 @@ export interface UsePortfolioPlanReturn {
     memberId: string,
     days: number,
     track: 'IT' | 'BIZ',
-    options?: { allocationMode?: AllocationMode; daysPerWeek?: number }
+    options?: { allocationMode?: AllocationMode; daysPerWeek?: number; replaceMemberId?: string }
   ) => Promise<void>;
   removeAssignment:    (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string) => Promise<void>;
   upsertSegment:       (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, segment: AllocationSegment) => Promise<void>;
@@ -587,25 +588,33 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     memberId: string,
     days: number,
     track: 'IT' | 'BIZ',
-    options?: { allocationMode?: AllocationMode; daysPerWeek?: number },
+    options?: { allocationMode?: AllocationMode; daysPerWeek?: number; replaceMemberId?: string },
   ) => {
     const now      = new Date().toISOString();
     const mode     = options?.allocationMode ?? 'flat';
     const dpw      = options?.daysPerWeek;
+    const replaceMemberId = options?.replaceMemberId;
     const existing = phaseAssignments.find(
       a => a.epicKey === epicKey && a.phaseInstanceId === phaseInstanceId && a.memberId === memberId
     );
 
     if (existing) {
-      setPhaseAssignments(prev => prev.map(a =>
-        a.epicKey === epicKey && a.phaseInstanceId === phaseInstanceId && a.memberId === memberId
-          ? { ...a, days, track, allocationMode: mode, daysPerWeek: dpw, updatedAt: now }
-          : a
-      ));
+      setPhaseAssignments(prev => filterAssignmentsForReplacementUpsert(
+        prev,
+        epicKey,
+        phaseInstanceId,
+        memberId,
+        replaceMemberId,
+      )
+        .map(a =>
+          a.epicKey === epicKey && a.phaseInstanceId === phaseInstanceId && a.memberId === memberId
+            ? { ...a, days, track, allocationMode: mode, daysPerWeek: dpw, updatedAt: now }
+            : a
+        ));
     } else {
       const tempId = `local-${epicKey}-${phaseInstanceId}-${memberId}`;
       setPhaseAssignments(prev => [
-        ...prev,
+        ...filterAssignmentsForReplacementUpsert(prev, epicKey, phaseInstanceId, memberId, replaceMemberId),
         { id: tempId, epicKey, phase, phaseInstanceId, memberId, track, days, allocationMode: mode, daysPerWeek: dpw, updatedAt: now },
       ]);
     }
@@ -624,9 +633,7 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     if (!error && data) {
       const row = data as AssignRow;
       setPhaseAssignments(prev => {
-        const filtered = prev.filter(
-          a => !(a.epicKey === epicKey && a.phaseInstanceId === phaseInstanceId && a.memberId === memberId)
-        );
+        const filtered = filterAssignmentsForReplacementUpsert(prev, epicKey, phaseInstanceId, memberId, replaceMemberId);
         return [...filtered, mapAssignRow(row, existing?.segments ?? [])];
       });
     }

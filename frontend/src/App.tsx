@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Timeline } from './pages/Timeline';
 import { Projects } from './pages/Projects';
 import { Team } from './pages/Team';
-import { Scenarios } from './pages/Scenarios';
 import { ScenarioPlanner } from './pages/ScenarioPlanner';
 import { PortfolioPlanning } from './pages/PortfolioPlanning';
+import { PlanningJourneyMockups } from './pages/PlanningJourneyMockups';
 import { Report } from './pages/Report';
 import { Settings } from './pages/Settings';
 import { ToastProvider } from './components/ui/Toast';
@@ -19,18 +19,21 @@ import { useAppStore, useCurrentView, useIsInitializing, useSyncStatus } from '.
 import type { ViewType } from './types';
 import { Login } from './pages/Login';
 import { useCurrentUser } from './hooks/useCurrentUser';
-import { isSupabaseConfigured } from './services/supabase';
+import { isSupabaseConfigured, supabase } from './services/supabase';
 
 /** Maps a URL pathname to a ViewType (defaults to 'dashboard'). */
 const PATH_TO_VIEW: Record<string, ViewType> = {
   '/':                    'dashboard',
   '/timeline':            'timeline',
   '/epics':               'projects',
+  '/delivery-tracking':   'projects',
   '/team':                'team',
-  '/scenarios':           'scenarios',
+  '/scenarios':           'portfolio-planning',
   '/planner':             'planner',
   '/planning':            'planner',
+  '/delivery-planning':   'planner',
   '/portfolio-planning':  'portfolio-planning',
+  '/planning-mockups':    'planning-mockups',
   '/report':              'report',
   '/settings':            'settings',
 };
@@ -39,12 +42,13 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
 const VIEW_TO_PATH: Record<ViewType, string> = {
   dashboard:           '/',
   timeline:            '/timeline',
-  projects:            '/epics',
-  jira:                '/epics',
+  projects:            '/delivery-tracking',
+  jira:                '/delivery-tracking',
   team:                '/team',
-  scenarios:           '/scenarios',
-  planner:             '/planner',
+  scenarios:           '/portfolio-planning',
+  planner:             '/delivery-planning',
   'portfolio-planning': '/portfolio-planning',
+  'planning-mockups':  '/planning-mockups',
   report:              '/report',
   settings:            '/settings',
 };
@@ -56,12 +60,58 @@ const pages: Record<ViewType, React.ComponentType> = {
   projects:            Projects,
   team:                Team,
   jira:                Projects,
-  scenarios:           Scenarios,
+  scenarios:           PortfolioPlanning,
   planner:             ScenarioPlanner,
   'portfolio-planning': PortfolioPlanning,
+  'planning-mockups':  PlanningJourneyMockups,
   report:              Report,
   settings:            Settings,
 };
+
+function AccountAccessRequiredScreen({
+  email,
+  issue,
+}: {
+  email: string | undefined;
+  issue: 'missing_role' | 'invalid_role' | 'role_lookup_failed';
+}) {
+  const title = issue === 'role_lookup_failed'
+    ? 'We could not verify your account access'
+    : 'Your account is not ready yet';
+  const message = issue === 'missing_role'
+    ? 'This account is signed in, but it has not been assigned a workspace role yet. Ask a system administrator to finish provisioning your access.'
+    : issue === 'invalid_role'
+      ? 'This account has an unsupported role assigned. Ask a system administrator to review the account configuration.'
+      : 'There was a problem checking your permissions. Try again in a moment, or ask a system administrator to verify your account setup.';
+
+  return (
+    <div className="min-h-screen bg-[#F5F8FC] flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-card border border-[#DEDFE3] bg-white shadow-sm p-8">
+        <h1
+          className="text-3xl font-bold text-[#1E293B] tracking-tight"
+          style={{ fontFamily: "'DM Sans', ui-sans-serif, sans-serif", letterSpacing: '-0.02em' }}
+        >
+          {title}
+        </h1>
+        <p className="mt-3 text-sm text-[#475569]">
+          {message}
+        </p>
+        {email && (
+          <p className="mt-4 text-sm text-[#94A3B8]">
+            Signed in as <span className="font-medium text-[#1E293B]">{email}</span>
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => void supabase.auth.signOut()}
+          className="mt-6 inline-flex items-center justify-center rounded-lg bg-[#1E293B] px-4 py-2 text-sm font-medium text-white transition-opacity duration-150 hover:opacity-85"
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const currentView = useCurrentView();
@@ -72,32 +122,59 @@ function App() {
   // state change. React 19's useSyncExternalStore is strict about this.
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const initializeFromSupabase = useAppStore((s) => s.initializeFromSupabase);
+  const hasWorkspaceData = useAppStore((s) => s.data.teamMembers.length > 0 || s.data.jiraWorkItems.length > 0);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const { user, loading: authLoading, can } = useCurrentUser();
+  const hasSyncedInitialUrlRef = useRef(false);
+  const syncingViewFromUrlRef = useRef(false);
+  const { user, loading: authLoading, accessIssue } = useCurrentUser();
   const navigate = useNavigate();
   const location = useLocation();
 
   // US-001 / US-002: Load data from Supabase on first mount
   useEffect(() => {
-    if (isSupabaseConfigured() && !user) return;
+    if (isSupabaseConfigured() && (!user || accessIssue)) return;
     initializeFromSupabase();
-  }, [initializeFromSupabase, user]);
+  }, [accessIssue, initializeFromSupabase, user]);
 
   // ── URL ↔ store sync ─────────────────────────────────────────────────────
   // When the URL changes (browser back/forward), update the store.
   useEffect(() => {
+    if (location.pathname === '/' && hasWorkspaceData) {
+      syncingViewFromUrlRef.current = true;
+      if (currentView !== 'portfolio-planning') {
+        setCurrentView('portfolio-planning');
+      }
+      navigate('/portfolio-planning', { replace: true });
+      hasSyncedInitialUrlRef.current = true;
+      return;
+    }
+
     const view = PATH_TO_VIEW[location.pathname] ?? 'dashboard';
-    if (view !== currentView) setCurrentView(view);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+    if (view !== currentView) {
+      syncingViewFromUrlRef.current = true;
+      setCurrentView(view);
+    }
+    const canonicalPath = VIEW_TO_PATH[view] ?? '/';
+    if (location.pathname !== canonicalPath) {
+      navigate(canonicalPath, { replace: true });
+    }
+    hasSyncedInitialUrlRef.current = true;
+  }, [currentView, hasWorkspaceData, location.pathname, navigate, setCurrentView]);
 
   // When the store view changes (programmatic nav), push to history.
   useEffect(() => {
+    if (!hasSyncedInitialUrlRef.current) return;
+    if (syncingViewFromUrlRef.current) {
+      syncingViewFromUrlRef.current = false;
+      return;
+    }
+    const viewForCurrentPath = PATH_TO_VIEW[location.pathname] ?? 'dashboard';
+    if (currentView === viewForCurrentPath) return;
     const targetPath = VIEW_TO_PATH[currentView] ?? '/';
     if (location.pathname !== targetPath) navigate(targetPath, { replace: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentView]);
+  }, [currentView, location.pathname]);
 
   // Dark mode is removed — always light mode
 
@@ -120,12 +197,12 @@ function App() {
       const target = e.target as HTMLElement;
       const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-      // Number keys 1-6: navigate views (Settings gated to manage_settings)
+      // Number keys 1-6: navigate the main views.
       if (e.key >= '1' && e.key <= '6' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping) {
-        const views: ViewType[] = ['dashboard', 'timeline', 'projects', 'team', 'planner', 'settings'];
+        const views: ViewType[] = ['dashboard', 'portfolio-planning', 'planner', 'projects', 'team', 'settings'];
         const index = parseInt(e.key) - 1;
         const target = views[index];
-        if (target && (target !== 'settings' || can('manage_settings'))) {
+        if (target) {
           setCurrentView(target);
         }
       }
@@ -161,6 +238,10 @@ function App() {
     return <Login />;
   }
 
+  if (isSupabaseConfigured() && user && accessIssue) {
+    return <AccountAccessRequiredScreen email={user.email} issue={accessIssue} />;
+  }
+
   // US-002: Show full-screen loading screen while fetching from Supabase
   if (isInitializing) {
     return <LoadingScreen />;
@@ -170,7 +251,7 @@ function App() {
 
   return (
     <ToastProvider>
-      <Layout variant={currentView === 'planner' || currentView === 'report' || currentView === 'portfolio-planning' ? 'fullbleed' : 'default'}>
+      <Layout variant={currentView === 'planner' || currentView === 'report' || currentView === 'portfolio-planning' || currentView === 'planning-mockups' ? 'fullbleed' : 'default'}>
         <CurrentPage />
       </Layout>
       <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />

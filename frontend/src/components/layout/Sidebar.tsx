@@ -8,7 +8,6 @@ import {
   WifiOff,
   Calendar,
   FolderKanban,
-  LayoutDashboard,
   AlertCircle,
   LogOut,
   Layers,
@@ -26,12 +25,13 @@ import { supabase, isSupabaseConfigured } from '../../services/supabase';
 const VIEW_TO_PATH: Record<ViewType, string> = {
   dashboard:           '/',
   timeline:            '/timeline',
-  projects:            '/epics',
-  jira:                '/epics',
+  projects:            '/delivery-tracking',
+  jira:                '/delivery-tracking',
   team:                '/team',
-  scenarios:           '/scenarios',
-  planner:             '/planner',
+  scenarios:           '/portfolio-planning',
+  planner:             '/delivery-planning',
   'portfolio-planning': '/portfolio-planning',
+  'planning-mockups':  '/planning-mockups',
   report:              '/report',
   settings:            '/settings',
 };
@@ -40,24 +40,29 @@ const PATH_TO_VIEW: Record<string, ViewType> = {
   '/':                   'dashboard',
   '/timeline':           'timeline',
   '/epics':              'projects',
+  '/delivery-tracking':  'projects',
   '/team':               'team',
-  '/scenarios':          'scenarios',
+  '/scenarios':          'portfolio-planning',
   '/planner':            'planner',
   '/planning':           'planner',
+  '/delivery-planning':  'planner',
   '/portfolio-planning': 'portfolio-planning',
   '/report':             'report',
   '/settings':           'settings',
 };
 
-const navItems: { view: ViewType; icon: typeof LayoutDashboard; label: string }[] = [
-  { view: 'dashboard',           icon: LayoutDashboard, label: 'Capacity' },
-  { view: 'timeline',            icon: Calendar,        label: 'Timeline' },
-  { view: 'projects',            icon: FolderKanban,    label: 'Epics' },
-  { view: 'team',                icon: Users,           label: 'Team' },
-  { view: 'planner',             icon: Layers,          label: 'Scenario Planner' },
-  { view: 'portfolio-planning',  icon: LayoutGrid,      label: 'Portfolio Planning' },
-  { view: 'report',              icon: FileBarChart,    label: 'Report' },
-  { view: 'settings',            icon: Settings,        label: 'Settings' },
+const navSections: Array<Array<{ view: ViewType; icon: typeof Settings; label: string }>> = [
+  [
+    { view: 'portfolio-planning', icon: LayoutGrid,    label: 'Portfolio Planning' },
+    { view: 'planner',            icon: Layers,        label: 'Delivery Planning' },
+    { view: 'projects',           icon: FolderKanban,  label: 'Delivery Tracking' },
+    { view: 'report',             icon: FileBarChart,  label: 'Report' },
+  ],
+  [
+    { view: 'timeline',           icon: Calendar,        label: 'Timeline' },
+    { view: 'team',               icon: Users,           label: 'Team' },
+    { view: 'settings',           icon: Settings,        label: 'Settings' },
+  ],
 ];
 
 interface SidebarProps {
@@ -114,10 +119,7 @@ function SyncIndicator({ collapsed }: { collapsed: boolean }) {
 export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   const location = useLocation();
   const currentView = PATH_TO_VIEW[location.pathname] ?? 'dashboard';
-  const { user, role, can } = useCurrentUser();
-  const visibleNavItems = navItems.filter(
-    (item) => item.view !== 'settings' || can('manage_settings')
-  );
+  const { user, role } = useCurrentUser();
 
   const initials = useMemo(() => {
     const source = user?.email ?? 'User';
@@ -142,7 +144,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
             <div className="text-lg font-semibold tracking-tight text-[#1E293B]">
               VS Finance
             </div>
-            <div className="text-xs text-[#94A3B8] mt-0.5">Capacity Planner</div>
+            <div className="text-xs text-[#94A3B8] mt-0.5">Planning Journey</div>
             <div className="mt-2 h-[2px] w-8 bg-[#0089DD] rounded-full" />
           </>
         )}
@@ -150,22 +152,34 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 py-3">
-        {visibleNavItems.map(({ view, icon: Icon, label }) => (
-          <Link
-            key={view}
-            to={VIEW_TO_PATH[view]}
-            className={clsx(
-              'w-full flex items-center transition-colors duration-150 border-l-[3px]',
-              collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-4 py-2.5',
-              currentView === view
-                ? 'border-l-[#0089DD] bg-[#E6F2FC] text-[#0089DD]'
-                : 'border-l-transparent text-[#94A3B8] hover:bg-[#F5F8FC] hover:text-[#1E293B]'
-            )}
-            title={collapsed ? label : undefined}
-          >
-            <Icon size={16} />
-            {!collapsed && <span className="text-sm font-medium">{label}</span>}
-          </Link>
+        {navSections.map((section, sectionIndex) => (
+          <div key={sectionIndex}>
+            {sectionIndex > 0 ? (
+              <div className={clsx('my-3 border-t border-[#EEF2F7]', collapsed ? 'mx-2' : 'mx-4')} />
+            ) : null}
+            {!collapsed && sectionIndex === 1 ? (
+              <div className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">
+                Supporting
+              </div>
+            ) : null}
+            {section.map(({ view, icon: Icon, label }) => (
+              <Link
+                key={view}
+                to={VIEW_TO_PATH[view]}
+                className={clsx(
+                  'w-full flex items-center transition-colors duration-150 border-l-[3px]',
+                  collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-4 py-2.5',
+                  currentView === view
+                    ? 'border-l-[#0089DD] bg-[#E6F2FC] text-[#0089DD]'
+                    : 'border-l-transparent text-[#94A3B8] hover:bg-[#F5F8FC] hover:text-[#1E293B]'
+                )}
+                title={collapsed ? label : undefined}
+              >
+                <Icon size={16} />
+                {!collapsed && <span className="text-sm font-medium">{label}</span>}
+              </Link>
+            ))}
+          </div>
         ))}
       </nav>
 

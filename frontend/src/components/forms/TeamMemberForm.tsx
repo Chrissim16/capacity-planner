@@ -5,7 +5,10 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { useCurrentState } from '../../stores/appStore';
 import { addTeamMember, updateTeamMember } from '../../stores/actions';
-import type { TeamMember } from '../../types';
+import { CURRENCY_OPTIONS } from '../../utils/currency';
+import type { CurrencyCode, TeamMember, TeamMemberAssignmentCategory } from '../../types';
+import { getSettingsBauPercent, getTeamMemberBauPercent } from '../../utils/bau';
+import { getTeamMemberAssignmentCategory } from '../../utils/planningGroups';
 
 interface TeamMemberFormProps {
  isOpen: boolean;
@@ -20,6 +23,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  const skills = state.skills;
  const squads = state.squads;
  const processTeams = state.processTeams;
+ const externalVendors = state.externalVendors;
  
  const [name, setName] = useState('');
  const [email, setEmail] = useState('');
@@ -30,9 +34,13 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  const [maxConcurrentProjects, setMaxConcurrentProjects] = useState(2);
  const [workingDaysPerWeek, setWorkingDaysPerWeek] = useState('5');
  const [bauOverride, setBauOverride] = useState(false);
- const [bauReserveDays, setBauReserveDays] = useState(String(state.settings.bauReserveDays || 5));
+ const [bauReservePercent, setBauReservePercent] = useState(String(getSettingsBauPercent(state.settings)));
  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
  const [excludedFromCapacity, setExcludedFromCapacity] = useState(false);
+ const [assignmentCategory, setAssignmentCategory] = useState<TeamMemberAssignmentCategory>('it_team_member');
+ const [externalVendorId, setExternalVendorId] = useState('');
+ const [dailyRateOverride, setDailyRateOverride] = useState('');
+ const [dailyRateCurrency, setDailyRateCurrency] = useState<CurrencyCode | ''>('');
  const [errors, setErrors] = useState<Record<string, string>>({});
 
  // Reset form only when the modal opens or the target member changes.
@@ -50,9 +58,13 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  setMaxConcurrentProjects(member.maxConcurrentProjects);
  setWorkingDaysPerWeek(String(member.workingDaysPerWeek ?? 5));
  setBauOverride(member.bauOverride ?? false);
- setBauReserveDays(String(member.bauReserveDays ?? state.settings.bauReserveDays ?? 5));
+ setBauReservePercent(String(getTeamMemberBauPercent(member, state.settings)));
  setSelectedSkills(member.skillIds || []);
  setExcludedFromCapacity(member.excludedFromCapacity ?? false);
+ setAssignmentCategory(getTeamMemberAssignmentCategory(member));
+ setExternalVendorId(member.externalVendorId ?? '');
+ setDailyRateOverride(member.dailyRateOverride != null ? String(member.dailyRateOverride) : '');
+ setDailyRateCurrency(member.dailyRateCurrency ?? '');
  } else {
  setName('');
  setEmail('');
@@ -63,9 +75,13 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  setMaxConcurrentProjects(2);
  setWorkingDaysPerWeek('5');
  setBauOverride(false);
- setBauReserveDays(String(state.settings.bauReserveDays || 5));
+ setBauReservePercent(String(getSettingsBauPercent(state.settings)));
  setSelectedSkills([]);
  setExcludedFromCapacity(false);
+ setAssignmentCategory('it_team_member');
+ setExternalVendorId('');
+ setDailyRateOverride('');
+ setDailyRateCurrency('');
  }
  setErrors({});
  }, [member?.id, isOpen]);
@@ -91,6 +107,9 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  if (!name.trim()) newErrors.name = 'This field is mandatory';
  if (!role) newErrors.role = 'This field is mandatory';
  if (!countryId) newErrors.countryId = 'This field is mandatory';
+ if ((dailyRateOverride.trim() === '') !== (dailyRateCurrency === '')) {
+ newErrors.dailyRateOverride = 'Rate and currency must be filled together';
+ }
  setErrors(newErrors);
  return Object.keys(newErrors).length === 0;
  };
@@ -105,12 +124,18 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  countryId,
  workingDaysPerWeek: Math.min(5, Math.max(0.5, parseFloat(workingDaysPerWeek) || 5)),
  bauOverride,
- bauReserveDays: bauOverride ? Math.max(0, parseFloat(bauReserveDays) || 0) : undefined,
+ bauReservePercent: bauOverride ? Math.max(0, parseFloat(bauReservePercent) || 0) : undefined,
+ bauReserveDays: undefined,
  squadId: squadId || undefined,
  processTeamIds: selectedProcessTeamIds,
  maxConcurrentProjects,
  skillIds: selectedSkills,
  excludedFromCapacity,
+      workerType: assignmentCategory === 'external_partner' ? 'external' : 'internal',
+      assignmentCategory,
+      externalVendorId: assignmentCategory === 'external_partner' && externalVendorId ? externalVendorId : undefined,
+ dailyRateOverride: dailyRateOverride.trim() === '' ? undefined : Math.max(0, parseFloat(dailyRateOverride) || 0),
+ dailyRateCurrency: dailyRateCurrency || undefined,
  };
 
  // Clear needsEnrichment if country and role are now set
@@ -141,6 +166,15 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  const squadOptions = [
  { value: '', label: 'Not assigned' },
  ...squads.map(s => ({ value: s.id, label: s.name })),
+ ];
+ const vendorOptions = [
+ { value: '', label: 'No linked vendor' },
+ ...externalVendors.map((vendor) => ({ value: vendor.id, label: vendor.name })),
+ ];
+ const assignmentCategoryOptions = [
+{ value: 'it_team_member', label: 'VS Finance' },
+ { value: 'other_internal_it', label: 'Other Internal IT' },
+ { value: 'external_partner', label: 'External Partner' },
  ];
 
  // Group skills by category
@@ -218,6 +252,24 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  />
  </div>
 
+ <div className="grid grid-cols-2 gap-4">
+ <Select
+ id="assignment-category"
+ label="Planning Category"
+ value={assignmentCategory}
+ onChange={(e) => setAssignmentCategory(e.target.value as TeamMemberAssignmentCategory)}
+ options={assignmentCategoryOptions}
+ />
+ <Select
+ id="external-vendor"
+ label="Linked Vendor"
+ value={externalVendorId}
+ onChange={(e) => setExternalVendorId(e.target.value)}
+ options={vendorOptions}
+ disabled={assignmentCategory !== 'external_partner'}
+ />
+ </div>
+
  {/* Squad + Process Teams */}
  {squads.length > 0 && (
  <Select
@@ -281,11 +333,11 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  </label>
  <label className="flex items-start justify-between gap-3 rounded-lg border border-[#DEDFE3] bg-white px-3 py-2.5 cursor-pointer">
  <div>
- <span className="block text-sm font-medium text-[#1E293B]">Override BAU number of days</span>
+ <span className="block text-sm font-medium text-[#1E293B]">Override BAU percentage</span>
  <p className="text-xs text-[#94A3B8] mt-1">
  {bauOverride
  ? 'This member uses a custom BAU reserve.'
- : `Using global setting: ${state.settings.bauReserveDays || 5} days per quarter.`}
+ : `Using global setting: ${getSettingsBauPercent(state.settings)}% of capacity.`}
  </p>
  </div>
  <input
@@ -300,16 +352,43 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
 
  {bauOverride && (
  <Input
- id="bau-reserve-days"
- label="BAU Reserve (days per quarter)"
+ id="bau-reserve-percent"
+ label="BAU Reserve (% of capacity)"
  type="number"
  min={0}
- max={65}
- step={1}
- value={bauReserveDays}
- onChange={(e) => setBauReserveDays(e.target.value)}
+ max={100}
+ step={0.5}
+ value={bauReservePercent}
+ onChange={(e) => setBauReservePercent(e.target.value)}
  />
  )}
+
+ <div className="grid grid-cols-2 gap-4">
+ <Input
+ id="daily-rate-override"
+ label="Daily Rate Override"
+ type="number"
+ min={0}
+ step={10}
+ value={dailyRateOverride}
+ error={errors.dailyRateOverride}
+ onChange={(e) => {
+ setDailyRateOverride(e.target.value);
+ if (errors.dailyRateOverride) setErrors(prev => ({ ...prev, dailyRateOverride: '' }));
+ }}
+ hint="Leave blank to use global or vendor-derived rates."
+ />
+ <Select
+ id="daily-rate-currency"
+ label="Rate Currency"
+ value={dailyRateCurrency}
+ onChange={(e) => {
+ setDailyRateCurrency(e.target.value as CurrencyCode | '');
+ if (errors.dailyRateOverride) setErrors(prev => ({ ...prev, dailyRateOverride: '' }));
+ }}
+ options={[{ value: '', label: 'No override currency' }, ...CURRENCY_OPTIONS]}
+ />
+ </div>
 
  <label className="flex items-center justify-between gap-3 py-1 cursor-pointer select-none">
  <div>

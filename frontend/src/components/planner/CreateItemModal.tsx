@@ -25,6 +25,8 @@ export interface CreateItemModalProps {
   defaultType?: PlannerItemType;
   /** Default parent key (pre-filled when creating a child from a row's "+" button). */
   defaultParentKey?: string;
+  /** Optional live parent candidates from the current planner canvas. */
+  parentCandidates?: Array<{ key: string; label: string; type: PlannerItemType }>;
   onSave: (data: CreateItemData) => void;
   onClose: () => void;
 }
@@ -53,6 +55,7 @@ export function CreateItemModal({
   editItem,
   defaultType = 'epic',
   defaultParentKey,
+  parentCandidates,
   onSave,
   onClose,
 }: CreateItemModalProps) {
@@ -82,18 +85,28 @@ export function CreateItemModal({
 
   // Available parent items (Epics for Features, Features for Stories, etc.)
   const parentOptions = useMemo(() => {
+    if (parentCandidates && parentCandidates.length > 0) {
+      if (type === 'feature' || type === 'uat' || type === 'hypercare') {
+        return parentCandidates.filter((candidate) => candidate.type === 'epic');
+      }
+      if (type === 'story' || type === 'task' || type === 'bug') {
+        return parentCandidates.filter((candidate) => candidate.type === 'feature' || candidate.type === 'epic');
+      }
+      return [];
+    }
+
     const items = state.jiraWorkItems ?? [];
-    if (type === 'feature') return items.filter(i => i.type === 'epic').map(i => ({ key: i.jiraKey, label: `${i.jiraKey}: ${i.summary}` }));
+    if (type === 'feature') return items.filter(i => i.type === 'epic').map(i => ({ key: i.jiraKey, label: `${i.jiraKey}: ${i.summary}`, type: 'epic' as PlannerItemType }));
     if (type === 'uat' || type === 'hypercare') {
-      return items.filter(i => i.type === 'epic').map(i => ({ key: i.jiraKey, label: `${i.jiraKey}: ${i.summary}` }));
+      return items.filter(i => i.type === 'epic').map(i => ({ key: i.jiraKey, label: `${i.jiraKey}: ${i.summary}`, type: 'epic' as PlannerItemType }));
     }
     if (type === 'story' || type === 'task' || type === 'bug') {
       return items
         .filter(i => i.type === 'feature' || i.type === 'epic')
-        .map(i => ({ key: i.jiraKey, label: `${i.jiraKey}: ${i.summary}` }));
+        .map(i => ({ key: i.jiraKey, label: `${i.jiraKey}: ${i.summary}`, type: i.type as PlannerItemType }));
     }
     return [];
-  }, [state.jiraWorkItems, type]);
+  }, [parentCandidates, state.jiraWorkItems, type]);
 
   // Label autocomplete suggestions
   const labelSuggestions = useMemo(() => {

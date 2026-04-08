@@ -1,5 +1,5 @@
 /**
- * PlannerSummaryView — Summary / KPI tab for the Scenario Planner.
+ * PlannerSummaryView — Summary / KPI tab for Delivery Planning.
  *
  * Shows:
  *  - KPI cards: overloaded sprints, planned items, unscheduled items, avg utilisation

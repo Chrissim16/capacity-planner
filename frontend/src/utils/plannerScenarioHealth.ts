@@ -3,7 +3,7 @@
  * (per-sprint load vs availability) and uses calculateCapacity() for IT availability.
  */
 import type { AppState, PlannerItem, Sprint } from '../types';
-import { calculateCapacity } from './capacity';
+import { calculateBusinessCapacity, calculateCapacity } from './capacity';
 
 const SPRINT_COUNT = 6;
 
@@ -62,13 +62,21 @@ function teamTotalsForQuarter(
   const contactCells = (state.businessContacts ?? [])
     .filter(c => !c.archived && !c.excludedFromCapacity)
     .map(c => {
-      const scale = (c.workingDaysPerWeek ?? 5) / 5;
-      const bauPerSprint = Math.round((c.bauReserveDays ?? 5) / 6);
-      const perSprintAvail = Math.max(0, Math.round(10 * scale) - bauPerSprint);
-      return quarterSprints.map(s => ({
-        load: computeLoadDays(c.id, s.number, plannerItems),
-        avail: perSprintAvail,
-      }));
+      return quarterSprints.map(s => {
+        const cap = calculateBusinessCapacity(
+          c,
+          s.startDate,
+          s.endDate,
+          [],
+          state.businessTimeOff ?? [],
+          state.publicHolidays ?? [],
+          [],
+        );
+        return {
+          load: computeLoadDays(c.id, s.number, plannerItems),
+          avail: Math.max(0, cap.availableDays - cap.allocatedDays),
+        };
+      });
     });
 
   const allRows = [...memberCells, ...contactCells];
