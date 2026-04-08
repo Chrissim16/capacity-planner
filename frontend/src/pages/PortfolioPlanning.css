@@ -2691,6 +2691,75 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 .pp-scenario-metric-delta.better { color: #16A34A; }
 .pp-scenario-metric-delta.same { color: #999; }
 
+.pp-planned-days-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pp-planned-days-card {
+  background: #FAFAFA;
+  border: 1px solid #E5EDF5;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pp-planned-days-card.highlight {
+  background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+  border-color: #BFDBFE;
+}
+
+.pp-planned-days-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pp-planned-days-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1E3A8A;
+}
+
+.pp-planned-days-card-subtitle {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #64748B;
+}
+
+.pp-planned-days-hero-value {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 700;
+  color: #1D4ED8;
+}
+
+.pp-planned-days-comparison {
+  border-top: 1px solid #E5EDF5;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pp-planned-days-comparison-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #64748B;
+}
+
+.pp-planned-days-comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .pp-kpi-grid-mini {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -2877,6 +2946,16 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 }
 
 /* Responsive: Stack to single column at smaller widths */
+@media (max-width: 1400px) {
+  .pp-planned-days-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pp-planned-days-card.highlight {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 1200px) {
   .pp-sv-hero-section {
     grid-template-columns: 1fr;
@@ -2884,5 +2963,15 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 
   .pp-sv-2col {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .pp-planned-days-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-planned-days-hero-value {
+    font-size: 26px;
   }
 }

@@ -3227,44 +3227,74 @@ function SummaryView({
   }, [getVisibleAssignedDays, peopleSummaries]);
 
   const plannedDaysMetricRows = [
-    { label: 'Planned days Total', value: plannedDaysBreakdown.total },
-    { label: 'Planned days VS Finance', value: plannedDaysBreakdown.it_team_members },
-    { label: 'Planned days Business Owners and Business teams', value: plannedDaysBreakdown.business_owners_and_teams },
-    { label: 'Planned days Other IT teams', value: plannedDaysBreakdown.other_it_teams },
-    { label: 'Planned days External Partners', value: plannedDaysBreakdown.external_partners },
-  ];
+    { key: 'total', label: 'Total Planned Days', value: plannedDaysBreakdown.total },
+    { key: 'it_team_members', label: 'VS Finance', value: plannedDaysBreakdown.it_team_members },
+    { key: 'business_owners_and_teams', label: 'Business Owners and Teams', value: plannedDaysBreakdown.business_owners_and_teams },
+    { key: 'other_it_teams', label: 'Other IT Teams', value: plannedDaysBreakdown.other_it_teams },
+    { key: 'external_partners', label: 'External Partners', value: plannedDaysBreakdown.external_partners },
+  ] as const;
   const plannedDaysComparisonRows = baselineDelta ? [
     {
-      label: 'Planned days Baseline vs Scenario',
+      key: 'total',
+      label: 'Total Planned Days',
       baseline: baselineDelta.totals.baseline.total,
       scenario: baselineDelta.totals.current.total,
       delta: baselineDelta.totals.delta.total,
     },
     {
-      label: `Planned days ${getPlannedDaysBucketLabel('it_team_members')} baseline vs Scenario`,
+      key: 'it_team_members',
+      label: getPlannedDaysBucketLabel('it_team_members'),
       baseline: baselineDelta.totals.baseline.it_team_members,
       scenario: baselineDelta.totals.current.it_team_members,
       delta: baselineDelta.totals.delta.it_team_members,
     },
     {
-      label: `Planned days ${getPlannedDaysBucketLabel('business_owners_and_teams')} baseline vs Scenario`,
+      key: 'business_owners_and_teams',
+      label: getPlannedDaysBucketLabel('business_owners_and_teams'),
       baseline: baselineDelta.totals.baseline.business_owners_and_teams,
       scenario: baselineDelta.totals.current.business_owners_and_teams,
       delta: baselineDelta.totals.delta.business_owners_and_teams,
     },
     {
-      label: `Planned days ${getPlannedDaysBucketLabel('other_it_teams')} baseline vs Scenario`,
+      key: 'other_it_teams',
+      label: getPlannedDaysBucketLabel('other_it_teams'),
       baseline: baselineDelta.totals.baseline.other_it_teams,
       scenario: baselineDelta.totals.current.other_it_teams,
       delta: baselineDelta.totals.delta.other_it_teams,
     },
     {
-      label: `Planned days ${getPlannedDaysBucketLabel('external_partners')} baseline vs Scenario`,
+      key: 'external_partners',
+      label: getPlannedDaysBucketLabel('external_partners'),
       baseline: baselineDelta.totals.baseline.external_partners,
       scenario: baselineDelta.totals.current.external_partners,
       delta: baselineDelta.totals.delta.external_partners,
     },
   ] : [];
+  const plannedDaysMetricByKey = new Map(plannedDaysMetricRows.map(row => [row.key, row] as const));
+  const plannedDaysComparisonByKey = new Map(plannedDaysComparisonRows.map(row => [row.key, row] as const));
+  const plannedDaysBreakdownCards = [
+    {
+      id: 'total',
+      title: 'Total',
+      description: `All planned days in ${periodLabel}`,
+      metricKeys: ['total'],
+      highlight: true,
+    },
+    {
+      id: 'internal',
+      title: 'Internal Delivery',
+      description: 'Finance delivery and shared IT support',
+      metricKeys: ['it_team_members', 'other_it_teams'],
+      highlight: false,
+    },
+    {
+      id: 'business',
+      title: 'Business and Partners',
+      description: 'Business owners, teams, and external partners',
+      metricKeys: ['business_owners_and_teams', 'external_partners'],
+      highlight: false,
+    },
+  ] as const;
 
   // Compact Gantt — weeks use flex:1
   const nWeeks = weeks.length;
@@ -3326,30 +3356,67 @@ function SummaryView({
 
         <div className="pp-section-card">
           <div className="pp-section-title-compact">Planned Days Breakdown</div>
-          <div className="pp-scenario-metrics-dense">
-            {plannedDaysMetricRows.map((item) => (
-              <div key={item.label} className="pp-scenario-metric-row">
-                <span className="pp-scenario-metric-label">{item.label}</span>
-                <span className="pp-scenario-metric-value">{formatDays(item.value)}d</span>
-              </div>
-            ))}
-          </div>
-          {plannedDaysComparisonRows.length > 0 ? (
-            <div className="mt-4 space-y-2 border-t border-[#EEF2F6] pt-4">
-              <div className="pp-section-title-compact">Baseline vs Scenario</div>
-              {plannedDaysComparisonRows.map((item) => (
-                <div key={item.label} className="pp-scenario-metric-row">
-                  <span className="pp-scenario-metric-label">{item.label}</span>
-                  <span className="pp-scenario-metric-value">
-                    {formatDays(item.baseline)}d / {formatDays(item.scenario)}d
-                    <span className={`pp-scenario-metric-delta ${item.delta > 0 ? 'worse' : item.delta < 0 ? 'better' : ''}`}>
-                      {' '}({item.delta > 0 ? '+' : ''}{formatDays(item.delta)}d)
-                    </span>
-                  </span>
+          <div className="pp-planned-days-grid">
+            {plannedDaysBreakdownCards.map((card) => {
+              const metricRows = card.metricKeys.reduce<Array<(typeof plannedDaysMetricRows)[number]>>((rows, key) => {
+                const row = plannedDaysMetricByKey.get(key);
+                if (row) rows.push(row);
+                return rows;
+              }, []);
+              const comparisonRows = card.metricKeys.reduce<Array<(typeof plannedDaysComparisonRows)[number]>>((rows, key) => {
+                const row = plannedDaysComparisonByKey.get(key);
+                if (row) rows.push(row);
+                return rows;
+              }, []);
+              const primaryMetric = metricRows[0];
+
+              if (!primaryMetric) return null;
+
+              return (
+                <div
+                  key={card.id}
+                  className={`pp-planned-days-card ${card.highlight ? 'highlight' : ''}`}
+                >
+                  <div className="pp-planned-days-card-head">
+                    <div className="pp-planned-days-card-title">{card.title}</div>
+                    <div className="pp-planned-days-card-subtitle">{card.description}</div>
+                  </div>
+
+                  {card.highlight ? (
+                    <div className="pp-planned-days-hero-value">{formatDays(primaryMetric.value)}d</div>
+                  ) : null}
+
+                  <div className="pp-scenario-metrics-dense">
+                    {metricRows.map((item) => (
+                      <div key={item.key} className="pp-scenario-metric-row">
+                        <span className="pp-scenario-metric-label">{item.label}</span>
+                        <span className="pp-scenario-metric-value">{formatDays(item.value)}d</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {comparisonRows.length > 0 ? (
+                    <div className="pp-planned-days-comparison">
+                      <div className="pp-planned-days-comparison-title">Baseline vs Scenario</div>
+                      <div className="pp-planned-days-comparison-list">
+                        {comparisonRows.map((item) => (
+                          <div key={item.key} className="pp-scenario-metric-row">
+                            <span className="pp-scenario-metric-label">{item.label}</span>
+                            <span className="pp-scenario-metric-value">
+                              {formatDays(item.baseline)}d / {formatDays(item.scenario)}d
+                              <span className={`pp-scenario-metric-delta ${item.delta > 0 ? 'worse' : item.delta < 0 ? 'better' : ''}`}>
+                                {' '}({item.delta > 0 ? '+' : ''}{formatDays(item.delta)}d)
+                              </span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              ))}
-            </div>
-          ) : null}
+              );
+            })}
+          </div>
         </div>
 
         {/* Two-Column Main Content */}
