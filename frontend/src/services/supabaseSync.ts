@@ -628,84 +628,71 @@ async function syncBusinessTeams(businessTeams: BusinessTeam[]): Promise<void> {
   }
 }
 
-const BASE_MEMBER_ROW = (m: TeamMember) => ({
-  id: m.id, name: m.name, role: m.role, country_id: m.countryId,
-  skill_ids: m.skillIds, max_concurrent_projects: m.maxConcurrentProjects,
-  working_days_per_week: m.workingDaysPerWeek ?? 5,
-  bau_override: m.bauOverride ?? false,
-  bau_reserve_percent: m.bauOverride ? (m.bauReservePercent ?? null) : null,
-  bau_reserve_days: m.bauOverride
-    ? (m.bauReserveDays ?? (m.bauReservePercent != null ? bauPercentToLegacyDays(m.bauReservePercent) : 0))
-    : null,
-  email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
-  synced_from_jira: m.syncedFromJira ?? false,
-  needs_enrichment: m.needsEnrichment ?? false, is_active: true,
-  excluded_from_capacity: m.excludedFromCapacity ?? false,
-  name_manually_edited: m.nameManuallyEdited ?? false,
-  worker_type: m.workerType ?? null,
-  assignment_category: m.assignmentCategory ?? null,
-  external_vendor_id: m.externalVendorId ?? null,
-  daily_rate_override: m.dailyRateOverride ?? null,
-  daily_rate_currency: m.dailyRateCurrency ?? null,
-});
+type MemberSyncRowOptions = {
+  includeCapacity: boolean;
+  includeExcluded: boolean;
+  includeHierarchy: boolean;
+  includeNameOverride: boolean;
+  includePlanningMetadata: boolean;
+  includeRateOverrides: boolean;
+};
 
-const EXTENDED_MEMBER_ROW = (m: TeamMember) => ({
-  ...BASE_MEMBER_ROW(m),
-  squad_id: m.squadId ?? null,
-  process_team_ids: m.processTeamIds ?? [],
-});
+const MEMBER_CAPACITY_COLUMNS = ['working_days_per_week', 'bau_override', 'bau_reserve_days', 'bau_reserve_percent'];
+const MEMBER_EXCLUDED_COLUMNS = ['excluded_from_capacity'];
+const MEMBER_HIERARCHY_COLUMNS = ['squad_id', 'process_team_ids'];
+const MEMBER_NAME_OVERRIDE_COLUMNS = ['name_manually_edited'];
+const MEMBER_PLANNING_COLUMNS = ['worker_type', 'assignment_category', 'external_vendor_id'];
+const MEMBER_RATE_COLUMNS = ['daily_rate_override', 'daily_rate_currency'];
 
-const LEGACY_MEMBER_ROW = (m: TeamMember) => ({
-  id: m.id, name: m.name, role: m.role, country_id: m.countryId,
-  skill_ids: m.skillIds, max_concurrent_projects: m.maxConcurrentProjects,
-  email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
-  synced_from_jira: m.syncedFromJira ?? false,
-  needs_enrichment: m.needsEnrichment ?? false, is_active: true,
-});
+function messageIncludesAny(msg: string, columns: string[]): boolean {
+  return columns.some((column) => msg.includes(column));
+}
 
-const MEMBER_ROW_NO_CAPACITY_OVERRIDES = (m: TeamMember) => ({
-  id: m.id, name: m.name, role: m.role, country_id: m.countryId,
-  skill_ids: m.skillIds, max_concurrent_projects: m.maxConcurrentProjects,
-  email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
-  synced_from_jira: m.syncedFromJira ?? false,
-  needs_enrichment: m.needsEnrichment ?? false, is_active: true,
-  squad_id: m.squadId ?? null,
-  process_team_ids: m.processTeamIds ?? [],
-  excluded_from_capacity: m.excludedFromCapacity ?? false,
-});
-
-const MEMBER_ROW_NO_CAPACITY_OR_EXCLUDED = (m: TeamMember) => ({
-  id: m.id, name: m.name, role: m.role, country_id: m.countryId,
-  skill_ids: m.skillIds, max_concurrent_projects: m.maxConcurrentProjects,
-  email: m.email ?? null, jira_account_id: m.jiraAccountId ?? null,
-  synced_from_jira: m.syncedFromJira ?? false,
-  needs_enrichment: m.needsEnrichment ?? false, is_active: true,
-  squad_id: m.squadId ?? null,
-  process_team_ids: m.processTeamIds ?? [],
-});
-
-const MEMBER_ROW_NO_NAME_OVERRIDE = (m: TeamMember) => ({
-  ...LEGACY_MEMBER_ROW(m),
-  working_days_per_week: m.workingDaysPerWeek ?? 5,
-  bau_override: m.bauOverride ?? false,
-  bau_reserve_days: m.bauOverride
-    ? (m.bauReserveDays ?? (m.bauReservePercent != null ? bauPercentToLegacyDays(m.bauReservePercent) : 0))
-    : null,
-  squad_id: m.squadId ?? null,
-  process_team_ids: m.processTeamIds ?? [],
-  excluded_from_capacity: m.excludedFromCapacity ?? false,
-});
-
-const MEMBER_ROW_NO_EXCLUDED = (m: TeamMember) => ({
-  ...LEGACY_MEMBER_ROW(m),
-  working_days_per_week: m.workingDaysPerWeek ?? 5,
-  bau_override: m.bauOverride ?? false,
-  bau_reserve_days: m.bauOverride
-    ? (m.bauReserveDays ?? (m.bauReservePercent != null ? bauPercentToLegacyDays(m.bauReservePercent) : 0))
-    : null,
-  squad_id: m.squadId ?? null,
-  process_team_ids: m.processTeamIds ?? [],
-});
+function buildMemberSyncRow(
+  m: TeamMember,
+  options: MemberSyncRowOptions,
+): Record<string, unknown> {
+  return {
+    id: m.id,
+    name: m.name,
+    role: m.role,
+    country_id: m.countryId,
+    skill_ids: m.skillIds,
+    max_concurrent_projects: m.maxConcurrentProjects,
+    email: m.email ?? null,
+    jira_account_id: m.jiraAccountId ?? null,
+    synced_from_jira: m.syncedFromJira ?? false,
+    needs_enrichment: m.needsEnrichment ?? false,
+    is_active: true,
+    ...(options.includeCapacity ? {
+      working_days_per_week: m.workingDaysPerWeek ?? 5,
+      bau_override: m.bauOverride ?? false,
+      bau_reserve_percent: m.bauOverride ? (m.bauReservePercent ?? null) : null,
+      bau_reserve_days: m.bauOverride
+        ? (m.bauReserveDays ?? (m.bauReservePercent != null ? bauPercentToLegacyDays(m.bauReservePercent) : 0))
+        : null,
+    } : {}),
+    ...(options.includeExcluded ? {
+      excluded_from_capacity: m.excludedFromCapacity ?? false,
+    } : {}),
+    ...(options.includeNameOverride ? {
+      name_manually_edited: m.nameManuallyEdited ?? false,
+    } : {}),
+    ...(options.includePlanningMetadata ? {
+      worker_type: m.workerType ?? null,
+      assignment_category: m.assignmentCategory ?? null,
+      external_vendor_id: m.externalVendorId ?? null,
+    } : {}),
+    ...(options.includeRateOverrides ? {
+      daily_rate_override: m.dailyRateOverride ?? null,
+      daily_rate_currency: m.dailyRateCurrency ?? null,
+    } : {}),
+    ...(options.includeHierarchy ? {
+      squad_id: m.squadId ?? null,
+      process_team_ids: m.processTeamIds ?? [],
+    } : {}),
+  };
+}
 
 const softDeleteMembers = async (idsToRemove: string[]) => {
   if (idsToRemove.length > 0) {
@@ -713,69 +700,50 @@ const softDeleteMembers = async (idsToRemove: string[]) => {
   }
 };
 
-async function syncTeamMembersWithoutCapacityOverrides(members: TeamMember[]): Promise<void> {
-  try {
-    await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('excluded_from_capacity') || msg.includes('worker_type') || msg.includes('assignment_category') || msg.includes('external_vendor_id') || msg.includes('daily_rate_override') || msg.includes('daily_rate_currency')) {
-      try {
-        await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OR_EXCLUDED, softDeleteMembers);
-      } catch (err2) {
-        const msg2 = err2 instanceof Error ? err2.message : String(err2);
-        if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
-          await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
-        } else {
-          throw err2;
-        }
-      }
-      return;
-    }
-    if (msg.includes('squad_id') || msg.includes('process_team_ids')) {
-      await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
-      return;
-    }
-    throw err;
-  }
-}
-
 async function syncTeamMembers(members: TeamMember[]): Promise<void> {
-  try {
-    await upsertAndPrune('team_members', members, EXTENDED_MEMBER_ROW, softDeleteMembers);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('working_days_per_week') || msg.includes('bau_override') || msg.includes('bau_reserve_days') || msg.includes('bau_reserve_percent') || msg.includes('worker_type') || msg.includes('assignment_category') || msg.includes('external_vendor_id') || msg.includes('daily_rate_override') || msg.includes('daily_rate_currency')) {
-      await syncTeamMembersWithoutCapacityOverrides(members);
+  const options: MemberSyncRowOptions = {
+    includeCapacity: true,
+    includeExcluded: true,
+    includeHierarchy: true,
+    includeNameOverride: true,
+    includePlanningMetadata: true,
+    includeRateOverrides: true,
+  };
+
+  while (true) {
+    try {
+      await upsertAndPrune('team_members', members, m => buildMemberSyncRow(m, options), softDeleteMembers);
       return;
-    }
-    if (msg.includes('name_manually_edited')) {
-      try {
-        await upsertAndPrune('team_members', members, MEMBER_ROW_NO_NAME_OVERRIDE, softDeleteMembers);
-      } catch (err2) {
-        const msg2 = err2 instanceof Error ? err2.message : String(err2);
-        if (msg2.includes('working_days_per_week') || msg2.includes('bau_override') || msg2.includes('bau_reserve_days') || msg2.includes('bau_reserve_percent')) {
-          await syncTeamMembersWithoutCapacityOverrides(members);
-        } else if (msg2.includes('excluded_from_capacity')) {
-          await upsertAndPrune('team_members', members, MEMBER_ROW_NO_EXCLUDED, softDeleteMembers);
-        } else if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
-          await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
-        } else { throw err2; }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      let changed = false;
+
+      if (options.includeCapacity && messageIncludesAny(msg, MEMBER_CAPACITY_COLUMNS)) {
+        options.includeCapacity = false;
+        changed = true;
       }
-    } else if (msg.includes('excluded_from_capacity')) {
-      try {
-        await upsertAndPrune('team_members', members, MEMBER_ROW_NO_EXCLUDED, softDeleteMembers);
-      } catch (err2) {
-        const msg2 = err2 instanceof Error ? err2.message : String(err2);
-        if (msg2.includes('working_days_per_week') || msg2.includes('bau_override') || msg2.includes('bau_reserve_days') || msg2.includes('bau_reserve_percent')) {
-          await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
-        } else if (msg2.includes('squad_id') || msg2.includes('process_team_ids')) {
-          await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
-        } else { throw err2; }
+      if (options.includeExcluded && messageIncludesAny(msg, MEMBER_EXCLUDED_COLUMNS)) {
+        options.includeExcluded = false;
+        changed = true;
       }
-    } else if (msg.includes('squad_id') || msg.includes('process_team_ids')) {
-      await upsertAndPrune('team_members', members, LEGACY_MEMBER_ROW, softDeleteMembers);
-    } else {
-      throw err;
+      if (options.includeHierarchy && messageIncludesAny(msg, MEMBER_HIERARCHY_COLUMNS)) {
+        options.includeHierarchy = false;
+        changed = true;
+      }
+      if (options.includeNameOverride && messageIncludesAny(msg, MEMBER_NAME_OVERRIDE_COLUMNS)) {
+        options.includeNameOverride = false;
+        changed = true;
+      }
+      if (options.includePlanningMetadata && messageIncludesAny(msg, MEMBER_PLANNING_COLUMNS)) {
+        options.includePlanningMetadata = false;
+        changed = true;
+      }
+      if (options.includeRateOverrides && messageIncludesAny(msg, MEMBER_RATE_COLUMNS)) {
+        options.includeRateOverrides = false;
+        changed = true;
+      }
+
+      if (!changed) throw err;
     }
   }
 }
