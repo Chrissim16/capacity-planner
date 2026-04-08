@@ -45,7 +45,7 @@ function getMemberCategoryLabel(member: TeamMember): string {
       return 'Other Internal IT';
     case 'it_team_member':
     default:
-      return 'IT Team Member';
+      return 'VS Finance';
   }
 }
 
@@ -279,7 +279,7 @@ export function Team() {
 
  const memberCategoryOptions = [
  { value: 'all', label: 'All IT categories' },
- { value: 'it_team_member', label: 'IT Team members' },
+{ value: 'it_team_member', label: 'VS Finance' },
  { value: 'other_internal_it', label: 'Other Internal IT' },
  { value: 'external_partner', label: 'External Partners' },
  ];

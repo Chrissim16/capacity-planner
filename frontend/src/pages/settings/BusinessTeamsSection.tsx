@@ -51,7 +51,7 @@ export function BusinessTeamsSection() {
         ? 'Placeholder business-side teams used when a named business owner is not assigned.'
         : category === 'external_partner'
           ? 'External implementation partners that can be planned at team level.'
-          : 'Internal non-core IT teams that should be tracked separately from named IT team members.',
+          : 'Internal non-core IT teams that should be tracked separately from named VS Finance members.',
     entries: filterPlanningGroupsByCategory(businessTeams, category).sort((a, b) => a.name.localeCompare(b.name)),
   })), [businessTeams]);
 

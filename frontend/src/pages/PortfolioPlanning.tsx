@@ -3228,7 +3228,7 @@ function SummaryView({
 
   const plannedDaysMetricRows = [
     { label: 'Planned days Total', value: plannedDaysBreakdown.total },
-    { label: 'Planned days IT Team members', value: plannedDaysBreakdown.it_team_members },
+    { label: 'Planned days VS Finance', value: plannedDaysBreakdown.it_team_members },
     { label: 'Planned days Business Owners and Business teams', value: plannedDaysBreakdown.business_owners_and_teams },
     { label: 'Planned days Other IT teams', value: plannedDaysBreakdown.other_it_teams },
     { label: 'Planned days External Partners', value: plannedDaysBreakdown.external_partners },

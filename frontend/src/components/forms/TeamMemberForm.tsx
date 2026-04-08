@@ -172,7 +172,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  ...externalVendors.map((vendor) => ({ value: vendor.id, label: vendor.name })),
  ];
  const assignmentCategoryOptions = [
- { value: 'it_team_member', label: 'IT Team member' },
+{ value: 'it_team_member', label: 'VS Finance' },
  { value: 'other_internal_it', label: 'Other Internal IT' },
  { value: 'external_partner', label: 'External Partner' },
  ];

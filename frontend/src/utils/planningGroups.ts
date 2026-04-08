@@ -289,7 +289,7 @@ export function addToPlannedDaysTotals(
 export function getPlannedDaysBucketLabel(bucket: Exclude<PlannedDaysBucket, 'total'>): string {
   switch (bucket) {
     case 'it_team_members':
-      return 'IT Team members';
+      return 'VS Finance';
     case 'business_owners_and_teams':
       return 'Business Owners and Business teams';
     case 'other_it_teams':

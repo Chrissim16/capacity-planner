@@ -760,7 +760,7 @@ export function buildPortfolioPlanExportData({
 
   addSection(overviewRows, 'Portfolio Health', ['Metric', 'Value', 'Notes'], [
     ['Planned days (selected period)', totalPlannedDays, `${totalAvailableDays}d available`],
-    ['Planned days IT Team members', roundToTenth(plannedDaysByCategory.it_team_members), 'Named core IT members'],
+    ['Planned days VS Finance', roundToTenth(plannedDaysByCategory.it_team_members), 'Named VS Finance members'],
     ['Planned days Business Owners and Business teams', roundToTenth(plannedDaysByCategory.business_owners_and_teams), 'Business contacts and business team placeholders'],
     ['Planned days Other IT teams', roundToTenth(plannedDaysByCategory.other_it_teams), 'Other internal IT teams or contributors'],
     ['Planned days External Partners', roundToTenth(plannedDaysByCategory.external_partners), 'External people and partner team placeholders'],
