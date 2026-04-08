@@ -15,6 +15,7 @@ import {
 } from '../../stores/actions';
 import { CURRENCY_OPTIONS, formatCurrency } from '../../utils/currency';
 import type { BusinessContact, CurrencyCode } from '../../types';
+import { filterPlanningGroupsByCategory } from '../../utils/planningGroups';
 
 const blankContact = (): Omit<BusinessContact, 'id'> => ({
  name: '',
@@ -33,6 +34,7 @@ const blankContact = (): Omit<BusinessContact, 'id'> => ({
 export function BusinessContactsSection() {
  const state = useCurrentState();
  const { businessContacts, businessTimeOff, countries, businessTeams } = state;
+ const availableBusinessTeams = filterPlanningGroupsByCategory(businessTeams, 'business_team');
 
  const [showArchived, setShowArchived] = useState(false);
  const [editContact, setEditContact] = useState<BusinessContact | null>(null);
@@ -366,13 +368,13 @@ export function BusinessContactsSection() {
  options={[{ value: '', label: 'No override currency' }, ...CURRENCY_OPTIONS]}
  />
  </div>
- {businessTeams.length > 0 && (
+{availableBusinessTeams.length > 0 && (
  <div>
  <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
  Business Teams
  </label>
  <div className="flex flex-wrap gap-2">
- {businessTeams.map(bt => (
+ {availableBusinessTeams.map(bt => (
  <button
  key={bt.id}
  type="button"

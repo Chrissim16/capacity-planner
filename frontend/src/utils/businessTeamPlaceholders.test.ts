@@ -4,10 +4,16 @@ import {
   normalizeBusinessTeamPlaceholderId,
   normalizeBusinessTeamPlaceholdersInAssignments,
 } from './businessTeamPlaceholders';
+import {
+  getPlanningGroupPlaceholderDisplay,
+  normalizePlanningGroupPlaceholderId,
+} from './planningGroups';
 
 const businessTeams = [
   { id: 'bt-finance-ops', name: 'Finance Ops' },
   { id: 'bt-controllership', name: 'Controllership' },
+  { id: 'bt-accenture', name: 'Accenture', category: 'external_partner' as const },
+  { id: 'bt-integration-hub', name: 'Integration Hub', category: 'internal_it_team' as const },
 ];
 
 function makeAssignment(overrides: Partial<EpicPhaseAssignment> = {}): EpicPhaseAssignment {
@@ -46,5 +52,18 @@ describe('businessTeamPlaceholders', () => {
       makeAssignment({ id: 'assign-3', memberId: 'member-123', track: 'IT' }),
       makeAssignment({ id: 'assign-4', memberId: 'TEAM:Unknown Team' }),
     ]);
+  });
+
+  it('normalizes new non-business placeholder categories to stable ids', () => {
+    expect(normalizePlanningGroupPlaceholderId('GROUP:external_partner:Accenture', businessTeams)).toBe('GROUP:external_partner:bt-accenture');
+    expect(normalizePlanningGroupPlaceholderId('GROUP:internal_it_team:Integration Hub', businessTeams)).toBe('GROUP:internal_it_team:bt-integration-hub');
+  });
+
+  it('returns category-aware placeholder display metadata', () => {
+    expect(getPlanningGroupPlaceholderDisplay('GROUP:external_partner:bt-accenture', businessTeams)).toMatchObject({
+      name: 'Accenture',
+      category: 'external_partner',
+      roleLabel: 'External partner',
+    });
   });
 });

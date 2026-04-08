@@ -32,7 +32,9 @@ import type {
   ManualEpic,
   EpicPhasePlan,
   EpicPhaseAssignment,
+  PlanningGroupCategory,
 } from '../types';
+import { getPlanningGroupTrack, normalizePlanningGroup } from '../utils/planningGroups';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ID GENERATION
@@ -221,9 +223,22 @@ export function deleteProcessTeam(id: string): void {
   state.updateData({ processTeams: state.getCurrentState().processTeams.filter(p => p.id !== id) });
 }
 
-export function addBusinessTeam(name: string): BusinessTeam {
+export function addBusinessTeam(
+  name: string,
+  options: Partial<Pick<BusinessTeam, 'category' | 'track' | 'externalVendorId' | 'archived' | 'dailyRateOverride' | 'dailyRateCurrency'>> = {},
+): BusinessTeam {
   const state = useAppStore.getState();
-  const team: BusinessTeam = { id: generateId('bt'), name };
+  const category = (options.category ?? 'business_team') as PlanningGroupCategory;
+  const team: BusinessTeam = normalizePlanningGroup({
+    id: generateId('bt'),
+    name,
+    category,
+    track: options.track ?? getPlanningGroupTrack({ category }),
+    externalVendorId: options.externalVendorId,
+    archived: options.archived,
+    dailyRateOverride: options.dailyRateOverride,
+    dailyRateCurrency: options.dailyRateCurrency,
+  });
   state.updateData({ businessTeams: [...state.getCurrentState().businessTeams, team] });
   return team;
 }
@@ -232,7 +247,7 @@ export function updateBusinessTeam(id: string, updates: Partial<BusinessTeam>): 
   const state = useAppStore.getState();
   state.updateData({
     businessTeams: state.getCurrentState().businessTeams.map((team) =>
-      team.id === id ? { ...team, ...updates } : team
+      team.id === id ? normalizePlanningGroup({ ...team, ...updates }) : team
     ),
   });
 }

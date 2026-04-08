@@ -167,8 +167,8 @@ const settingsGroups: SettingsGroupConfig[] = [
       },
       {
         id: 'business-teams',
-        label: 'Business Teams',
-        description: 'Track the business-side teams that partner with delivery and demand planning.',
+        label: 'Planning Groups',
+        description: 'Maintain business teams, external partners, and internal IT team placeholders for planning and reporting.',
         icon: Building2,
         component: BusinessTeamsSection,
       },

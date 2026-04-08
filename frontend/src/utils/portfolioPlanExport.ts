@@ -10,7 +10,14 @@ import { calculateBusinessCapacityForQuarter, calculateCapacity } from './capaci
 import { getWorkdaysInDateRange, parseQuarter } from './calendar';
 import { stripJiraMarkup } from './markup';
 import { buildOrderedPhaseEntries } from './portfolioPhaseOrdering';
-import { getBusinessTeamPlaceholderDisplay, isBusinessTeamPlaceholderId } from './businessTeamPlaceholders';
+import {
+  addToPlannedDaysTotals,
+  emptyPlannedDaysTotals,
+  getPlannedDaysBucketForAssignment,
+  getPlanningGroupPlaceholderDisplay,
+  isPlanningGroupPlaceholderId,
+  type PlannedDaysTotals,
+} from './planningGroups';
 import {
   PH_LBL,
   storedPhaseEndDateToDisplayDate,
@@ -146,11 +153,12 @@ function resolveActorIdentity(
   state: AppState,
   historicMembers: Map<string, { name: string; role: string }>,
 ): Pick<ExportActorSummary, 'id' | 'name' | 'role' | 'type'> {
-  if (isBusinessTeamPlaceholderId(id)) {
+  if (isPlanningGroupPlaceholderId(id)) {
+    const group = getPlanningGroupPlaceholderDisplay(id, state.businessTeams);
     return {
       id,
-      name: getBusinessTeamPlaceholderDisplay(id, state.businessTeams).name,
-      role: 'Business team',
+      name: group.name,
+      role: group.roleLabel,
       type: 'team',
     };
   }
@@ -646,6 +654,15 @@ export function buildPortfolioPlanExportData({
   }
 
   const totalPlannedDays = roundToTenth(epicDetails.reduce((sum, epic) => sum + epic.visibleDays, 0));
+  const plannedDaysByCategory = epicDetails.reduce<PlannedDaysTotals>((totals, epic) => (
+    epic.phases.reduce<PlannedDaysTotals>((phaseTotals, phase) => (
+      phase.assignments.reduce<PlannedDaysTotals>((assignmentTotals, assignment) => addToPlannedDaysTotals(
+        assignmentTotals,
+        getPlannedDaysBucketForAssignment({ memberId: assignment.actor.id, track: assignment.track }, state),
+        assignment.visibleDays,
+      ), phaseTotals)
+    ), totals)
+  ), emptyPlannedDaysTotals());
   const totalAvailableDays = roundToTenth(
     state.teamMembers
       .filter((member) => !member.excludedFromCapacity)
@@ -743,6 +760,10 @@ export function buildPortfolioPlanExportData({
 
   addSection(overviewRows, 'Portfolio Health', ['Metric', 'Value', 'Notes'], [
     ['Planned days (selected period)', totalPlannedDays, `${totalAvailableDays}d available`],
+    ['Planned days IT Team members', roundToTenth(plannedDaysByCategory.it_team_members), 'Named core IT members'],
+    ['Planned days Business Owners and Business teams', roundToTenth(plannedDaysByCategory.business_owners_and_teams), 'Business contacts and business team placeholders'],
+    ['Planned days Other IT teams', roundToTenth(plannedDaysByCategory.other_it_teams), 'Other internal IT teams or contributors'],
+    ['Planned days External Partners', roundToTenth(plannedDaysByCategory.external_partners), 'External people and partner team placeholders'],
     ['Portfolio utilisation', portfolioUtilization === null ? 'N/A' : formatPercent(portfolioUtilization), portfolioUtilization === null ? 'No available capacity found' : 'Across IT and business capacity'],
     ['People at risk', peopleAtRisk.length, `${overCapacityPeopleCount} over / ${nearCapacityPeopleCount} near`],
     ['Unstaffed epics', unstaffedEpicCount, `${boardEpics.length} epics on the board`],

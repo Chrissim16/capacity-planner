@@ -13,7 +13,12 @@ import type {
   BusinessTeam,
 } from '../types';
 import { PH_LBL } from '../utils/portfolioGeometry';
-import { makeBusinessTeamPlaceholderId } from '../utils/businessTeamPlaceholders';
+import {
+  filterPlanningGroupsByCategory,
+  getTeamMemberAssignmentCategory,
+  makeBusinessTeamPlaceholderId,
+  makePlanningGroupPlaceholderId,
+} from '../utils/planningGroups';
 
 // ── Helpers (mirrored from PortfolioPlanning module scope) ────────────────────
 const AV_PALETTE = [
@@ -90,19 +95,40 @@ export function BulkReplacePersonModal({
   // ── Picker entries, excluding fromMemberId ────────────────────────────────
   const pickerEntries = useMemo((): PickerEntry[] => {
     const it = [...memberMap.values()]
-      .filter(m => !m.excludedFromCapacity && m.id !== fromMemberId)
+      .filter(m => !m.excludedFromCapacity && m.id !== fromMemberId && getTeamMemberAssignmentCategory(m) === 'it_team_member')
       .map(m => ({ id: m.id, name: m.name, sub: m.role ?? '', track: 'IT' as const, isTeam: false }));
+    const otherInternalIt = [...memberMap.values()]
+      .filter(m => !m.excludedFromCapacity && m.id !== fromMemberId && getTeamMemberAssignmentCategory(m) === 'other_internal_it')
+      .map(m => ({ id: m.id, name: m.name, sub: m.role ?? 'Other internal IT', track: 'IT' as const, isTeam: false }));
+    const external = [...memberMap.values()]
+      .filter(m => !m.excludedFromCapacity && m.id !== fromMemberId && getTeamMemberAssignmentCategory(m) === 'external_partner')
+      .map(m => ({ id: m.id, name: m.name, sub: m.role ?? 'External partner', track: 'IT' as const, isTeam: false }));
     const biz = [...contactMap.values()]
       .filter(c => !c.excludedFromCapacity && c.id !== fromMemberId)
       .map(c => ({ id: c.id, name: c.name, sub: c.title ?? '', track: 'BIZ' as const, isTeam: false }));
-    const teams = businessTeams.map(bt => ({
+    const teams = filterPlanningGroupsByCategory(businessTeams, 'business_team').map(bt => ({
       id: makeBusinessTeamPlaceholderId(bt.id),
       name: bt.name,
       sub: 'Business team',
       track: 'BIZ' as const,
       isTeam: true,
     }));
-    return [...it, ...biz, ...teams].sort((a, b) => a.name.localeCompare(b.name));
+    const externalTeams = filterPlanningGroupsByCategory(businessTeams, 'external_partner').map(bt => ({
+      id: makePlanningGroupPlaceholderId(bt.id, 'external_partner'),
+      name: bt.name,
+      sub: 'External partner team',
+      track: 'IT' as const,
+      isTeam: true,
+    }));
+    const otherInternalItTeams = filterPlanningGroupsByCategory(businessTeams, 'internal_it_team').map(bt => ({
+      id: makePlanningGroupPlaceholderId(bt.id, 'internal_it_team'),
+      name: bt.name,
+      sub: 'Internal IT team',
+      track: 'IT' as const,
+      isTeam: true,
+    }));
+    return [...it, ...otherInternalIt, ...external, ...biz, ...teams, ...externalTeams, ...otherInternalItTeams]
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [memberMap, contactMap, businessTeams, fromMemberId]);
 
   const filteredEntries = useMemo(() => {

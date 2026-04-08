@@ -47,9 +47,17 @@ export interface ProcessTeam {
   name: string;
 }
 
+export type PlanningGroupCategory = 'business_team' | 'external_partner' | 'internal_it_team';
+export type PlanningGroupTrack = 'IT' | 'BIZ';
+export type TeamMemberAssignmentCategory = 'it_team_member' | 'other_internal_it' | 'external_partner';
+
 export interface BusinessTeam {
   id: string;
   name: string;
+  category?: PlanningGroupCategory;
+  track?: PlanningGroupTrack;
+  externalVendorId?: string;
+  archived?: boolean;
   dailyRateOverride?: number;
   dailyRateCurrency?: CurrencyCode;
 }
@@ -79,6 +87,7 @@ export interface TeamMember {
   excludedFromCapacity?: boolean;
   nameManuallyEdited?: boolean;
   workerType?: 'internal' | 'external';
+  assignmentCategory?: TeamMemberAssignmentCategory;
   externalVendorId?: string;
   dailyRateOverride?: number;
   dailyRateCurrency?: CurrencyCode;

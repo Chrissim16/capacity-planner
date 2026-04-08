@@ -19,6 +19,7 @@ import type {
 } from '../types';
 import { generateQuarters } from '../utils/calendar';
 import { normalizeBusinessTeamPlaceholdersInAssignments } from '../utils/businessTeamPlaceholders';
+import { normalizePlanningGroup } from '../utils/planningGroups';
 import { loadFromSupabase, saveToSupabase, scheduleSyncToSupabase } from '../services/supabaseSync';
 import { isSupabaseConfigured } from '../services/supabase';
 
@@ -309,7 +310,7 @@ const defaultUIState: UIState = {
 function migrate(data: Partial<AppState>): AppState {
   const d = { ...data } as Partial<AppState> & Record<string, unknown>;
   const businessTeams = Array.isArray(d.businessTeams)
-    ? d.businessTeams as AppState['businessTeams']
+    ? (d.businessTeams as AppState['businessTeams']).map(normalizePlanningGroup)
     : [];
   const scenarios = Array.isArray(d.scenarios)
     ? (d.scenarios as AppState['scenarios']).map((scenario) => normalizeScenario(scenario, businessTeams))

@@ -8,10 +8,11 @@ import type {
   MoneyAmount,
 } from '../types';
 import {
-  getBusinessTeamPlaceholderDisplay,
-  isBusinessTeamPlaceholderId,
-  resolveBusinessTeamPlaceholder,
-} from './businessTeamPlaceholders';
+  getPlanningGroupCategory,
+  getPlanningGroupPlaceholderDisplay,
+  isPlanningGroupPlaceholderId,
+  resolvePlanningGroupPlaceholder,
+} from './planningGroups';
 
 type AssignmentsByInstance = Map<string, EpicPhaseAssignment[]>;
 
@@ -57,16 +58,16 @@ function convertCurrency(
   return roundToCents(amountInEur / toRate);
 }
 
-function resolveBusinessTeam(
+function resolvePlanningGroup(
   memberId: string,
   state: AppState,
 ) {
-  return resolveBusinessTeamPlaceholder(memberId, state.businessTeams);
+  return resolvePlanningGroupPlaceholder(memberId, state.businessTeams);
 }
 
 function resolveActorLabel(memberId: string, state: AppState): string {
-  if (isBusinessTeamPlaceholderId(memberId)) {
-    return `${getBusinessTeamPlaceholderDisplay(memberId, state.businessTeams).name} Team`;
+  if (isPlanningGroupPlaceholderId(memberId)) {
+    return getPlanningGroupPlaceholderDisplay(memberId, state.businessTeams).name;
   }
   const member = state.teamMembers.find((item) => item.id === memberId);
   if (member) return member.name;
@@ -79,13 +80,20 @@ function resolveRateForAssignment(
   assignment: EpicPhaseAssignment,
   state: AppState,
 ): MoneyAmount | null {
-  if (isBusinessTeamPlaceholderId(assignment.memberId)) {
-    const team = resolveBusinessTeam(assignment.memberId, state);
-    if (!team) return null;
-    if (team.dailyRateOverride != null && team.dailyRateCurrency) {
-      return { amount: team.dailyRateOverride, currency: team.dailyRateCurrency };
+  if (isPlanningGroupPlaceholderId(assignment.memberId)) {
+    const group = resolvePlanningGroup(assignment.memberId, state);
+    if (!group) return null;
+    if (group.dailyRateOverride != null && group.dailyRateCurrency) {
+      return { amount: group.dailyRateOverride, currency: group.dailyRateCurrency };
     }
-    return state.settings.costing.businessDailyRate;
+    if (getPlanningGroupCategory(group) === 'external_partner' && group.externalVendorId) {
+      const vendor = state.externalVendors.find((item) => item.id === group.externalVendorId);
+      if (vendor) return { amount: vendor.dailyRate, currency: vendor.currency };
+      return null;
+    }
+    return getPlanningGroupCategory(group) === 'business_team'
+      ? state.settings.costing.businessDailyRate
+      : state.settings.costing.internalItDailyRate;
   }
 
   if (assignment.track === 'BIZ') {

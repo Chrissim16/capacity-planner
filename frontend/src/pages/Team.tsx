@@ -16,9 +16,11 @@ import { getCurrentQuarter } from '../utils/calendar';
 import type { TeamMember, BusinessContact, ProcessTeam } from '../types';
 import { globalJiraWorkItems } from '../utils/jiraWorkItemScope';
 import { getBusinessContactBauPercent, getSettingsBauPercent, getTeamMemberBauPercent } from '../utils/bau';
+import { getTeamMemberAssignmentCategory } from '../utils/planningGroups';
 
 type GroupBy = 'role' | 'country' | 'squad' | 'processTeam' | 'dept' | 'none';
 type TabType = 'it' | 'biz' | 'all';
+type MemberCategoryFilter = 'all' | 'it_team_member' | 'other_internal_it' | 'external_partner';
 
 /** Groups items by a key that can map to multiple groups (e.g. process teams). */
 function groupItems<T>(
@@ -33,6 +35,30 @@ function groupItems<T>(
  }
  }
  return Array.from(map.values());
+}
+
+function getMemberCategoryLabel(member: TeamMember): string {
+  switch (getTeamMemberAssignmentCategory(member)) {
+    case 'external_partner':
+      return 'External Partner';
+    case 'other_internal_it':
+      return 'Other Internal IT';
+    case 'it_team_member':
+    default:
+      return 'IT Team Member';
+  }
+}
+
+function getMemberCategoryBadgeClass(member: TeamMember): string {
+  switch (getTeamMemberAssignmentCategory(member)) {
+    case 'external_partner':
+      return 'bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA]';
+    case 'other_internal_it':
+      return 'bg-[#F5F3FF] text-[#7C3AED] border border-[#DDD6FE]';
+    case 'it_team_member':
+    default:
+      return 'bg-[#E6F2FC] text-[#0089DD] border border-blue-100';
+  }
 }
 
 export function Team() {
@@ -69,6 +95,7 @@ export function Team() {
  // IT-specific filters
  const [roleFilter, setRoleFilter] = useState('');
  const [squadFilter, setSquadFilter] = useState('');
+ const [memberCategoryFilter, setMemberCategoryFilter] = useState<MemberCategoryFilter>('all');
  // Shared group-by and view mode
  const [groupBy, setGroupBy] = useState<GroupBy>('role');
  const [viewMode, setViewMode] = useState<'card' | 'list'>('list');
@@ -108,9 +135,10 @@ export function Team() {
  if (roleFilter && m.role !== roleFilter) return false;
  if (countryFilter && m.countryId !== countryFilter) return false;
  if (squadFilter && m.squadId !== squadFilter) return false;
+ if (memberCategoryFilter !== 'all' && getTeamMemberAssignmentCategory(m) !== memberCategoryFilter) return false;
  if (processTeamFilter && !(m.processTeamIds ?? []).includes(processTeamFilter)) return false;
  return true;
- }), [teamMembers, search, roleFilter, countryFilter, squadFilter, processTeamFilter]);
+ }), [teamMembers, search, roleFilter, countryFilter, squadFilter, memberCategoryFilter, processTeamFilter]);
 
  const filteredContacts = useMemo(() => {
  const low = search.toLowerCase();
@@ -249,6 +277,13 @@ export function Team() {
  ...squads.map(s => ({ value: s.id, label: s.name })),
  ];
 
+ const memberCategoryOptions = [
+ { value: 'all', label: 'All IT categories' },
+ { value: 'it_team_member', label: 'IT Team members' },
+ { value: 'other_internal_it', label: 'Other Internal IT' },
+ { value: 'external_partner', label: 'External Partners' },
+ ];
+
  const processTeamFilterOptions = [
  { value: '', label: 'All Process Teams' },
  ...processTeams.map(pt => ({ value: pt.id, label: pt.name })),
@@ -380,6 +415,11 @@ export function Team() {
  <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-[#1E293B] focus:outline-none focus:border-[#0089DD] cursor-pointer">
  {countryOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
  </select>
+ {(activeTab === 'it' || activeTab === 'all') && (
+ <select value={memberCategoryFilter} onChange={e => setMemberCategoryFilter(e.target.value as MemberCategoryFilter)} className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-[#1E293B] focus:outline-none focus:border-[#0089DD] cursor-pointer">
+ {memberCategoryOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+ </select>
+ )}
  {activeTab === 'it' && squads.length > 0 && (
  <select value={squadFilter} onChange={e => setSquadFilter(e.target.value)} className="text-sm border border-[#DEDFE3] rounded-lg px-2 py-1.5 bg-white text-[#1E293B] focus:outline-none focus:border-[#0089DD] cursor-pointer">
  {squadFilterOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -487,6 +527,9 @@ className="hover:border-blue-300 transition-colors"
  <h3 className="font-semibold text-[#1E293B] truncate">
  {member.name}
  </h3>
+ <span className={`px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded shrink-0 ${getMemberCategoryBadgeClass(member)}`}>
+ {getMemberCategoryLabel(member)}
+ </span>
  {member.needsEnrichment && (
  <button
  type="button"
@@ -719,6 +762,9 @@ className="hover:border-blue-300 transition-colors"
  {member.syncedFromJira && !member.needsEnrichment && (
  <span className="px-1 py-0.5 text-[10px] bg-[#F0F2F5] text-[#94A3B8] rounded">Jira</span>
  )}
+ <span className={`px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded ${getMemberCategoryBadgeClass(member)}`}>
+ {getMemberCategoryLabel(member)}
+ </span>
  </div>
  {member.email && (
  <p className="text-[11px] text-[#94A3B8] truncate">{member.email}</p>
@@ -1032,7 +1078,7 @@ return (
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2">
  <span className="font-semibold text-[#1E293B] truncate text-sm">{member.name}</span>
- <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-[#E6F2FC] text-[#0089DD] border border-blue-100 shrink-0">IT</span>
+<span className={`text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded shrink-0 ${getMemberCategoryBadgeClass(member)}`}>{getMemberCategoryLabel(member)}</span>
  {member.excludedFromCapacity && (
  <span className="text-[9px] font-bold tracking-wide uppercase px-1 py-0.5 rounded bg-[#DEDFE3] text-[#94A3B8] shrink-0">Excluded</span>
  )}
@@ -1092,7 +1138,7 @@ return (
  <div className="w-7 h-7 rounded-full bg-[#E6F2FC] text-[#0089DD] text-[10px] font-bold flex items-center justify-center shrink-0">{initials}</div>
  <div className="min-w-0">
  <span className="text-sm font-medium text-[#1E293B] truncate block">{m.name}</span>
- <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-[#E6F2FC] text-[#0089DD] border border-blue-100">IT</span>
+<span className={`text-[9px] font-bold px-1 py-0.5 rounded ${getMemberCategoryBadgeClass(m)}`}>{getMemberCategoryLabel(m)}</span>
  </div>
  </div>
  <span className="text-sm text-[#94A3B8] truncate">{m.role || '—'}</span>

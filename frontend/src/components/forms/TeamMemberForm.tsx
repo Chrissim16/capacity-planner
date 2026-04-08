@@ -6,8 +6,9 @@ import { Button } from '../ui/Button';
 import { useCurrentState } from '../../stores/appStore';
 import { addTeamMember, updateTeamMember } from '../../stores/actions';
 import { CURRENCY_OPTIONS } from '../../utils/currency';
-import type { CurrencyCode, TeamMember } from '../../types';
+import type { CurrencyCode, TeamMember, TeamMemberAssignmentCategory } from '../../types';
 import { getSettingsBauPercent, getTeamMemberBauPercent } from '../../utils/bau';
+import { getTeamMemberAssignmentCategory } from '../../utils/planningGroups';
 
 interface TeamMemberFormProps {
  isOpen: boolean;
@@ -36,7 +37,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  const [bauReservePercent, setBauReservePercent] = useState(String(getSettingsBauPercent(state.settings)));
  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
  const [excludedFromCapacity, setExcludedFromCapacity] = useState(false);
- const [workerType, setWorkerType] = useState<'internal' | 'external'>('internal');
+ const [assignmentCategory, setAssignmentCategory] = useState<TeamMemberAssignmentCategory>('it_team_member');
  const [externalVendorId, setExternalVendorId] = useState('');
  const [dailyRateOverride, setDailyRateOverride] = useState('');
  const [dailyRateCurrency, setDailyRateCurrency] = useState<CurrencyCode | ''>('');
@@ -60,7 +61,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  setBauReservePercent(String(getTeamMemberBauPercent(member, state.settings)));
  setSelectedSkills(member.skillIds || []);
  setExcludedFromCapacity(member.excludedFromCapacity ?? false);
- setWorkerType(member.workerType ?? 'internal');
+ setAssignmentCategory(getTeamMemberAssignmentCategory(member));
  setExternalVendorId(member.externalVendorId ?? '');
  setDailyRateOverride(member.dailyRateOverride != null ? String(member.dailyRateOverride) : '');
  setDailyRateCurrency(member.dailyRateCurrency ?? '');
@@ -77,7 +78,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  setBauReservePercent(String(getSettingsBauPercent(state.settings)));
  setSelectedSkills([]);
  setExcludedFromCapacity(false);
- setWorkerType('internal');
+ setAssignmentCategory('it_team_member');
  setExternalVendorId('');
  setDailyRateOverride('');
  setDailyRateCurrency('');
@@ -130,8 +131,9 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  maxConcurrentProjects,
  skillIds: selectedSkills,
  excludedFromCapacity,
- workerType,
- externalVendorId: workerType === 'external' && externalVendorId ? externalVendorId : undefined,
+      workerType: assignmentCategory === 'external_partner' ? 'external' : 'internal',
+      assignmentCategory,
+      externalVendorId: assignmentCategory === 'external_partner' && externalVendorId ? externalVendorId : undefined,
  dailyRateOverride: dailyRateOverride.trim() === '' ? undefined : Math.max(0, parseFloat(dailyRateOverride) || 0),
  dailyRateCurrency: dailyRateCurrency || undefined,
  };
@@ -168,6 +170,11 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  const vendorOptions = [
  { value: '', label: 'No linked vendor' },
  ...externalVendors.map((vendor) => ({ value: vendor.id, label: vendor.name })),
+ ];
+ const assignmentCategoryOptions = [
+ { value: 'it_team_member', label: 'IT Team member' },
+ { value: 'other_internal_it', label: 'Other Internal IT' },
+ { value: 'external_partner', label: 'External Partner' },
  ];
 
  // Group skills by category
@@ -247,14 +254,11 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
 
  <div className="grid grid-cols-2 gap-4">
  <Select
- id="worker-type"
- label="Worker Type"
- value={workerType}
- onChange={(e) => setWorkerType(e.target.value as 'internal' | 'external')}
- options={[
- { value: 'internal', label: 'Internal' },
- { value: 'external', label: 'External' },
- ]}
+ id="assignment-category"
+ label="Planning Category"
+ value={assignmentCategory}
+ onChange={(e) => setAssignmentCategory(e.target.value as TeamMemberAssignmentCategory)}
+ options={assignmentCategoryOptions}
  />
  <Select
  id="external-vendor"
@@ -262,7 +266,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  value={externalVendorId}
  onChange={(e) => setExternalVendorId(e.target.value)}
  options={vendorOptions}
- disabled={workerType !== 'external'}
+ disabled={assignmentCategory !== 'external_partner'}
  />
  </div>
 

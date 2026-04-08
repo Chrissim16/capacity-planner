@@ -47,6 +47,7 @@ import { generateQuarters } from '../utils/calendar';
 import { migratePlannerLayout } from '../utils/plannerMigration';
 import { bauPercentToLegacyDays } from '../utils/bau';
 import { normalizeBusinessTeamPlaceholdersInAssignments } from '../utils/businessTeamPlaceholders';
+import { getPlanningGroupTrack, normalizePlanningGroup } from '../utils/planningGroups';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEFAULT VALUES — must stay in sync with appStore.ts
@@ -201,9 +202,13 @@ export async function loadFromSupabase(): Promise<AppState | null> {
     const businessTeams: BusinessTeam[] = (businessTeamsRes.data ?? []).map(bt => ({
       id: bt.id,
       name: bt.name,
+      category: bt.category ?? 'business_team',
+      track: bt.track ?? getPlanningGroupTrack({ category: bt.category ?? 'business_team' }),
+      externalVendorId: bt.external_vendor_id ?? undefined,
+      archived: bt.archived ?? false,
       dailyRateOverride: bt.daily_rate_override != null ? Number(bt.daily_rate_override) : undefined,
       dailyRateCurrency: bt.daily_rate_currency ?? undefined,
-    }));
+    })).map(normalizePlanningGroup);
 
     const teamMembers: TeamMember[] = (teamMembersRes.data ?? []).map(m => ({
       id: m.id,
@@ -225,6 +230,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       excludedFromCapacity: m.excluded_from_capacity ?? false,
       nameManuallyEdited: m.name_manually_edited ?? false,
       workerType: m.worker_type ?? undefined,
+      assignmentCategory: m.assignment_category ?? (m.worker_type === 'external' ? 'external_partner' : undefined),
       externalVendorId: m.external_vendor_id ?? undefined,
       dailyRateOverride: m.daily_rate_override != null ? Number(m.daily_rate_override) : undefined,
       dailyRateCurrency: m.daily_rate_currency ?? undefined,
@@ -592,11 +598,24 @@ async function syncBusinessTeams(businessTeams: BusinessTeam[]): Promise<void> {
     await upsertAndPrune('business_teams', businessTeams, bt => ({
       id: bt.id,
       name: bt.name,
+      category: bt.category ?? 'business_team',
+      track: bt.track ?? getPlanningGroupTrack(bt),
+      external_vendor_id: bt.externalVendorId ?? null,
+      archived: bt.archived ?? false,
       daily_rate_override: bt.dailyRateOverride ?? null,
       daily_rate_currency: bt.dailyRateCurrency ?? null,
     }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('category') || msg.includes('track') || msg.includes('external_vendor_id') || msg.includes('archived')) {
+      await upsertAndPrune('business_teams', businessTeams, bt => ({
+        id: bt.id,
+        name: bt.name,
+        daily_rate_override: bt.dailyRateOverride ?? null,
+        daily_rate_currency: bt.dailyRateCurrency ?? null,
+      }));
+      return;
+    }
     if (msg.includes('daily_rate_override') || msg.includes('daily_rate_currency')) {
       await upsertAndPrune('business_teams', businessTeams, bt => ({ id: bt.id, name: bt.name }));
       return;
@@ -624,6 +643,7 @@ const BASE_MEMBER_ROW = (m: TeamMember) => ({
   excluded_from_capacity: m.excludedFromCapacity ?? false,
   name_manually_edited: m.nameManuallyEdited ?? false,
   worker_type: m.workerType ?? null,
+  assignment_category: m.assignmentCategory ?? null,
   external_vendor_id: m.externalVendorId ?? null,
   daily_rate_override: m.dailyRateOverride ?? null,
   daily_rate_currency: m.dailyRateCurrency ?? null,
@@ -698,7 +718,7 @@ async function syncTeamMembersWithoutCapacityOverrides(members: TeamMember[]): P
     await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OVERRIDES, softDeleteMembers);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('excluded_from_capacity') || msg.includes('worker_type') || msg.includes('external_vendor_id') || msg.includes('daily_rate_override') || msg.includes('daily_rate_currency')) {
+    if (msg.includes('excluded_from_capacity') || msg.includes('worker_type') || msg.includes('assignment_category') || msg.includes('external_vendor_id') || msg.includes('daily_rate_override') || msg.includes('daily_rate_currency')) {
       try {
         await upsertAndPrune('team_members', members, MEMBER_ROW_NO_CAPACITY_OR_EXCLUDED, softDeleteMembers);
       } catch (err2) {
@@ -724,7 +744,7 @@ async function syncTeamMembers(members: TeamMember[]): Promise<void> {
     await upsertAndPrune('team_members', members, EXTENDED_MEMBER_ROW, softDeleteMembers);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('working_days_per_week') || msg.includes('bau_override') || msg.includes('bau_reserve_days') || msg.includes('bau_reserve_percent') || msg.includes('worker_type') || msg.includes('external_vendor_id') || msg.includes('daily_rate_override') || msg.includes('daily_rate_currency')) {
+    if (msg.includes('working_days_per_week') || msg.includes('bau_override') || msg.includes('bau_reserve_days') || msg.includes('bau_reserve_percent') || msg.includes('worker_type') || msg.includes('assignment_category') || msg.includes('external_vendor_id') || msg.includes('daily_rate_override') || msg.includes('daily_rate_currency')) {
       await syncTeamMembersWithoutCapacityOverrides(members);
       return;
     }

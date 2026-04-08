@@ -52,9 +52,19 @@ import {
 } from '../utils/portfolioPlanExport';
 import {
   getBusinessTeamPlaceholderDisplay,
-  isBusinessTeamPlaceholderId,
   makeBusinessTeamPlaceholderId,
 } from '../utils/businessTeamPlaceholders';
+import {
+  addToPlannedDaysTotals,
+  emptyPlannedDaysTotals,
+  filterPlanningGroupsByCategory,
+  getPlannedDaysBucketForAssignment,
+  getPlannedDaysBucketLabel,
+  getPlanningGroupPlaceholderDisplay,
+  getTeamMemberAssignmentCategory,
+  makePlanningGroupPlaceholderId,
+  type PlannedDaysTotals,
+} from '../utils/planningGroups';
 import {
   applyScenarioAssignmentReplacement,
   cloneSegmentsForReplacement,
@@ -1394,7 +1404,7 @@ function EpicView({
         // Person rows (if phase section expanded)
         if (!pCollapsed) {
           for (const assign of assignments) {
-            const isTeam   = isBusinessTeamPlaceholderId(assign.memberId);
+            const isTeam   = isTeamEntryId(assign.memberId);
             const member   = isTeam ? undefined : memberMap.get(assign.memberId);
             const contact  = isTeam ? undefined : contactMap.get(assign.memberId);
             const name     = member?.name ?? contact?.name ?? assign.memberId;
@@ -1448,11 +1458,11 @@ function EpicView({
             let avatarEl: React.ReactNode;
             let nameEl: React.ReactNode;
             if (isTeam) {
-              const { name: teamName, abbr } = getBusinessTeamPlaceholderDisplay(assign.memberId, businessTeams);
+                  const { name: teamName, abbr } = getPlanningGroupPlaceholderDisplay(assign.memberId, businessTeams);
               avatarEl = <div className="pp-av team">{abbr}</div>;
               nameEl = (
                 <>
-                  <span className="ev-pname">{teamName} Team</span>
+                      <span className="ev-pname">{teamName}</span>
                 </>
               );
             } else {
@@ -1861,7 +1871,7 @@ function EpicStaffingBreakdownView({
 }
 
 function isTeamEntryId(id: string): boolean {
-  return isBusinessTeamPlaceholderId(id);
+  return id.startsWith('TEAM:') || id.startsWith('GROUP:');
 }
 
 function getActorDisplayName(
@@ -1869,12 +1879,14 @@ function getActorDisplayName(
   businessTeams: BusinessTeam[],
 ): string {
   return isTeamEntryId(summary.id)
-    ? `${getBusinessTeamPlaceholderDisplay(summary.id, businessTeams).name} Team`
+    ? getPlanningGroupPlaceholderDisplay(summary.id, businessTeams).name
     : summary.name;
 }
 
-function getActorRole(summary: Pick<PersonSummary, 'id' | 'role'>): string {
-  return isTeamEntryId(summary.id) ? 'Business team' : summary.role;
+function getActorRole(summary: Pick<PersonSummary, 'id' | 'role'>, businessTeams: BusinessTeam[]): string {
+  return isTeamEntryId(summary.id)
+    ? getPlanningGroupPlaceholderDisplay(summary.id, businessTeams).roleLabel
+    : summary.role;
 }
 
 function getQuarterDateRange(qOpt: QOpt): { start: Date; end: Date } {
@@ -2135,7 +2147,7 @@ function PeopleView({
         <div className="pv-pinfo">
           <div className="pv-pname">{getActorDisplayName(ps, businessTeams)}</div>
           <div className="pv-pmeta">
-            <span className="pv-prole">{getActorRole(ps)}</span>
+            <span className="pv-prole">{getActorRole(ps, businessTeams)}</span>
             <div className="pv-cap-inline">
               <div className="pv-cap-bar compact">
                 <div
@@ -2381,7 +2393,7 @@ export function BreakdownView({
           .sort((a, b) => b.totalDays - a.totalDays || a.epic.jiraKey.localeCompare(b.epic.jiraKey));
 
         const actorName = getActorDisplayName(summary);
-        const actorRole = getActorRole(summary);
+        const actorRole = getActorRole(summary, businessTeams);
         const actorMatches = query.length > 0
           && (actorName.toLowerCase().includes(query) || actorRole.toLowerCase().includes(query));
 
@@ -2440,7 +2452,7 @@ export function BreakdownView({
     for (const summary of peopleSummaries) {
       const actorType = isTeamEntryId(summary.id) ? 'team' as const : 'person' as const;
       const actorName = getActorDisplayName(summary);
-      const actorRole = getActorRole(summary);
+      const actorRole = getActorRole(summary, businessTeams);
 
       for (const assignment of summary.assignments) {
         const visibleDays = getAssignmentDaysForQuarter(assignment, quarterOpt);
@@ -2865,10 +2877,48 @@ function SummaryView({
       getVisibleAssignedDaysForEntries(assignments, quarterOpt),
     [quarterOpt],
   );
-  const totalPlannedDays = useMemo(
-    () => peopleSummaries.reduce((sum, person) => sum + getVisibleAssignedDays(person.assignments), 0),
-    [getVisibleAssignedDays, peopleSummaries],
-  );
+  const roundTotals = useCallback((totals: PlannedDaysTotals): PlannedDaysTotals => ({
+    total: roundToTenth(totals.total),
+    it_team_members: roundToTenth(totals.it_team_members),
+    business_owners_and_teams: roundToTenth(totals.business_owners_and_teams),
+    other_it_teams: roundToTenth(totals.other_it_teams),
+    external_partners: roundToTenth(totals.external_partners),
+  }), []);
+  const accumulatePlannedDays = useCallback((
+    assignments: EpicPhaseAssignment[],
+    planByInstanceId: Map<string, EpicPhasePlan>,
+  ): PlannedDaysTotals => {
+    let totals = emptyPlannedDaysTotals();
+    for (const assignment of assignments) {
+      const plan = planByInstanceId.get(assignment.phaseInstanceId);
+      const visibleDays = getAssignmentDaysForQuarter({
+        assignment,
+        phaseStartDate: plan?.startDate ?? null,
+        phaseEndDate: plan?.endDate ?? null,
+      }, quarterOpt);
+      if (visibleDays <= 0) continue;
+      totals = addToPlannedDaysTotals(
+        totals,
+        getPlannedDaysBucketForAssignment(assignment, state),
+        visibleDays,
+      );
+    }
+    return roundTotals(totals);
+  }, [quarterOpt, roundTotals, state]);
+  const currentPlanByInstanceId = useMemo(() => {
+    const map = new Map<string, EpicPhasePlan>();
+    for (const plansByPhase of phasePlansMap.values()) {
+      for (const plans of plansByPhase.values()) {
+        for (const plan of plans) map.set(plan.phaseInstanceId, plan);
+      }
+    }
+    return map;
+  }, [phasePlansMap]);
+  const plannedDaysBreakdown = useMemo(() => {
+    const assignments = [...assignMap.values()].flatMap((byInstance) => [...byInstance.values()].flat());
+    return accumulatePlannedDays(assignments, currentPlanByInstanceId);
+  }, [accumulatePlannedDays, assignMap, currentPlanByInstanceId]);
+  const totalPlannedDays = plannedDaysBreakdown.total;
 
   const totalAvailableDays = useMemo(() => {
     const memberAvail = state.teamMembers
@@ -2941,17 +2991,10 @@ function SummaryView({
 
     const baselinePlanByInstanceId = new Map<string, EpicPhasePlan>();
     for (const plan of baselinePhasePlans) {
-      baselinePlanByInstanceId.set(plan.id, plan);
+      baselinePlanByInstanceId.set(plan.phaseInstanceId, plan);
     }
 
-    const baselinePlannedDays = roundToTenth(baselinePhaseAssignments.reduce((sum, assignment) => {
-      const plan = baselinePlanByInstanceId.get(assignment.phaseInstanceId);
-      return sum + getAssignmentDaysForQuarter({
-        assignment,
-        phaseStartDate: plan?.startDate ?? null,
-        phaseEndDate: plan?.endDate ?? null,
-      }, quarterOpt);
-    }, 0));
+    const baselinePlannedDays = accumulatePlannedDays(baselinePhaseAssignments, baselinePlanByInstanceId);
 
     const baselinePeople = new Map<string, { assigned: number; available: number }>();
     for (const person of peopleSummaries) {
@@ -2993,7 +3036,18 @@ function SummaryView({
     }
 
     return {
-      plannedDays: totalPlannedDays - baselinePlannedDays,
+      plannedDays: totalPlannedDays - baselinePlannedDays.total,
+      totals: {
+        current: plannedDaysBreakdown,
+        baseline: baselinePlannedDays,
+        delta: roundTotals({
+          total: plannedDaysBreakdown.total - baselinePlannedDays.total,
+          it_team_members: plannedDaysBreakdown.it_team_members - baselinePlannedDays.it_team_members,
+          business_owners_and_teams: plannedDaysBreakdown.business_owners_and_teams - baselinePlannedDays.business_owners_and_teams,
+          other_it_teams: plannedDaysBreakdown.other_it_teams - baselinePlannedDays.other_it_teams,
+          external_partners: plannedDaysBreakdown.external_partners - baselinePlannedDays.external_partners,
+        }),
+      },
       overCapacityPeople: overCapacityPeopleCount - baselineOver,
       nearCapacityPeople: nearCapacityPeopleCount - baselineNear,
       unstaffedEpics: unstaffedEpicCount - baselineUnstaffed,
@@ -3008,7 +3062,10 @@ function SummaryView({
     missingPhaseDateCount,
     nearCapacityPeopleCount,
     overCapacityPeopleCount,
+    accumulatePlannedDays,
     peopleSummaries,
+    plannedDaysBreakdown,
+    roundTotals,
     totalPlannedDays,
     unstaffedEpicCount,
   ]);
@@ -3155,7 +3212,7 @@ function SummaryView({
     return peopleSummaries
       .filter(ps => {
         const pid = ps.member?.id ?? ps.contact?.id ?? ps.name;
-        if (isBusinessTeamPlaceholderId(pid)) return false;
+        if (isTeamEntryId(pid)) return false;
         const utilPct = ps.availDays > 0 ? getVisibleAssignedDays(ps.assignments) / ps.availDays : 0;
         return utilPct > 0.85;
       })
@@ -3168,6 +3225,46 @@ function SummaryView({
       })
       .sort((a, b) => b.utilPct - a.utilPct);
   }, [getVisibleAssignedDays, peopleSummaries]);
+
+  const plannedDaysMetricRows = [
+    { label: 'Planned days Total', value: plannedDaysBreakdown.total },
+    { label: 'Planned days IT Team members', value: plannedDaysBreakdown.it_team_members },
+    { label: 'Planned days Business Owners and Business teams', value: plannedDaysBreakdown.business_owners_and_teams },
+    { label: 'Planned days Other IT teams', value: plannedDaysBreakdown.other_it_teams },
+    { label: 'Planned days External Partners', value: plannedDaysBreakdown.external_partners },
+  ];
+  const plannedDaysComparisonRows = baselineDelta ? [
+    {
+      label: 'Planned days Baseline vs Scenario',
+      baseline: baselineDelta.totals.baseline.total,
+      scenario: baselineDelta.totals.current.total,
+      delta: baselineDelta.totals.delta.total,
+    },
+    {
+      label: `Planned days ${getPlannedDaysBucketLabel('it_team_members')} baseline vs Scenario`,
+      baseline: baselineDelta.totals.baseline.it_team_members,
+      scenario: baselineDelta.totals.current.it_team_members,
+      delta: baselineDelta.totals.delta.it_team_members,
+    },
+    {
+      label: `Planned days ${getPlannedDaysBucketLabel('business_owners_and_teams')} baseline vs Scenario`,
+      baseline: baselineDelta.totals.baseline.business_owners_and_teams,
+      scenario: baselineDelta.totals.current.business_owners_and_teams,
+      delta: baselineDelta.totals.delta.business_owners_and_teams,
+    },
+    {
+      label: `Planned days ${getPlannedDaysBucketLabel('other_it_teams')} baseline vs Scenario`,
+      baseline: baselineDelta.totals.baseline.other_it_teams,
+      scenario: baselineDelta.totals.current.other_it_teams,
+      delta: baselineDelta.totals.delta.other_it_teams,
+    },
+    {
+      label: `Planned days ${getPlannedDaysBucketLabel('external_partners')} baseline vs Scenario`,
+      baseline: baselineDelta.totals.baseline.external_partners,
+      scenario: baselineDelta.totals.current.external_partners,
+      delta: baselineDelta.totals.delta.external_partners,
+    },
+  ] : [];
 
   // Compact Gantt — weeks use flex:1
   const nWeeks = weeks.length;
@@ -3225,6 +3322,34 @@ function SummaryView({
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="pp-section-card">
+          <div className="pp-section-title-compact">Planned Days Breakdown</div>
+          <div className="pp-scenario-metrics-dense">
+            {plannedDaysMetricRows.map((item) => (
+              <div key={item.label} className="pp-scenario-metric-row">
+                <span className="pp-scenario-metric-label">{item.label}</span>
+                <span className="pp-scenario-metric-value">{formatDays(item.value)}d</span>
+              </div>
+            ))}
+          </div>
+          {plannedDaysComparisonRows.length > 0 ? (
+            <div className="mt-4 space-y-2 border-t border-[#EEF2F6] pt-4">
+              <div className="pp-section-title-compact">Baseline vs Scenario</div>
+              {plannedDaysComparisonRows.map((item) => (
+                <div key={item.label} className="pp-scenario-metric-row">
+                  <span className="pp-scenario-metric-label">{item.label}</span>
+                  <span className="pp-scenario-metric-value">
+                    {formatDays(item.baseline)}d / {formatDays(item.scenario)}d
+                    <span className={`pp-scenario-metric-delta ${item.delta > 0 ? 'worse' : item.delta < 0 ? 'better' : ''}`}>
+                      {' '}({item.delta > 0 ? '+' : ''}{formatDays(item.delta)}d)
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {/* Two-Column Main Content */}
@@ -3778,25 +3903,46 @@ function PortfolioPickerPopover({
 
   const groups = useMemo(() => {
     const internalIt = [...memberMap.values()]
-      .filter(m => !m.excludedFromCapacity && m.workerType !== 'external')
-      .map(m => ({ id: m.id, name: m.name, sub: m.role ?? '', track: 'IT' as const, isTeam: false }));
+      .filter(m => !m.excludedFromCapacity && getTeamMemberAssignmentCategory(m) === 'it_team_member')
+      .map(m => ({ id: m.id, name: m.name, sub: m.role ?? '', track: 'IT' as const, isTeam: false, badge: 'IT' }));
     const externalIt = [...memberMap.values()]
-      .filter(m => !m.excludedFromCapacity && m.workerType === 'external')
-      .map(m => ({ id: m.id, name: m.name, sub: m.role ?? 'External partner', track: 'IT' as const, isTeam: false }));
+      .filter(m => !m.excludedFromCapacity && getTeamMemberAssignmentCategory(m) === 'external_partner')
+      .map(m => ({ id: m.id, name: m.name, sub: m.role ?? 'External partner', track: 'IT' as const, isTeam: false, badge: 'EXT' }));
+    const otherInternalItPeople = [...memberMap.values()]
+      .filter(m => !m.excludedFromCapacity && getTeamMemberAssignmentCategory(m) === 'other_internal_it')
+      .map(m => ({ id: m.id, name: m.name, sub: m.role ?? 'Other internal IT', track: 'IT' as const, isTeam: false, badge: 'IT+' }));
     const bizContacts = [...contactMap.values()]
       .filter(c => !c.excludedFromCapacity)
-      .map(c => ({ id: c.id, name: c.name, sub: c.title ?? 'Business owner', track: 'BIZ' as const, isTeam: false }));
-    const bizTeams = businessTeams.map(bt => ({
+      .map(c => ({ id: c.id, name: c.name, sub: c.title ?? 'Business owner', track: 'BIZ' as const, isTeam: false, badge: 'BIZ' }));
+    const bizTeams = filterPlanningGroupsByCategory(businessTeams, 'business_team').map(bt => ({
       id: makeBusinessTeamPlaceholderId(bt.id),
       name: bt.name,
       sub: 'Business team placeholder',
       track: 'BIZ' as const,
       isTeam: true,
+      badge: 'Team',
+    }));
+    const externalPartnerTeams = filterPlanningGroupsByCategory(businessTeams, 'external_partner').map(group => ({
+      id: makePlanningGroupPlaceholderId(group.id, 'external_partner'),
+      name: group.name,
+      sub: 'External partner team placeholder',
+      track: 'IT' as const,
+      isTeam: true,
+      badge: 'Team',
+    }));
+    const otherInternalItTeams = filterPlanningGroupsByCategory(businessTeams, 'internal_it_team').map(group => ({
+      id: makePlanningGroupPlaceholderId(group.id, 'internal_it_team'),
+      name: group.name,
+      sub: 'Internal IT team placeholder',
+      track: 'IT' as const,
+      isTeam: true,
+      badge: 'Team',
     }));
 
     return [
-      { key: 'it', title: 'IT people', description: 'Internal delivery owners and contributors', entries: internalIt.sort((a, b) => a.name.localeCompare(b.name)) },
-      { key: 'external', title: 'External partners', description: 'Vendor or contractor staffing', entries: externalIt.sort((a, b) => a.name.localeCompare(b.name)) },
+      { key: 'it', title: 'IT team members', description: 'Core internal delivery owners and contributors', entries: internalIt.sort((a, b) => a.name.localeCompare(b.name)) },
+      { key: 'other-it', title: 'Other IT teams', description: 'Other internal IT teams or named supporting contributors', entries: [...otherInternalItPeople, ...otherInternalItTeams].sort((a, b) => a.name.localeCompare(b.name)) },
+      { key: 'external', title: 'External partners', description: 'Vendor or contractor staffing at person or team level', entries: [...externalIt, ...externalPartnerTeams].sort((a, b) => a.name.localeCompare(b.name)) },
       { key: 'biz', title: 'Business owners', description: 'Named business contacts', entries: bizContacts.sort((a, b) => a.name.localeCompare(b.name)) },
       { key: 'teams', title: 'Business teams', description: 'Placeholder team ownership when a named contact is not set', entries: bizTeams.sort((a, b) => a.name.localeCompare(b.name)) },
     ] as const;
@@ -3837,8 +3983,8 @@ function PortfolioPickerPopover({
         <div className="pp-picker-title">{mode === 'replace' ? 'Replace staffing assignment' : 'Add staffing'}</div>
         <div className="pp-picker-copy">
           {mode === 'replace'
-            ? 'Choose the replacement type clearly: internal IT, external partner, business owner, or business team.'
-            : 'Choose the staffing mix for this phase: internal IT, external partner, business owner, or business team.'}
+            ? 'Choose the replacement type clearly: IT team member, other internal IT, external partner, business owner, or business team.'
+            : 'Choose the staffing mix for this phase: IT team member, other internal IT, external partner, business owner, or business team.'}
         </div>
       </div>
       <div className="pp-picker-search">
@@ -3861,7 +4007,7 @@ function PortfolioPickerPopover({
                 </div>
                 {group.entries.map(e => {
                   const isAdded = existingMemberIds.has(e.id);
-                  const teamEntry = e.isTeam ? getBusinessTeamPlaceholderDisplay(e.id, businessTeams) : null;
+                  const teamEntry = e.isTeam ? getPlanningGroupPlaceholderDisplay(e.id, businessTeams) : null;
                   return (
                     <div
                       key={e.id}
@@ -3873,13 +4019,13 @@ function PortfolioPickerPopover({
                         : <div className="pp-picker-av" style={{ background: avColor(e.id) }}>{initials(e.name)}</div>
                       }
                       <div className="pp-picker-info">
-                        <div className="pp-picker-name">{e.name}{e.isTeam ? ' Team' : ''}</div>
+                        <div className="pp-picker-name">{e.name}</div>
                         <div className="pp-picker-sub">{e.sub}</div>
                       </div>
                       {isAdded
                         ? <span className="pp-picker-added">Added</span>
                         : <span className={`pp-picker-badge ${e.isTeam ? 'team' : e.track.toLowerCase()}`}>
-                            {e.isTeam ? 'Team' : e.track}
+                            {e.badge}
                           </span>
                       }
                     </div>
@@ -4347,17 +4493,17 @@ export function PortfolioPlanning() {
             const actorSummary = peopleSummaryById.get(assignment.memberId);
             const member = memberMap.get(assignment.memberId);
             const contact = contactMap.get(assignment.memberId);
-            const isTeam = isBusinessTeamPlaceholderId(assignment.memberId);
+            const isTeam = isTeamEntryId(assignment.memberId);
 
             const actorName = actorSummary
               ? getActorDisplayName(actorSummary, baselineState.businessTeams)
               : isTeam
-                ? `${getBusinessTeamPlaceholderDisplay(assignment.memberId, baselineState.businessTeams).name} Team`
+                ? getPlanningGroupPlaceholderDisplay(assignment.memberId, baselineState.businessTeams).name
                 : member?.name ?? contact?.name ?? assignment.memberId;
             const actorRole = actorSummary
-              ? getActorRole(actorSummary)
+              ? getActorRole(actorSummary, baselineState.businessTeams)
               : isTeam
-                ? 'Business team'
+                ? getPlanningGroupPlaceholderDisplay(assignment.memberId, baselineState.businessTeams).roleLabel
                 : member?.role ?? contact?.title ?? 'Reference only';
             const actorType = isTeam
               ? 'team' as const
