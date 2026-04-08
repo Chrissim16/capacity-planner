@@ -13,7 +13,7 @@ import { buildOrderedPhaseEntries } from './portfolioPhaseOrdering';
 import {
   addToPlannedDaysTotals,
   emptyPlannedDaysTotals,
-  getPlannedDaysBucketForAssignment,
+  getPlannedDaysBucketForActor,
   getPlanningGroupPlaceholderDisplay,
   isPlanningGroupPlaceholderId,
   type PlannedDaysTotals,
@@ -658,7 +658,7 @@ export function buildPortfolioPlanExportData({
     epic.phases.reduce<PlannedDaysTotals>((phaseTotals, phase) => (
       phase.assignments.reduce<PlannedDaysTotals>((assignmentTotals, assignment) => addToPlannedDaysTotals(
         assignmentTotals,
-        getPlannedDaysBucketForAssignment({ memberId: assignment.actor.id, track: assignment.track }, state),
+        getPlannedDaysBucketForActor(assignment.actor.id, state),
         assignment.visibleDays,
       ), phaseTotals)
     ), totals)

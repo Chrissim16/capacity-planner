@@ -34,6 +34,10 @@ function initials(name: string): string {
   return name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
 }
 
+function assignmentScopeKey(assignment: Pick<EpicPhaseAssignment, 'epicKey' | 'phaseInstanceId'>): string {
+  return `${assignment.epicKey}::${assignment.phaseInstanceId}`;
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface PreviewRow {
   assignment: EpicPhaseAssignment;
@@ -148,18 +152,21 @@ export function BulkReplacePersonModal({
     const assignedToTarget = new Set(
       activePhaseAssignments
         .filter(a => a.memberId === toMemberId)
-        .map(a => a.phaseInstanceId),
+        .map(assignmentScopeKey),
     );
     const rows = activePhaseAssignments
       .filter(a => a.memberId === fromMemberId)
-      .map(a => ({
-        assignment: a,
-        epicSummary: epicMap.get(a.epicKey) ?? a.epicKey,
-        phaseLabel: PH_LBL[a.phase] ?? a.phase,
-        conflict: assignedToTarget.has(a.phaseInstanceId),
-        checked: !assignedToTarget.has(a.phaseInstanceId),
-        overrideDays: a.days,
-      }));
+      .map(a => {
+        const conflict = assignedToTarget.has(assignmentScopeKey(a));
+        return {
+          assignment: a,
+          epicSummary: epicMap.get(a.epicKey) ?? a.epicKey,
+          phaseLabel: PH_LBL[a.phase] ?? a.phase,
+          conflict,
+          checked: !conflict,
+          overrideDays: a.days,
+        };
+      });
     setPreviewRows(rows);
     setEditingDaysKey(null);
   }, [toMemberId, fromMemberId, activePhaseAssignments, epicMap]);

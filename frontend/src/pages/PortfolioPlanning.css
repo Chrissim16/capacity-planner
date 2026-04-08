@@ -2550,7 +2550,8 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
 /* Preview list */
 .pp-replace-preview-list {
   border: 1px solid var(--border); border-radius: 6px;
-  overflow: hidden; font-size: 12px;
+  max-height: min(45vh, 360px);
+  overflow-x: hidden; overflow-y: auto; font-size: 12px;
 }
 .pp-replace-preview-row {
   display: flex; align-items: center; gap: 8px;

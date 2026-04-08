@@ -134,12 +134,20 @@ export function resolvePlanningGroupPlaceholder<T extends PlanningGroupRef>(
   groups: T[],
 ): T | null {
   const parsed = parsePlanningGroupPlaceholderId(memberId);
-  if (!parsed) return null;
+  if (parsed) {
+    return groups.find((group) =>
+      getPlanningGroupCategory(group) === parsed.category &&
+      (group.id === parsed.rawId || group.name === parsed.rawId)
+    ) ?? null;
+  }
+  // Raw business_teams.id (e.g. bt-…) stored before TEAM:/GROUP: prefix existed — still valid in DB
+  return groups.find((group) => group.id === memberId) ?? null;
+}
 
-  return groups.find((group) =>
-    getPlanningGroupCategory(group) === parsed.category &&
-    (group.id === parsed.rawId || group.name === parsed.rawId)
-  ) ?? null;
+/** True when memberId is a planning-group row (TEAM:/GROUP: prefix, or raw id matching business_teams.id). */
+export function isPlanningGroupMemberId(id: string, groups: PlanningGroupRef[]): boolean {
+  return id.startsWith(LEGACY_BUSINESS_TEAM_PREFIX) || id.startsWith(PLACEHOLDER_PREFIX)
+    || resolvePlanningGroupPlaceholder(id, groups) != null;
 }
 
 export function resolveBusinessTeamPlaceholder<T extends PlanningGroupRef>(
@@ -233,15 +241,18 @@ export function getTeamMemberAssignmentCategory(member: TeamMember): TeamMemberA
   return 'it_team_member';
 }
 
-export function getPlannedDaysBucketForAssignment(
-  assignment: Pick<EpicPhaseAssignment, 'memberId' | 'track'>,
+export function getPlannedDaysBucketForActor(
+  memberId: string,
   state: Pick<AppState, 'teamMembers' | 'businessContacts' | 'businessTeams'>,
-): PlannedDaysBucket {
-  if (assignment.track === 'BIZ') return 'business_owners_and_teams';
-
-  const placeholder = resolvePlanningGroupPlaceholder(assignment.memberId, state.businessTeams);
-  if (placeholder) {
-    switch (getPlanningGroupCategory(placeholder)) {
+): Exclude<PlannedDaysBucket, 'total'> {
+  // Classify by assignee identity only so summary buckets align with People view.
+  const placeholder = resolvePlanningGroupPlaceholder(memberId, state.businessTeams);
+  const parsedPlaceholder = parsePlanningGroupPlaceholderId(memberId);
+  const groupCategory = placeholder
+    ? getPlanningGroupCategory(placeholder)
+    : parsedPlaceholder?.category;
+  if (groupCategory) {
+    switch (groupCategory) {
       case 'business_team':
         return 'business_owners_and_teams';
       case 'external_partner':
@@ -251,18 +262,36 @@ export function getPlannedDaysBucketForAssignment(
     }
   }
 
-  const member = state.teamMembers.find((item) => item.id === assignment.memberId);
-  if (!member) return 'it_team_members';
-
-  switch (getTeamMemberAssignmentCategory(member)) {
-    case 'external_partner':
-      return 'external_partners';
-    case 'other_internal_it':
-      return 'other_it_teams';
-    case 'it_team_member':
-    default:
-      return 'it_team_members';
+  if (state.businessContacts.some((contact) => contact.id === memberId)) {
+    return 'business_owners_and_teams';
   }
+
+  const member = state.teamMembers.find((item) => item.id === memberId);
+  if (member) {
+    switch (getTeamMemberAssignmentCategory(member)) {
+      case 'external_partner':
+        return 'external_partners';
+      case 'other_internal_it':
+        return 'other_it_teams';
+      case 'it_team_member':
+      default:
+        return 'it_team_members';
+    }
+  }
+
+  return 'it_team_members';
+}
+
+export function getPlannedDaysBucketForAssignment(
+  assignment: Pick<EpicPhaseAssignment, 'memberId' | 'track'>,
+  state: Pick<AppState, 'teamMembers' | 'businessContacts' | 'businessTeams'>,
+): PlannedDaysBucket {
+  const actorBucket = getPlannedDaysBucketForActor(assignment.memberId, state);
+  if (actorBucket !== 'it_team_members') return actorBucket;
+
+  if (assignment.track === 'BIZ') return 'business_owners_and_teams';
+
+  return 'it_team_members';
 }
 
 export function emptyPlannedDaysTotals(): PlannedDaysTotals {

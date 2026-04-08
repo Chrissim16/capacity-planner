@@ -50,6 +50,7 @@ import {
   exportPortfolioPlanToCsv,
   exportPortfolioPlanToExcel,
 } from '../utils/portfolioPlanExport';
+import { filterAssignmentsToBoardEpics } from '../utils/portfolioBoardAssignments';
 import {
   getBusinessTeamPlaceholderDisplay,
   makeBusinessTeamPlaceholderId,
@@ -58,10 +59,11 @@ import {
   addToPlannedDaysTotals,
   emptyPlannedDaysTotals,
   filterPlanningGroupsByCategory,
-  getPlannedDaysBucketForAssignment,
+  getPlannedDaysBucketForActor,
   getPlannedDaysBucketLabel,
   getPlanningGroupPlaceholderDisplay,
   getTeamMemberAssignmentCategory,
+  isPlanningGroupMemberId,
   makePlanningGroupPlaceholderId,
   type PlannedDaysTotals,
 } from '../utils/planningGroups';
@@ -69,6 +71,7 @@ import {
   applyScenarioAssignmentReplacement,
   cloneSegmentsForReplacement,
 } from '../utils/portfolioAssignmentReplacement';
+import { materializeScenarioPhaseAssignments } from '../utils/portfolioScenarioAssignments';
 import { usePortfolioPlan } from '../hooks/usePortfolioPlan';
 import {
   createPortfolioScenario,
@@ -437,6 +440,10 @@ function buildPhaseAssignmentsMap(assignments: EpicPhaseAssignment[]): Map<strin
     byInstance.get(assignment.phaseInstanceId)!.push(assignment);
   }
   return map;
+}
+
+function getPhasePlanLookupKey(epicKey: string, phaseInstanceId: string): string {
+  return `${epicKey}::${phaseInstanceId}`;
 }
 
 function getCapacityQuarters(qOpt: QOpt): string[] {
@@ -1404,7 +1411,7 @@ function EpicView({
         // Person rows (if phase section expanded)
         if (!pCollapsed) {
           for (const assign of assignments) {
-            const isTeam   = isTeamEntryId(assign.memberId);
+            const isTeam   = isPlanningGroupMemberId(assign.memberId, businessTeams);
             const member   = isTeam ? undefined : memberMap.get(assign.memberId);
             const contact  = isTeam ? undefined : contactMap.get(assign.memberId);
             const name     = member?.name ?? contact?.name ?? assign.memberId;
@@ -1870,21 +1877,17 @@ function EpicStaffingBreakdownView({
   );
 }
 
-function isTeamEntryId(id: string): boolean {
-  return id.startsWith('TEAM:') || id.startsWith('GROUP:');
-}
-
 function getActorDisplayName(
   summary: Pick<PersonSummary, 'id' | 'name'>,
   businessTeams: BusinessTeam[],
 ): string {
-  return isTeamEntryId(summary.id)
+  return isPlanningGroupMemberId(summary.id, businessTeams)
     ? getPlanningGroupPlaceholderDisplay(summary.id, businessTeams).name
     : summary.name;
 }
 
 function getActorRole(summary: Pick<PersonSummary, 'id' | 'role'>, businessTeams: BusinessTeam[]): string {
-  return isTeamEntryId(summary.id)
+  return isPlanningGroupMemberId(summary.id, businessTeams)
     ? getPlanningGroupPlaceholderDisplay(summary.id, businessTeams).roleLabel
     : summary.role;
 }
@@ -1922,10 +1925,13 @@ function formatPhaseDateRange(startDate: string | null, endDate: string | null):
   return `${startLabel} -> ${endLabel}`;
 }
 
-function getSummarySortBucket(summary: Pick<PersonSummary, 'member' | 'contact' | 'id'>): number {
+function getSummarySortBucket(
+  summary: Pick<PersonSummary, 'member' | 'contact' | 'id'>,
+  businessTeams: BusinessTeam[],
+): number {
   if (summary.member) return 0;
   if (summary.contact) return 1;
-  if (isTeamEntryId(summary.id)) return 2;
+  if (isPlanningGroupMemberId(summary.id, businessTeams)) return 2;
   return 3;
 }
 
@@ -2054,7 +2060,7 @@ function PeopleView({
 
   const sortedPeopleSummaries = useMemo(() => {
     return [...peopleSummaries].sort((a, b) => {
-      const bucketDiff = getSummarySortBucket(a) - getSummarySortBucket(b);
+      const bucketDiff = getSummarySortBucket(a, businessTeams) - getSummarySortBucket(b, businessTeams);
       if (bucketDiff !== 0) return bucketDiff;
       if (sortBy === 'utilization') {
         const assignedA = getVisibleAssignedDays(a.assignments);
@@ -2134,7 +2140,7 @@ function PeopleView({
       return { pct, cls: utilTier(pct) };
     });
 
-    const isTeam = isTeamEntryId(pid);
+    const isTeam = isPlanningGroupMemberId(pid, businessTeams);
 
     // Left panel — person header
     lpRows.push(
@@ -2330,6 +2336,7 @@ export function BreakdownView({
   activeQuarterIdx: number;
   onQuarterChange: (idx: number) => void;
 }) {
+  const businessTeams = useCurrentState().businessTeams;
   const [perspective, setPerspective] = useState<BreakdownPerspective>('peopleFirst');
   const [mode, setMode] = useState<BreakdownMode>('combined');
   const [sortBy, setSortBy] = useState<BreakdownSort>('totalDays');
@@ -2345,7 +2352,7 @@ export function BreakdownView({
 
     const rows = peopleSummaries
       .map((summary) => {
-        const actorType = isTeamEntryId(summary.id) ? 'team' as const : 'person' as const;
+        const actorType = isPlanningGroupMemberId(summary.id, businessTeams) ? 'team' as const : 'person' as const;
         if (mode === 'people' && actorType !== 'person') return null;
         if (mode === 'teams' && actorType !== 'team') return null;
 
@@ -2392,7 +2399,7 @@ export function BreakdownView({
           }))
           .sort((a, b) => b.totalDays - a.totalDays || a.epic.jiraKey.localeCompare(b.epic.jiraKey));
 
-        const actorName = getActorDisplayName(summary);
+        const actorName = getActorDisplayName(summary, businessTeams);
         const actorRole = getActorRole(summary, businessTeams);
         const actorMatches = query.length > 0
           && (actorName.toLowerCase().includes(query) || actorRole.toLowerCase().includes(query));
@@ -2433,7 +2440,7 @@ export function BreakdownView({
       }
       return a.name.localeCompare(b.name);
     });
-  }, [mode, peopleSummaries, phaseFilter, quarterOpt, search, sortBy]);
+  }, [businessTeams, mode, peopleSummaries, phaseFilter, quarterOpt, search, sortBy]);
 
   const epicRows = useMemo((): BreakdownEpicRow[] => {
     const query = search.trim().toLowerCase();
@@ -2450,8 +2457,8 @@ export function BreakdownView({
     }>();
 
     for (const summary of peopleSummaries) {
-      const actorType = isTeamEntryId(summary.id) ? 'team' as const : 'person' as const;
-      const actorName = getActorDisplayName(summary);
+      const actorType = isPlanningGroupMemberId(summary.id, businessTeams) ? 'team' as const : 'person' as const;
+      const actorName = getActorDisplayName(summary, businessTeams);
       const actorRole = getActorRole(summary, businessTeams);
 
       for (const assignment of summary.assignments) {
@@ -2538,7 +2545,7 @@ export function BreakdownView({
       }
       return a.epic.jiraKey.localeCompare(b.epic.jiraKey);
     });
-  }, [mode, peopleSummaries, quarterOpt, search, sortBy]);
+  }, [businessTeams, mode, peopleSummaries, quarterOpt, search, sortBy]);
 
   const toggleActor = useCallback((actorId: string) => {
     setExpandedActors((prev) => ({ ...prev, [actorId]: !prev[actorId] }));
@@ -2886,11 +2893,11 @@ function SummaryView({
   }), []);
   const accumulatePlannedDays = useCallback((
     assignments: EpicPhaseAssignment[],
-    planByInstanceId: Map<string, EpicPhasePlan>,
+    planByLookupKey: Map<string, EpicPhasePlan>,
   ): PlannedDaysTotals => {
     let totals = emptyPlannedDaysTotals();
     for (const assignment of assignments) {
-      const plan = planByInstanceId.get(assignment.phaseInstanceId);
+      const plan = planByLookupKey.get(getPhasePlanLookupKey(assignment.epicKey, assignment.phaseInstanceId));
       const visibleDays = getAssignmentDaysForQuarter({
         assignment,
         phaseStartDate: plan?.startDate ?? null,
@@ -2899,25 +2906,31 @@ function SummaryView({
       if (visibleDays <= 0) continue;
       totals = addToPlannedDaysTotals(
         totals,
-        getPlannedDaysBucketForAssignment(assignment, state),
+        getPlannedDaysBucketForActor(assignment.memberId, state),
         visibleDays,
       );
     }
     return roundTotals(totals);
   }, [quarterOpt, roundTotals, state]);
-  const currentPlanByInstanceId = useMemo(() => {
+  const currentPlanByLookupKey = useMemo(() => {
     const map = new Map<string, EpicPhasePlan>();
     for (const plansByPhase of phasePlansMap.values()) {
       for (const plans of plansByPhase.values()) {
-        for (const plan of plans) map.set(plan.phaseInstanceId, plan);
+        for (const plan of plans) map.set(getPhasePlanLookupKey(plan.epicKey, plan.phaseInstanceId), plan);
       }
     }
     return map;
   }, [phasePlansMap]);
+  const boardAssignments = useMemo(
+    () => filterAssignmentsToBoardEpics(
+      [...assignMap.values()].flatMap((byInstance) => [...byInstance.values()].flat()),
+      boardEpics,
+    ),
+    [assignMap, boardEpics],
+  );
   const plannedDaysBreakdown = useMemo(() => {
-    const assignments = [...assignMap.values()].flatMap((byInstance) => [...byInstance.values()].flat());
-    return accumulatePlannedDays(assignments, currentPlanByInstanceId);
-  }, [accumulatePlannedDays, assignMap, currentPlanByInstanceId]);
+    return accumulatePlannedDays(boardAssignments, currentPlanByLookupKey);
+  }, [accumulatePlannedDays, boardAssignments, currentPlanByLookupKey]);
   const totalPlannedDays = plannedDaysBreakdown.total;
 
   const totalAvailableDays = useMemo(() => {
@@ -2973,8 +2986,9 @@ function SummaryView({
   const baselineDelta = useMemo(() => {
     if (!activeScenarioName) return null;
 
+    const baselineBoardAssignments = filterAssignmentsToBoardEpics(baselinePhaseAssignments, boardEpics);
     const baselineAssignMap = new Map<string, PhaseAssignmentsByInstance>();
-    for (const assignment of baselinePhaseAssignments) {
+    for (const assignment of baselineBoardAssignments) {
       if (!baselineAssignMap.has(assignment.epicKey)) baselineAssignMap.set(assignment.epicKey, new Map());
       const byInstance = baselineAssignMap.get(assignment.epicKey)!;
       if (!byInstance.has(assignment.phaseInstanceId)) byInstance.set(assignment.phaseInstanceId, []);
@@ -2989,21 +3003,21 @@ function SummaryView({
       byPhase.get(plan.phase)!.push(plan);
     }
 
-    const baselinePlanByInstanceId = new Map<string, EpicPhasePlan>();
+    const baselinePlanByLookupKey = new Map<string, EpicPhasePlan>();
     for (const plan of baselinePhasePlans) {
-      baselinePlanByInstanceId.set(plan.phaseInstanceId, plan);
+      baselinePlanByLookupKey.set(getPhasePlanLookupKey(plan.epicKey, plan.phaseInstanceId), plan);
     }
 
-    const baselinePlannedDays = accumulatePlannedDays(baselinePhaseAssignments, baselinePlanByInstanceId);
+    const baselinePlannedDays = accumulatePlannedDays(baselineBoardAssignments, baselinePlanByLookupKey);
 
     const baselinePeople = new Map<string, { assigned: number; available: number }>();
     for (const person of peopleSummaries) {
       baselinePeople.set(person.id, { assigned: 0, available: person.availDays });
     }
-    for (const assignment of baselinePhaseAssignments) {
+    for (const assignment of baselineBoardAssignments) {
       const row = baselinePeople.get(assignment.memberId);
       if (!row) continue;
-      const plan = baselinePlanByInstanceId.get(assignment.phaseInstanceId);
+      const plan = baselinePlanByLookupKey.get(getPhasePlanLookupKey(assignment.epicKey, assignment.phaseInstanceId));
       row.assigned += getAssignmentDaysForQuarter({
         assignment,
         phaseStartDate: plan?.startDate ?? null,
@@ -3212,7 +3226,7 @@ function SummaryView({
     return peopleSummaries
       .filter(ps => {
         const pid = ps.member?.id ?? ps.contact?.id ?? ps.name;
-        if (isTeamEntryId(pid)) return false;
+        if (isPlanningGroupMemberId(pid, state.businessTeams)) return false;
         const utilPct = ps.availDays > 0 ? getVisibleAssignedDays(ps.assignments) / ps.availDays : 0;
         return utilPct > 0.85;
       })
@@ -3317,7 +3331,9 @@ function SummaryView({
                   <div key={item.label} className="pp-scenario-metric-row">
                     <span className="pp-scenario-metric-label">{item.label}</span>
                     <span className="pp-scenario-metric-value">
-                      {item.value > 0 ? '+' : ''}{item.value}{item.suffix ?? ''}
+                      {item.value > 0 ? '+' : ''}
+                      {item.suffix === 'd' ? formatDays(item.value) : item.value}
+                      {item.suffix ?? ''}
                       {item.value !== 0 && (
                         <span className={`pp-scenario-metric-delta ${item.value > 0 ? 'worse' : 'better'}`}>
                           {item.value > 0 ? '↑' : '↓'}
@@ -4330,7 +4346,6 @@ export function PortfolioPlanning() {
   const activeBoardEpicKeys = activeScenario?.portfolioBoardEpicKeys ?? plan.boardEpicKeys;
   const activeManualEpics = activeScenario?.portfolioManualEpics ?? plan.manualEpics;
   const activePhasePlansRaw = activeScenario?.portfolioPhasePlans ?? plan.phasePlans;
-  const activePhaseAssignmentsRaw = activeScenario?.portfolioPhaseAssignments ?? plan.phaseAssignments;
   const activeJiraItems = useMemo(
     () => (activeScenario?.jiraWorkItems && activeScenario.jiraWorkItems.length > 0
       ? activeScenario.jiraWorkItems
@@ -4370,8 +4385,11 @@ export function PortfolioPlanning() {
     [activePhasePlansRaw, baselinePhasePlanByKey],
   );
   const activePhaseAssignments = useMemo(
-    () => activePhaseAssignmentsRaw.map(item => ({ ...item, phaseInstanceId: item.phaseInstanceId ?? item.phase })),
-    [activePhaseAssignmentsRaw],
+    () => materializeScenarioPhaseAssignments(
+      plan.phaseAssignments,
+      activeScenario?.portfolioPhaseAssignments,
+    ),
+    [activeScenario?.portfolioPhaseAssignments, plan.phaseAssignments],
   );
 
   useEffect(() => {
@@ -4560,7 +4578,7 @@ export function PortfolioPlanning() {
             const actorSummary = peopleSummaryById.get(assignment.memberId);
             const member = memberMap.get(assignment.memberId);
             const contact = contactMap.get(assignment.memberId);
-            const isTeam = isTeamEntryId(assignment.memberId);
+            const isTeam = isPlanningGroupMemberId(assignment.memberId, baselineState.businessTeams);
 
             const actorName = actorSummary
               ? getActorDisplayName(actorSummary, baselineState.businessTeams)
@@ -4796,7 +4814,9 @@ export function PortfolioPlanning() {
       boardEpicKeys: activeScenario.portfolioBoardEpicKeys ?? [],
       manualEpics: activeScenario.portfolioManualEpics ?? [],
       phasePlans: activeScenario.portfolioPhasePlans ?? [],
-      phaseAssignments: activeScenario.portfolioPhaseAssignments ?? [],
+      // Seed edits from the materialized current view so sparse legacy
+      // snapshots heal into a full portfolio assignment set on first save.
+      phaseAssignments: activePhaseAssignments,
     });
     updatePortfolioScenario(activeScenario.id, {
       portfolioBoardEpicKeys: next.boardEpicKeys,
@@ -4804,7 +4824,7 @@ export function PortfolioPlanning() {
       portfolioPhasePlans: next.phasePlans,
       portfolioPhaseAssignments: next.phaseAssignments,
     });
-  }, [activeScenario]);
+  }, [activePhaseAssignments, activeScenario]);
 
   const handleSaveInitiativeCosts = useCallback((
     record: Omit<InitiativeCostRecord, 'id' | 'updatedAt'> & { id?: string },
@@ -5101,6 +5121,26 @@ export function PortfolioPlanning() {
     toTrack: 'IT' | 'BIZ',
     selectedRows: Array<{ assignment: EpicPhaseAssignment; overrideDays: number }>,
   ): Promise<void> => {
+    if (activeScenario) {
+      const now = new Date().toISOString();
+      updateActiveScenario((s: PortfolioScenarioSnapshot) => ({
+        ...s,
+        phaseAssignments: selectedRows.reduce(
+          (phaseAssignments, { assignment, overrideDays }) => applyScenarioAssignmentReplacement(
+            phaseAssignments,
+            { ...assignment, memberId: fromMemberId },
+            toMemberId,
+            toTrack,
+            overrideDays,
+            cloneSegmentsForReplacement(assignment.segments),
+            now,
+          ),
+          s.phaseAssignments,
+        ),
+      }));
+      return;
+    }
+
     for (const { assignment: a, overrideDays } of selectedRows) {
       await handleReplaceAssignment(
         { ...a, memberId: fromMemberId },
@@ -5109,7 +5149,7 @@ export function PortfolioPlanning() {
         overrideDays,
       );
     }
-  }, [handleReplaceAssignment]);
+  }, [activeScenario, updateActiveScenario, handleReplaceAssignment]);
 
   const handleReplaceSingleAssignment = useCallback(async (
     assignment: EpicPhaseAssignment,

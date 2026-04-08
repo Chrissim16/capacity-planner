@@ -6,6 +6,7 @@ import {
 } from './businessTeamPlaceholders';
 import {
   getPlanningGroupPlaceholderDisplay,
+  isPlanningGroupMemberId,
   normalizePlanningGroupPlaceholderId,
 } from './planningGroups';
 
@@ -57,6 +58,17 @@ describe('businessTeamPlaceholders', () => {
   it('normalizes new non-business placeholder categories to stable ids', () => {
     expect(normalizePlanningGroupPlaceholderId('GROUP:external_partner:Accenture', businessTeams)).toBe('GROUP:external_partner:bt-accenture');
     expect(normalizePlanningGroupPlaceholderId('GROUP:internal_it_team:Integration Hub', businessTeams)).toBe('GROUP:internal_it_team:bt-integration-hub');
+  });
+
+  it('resolves raw business_teams.id (no TEAM:/GROUP: prefix) from pre-migration assignments', () => {
+    expect(isPlanningGroupMemberId('bt-accenture', businessTeams)).toBe(true);
+    expect(isPlanningGroupMemberId('bt-integration-hub', businessTeams)).toBe(true);
+    expect(normalizePlanningGroupPlaceholderId('bt-accenture', businessTeams)).toBe('GROUP:external_partner:bt-accenture');
+    expect(normalizePlanningGroupPlaceholderId('bt-integration-hub', businessTeams)).toBe('GROUP:internal_it_team:bt-integration-hub');
+    expect(getPlanningGroupPlaceholderDisplay('bt-accenture', businessTeams)).toMatchObject({
+      name: 'Accenture',
+      category: 'external_partner',
+    });
   });
 
   it('returns category-aware placeholder display metadata', () => {
