@@ -4816,24 +4816,35 @@ export function PortfolioPlanning() {
   // ── Mutation helpers (route to fork state or base plan) ───────────────────
 
   const updateActiveScenario = useCallback((
-    updater: (snapshot: PortfolioScenarioSnapshot) => PortfolioScenarioSnapshot
+    updater: (snapshot: PortfolioScenarioSnapshot) => PortfolioScenarioSnapshot,
   ) => {
-    if (!activeScenario) return;
+    // Always read the latest scenario from the store. Callers (e.g. epic-wide
+    // drag) may await multiple mutations in one gesture; using a React-closure
+    // snapshot would let each step overwrite the previous write.
+    const data = useAppStore.getState().data;
+    const scenarioId = data.activeScenarioId;
+    if (!scenarioId) return;
+    const scenario = data.scenarios.find((s) => s.id === scenarioId);
+    if (!scenario) return;
+
+    const phaseAssignments = materializeScenarioPhaseAssignments(
+      plan.phaseAssignments,
+      scenario.portfolioPhaseAssignments,
+    );
+
     const next = updater({
-      boardEpicKeys: activeScenario.portfolioBoardEpicKeys ?? [],
-      manualEpics: activeScenario.portfolioManualEpics ?? [],
-      phasePlans: activeScenario.portfolioPhasePlans ?? [],
-      // Seed edits from the materialized current view so sparse legacy
-      // snapshots heal into a full portfolio assignment set on first save.
-      phaseAssignments: activePhaseAssignments,
+      boardEpicKeys: scenario.portfolioBoardEpicKeys ?? [],
+      manualEpics: scenario.portfolioManualEpics ?? [],
+      phasePlans: scenario.portfolioPhasePlans ?? [],
+      phaseAssignments,
     });
-    updatePortfolioScenario(activeScenario.id, {
+    updatePortfolioScenario(scenario.id, {
       portfolioBoardEpicKeys: next.boardEpicKeys,
       portfolioManualEpics: next.manualEpics,
       portfolioPhasePlans: next.phasePlans,
       portfolioPhaseAssignments: next.phaseAssignments,
     });
-  }, [activePhaseAssignments, activeScenario]);
+  }, [plan.phaseAssignments]);
 
   const handleSaveInitiativeCosts = useCallback((
     record: Omit<InitiativeCostRecord, 'id' | 'updatedAt'> & { id?: string },
