@@ -1,7 +1,7 @@
 /**
  * BulkReplacePersonModal — replace one person's assignments with another across
- * all (or a selected subset of) epic/phase assignments. Each row is independently
- * checkable and has an editable days override.
+ * the whole plan, a single epic's phases, or a selected subset of rows. Each row
+ * is independently checkable and has an editable days override.
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -59,6 +59,8 @@ interface PickerEntry {
 interface Props {
   fromMemberId: string;
   fromName: string;
+  /** When set, only assignments on this epic are listed (still uses full plan for conflict detection). */
+  epicKeyFilter?: string;
   activePhaseAssignments: EpicPhaseAssignment[];
   boardEpics: JiraWorkItem[];
   memberMap: Map<string, TeamMember>;
@@ -75,6 +77,7 @@ interface Props {
 export function BulkReplacePersonModal({
   fromMemberId,
   fromName,
+  epicKeyFilter,
   activePhaseAssignments,
   boardEpics,
   memberMap,
@@ -155,7 +158,7 @@ export function BulkReplacePersonModal({
         .map(assignmentScopeKey),
     );
     const rows = activePhaseAssignments
-      .filter(a => a.memberId === fromMemberId)
+      .filter(a => a.memberId === fromMemberId && (epicKeyFilter === undefined || a.epicKey === epicKeyFilter))
       .map(a => {
         const conflict = assignedToTarget.has(assignmentScopeKey(a));
         return {
@@ -169,12 +172,21 @@ export function BulkReplacePersonModal({
       });
     setPreviewRows(rows);
     setEditingDaysKey(null);
-  }, [toMemberId, fromMemberId, activePhaseAssignments, epicMap]);
+  }, [toMemberId, fromMemberId, epicKeyFilter, activePhaseAssignments, epicMap]);
 
   // ── Derived counts ────────────────────────────────────────────────────────
   const checkedCount   = previewRows.filter(r => r.checked && !r.conflict).length;
   const skippedCount   = previewRows.filter(r => r.conflict).length;
-  const totalFromCount = activePhaseAssignments.filter(a => a.memberId === fromMemberId).length;
+  const totalFromCount = useMemo(
+    () => activePhaseAssignments.filter(
+      a => a.memberId === fromMemberId && (epicKeyFilter === undefined || a.epicKey === epicKeyFilter),
+    ).length,
+    [activePhaseAssignments, fromMemberId, epicKeyFilter],
+  );
+
+  const scopedEpicSummary = epicKeyFilter !== undefined
+    ? (epicMap.get(epicKeyFilter) ?? epicKeyFilter)
+    : null;
 
   // ── Target person display name ────────────────────────────────────────────
   const toName = useMemo(() => {
@@ -230,9 +242,16 @@ export function BulkReplacePersonModal({
     >
       <div className="pp-modal pp-replace-modal" onKeyDown={handleKeyDown}>
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="pp-modal-head">
-          <span className="pp-modal-title">Replace Person in Assignments</span>
-          <button className="pp-dr-close" onClick={onClose}>×</button>
+        <div className="pp-modal-head pp-modal-head-stack">
+          <div className="pp-modal-head-main">
+            <span className="pp-modal-title">
+              {epicKeyFilter !== undefined ? 'Replace Person on This Epic' : 'Replace Person in Assignments'}
+            </span>
+            {scopedEpicSummary !== null && (
+              <div className="pp-replace-epic-scope">{scopedEpicSummary}</div>
+            )}
+          </div>
+          <button type="button" className="pp-dr-close" onClick={onClose}>×</button>
         </div>
 
         {/* ── Body ───────────────────────────────────────────────────────── */}
@@ -314,7 +333,11 @@ export function BulkReplacePersonModal({
                 {skippedCount > 0 ? ` · ${skippedCount} conflict${skippedCount > 1 ? 's' : ''} will be skipped` : ''})
               </label>
               {previewRows.length === 0 ? (
-                <div className="pp-replace-empty">No assignments found for this person.</div>
+                <div className="pp-replace-empty">
+                  {epicKeyFilter !== undefined
+                    ? 'No assignments for this person on this epic.'
+                    : 'No assignments found for this person.'}
+                </div>
               ) : (
                 <div className="pp-replace-preview-list">
                   {previewRows.map((row, idx) => (

@@ -2463,6 +2463,15 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   padding: 16px 20px 14px;
   border-bottom: 1px solid var(--border);
 }
+.pp-modal-head-stack { align-items: flex-start; }
+.pp-modal-head-main {
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 0; flex: 1; padding-right: 8px;
+}
+.pp-replace-epic-scope {
+  font-size: 12px; font-weight: 500; color: var(--txt2);
+  line-height: 1.35;
+}
 .pp-modal-title { font-size: 15px; font-weight: 600; color: var(--txt1); }
 .pp-modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
 .pp-modal-field { display: flex; flex-direction: column; gap: 5px; }
