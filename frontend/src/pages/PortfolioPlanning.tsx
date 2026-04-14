@@ -4222,6 +4222,8 @@ function AssignmentActionsPopover({
 
 export function PortfolioPlanning() {
   const baselineState = useAppStore(useShallow(s => s.data));
+  /** Merged baseline + active scenario (teamMembers, timeOff, Jira overlay, etc.) — required for capacity to reflect scenario edits such as BAU. */
+  const capacityState = useCurrentState();
   const plan  = usePortfolioPlan();
   const scenarios = useAppStore(useShallow(s => s.data.scenarios));
   const activeScenarioId = baselineState.activeScenarioId;
@@ -4435,8 +4437,8 @@ export function PortfolioPlanning() {
     }
   }, [boardEpics, selectedCostEpicKey]);
 
-  const memberMap  = useMemo(() => new Map(baselineState.teamMembers.map(m => [m.id, m])), [baselineState.teamMembers]);
-  const contactMap = useMemo(() => new Map(baselineState.businessContacts.map(c => [c.id, c])), [baselineState.businessContacts]);
+  const memberMap  = useMemo(() => new Map(capacityState.teamMembers.map(m => [m.id, m])), [capacityState.teamMembers]);
+  const contactMap = useMemo(() => new Map(capacityState.businessContacts.map(c => [c.id, c])), [capacityState.businessContacts]);
 
   // Maps epicKey → phase → phase instances[]
   const phasePlansMap = useMemo(() => {
@@ -4486,8 +4488,8 @@ export function PortfolioPlanning() {
   );
 
   const absenceLookup = useMemo(
-    () => buildAbsenceLookup(activeQuarterOpt, baselineState.teamMembers, baselineState),
-    [activeQuarterOpt, baselineState]
+    () => buildAbsenceLookup(activeQuarterOpt, capacityState.teamMembers, capacityState),
+    [activeQuarterOpt, capacityState],
   );
 
   // People summaries for People View and Summary View
@@ -4515,11 +4517,11 @@ export function PortfolioPlanning() {
             let availDays = 0;
             let totalCapacityDays = 0;
             if (member) {
-              availDays = calculateMemberAvailableDays(member.id, activeQuarterOpt, baselineState);
-              totalCapacityDays = calculateMemberTotalCapacityDays(member.id, activeQuarterOpt, baselineState);
+              availDays = calculateMemberAvailableDays(member.id, activeQuarterOpt, capacityState);
+              totalCapacityDays = calculateMemberTotalCapacityDays(member.id, activeQuarterOpt, capacityState);
             } else if (contact) {
-              availDays = calculateBusinessAvailableDays(contact, activeQuarterOpt, baselineState);
-              totalCapacityDays = calculateBusinessTotalCapacityDays(contact, activeQuarterOpt, baselineState);
+              availDays = calculateBusinessAvailableDays(contact, activeQuarterOpt, capacityState);
+              totalCapacityDays = calculateBusinessTotalCapacityDays(contact, activeQuarterOpt, capacityState);
             }
             map.set(a.memberId, { id: a.memberId, member, contact, name, role, availDays, totalCapacityDays, assignments: [] });
           }
@@ -4535,7 +4537,7 @@ export function PortfolioPlanning() {
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeQuarterOpt, boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, baselineState, tStart]);
+  }, [activeQuarterOpt, boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, capacityState, tStart]);
 
   const peopleSummaryById = useMemo(
     () => new Map(peopleSummaries.map((summary) => [summary.id, summary])),
@@ -5868,7 +5870,7 @@ export function PortfolioPlanning() {
             absenceLookup={absenceLookup}
             weeks={weeks}
             quarterOpt={activeQuarterOpt}
-            state={baselineState}
+            state={capacityState}
             jiraBaseUrl={jiraBaseUrl}
             activeScenarioName={activeScenario?.name ?? null}
             baselinePhasePlans={plan.phasePlans}
