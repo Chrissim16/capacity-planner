@@ -38,9 +38,13 @@ import {
   PH_KEY,
   PH_LBL,
   PH_SHORT,
+  computeDependencyArrows,
+  getEpicFirstStartDay,
   type QOpt,
   type PortfolioWeek,
+  type DependencyArrow,
 } from '../utils/portfolioGeometry';
+import { DependencyArrowPath } from '../components/portfolio/DependencyArrowPath';
 import {
   buildOrderedPhaseEntries,
   upsertPhaseSequencePlans,
@@ -107,6 +111,7 @@ import type {
   BusinessTeam,
   ManualEpic,
   InitiativeCostRecord,
+  EpicDependency,
 } from '../types';
 import './PortfolioPlanning.css';
 
@@ -922,6 +927,13 @@ interface EpicViewProps {
   activePhaseInteraction: ActivePhaseInteractionState | null;
   portfolioCostSummary: PortfolioCostSummary;
   onOpenCostDrawer: (epicKey: string) => void;
+  dependencyArrows: DependencyArrow[];
+  totalContentH: number;
+  linkModeActive: boolean;
+  pendingLinkFrom: string | null;
+  nudgedEpicKeys: Set<string>;
+  onDeleteDependency: (id: string) => void;
+  onEpicGanttClick: (epicKey: string) => void;
 }
 
 function EpicView({
@@ -937,6 +949,8 @@ function EpicView({
   onExpandAll, onCollapseAll, onResizeMouseDown, lpRef, ganttRef,
   onTimelineScroll,
   personOverloadMap, allJiraItems, jiraBaseUrl, phaseDragPreviewMap, activePhaseInteraction, portfolioCostSummary, onOpenCostDrawer,
+  dependencyArrows, totalContentH, linkModeActive, pendingLinkFrom, nudgedEpicKeys,
+  onDeleteDependency, onEpicGanttClick,
 }: EpicViewProps) {
   const totalW = weeks.length * (dayW * 5);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -1135,7 +1149,7 @@ function EpicView({
 
     // ── Epic row
     lpRows.push(
-      <div key={`e-${epicKey}`} className="ev-epic" onClick={() => onToggleEpic(epicKey)}>
+      <div key={`e-${epicKey}`} className={`ev-epic${nudgedEpicKeys.has(epicKey) ? ' dep-nudge' : ''}`} onClick={() => onToggleEpic(epicKey)}>
         <span className={`pp-chev${collapsed ? '' : ' open'}`}>▶</span>
         <span className="ev-epic-key-slot">
           {jiraBaseUrl && !epicKey.startsWith('MAN-')
@@ -1186,7 +1200,12 @@ function EpicView({
 
     // Epic Gantt row — phase summary bars
     ganttRows.push(
-      <div key={`ge-${epicKey}`} className="pp-g-epic" style={{ minWidth: totalW }}>
+      <div
+        key={`ge-${epicKey}`}
+        className={`pp-g-epic${linkModeActive ? ' link-mode-selectable' : ''}${pendingLinkFrom === epicKey ? ' link-mode-pending' : ''}${nudgedEpicKeys.has(epicKey) ? ' dep-nudge' : ''}`}
+        style={{ minWidth: totalW }}
+        onClick={linkModeActive ? () => onEpicGanttClick(epicKey) : undefined}
+      >
         <GridBg weeks={weeks} />
         <TodayLine tStart={tStart} totalW={totalW} dayW={dayW} />
         {phaseRows.map(row => {
@@ -1610,9 +1629,33 @@ function EpicView({
       <div className="pp-lp-resize" onMouseDown={onResizeMouseDown} />
       <div className="pp-rp pp-rp-epic">
         <div className="pp-rp-scroll pp-rp-scroll-epic" ref={ganttRef} onScroll={syncLpFromGantt}>
-          <div className="pp-gantt-inner" style={{ minWidth: totalW }}>
+          <div className="pp-gantt-inner" style={{ minWidth: totalW, position: 'relative' }}>
             <GanttHeader weeks={weeks} totalW={totalW} />
             {ganttRows}
+            {dependencyArrows.length > 0 && (
+              <svg
+                className="pp-dep-svg"
+                style={{ position: 'absolute', top: 0, left: 0, width: totalW, height: totalContentH, pointerEvents: 'none', overflow: 'visible' }}
+                aria-hidden="true"
+              >
+                <defs>
+                  <marker id="dep-arrow-gray" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <path d="M0,0 L6,3 L0,6 Z" fill="#94A3B8" />
+                  </marker>
+                  <marker id="dep-arrow-red" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <path d="M0,0 L6,3 L0,6 Z" fill="#EF4444" />
+                  </marker>
+                </defs>
+                {dependencyArrows.map(arrow => (
+                  <DependencyArrowPath
+                    key={arrow.id}
+                    {...arrow}
+                    onDelete={onDeleteDependency}
+                    linkModeActive={linkModeActive}
+                  />
+                ))}
+              </svg>
+            )}
           </div>
         </div>
         <div className="pp-bottom-scroll" ref={bottomScrollbarRef} onScroll={syncGanttFromBottomScrollbar}>
@@ -4265,6 +4308,11 @@ export function PortfolioPlanning() {
   const phaseInteractionRef = useRef<ActivePhaseInteraction | null>(null);
   const phaseAutoScrollRef = useRef<{ direction: -1 | 0 | 1; frameId: number | null }>({ direction: 0, frameId: null });
 
+  // ── Dependency link state ──────────────────────────────────────────────────
+  const [linkModeActive, setLinkModeActive] = useState(false);
+  const [pendingLinkFrom, setPendingLinkFrom] = useState<string | null>(null);
+  const [nudgedEpicKeys, setNudgedEpicKeys] = useState<Set<string>>(new Set());
+
   // ── Resize state (left panel) ──────────────────────────────────────────────
   const resizeRef = useRef<{ startX: number; startW: number } | null>(null);
 
@@ -4479,6 +4527,41 @@ export function PortfolioPlanning() {
     () => buildPhaseAssignmentsMap(plan.phaseAssignments),
     [plan.phaseAssignments],
   );
+
+  // ── Dependencies ───────────────────────────────────────────────────────────
+  const activeDependencies: EpicDependency[] = useMemo(
+    () => activeScenario?.portfolioEpicDependencies ?? plan.epicDependencies,
+    [activeScenario, plan.epicDependencies],
+  );
+
+  const { epicRowTopMap, totalContentH } = useMemo(() => {
+    const ROW_EPIC = 48;
+    const ROW_PHASE = 44;
+    const ROW_PERSON = 40;
+    const ROW_ADD = 34;
+    const topMap = new Map<string, number>();
+    let top = 0;
+    for (const epic of boardEpics) {
+      const epicKey = epic.jiraKey;
+      topMap.set(epicKey, top);
+      top += ROW_EPIC;
+      if (!(epicCollapsed[epicKey] ?? false)) {
+        const phPlans = phasePlansMap.get(epicKey) ?? new Map();
+        const phAssign = assignMap.get(epicKey) ?? new Map();
+        const phaseRows = getPhaseInstanceRows(phPlans, phAssign);
+        for (const row of phaseRows) {
+          top += ROW_PHASE;
+          const phKey = `${epicKey}_${row.phaseInstanceId}`;
+          if (!(phasePersonCollapsed[phKey] ?? false)) {
+            top += row.assignments.length * ROW_PERSON;
+            top += ROW_ADD;
+          }
+        }
+      }
+    }
+    return { epicRowTopMap: topMap, totalContentH: top };
+  }, [boardEpics, epicCollapsed, phasePersonCollapsed, phasePlansMap, assignMap]);
+
   const portfolioCostSummary = useMemo(
     () => buildPortfolioCostSummary(baselineState, boardEpics, assignMap),
     [assignMap, baselineState, boardEpics],
@@ -4499,6 +4582,11 @@ export function PortfolioPlanning() {
   const absenceLookup = useMemo(
     () => buildAbsenceLookup(activeQuarterOpt, capacityState.teamMembers, capacityState),
     [activeQuarterOpt, capacityState],
+  );
+
+  const dependencyArrows = useMemo(
+    () => computeDependencyArrows(activeDependencies, epicRowTopMap, phasePlansMap, assignMap, absenceLookup, tStart, dayW),
+    [activeDependencies, epicRowTopMap, phasePlansMap, assignMap, absenceLookup, tStart, dayW],
   );
 
   // People summaries for People View and Summary View
@@ -4846,12 +4934,14 @@ export function PortfolioPlanning() {
       manualEpics: scenario.portfolioManualEpics ?? [],
       phasePlans: scenario.portfolioPhasePlans ?? [],
       phaseAssignments,
+      epicDependencies: scenario.portfolioEpicDependencies ?? [],
     });
     updatePortfolioScenario(scenario.id, {
       portfolioBoardEpicKeys: next.boardEpicKeys,
       portfolioManualEpics: next.manualEpics,
       portfolioPhasePlans: next.phasePlans,
       portfolioPhaseAssignments: next.phaseAssignments,
+      portfolioEpicDependencies: next.epicDependencies,
     });
   }, [plan.phaseAssignments]);
 
@@ -5329,7 +5419,21 @@ export function PortfolioPlanning() {
     });
 
     setPhasePreviewCollection(nextPreviews);
-  }, [dayW, setPhasePreviewCollection, tStart]);
+
+    // Soft constraint nudge: highlight dependent epics whose start would be violated
+    const movedEpicKey = interaction.epicKey;
+    const movedEndDay = nextPreviews.reduce((max, p) => {
+      const endDay = p.endDate ? dateToDay(p.endDate, tStart) : 0;
+      return endDay > max ? endDay : max;
+    }, 0);
+    const nudged = new Set<string>();
+    for (const dep of activeDependencies) {
+      if (dep.fromEpicKey !== movedEpicKey) continue;
+      const depFirstStart = getEpicFirstStartDay(dep.toEpicKey, phasePlansMap, tStart);
+      if (depFirstStart !== null && depFirstStart < movedEndDay) nudged.add(dep.toEpicKey);
+    }
+    setNudgedEpicKeys(nudged);
+  }, [activeDependencies, dayW, phasePlansMap, setNudgedEpicKeys, setPhasePreviewCollection, tStart]);
 
   const stopPhaseAutoScroll = useCallback(() => {
     if (phaseAutoScrollRef.current.frameId !== null) {
@@ -5519,9 +5623,57 @@ export function PortfolioPlanning() {
         endDate: preview.endDate,
       });
     }
+    setNudgedEpicKeys(new Set());
   }, [handleUpdatePhasePlan, stopPhaseAutoScroll, tStart]);
 
   useEffect(() => () => stopPhaseAutoScroll(), [stopPhaseAutoScroll]);
+
+  // ── Dependency link handlers ───────────────────────────────────────────────
+  const handleAddDependency = useCallback((fromEpicKey: string, toEpicKey: string) => {
+    if (activeScenario) {
+      const id = crypto.randomUUID();
+      updateActiveScenario(s => ({
+        ...s,
+        epicDependencies: [...(s.epicDependencies ?? []), { id, fromEpicKey, toEpicKey }],
+      }));
+    } else {
+      plan.addEpicDependency(fromEpicKey, toEpicKey);
+    }
+    setLinkModeActive(false);
+    setPendingLinkFrom(null);
+  }, [activeScenario, updateActiveScenario, plan]);
+
+  const handleDeleteDependency = useCallback((depId: string) => {
+    if (!window.confirm('Remove this dependency link?')) return;
+    if (activeScenario) {
+      updateActiveScenario(s => ({
+        ...s,
+        epicDependencies: (s.epicDependencies ?? []).filter(d => d.id !== depId),
+      }));
+    } else {
+      plan.removeEpicDependency(depId);
+    }
+  }, [activeScenario, updateActiveScenario, plan]);
+
+  const handleEpicGanttClick = useCallback((epicKey: string) => {
+    if (pendingLinkFrom === null) {
+      setPendingLinkFrom(epicKey);
+    } else if (pendingLinkFrom !== epicKey) {
+      handleAddDependency(pendingLinkFrom, epicKey);
+    } else {
+      setPendingLinkFrom(null);
+    }
+  }, [pendingLinkFrom, handleAddDependency]);
+
+  // Cancel link mode on Escape
+  useEffect(() => {
+    if (!linkModeActive) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setLinkModeActive(false); setPendingLinkFrom(null); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [linkModeActive]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleEpic = useCallback((key: string) => {
@@ -5789,6 +5941,20 @@ export function PortfolioPlanning() {
         <button className={`pp-tab${activeTab === 'costs'   ? ' on' : ''}`} onClick={() => setActiveTab('costs')}>◫ Costs</button>
         <button className={`pp-tab${activeTab === 'summary' ? ' on' : ''}`} onClick={() => setActiveTab('summary')}>▦ Summary</button>
         <button className={`pp-tab${activeTab === 'reports' ? ' on' : ''}`} onClick={() => setActiveTab('reports')}>▣ Reports</button>
+        {activeTab === 'epic' && (
+          <button
+            type="button"
+            className={`pp-link-mode-btn${linkModeActive ? ' active' : ''}`}
+            onClick={() => { setLinkModeActive(v => !v); setPendingLinkFrom(null); }}
+            title={linkModeActive ? 'Exit link mode (Esc)' : 'Link epics with finish-to-start dependency'}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+            {linkModeActive ? 'Cancel' : 'Link Epics'}
+          </button>
+        )}
       </div>
 
       {/* Views */}
@@ -5849,6 +6015,13 @@ export function PortfolioPlanning() {
             activePhaseInteraction={activePhaseInteraction}
             portfolioCostSummary={portfolioCostSummary}
             onOpenCostDrawer={setSelectedCostEpicKey}
+            dependencyArrows={dependencyArrows}
+            totalContentH={totalContentH}
+            linkModeActive={linkModeActive}
+            pendingLinkFrom={pendingLinkFrom}
+            nudgedEpicKeys={nudgedEpicKeys}
+            onDeleteDependency={handleDeleteDependency}
+            onEpicGanttClick={handleEpicGanttClick}
           />
         )}
         {activeTab === 'people' && (

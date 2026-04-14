@@ -682,6 +682,8 @@ export interface Scenario {
   portfolioPhasePlans?: EpicPhasePlan[];
   /** Assignment overrides for Portfolio Planning. */
   portfolioPhaseAssignments?: EpicPhaseAssignment[];
+  /** Finish-to-start dependency links between epics in Portfolio Planning. */
+  portfolioEpicDependencies?: EpicDependency[];
   /** When true, skill matching UI (badges, chips, tier ranking) is active. Default: true. */
   skillsMatchingEnabled?: boolean;
 }
@@ -734,4 +736,11 @@ export interface EpicPhaseAssignment {
   daysPerWeek?: number;      // used when allocationMode = 'rate'
   segments?: AllocationSegment[]; // used when allocationMode = 'segments'
   updatedAt: string;
+}
+
+/** A finish-to-start dependency link between two epics in Portfolio Planning. */
+export interface EpicDependency {
+  id: string;           // UUID
+  fromEpicKey: string;  // predecessor — arrow originates from its last phase bar end
+  toEpicKey: string;    // dependent — arrow points to its first phase bar start
 }

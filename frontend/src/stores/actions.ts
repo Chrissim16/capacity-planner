@@ -32,6 +32,7 @@ import type {
   ManualEpic,
   EpicPhasePlan,
   EpicPhaseAssignment,
+  EpicDependency,
   PlanningGroupCategory,
 } from '../types';
 import { getPlanningGroupTrack, normalizePlanningGroup } from '../utils/planningGroups';
@@ -718,6 +719,7 @@ export function createScenario(name: string, description?: string): Scenario {
     portfolioManualEpics: JSON.parse(JSON.stringify(sourceScenario?.portfolioManualEpics ?? [])),
     portfolioPhasePlans: JSON.parse(JSON.stringify(sourceScenario?.portfolioPhasePlans ?? [])),
     portfolioPhaseAssignments: JSON.parse(JSON.stringify(sourceScenario?.portfolioPhaseAssignments ?? [])),
+    portfolioEpicDependencies: JSON.parse(JSON.stringify(sourceScenario?.portfolioEpicDependencies ?? [])),
     skillsMatchingEnabled: sourceScenario?.skillsMatchingEnabled ?? true,
   };
 
@@ -778,6 +780,7 @@ export interface PortfolioScenarioSnapshot {
   manualEpics: ManualEpic[];
   phasePlans: EpicPhasePlan[];
   phaseAssignments: EpicPhaseAssignment[];
+  epicDependencies?: EpicDependency[];
 }
 
 function getLatestSuccessfulSyncAt(connections: JiraConnection[]): string | undefined {
@@ -817,6 +820,7 @@ export function createPortfolioScenario(
     portfolioManualEpics: JSON.parse(JSON.stringify(snapshot.manualEpics)),
     portfolioPhasePlans: JSON.parse(JSON.stringify(snapshot.phasePlans)),
     portfolioPhaseAssignments: JSON.parse(JSON.stringify(snapshot.phaseAssignments)),
+    portfolioEpicDependencies: JSON.parse(JSON.stringify(snapshot.epicDependencies ?? [])),
     skillsMatchingEnabled: sourceScenario?.skillsMatchingEnabled ?? true,
   };
 
@@ -828,7 +832,7 @@ export function updatePortfolioScenario(
   scenarioId: string,
   updates: Partial<Pick<
     Scenario,
-    'name' | 'portfolioBoardEpicKeys' | 'portfolioManualEpics' | 'portfolioPhasePlans' | 'portfolioPhaseAssignments'
+    'name' | 'portfolioBoardEpicKeys' | 'portfolioManualEpics' | 'portfolioPhasePlans' | 'portfolioPhaseAssignments' | 'portfolioEpicDependencies'
   >>,
 ): void {
   const state = useAppStore.getState();
@@ -1343,6 +1347,7 @@ export function updatePlannerLayoutForCurrentContext(items: PlannerItem[]): void
     portfolioManualEpics: [],
     portfolioPhasePlans: [],
     portfolioPhaseAssignments: [],
+    portfolioEpicDependencies: [],
     skillsMatchingEnabled: true,
   };
 

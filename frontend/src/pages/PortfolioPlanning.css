@@ -2955,6 +2955,85 @@ a.pp-jkey:hover, a.pv-assign-key:hover, a.pp-cg-epic-key:hover {
   color: #0078C4;
 }
 
+/* ── Epic dependency links ─────────────────────────────────────── */
+
+/* Link mode toolbar button */
+.pp-link-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #64748B);
+  background: var(--bg-secondary, #F1F5F9);
+  border: 1px solid var(--border, #E2E8F0);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.pp-link-mode-btn:hover {
+  background: var(--bg-hover, #E2E8F0);
+  color: var(--text-primary, #1E293B);
+}
+
+.pp-link-mode-btn.active {
+  background: var(--blue, #0088E0);
+  color: #fff;
+  border-color: var(--blue, #0088E0);
+}
+
+.pp-link-mode-btn.active:hover {
+  background: #0078C4;
+  border-color: #0078C4;
+}
+
+/* SVG dependency arrow overlay */
+.pp-dep-svg {
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Epic row states during link mode */
+.pp-g-epic.link-mode-selectable {
+  cursor: crosshair;
+}
+
+.pp-g-epic.link-mode-pending {
+  outline: 2px solid var(--blue, #0088E0);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+/* Soft constraint nudge highlight on gantt row */
+.pp-g-epic.dep-nudge {
+  background: rgba(251, 191, 36, 0.12);
+}
+
+/* Nudge warning badge on left-panel epic row */
+.ev-epic.dep-nudge {
+  position: relative;
+}
+
+.ev-epic.dep-nudge::after {
+  content: '⚠ Check dependency';
+  position: absolute;
+  right: 80px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  color: #B45309;
+  background: #FEF3C7;
+  border-radius: 4px;
+  padding: 1px 6px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}
+
 /* Responsive: Stack to single column at smaller widths */
 @media (max-width: 1400px) {
   .pp-planned-days-grid {

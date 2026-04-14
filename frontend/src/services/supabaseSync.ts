@@ -344,6 +344,7 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       portfolioManualEpics: Array.isArray(s.portfolio_manual_epics) ? s.portfolio_manual_epics : [],
       portfolioPhasePlans: Array.isArray(s.portfolio_phase_plans) ? s.portfolio_phase_plans : [],
       portfolioPhaseAssignments: Array.isArray(s.portfolio_phase_assignments) ? s.portfolio_phase_assignments : [],
+      portfolioEpicDependencies: Array.isArray(s.portfolio_epic_dependencies) ? s.portfolio_epic_dependencies : [],
       skillsMatchingEnabled: s.skills_matching_enabled ?? true,
     }));
 
@@ -863,6 +864,7 @@ async function syncScenarios(scenarios: Scenario[], businessTeams: BusinessTeam[
       s.portfolioPhaseAssignments ?? [],
       businessTeams,
     ),
+    portfolio_epic_dependencies: s.portfolioEpicDependencies ?? [],
     last_edited_by: s.lastEditedBy ?? null,
     skills_matching_enabled: s.skillsMatchingEnabled ?? true,
   }));

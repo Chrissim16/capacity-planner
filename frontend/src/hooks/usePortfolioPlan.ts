@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import type {
   EpicPhasePlan, EpicPhaseAssignment, PlanningPhase,
-  AllocationMode, AllocationSegment, ManualEpic,
+  AllocationMode, AllocationSegment, ManualEpic, EpicDependency,
 } from '../types';
 import {
   getOrderedActualPhaseEntries,
@@ -70,6 +70,9 @@ export interface UsePortfolioPlanReturn {
   removeAssignment:    (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string) => Promise<void>;
   upsertSegment:       (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, segment: AllocationSegment) => Promise<void>;
   removeSegment:       (epicKey: string, phase: PlanningPhase, phaseInstanceId: string, memberId: string, segmentId: string) => Promise<void>;
+  epicDependencies:    EpicDependency[];
+  addEpicDependency:   (fromEpicKey: string, toEpicKey: string) => string;
+  removeEpicDependency:(id: string) => void;
   loading:             boolean;
 }
 
@@ -211,6 +214,7 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
   const [phasePlans, setPhasePlans]       = useState<EpicPhasePlan[]>([]);
   const [phaseAssignments, setPhaseAssignments] = useState<EpicPhaseAssignment[]>([]);
   const [manualEpics, setManualEpics]     = useState<ManualEpic[]>(loadManualEpics);
+  const [epicDependencies, setEpicDependencies] = useState<EpicDependency[]>([]);
   const [loading, setLoading]             = useState(false);
 
   // ── Load from Supabase on mount ──────────────────────────────────────────
@@ -227,7 +231,12 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
         data: res.error ? [] : res.data,
         error: null,
       })),
-    ]).then(([boardRes, plansRes, assignRes, segsRes]) => {
+      // Graceful degradation: returns empty data if migration 052 not yet applied
+      supabase.from('epic_dependencies').select('*').then(res => ({
+        data: res.error ? [] : res.data,
+        error: null,
+      })),
+    ]).then(([boardRes, plansRes, assignRes, segsRes, depsRes]) => {
       if (boardRes.data && boardRes.data.length > 0) {
         const rows = boardRes.data as Array<{ epic_key: string; is_manual: boolean | null } & ManualEpicRow>;
         const keys = rows.map(r => r.epic_key);
@@ -250,6 +259,13 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
             return mapAssignRow(r, segs);
           })
         );
+      }
+      if (depsRes.data && depsRes.data.length > 0) {
+        setEpicDependencies((depsRes.data as Array<{ id: string; from_epic_key: string; to_epic_key: string }>).map(r => ({
+          id: r.id,
+          fromEpicKey: r.from_epic_key,
+          toEpicKey: r.to_epic_key,
+        })));
       }
     }).finally(() => setLoading(false));
   }, []);
@@ -734,6 +750,33 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
       .eq('id', segmentId);
   }, []);
 
+  // ── Epic dependencies ─────────────────────────────────────────────────────
+  const addEpicDependency = useCallback((fromEpicKey: string, toEpicKey: string): string => {
+    const id = crypto.randomUUID();
+    setEpicDependencies(prev => {
+      if (prev.some(d => d.fromEpicKey === fromEpicKey && d.toEpicKey === toEpicKey)) return prev;
+      return [...prev, { id, fromEpicKey, toEpicKey }];
+    });
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('epic_dependencies')
+        .upsert({ id, from_epic_key: fromEpicKey, to_epic_key: toEpicKey }, { onConflict: 'from_epic_key,to_epic_key' })
+        .then(({ error }) => { if (error) console.warn('[Portfolio] addEpicDependency:', error.message); });
+    }
+    return id;
+  }, []);
+
+  const removeEpicDependency = useCallback((id: string) => {
+    setEpicDependencies(prev => prev.filter(d => d.id !== id));
+    if (isSupabaseConfigured()) {
+      supabase
+        .from('epic_dependencies')
+        .delete()
+        .eq('id', id)
+        .then(({ error }) => { if (error) console.warn('[Portfolio] removeEpicDependency:', error.message); });
+    }
+  }, []);
+
   return {
     boardEpicKeys,
     phasePlans,
@@ -755,6 +798,9 @@ export function usePortfolioPlan(): UsePortfolioPlanReturn {
     removeAssignment,
     upsertSegment,
     removeSegment,
+    epicDependencies,
+    addEpicDependency,
+    removeEpicDependency,
     loading,
   };
 }

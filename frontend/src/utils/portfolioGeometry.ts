@@ -240,7 +240,7 @@ export function todayDayOffset(tStart: Date): number {
 
 // ── Bar width ──────────────────────────────────────────────────────────────────
 
-import type { EpicPhaseAssignment, EpicPhasePlan, PlanningPhase } from '../types';
+import type { EpicDependency, EpicPhaseAssignment, EpicPhasePlan, PlanningPhase } from '../types';
 
 /**
  * Width in working days for a phase bar derived from explicit start/end dates.
@@ -275,6 +275,117 @@ export function calcBarWidthDays(
 export function weeksBetween(startIso: string, endIso: string): number {
   const diffMs = parseIsoDateLocal(endIso).getTime() - parseIsoDateLocal(startIso).getTime();
   return Math.max(1, Math.round(diffMs / (7 * 86_400_000)));
+}
+
+// ── Epic dependency arrows ─────────────────────────────────────────────────────
+
+/** A resolved dependency arrow ready for SVG rendering. */
+export interface DependencyArrow {
+  id: string;
+  /** X pixel position of the predecessor's last-phase bar end (gantt-scroll-relative). */
+  x1: number;
+  /** Y pixel position of the predecessor's epic row mid-point. */
+  y1: number;
+  /** X pixel position of the dependent's first-phase bar start. */
+  x2: number;
+  /** Y pixel position of the dependent's epic row mid-point. */
+  y2: number;
+  /** True when the dependent's first start is before the predecessor's last end. */
+  violated: boolean;
+}
+
+/** Returns the minimum startDate working-day offset for an epic, or null if no phases have a start date. */
+export function getEpicFirstStartDay(
+  epicKey: string,
+  phasePlansMap: Map<string, Map<PlanningPhase, EpicPhasePlan[]>>,
+  tStart: Date,
+): number | null {
+  const plansByType = phasePlansMap.get(epicKey);
+  if (!plansByType) return null;
+  let min: number | null = null;
+  for (const plans of plansByType.values()) {
+    for (const plan of plans) {
+      if (!plan.startDate) continue;
+      const day = dateToDay(plan.startDate, tStart);
+      if (min === null || day < min) min = day;
+    }
+  }
+  return min;
+}
+
+/** Returns the maximum endDate working-day offset for an epic. Falls back to startDate + barWidth when endDate is null. */
+function getEpicLastEndDay(
+  epicKey: string,
+  phasePlansMap: Map<string, Map<PlanningPhase, EpicPhasePlan[]>>,
+  assignMap: Map<string, Map<string, EpicPhaseAssignment[]>>,
+  absenceLookup: Record<string, number>,
+  tStart: Date,
+): number | null {
+  const plansByType = phasePlansMap.get(epicKey);
+  if (!plansByType) return null;
+  const assignsByInstance = assignMap.get(epicKey) ?? new Map<string, EpicPhaseAssignment[]>();
+  let max: number | null = null;
+  for (const plans of plansByType.values()) {
+    for (const plan of plans) {
+      if (!plan.startDate) continue;
+      let endDay: number;
+      if (plan.endDate) {
+        endDay = dateToDay(plan.endDate, tStart);
+      } else {
+        const assignments = assignsByInstance.get(plan.phaseInstanceId) ?? [];
+        const barW = calcBarWidthDays(assignments, absenceLookup);
+        endDay = dateToDay(plan.startDate, tStart) + barW;
+      }
+      if (max === null || endDay > max) max = endDay;
+    }
+  }
+  return max;
+}
+
+/**
+ * Compute resolved arrow coordinates for all dependency links.
+ *
+ * @param deps            Active dependency list (baseline or scenario).
+ * @param epicRowTopMap   Map from epicKey → top-pixel of the epic's pp-g-epic row (gantt-relative).
+ *                        Computed in PortfolioPlanning via computeEpicGanttRowTopMap().
+ * @param phasePlansMap   Map from epicKey → Map<phase, EpicPhasePlan[]>.
+ * @param assignMap       Map from epicKey → Map<phaseInstanceId, EpicPhaseAssignment[]>.
+ * @param absenceLookup   Map from memberId → absence days (used for bar-width fallback).
+ * @param tStart          Timeline origin date.
+ * @param dayW            Pixels per working day.
+ */
+export function computeDependencyArrows(
+  deps: EpicDependency[],
+  epicRowTopMap: Map<string, number>,
+  phasePlansMap: Map<string, Map<PlanningPhase, EpicPhasePlan[]>>,
+  assignMap: Map<string, Map<string, EpicPhaseAssignment[]>>,
+  absenceLookup: Record<string, number>,
+  tStart: Date,
+  dayW: number,
+): DependencyArrow[] {
+  const ROW_EPIC_HALF = 24; // half of --row-epic (48px)
+  const arrows: DependencyArrow[] = [];
+
+  for (const dep of deps) {
+    const fromTop = epicRowTopMap.get(dep.fromEpicKey);
+    const toTop = epicRowTopMap.get(dep.toEpicKey);
+    if (fromTop === undefined || toTop === undefined) continue;
+
+    const fromEndDay = getEpicLastEndDay(dep.fromEpicKey, phasePlansMap, assignMap, absenceLookup, tStart);
+    const toStartDay = getEpicFirstStartDay(dep.toEpicKey, phasePlansMap, tStart);
+    if (fromEndDay === null || toStartDay === null) continue;
+
+    arrows.push({
+      id: dep.id,
+      x1: dToX(fromEndDay, dayW),
+      y1: fromTop + ROW_EPIC_HALF,
+      x2: dToX(toStartDay, dayW),
+      y2: toTop + ROW_EPIC_HALF,
+      violated: toStartDay < fromEndDay,
+    });
+  }
+
+  return arrows;
 }
 
 /**

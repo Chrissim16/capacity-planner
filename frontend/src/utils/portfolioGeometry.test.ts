@@ -5,6 +5,10 @@
  *   - totalDaysFromAssignment — mode-aware effort total (flat / rate / segments)
  *
  * Also covers the legacy calcBarWidthDays fallback so regressions are caught.
+ *
+ * Epic dependency arrow utilities (migration 052):
+ *   - getEpicFirstStartDay — minimum phase startDate offset for an epic
+ *   - computeDependencyArrows — resolved SVG arrow coordinates for all dep links
  */
 
 import { describe, it, expect } from 'vitest';
@@ -17,8 +21,10 @@ import {
   weeksBetween,
   totalDaysFromAssignment,
   calcBarWidthDays,
+  getEpicFirstStartDay,
+  computeDependencyArrows,
 } from './portfolioGeometry';
-import type { EpicPhasePlan, EpicPhaseAssignment, AllocationSegment } from '../types';
+import type { EpicPhasePlan, EpicPhaseAssignment, AllocationSegment, EpicDependency } from '../types';
 
 // ── Factories ──────────────────────────────────────────────────────────────────
 
@@ -403,5 +409,218 @@ describe('explicit endDate overrides legacy bar width', () => {
     expect(explicit).toBeNull();
     const barW = explicit ?? legacy;
     expect(barW).toBe(8);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// getEpicFirstStartDay
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build a phasePlansMap entry for a single epic with the given phase start dates.
+ * Each startDate string is placed into its own EpicPhasePlan under a distinct phase key.
+ */
+function makePhasePlan(epicKey: string, phase: string, startDate: string | null, endDate?: string | null, idx = 0): EpicPhasePlan {
+  return {
+    id: `plan-${epicKey}-${idx}`,
+    epicKey,
+    phase: phase as EpicPhasePlan['phase'],
+    phaseInstanceId: `inst-${epicKey}-${idx}`,
+    phaseOrder: idx,
+    startDate: startDate ?? null,
+    endDate: endDate ?? null,
+    description: null,
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+}
+
+function makePhasePlansMap(
+  epicKey: string,
+  phases: Array<{ phase: string; startDate: string | null; endDate?: string | null }>,
+): Map<string, Map<string, EpicPhasePlan[]>> {
+  const byPhase = new Map<string, EpicPhasePlan[]>();
+  phases.forEach(({ phase, startDate, endDate }, i) => {
+    const plan = makePhasePlan(epicKey, phase, startDate, endDate, i);
+    byPhase.set(phase, [...(byPhase.get(phase) ?? []), plan]);
+  });
+  return new Map([[epicKey, byPhase]]);
+}
+
+describe('getEpicFirstStartDay', () => {
+  it('returns null when the epic is not in the map', () => {
+    const map = new Map<string, Map<string, EpicPhasePlan[]>>();
+    expect(getEpicFirstStartDay('MISSING', map, T_START)).toBeNull();
+  });
+
+  it('returns null when all phases have null startDate', () => {
+    const map = makePhasePlansMap('EPIC-1', [
+      { phase: 'design', startDate: null },
+      { phase: 'build', startDate: null },
+    ]);
+    expect(getEpicFirstStartDay('EPIC-1', map, T_START)).toBeNull();
+  });
+
+  it('returns the day offset of the only dated phase', () => {
+    // T_START is 2026-01-05; 2026-01-05 = day 0
+    const map = makePhasePlansMap('EPIC-1', [
+      { phase: 'design', startDate: '2026-01-05' },
+    ]);
+    expect(getEpicFirstStartDay('EPIC-1', map, T_START)).toBe(0);
+  });
+
+  it('returns the minimum offset across multiple phases', () => {
+    // design starts at day 5 (2026-01-12), build starts at day 0 (2026-01-05)
+    const map = makePhasePlansMap('EPIC-1', [
+      { phase: 'design', startDate: '2026-01-12' }, // day 5
+      { phase: 'build',  startDate: '2026-01-05' }, // day 0
+    ]);
+    expect(getEpicFirstStartDay('EPIC-1', map, T_START)).toBe(0);
+  });
+
+  it('skips phases with null startDate when finding minimum', () => {
+    const map = makePhasePlansMap('EPIC-1', [
+      { phase: 'design', startDate: null },
+      { phase: 'build',  startDate: '2026-01-12' }, // day 5
+    ]);
+    expect(getEpicFirstStartDay('EPIC-1', map, T_START)).toBe(5);
+  });
+
+  it('supports negative offsets (phase starts before tStart)', () => {
+    // 2025-12-29 is a Monday, 5 working days before 2026-01-05
+    const map = makePhasePlansMap('EPIC-1', [
+      { phase: 'design', startDate: '2025-12-29' }, // day -5
+    ]);
+    expect(getEpicFirstStartDay('EPIC-1', map, T_START)).toBe(-5);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// computeDependencyArrows
+// ─────────────────────────────────────────────────────────────────────────────
+
+function makeDep(overrides: Partial<EpicDependency> = {}): EpicDependency {
+  return {
+    id: 'dep-1',
+    fromEpicKey: 'EPIC-A',
+    toEpicKey: 'EPIC-B',
+    ...overrides,
+  };
+}
+
+describe('computeDependencyArrows', () => {
+  const DAY_W = 20; // 20px per working day, easy to reason about
+
+  it('returns empty array for no dependencies', () => {
+    const result = computeDependencyArrows([], new Map(), new Map(), new Map(), {}, T_START, DAY_W);
+    expect(result).toEqual([]);
+  });
+
+  it('skips a dependency when fromEpic is not in epicRowTopMap', () => {
+    const dep = makeDep();
+    const epicRowTopMap = new Map([['EPIC-B', 48]]); // EPIC-A missing
+    const plansMap = makePhasePlansMap('EPIC-B', [{ phase: 'design', startDate: '2026-01-12' }]);
+    const result = computeDependencyArrows([dep], epicRowTopMap, plansMap, new Map(), {}, T_START, DAY_W);
+    expect(result).toHaveLength(0);
+  });
+
+  it('skips a dependency when toEpic is not in epicRowTopMap', () => {
+    const dep = makeDep();
+    const epicRowTopMap = new Map([['EPIC-A', 0]]); // EPIC-B missing
+    const plansMap = makePhasePlansMap('EPIC-A', [{ phase: 'design', startDate: '2026-01-05', endDate: '2026-01-12' }]);
+    const result = computeDependencyArrows([dep], epicRowTopMap, plansMap, new Map(), {}, T_START, DAY_W);
+    expect(result).toHaveLength(0);
+  });
+
+  it('skips a dependency when either epic has no dated phases', () => {
+    const dep = makeDep();
+    const epicRowTopMap = new Map([['EPIC-A', 0], ['EPIC-B', 48]]);
+    // EPIC-A has a dated phase but EPIC-B has no phases at all
+    const plansMap = makePhasePlansMap('EPIC-A', [{ phase: 'design', startDate: '2026-01-05', endDate: '2026-01-12' }]);
+    const result = computeDependencyArrows([dep], epicRowTopMap, plansMap, new Map(), {}, T_START, DAY_W);
+    expect(result).toHaveLength(0);
+  });
+
+  it('computes correct x/y coordinates for a satisfied dependency', () => {
+    // EPIC-A: design 2026-01-05→2026-01-12 (day 0→day 5)  row top = 0
+    // EPIC-B: design 2026-01-12→2026-01-19 (day 5→day 10) row top = 48
+    // expected: x1=5*20=100, y1=0+24=24, x2=5*20=100, y2=48+24=72, violated=false
+    const dep = makeDep();
+    const epicRowTopMap = new Map([['EPIC-A', 0], ['EPIC-B', 48]]);
+
+    const phasePlansMap = new Map([
+      ['EPIC-A', new Map([['design', [makePhasePlan('EPIC-A', 'design', '2026-01-05', '2026-01-12')]]])],
+      ['EPIC-B', new Map([['design', [makePhasePlan('EPIC-B', 'design', '2026-01-12', '2026-01-19')]]])],
+    ]);
+
+    const result = computeDependencyArrows([dep], epicRowTopMap, phasePlansMap, new Map(), {}, T_START, DAY_W);
+
+    expect(result).toHaveLength(1);
+    const arrow = result[0];
+    expect(arrow.id).toBe('dep-1');
+    // EPIC-A endDate 2026-01-12 = day 5 → x1 = 5 * 20 = 100
+    expect(arrow.x1).toBe(100);
+    expect(arrow.y1).toBe(24);   // 0 + 24
+    // EPIC-B startDate 2026-01-12 = day 5 → x2 = 5 * 20 = 100
+    expect(arrow.x2).toBe(100);
+    expect(arrow.y2).toBe(72);   // 48 + 24
+    expect(arrow.violated).toBe(false);
+  });
+
+  it('marks violated=true when dependent starts before predecessor ends', () => {
+    // EPIC-A ends day 10, EPIC-B starts day 5 → violated
+    const dep = makeDep();
+    const epicRowTopMap = new Map([['EPIC-A', 0], ['EPIC-B', 48]]);
+
+    // EPIC-B starts on day 5 (2026-01-12), before EPIC-A ends on day 10 (2026-01-19)
+    const phasePlansMap = new Map([
+      ['EPIC-A', new Map([['design', [makePhasePlan('EPIC-A', 'design', '2026-01-05', '2026-01-19')]]])],
+      ['EPIC-B', new Map([['design', [makePhasePlan('EPIC-B', 'design', '2026-01-12', '2026-01-26')]]])],
+    ]);
+
+    const result = computeDependencyArrows([dep], epicRowTopMap, phasePlansMap, new Map(), {}, T_START, DAY_W);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].violated).toBe(true);
+  });
+
+  it('handles multiple dependencies in one call', () => {
+    const dep1 = makeDep({ id: 'dep-1', fromEpicKey: 'EPIC-A', toEpicKey: 'EPIC-B' });
+    const dep2 = makeDep({ id: 'dep-2', fromEpicKey: 'EPIC-B', toEpicKey: 'EPIC-C' });
+
+    const epicRowTopMap = new Map([['EPIC-A', 0], ['EPIC-B', 48], ['EPIC-C', 96]]);
+    const phasePlansMap = new Map([
+      ['EPIC-A', new Map([['design', [makePhasePlan('EPIC-A', 'design', '2026-01-05', '2026-01-12')]]])],
+      ['EPIC-B', new Map([['design', [makePhasePlan('EPIC-B', 'design', '2026-01-12', '2026-01-19')]]])],
+      ['EPIC-C', new Map([['design', [makePhasePlan('EPIC-C', 'design', '2026-01-19', '2026-01-26')]]])],
+    ]);
+
+    const result = computeDependencyArrows([dep1, dep2], epicRowTopMap, phasePlansMap, new Map(), {}, T_START, DAY_W);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe('dep-1');
+    expect(result[1].id).toBe('dep-2');
+    expect(result[0].violated).toBe(false);
+    expect(result[1].violated).toBe(false);
+  });
+
+  it('uses the latest phase end as x1 when an epic has multiple phases', () => {
+    // EPIC-A has design ending day 5 and build ending day 15 → x1 should use day 15
+    const dep = makeDep();
+    const epicRowTopMap = new Map([['EPIC-A', 0], ['EPIC-B', 48]]);
+
+    const phasePlansMap = new Map([
+      ['EPIC-A', new Map([
+        ['design', [makePhasePlan('EPIC-A', 'design', '2026-01-05', '2026-01-12', 0)]],
+        ['build',  [makePhasePlan('EPIC-A', 'build',  '2026-01-12', '2026-01-26', 1)]],
+      ])],
+      ['EPIC-B', new Map([['design', [makePhasePlan('EPIC-B', 'design', '2026-02-02', '2026-02-09')]]])],
+    ]);
+
+    const result = computeDependencyArrows([dep], epicRowTopMap, phasePlansMap, new Map(), {}, T_START, DAY_W);
+
+    expect(result).toHaveLength(1);
+    // EPIC-A build endDate 2026-01-26 = day 15 → x1 = 15 * 20 = 300
+    expect(result[0].x1).toBe(300);
+    expect(result[0].violated).toBe(false);
   });
 });
