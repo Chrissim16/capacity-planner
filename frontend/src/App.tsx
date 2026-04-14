@@ -252,7 +252,9 @@ function App() {
   return (
     <ToastProvider>
       <Layout variant={currentView === 'planner' || currentView === 'report' || currentView === 'portfolio-planning' || currentView === 'planning-mockups' ? 'fullbleed' : 'default'}>
-        <CurrentPage />
+        <div key={currentView} className="animate-page-enter contents">
+          <CurrentPage />
+        </div>
       </Layout>
       <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
       <CommandPalette

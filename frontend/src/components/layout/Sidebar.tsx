@@ -158,7 +158,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
               <div className={clsx('my-3 border-t border-[#EEF2F7]', collapsed ? 'mx-2' : 'mx-4')} />
             ) : null}
             {!collapsed && sectionIndex === 1 ? (
-              <div className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">
+              <div className="px-4 pb-1 text-xs font-semibold uppercase tracking-widest text-[#94A3B8]">
                 Supporting
               </div>
             ) : null}
