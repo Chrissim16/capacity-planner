@@ -137,6 +137,33 @@ function sumDirectCosts(
   }, 0));
 }
 
+/** Hardware vs license lines in reporting currency (for portfolio cost breakdown tables). */
+export function splitInitiativeDirectCosts(
+  record: InitiativeCostRecord | null,
+  reportingCurrency: CurrencyCode,
+  fxToEur: Record<CurrencyCode, number>,
+): { hardware: number; licenses: number } {
+  if (!record) return { hardware: 0, licenses: 0 };
+
+  let hardware = 0;
+  if (record.hardware) {
+    const converted = convertCurrency(
+      record.hardware.amount,
+      record.hardware.currency,
+      reportingCurrency,
+      fxToEur,
+    );
+    hardware = converted ?? 0;
+  }
+
+  const licenses = roundToCents((record.licenses ?? []).reduce((sum, line) => {
+    const converted = convertCurrency(line.amount, line.currency, reportingCurrency, fxToEur);
+    return sum + (converted ?? 0);
+  }, 0));
+
+  return { hardware: roundToCents(hardware), licenses };
+}
+
 export function getPortfolioInitiativeCostRecord(
   initiativeCosts: InitiativeCostRecord[],
   initiativeId: string,

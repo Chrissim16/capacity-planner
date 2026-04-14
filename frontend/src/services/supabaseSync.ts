@@ -48,6 +48,8 @@ import { migratePlannerLayout } from '../utils/plannerMigration';
 import { bauPercentToLegacyDays } from '../utils/bau';
 import { normalizeBusinessTeamPlaceholdersInAssignments } from '../utils/businessTeamPlaceholders';
 import { getPlanningGroupTrack, normalizePlanningGroup } from '../utils/planningGroups';
+import { mergeProcessTeamsWithDefaults } from '../utils/processTeams';
+import { mergeSquadsWithDefaults } from '../utils/squads';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEFAULT VALUES — must stay in sync with appStore.ts
@@ -193,11 +195,16 @@ export async function loadFromSupabase(): Promise<AppState | null> {
       id: s.id, name: s.name, description: s.description ?? undefined,
     }));
 
-    const squads: Squad[] = (squadsRes.data ?? []).map(s => ({ id: s.id, name: s.name }));
+    const squads: Squad[] = mergeSquadsWithDefaults(
+      (squadsRes.data ?? []).map(s => ({ id: s.id, name: s.name })),
+    );
 
-    const processTeams: ProcessTeam[] = (processTeamsRes.data ?? []).map(pt => ({
-      id: pt.id, name: pt.name,
-    }));
+    const processTeams: ProcessTeam[] = mergeProcessTeamsWithDefaults(
+      (processTeamsRes.data ?? []).map(pt => ({
+        id: pt.id,
+        name: pt.name,
+      })),
+    );
 
     const businessTeams: BusinessTeam[] = (businessTeamsRes.data ?? []).map(bt => ({
       id: bt.id,
@@ -519,8 +526,8 @@ export async function saveToSupabase(state: AppState): Promise<void> {
     ['public_holidays',              syncHolidays(state.publicHolidays)],
     ['skills',                       syncSkills(state.skills)],
     ['systems',                      syncSystems(state.systems)],
-    ['squads',                       syncSquads(state.squads)],
-    ['process_teams',                syncProcessTeams(state.processTeams)],
+    ['squads',                       syncSquads(mergeSquadsWithDefaults(state.squads))],
+    ['process_teams',                syncProcessTeams(mergeProcessTeamsWithDefaults(state.processTeams))],
     ['business_teams',               syncBusinessTeams(state.businessTeams ?? [])],
     ['team_members',                 syncTeamMembers(state.teamMembers)],
     ['time_off',                     syncTimeOff(state.timeOff)],

@@ -86,6 +86,11 @@ import { PlanningHeaderActionMenu } from '../components/planning/PlanningHeaderA
 import { CostDrawer } from '../components/portfolio/CostDrawer';
 import { Button } from '../components/ui/Button';
 import { buildPortfolioCostSummary, type PortfolioCostSummary } from '../utils/costing';
+import { buildPortfolioReportModels } from '../utils/portfolioReportAggregators';
+import { buildPortfolioOverviewChartModel } from '../utils/portfolioReportChartModels';
+import { PortfolioReportsPanel } from '../components/portfolio/PortfolioReportsPanel';
+import { StructuredBriefingPdfModal } from '../components/portfolio/StructuredBriefingPdfModal';
+import type { StructuredBriefingSections } from '../components/report/StructuredPortfolioReportPDF';
 import { AddManualEpicModal } from './AddManualEpicModal';
 import { BulkReplacePersonModal } from './BulkReplacePersonModal';
 import { CostsView } from './CostsView';
@@ -1414,7 +1419,8 @@ function EpicView({
             const isTeam   = isPlanningGroupMemberId(assign.memberId, businessTeams);
             const member   = isTeam ? undefined : memberMap.get(assign.memberId);
             const contact  = isTeam ? undefined : contactMap.get(assign.memberId);
-            const name     = member?.name ?? contact?.name ?? assign.memberId;
+            const groupDisplay = isTeam ? getPlanningGroupPlaceholderDisplay(assign.memberId, businessTeams) : null;
+            const name     = groupDisplay?.name ?? member?.name ?? contact?.name ?? assign.memberId;
             const rowKey   = `${phKey}_${assign.memberId}`;
             const isEditing = editingKey === rowKey;
 
@@ -1464,12 +1470,11 @@ function EpicView({
             // Build the avatar + name/role part depending on team vs person
             let avatarEl: React.ReactNode;
             let nameEl: React.ReactNode;
-            if (isTeam) {
-                  const { name: teamName, abbr } = getPlanningGroupPlaceholderDisplay(assign.memberId, businessTeams);
-              avatarEl = <div className="pp-av team">{abbr}</div>;
+            if (isTeam && groupDisplay) {
+              avatarEl = <div className="pp-av team">{groupDisplay.abbr}</div>;
               nameEl = (
                 <>
-                      <span className="ev-pname">{teamName}</span>
+                  <span className="ev-pname">{groupDisplay.name}</span>
                 </>
               );
             } else {
@@ -4222,12 +4227,14 @@ export function PortfolioPlanning() {
   const activeScenarioId = baselineState.activeScenarioId;
 
   // ── UI state ───────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'costs' | 'summary'>('epic');
+  const [activeTab, setActiveTab]   = useState<'epic' | 'people' | 'costs' | 'summary' | 'reports'>('epic');
   const [drawerOpen, setDrawerOpen]           = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [editingManualEpic, setEditingManualEpic] = useState<ManualEpic | null>(null);
   const [activeQIdx, setActiveQIdx] = useState(1);
   const [exportingFormat, setExportingFormat] = useState<'excel' | 'csv' | 'pdf' | null>(null);
+  const [briefingPdfOpen, setBriefingPdfOpen] = useState(false);
+  const [structuredBriefingExporting, setStructuredBriefingExporting] = useState(false);
   const [epicCollapsed, setEpicCollapsed]   = useState<Record<string, boolean>>({});
   const [phasePersonCollapsed, setPhasePersonCollapsed] = useState<Record<string, boolean>>({});
   const [pvExpanded, setPvExpanded] = useState<Record<string, boolean>>({});
@@ -5563,6 +5570,11 @@ export function PortfolioPlanning() {
     quarter,
   ]);
 
+  const portfolioReportModels = useMemo(
+    () => buildPortfolioReportModels(exportInput, portfolioCostSummary),
+    [exportInput, portfolioCostSummary],
+  );
+
   const handleExportExcel = useCallback(async () => {
     try {
       setExportingFormat('excel');
@@ -5617,6 +5629,58 @@ export function PortfolioPlanning() {
       setExportingFormat(null);
     }
   }, [exportInput]);
+
+  const handleStructuredBriefingExport = useCallback(async (sections: StructuredBriefingSections) => {
+    try {
+      setStructuredBriefingExporting(true);
+      const exportData = buildPortfolioPlanExportData(exportInput);
+      const models = buildPortfolioReportModels(exportInput, portfolioCostSummary);
+      const overviewCharts = buildPortfolioOverviewChartModel(models);
+      const { pdf } = await import('@react-pdf/renderer');
+      const { StructuredPortfolioReportPDF } = await import('../components/report/StructuredPortfolioReportPDF');
+      const blob = await pdf(
+        <StructuredPortfolioReportPDF
+          planName={exportData.planName}
+          quarterLabel={exportData.quarterLabel}
+          exportedAt={exportData.exportedAt}
+          currency={models.reportingCurrency}
+          health={exportData.health}
+          sections={sections}
+          costTotals={{
+            totalLabor: portfolioCostSummary.totalLaborCost,
+            totalDirect: portfolioCostSummary.totalDirectCost,
+            totalContingency: portfolioCostSummary.totalContingencyCost,
+            totalCost: portfolioCostSummary.totalCost,
+            missingRateSlots: portfolioCostSummary.missingRateCount,
+          }}
+          costRows={models.costRows}
+          epicEffortRows={models.epicEffortRows}
+          personRows={models.personEpicRows}
+          processTeamRows={models.processTeamEpicRows}
+          executiveDashboard={{
+            totalPeriodDays: overviewCharts.totalPeriodDays,
+            epicsWithEffortCount: overviewCharts.epicsWithEffortCount,
+            totalPortfolioCost: overviewCharts.totalPortfolioCost,
+            missingRateSlots: overviewCharts.missingRateSlots,
+            bucketSegments: overviewCharts.bucketSegments.map((x) => ({ name: x.name, value: x.value })),
+            costComposition: overviewCharts.costComposition.map((x) => ({ name: x.name, value: x.value })),
+          }}
+        />,
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${exportData.filenameBase}-briefing.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBriefingPdfOpen(false);
+    } catch (error) {
+      console.error('[PortfolioPlanning] structured PDF export failed', error);
+      window.alert('Failed to export the structured briefing PDF. Please try again.');
+    } finally {
+      setStructuredBriefingExporting(false);
+    }
+  }, [exportInput, portfolioCostSummary]);
 
   const expandAll = useCallback(() => {
     const ec: Record<string, boolean> = {};
@@ -5673,12 +5737,13 @@ export function PortfolioPlanning() {
               ))}
             </div>
             <PlanningHeaderActionMenu
-              label={exportingFormat ? 'Exporting…' : 'Export'}
-              disabled={exportingFormat !== null}
+              label={exportingFormat || structuredBriefingExporting ? 'Exporting…' : 'Export'}
+              disabled={exportingFormat !== null || structuredBriefingExporting}
               items={[
                 { label: 'Excel workbook', onSelect: () => { void handleExportExcel(); } },
                 { label: 'CSV data', onSelect: handleExportCsv },
                 { label: 'PDF report', onSelect: () => { void handleExportPdf(); } },
+                { label: 'Structured briefing PDF…', onSelect: () => setBriefingPdfOpen(true) },
               ]}
             />
           </>
@@ -5701,6 +5766,7 @@ export function PortfolioPlanning() {
         <button className={`pp-tab${activeTab === 'people'  ? ' on' : ''}`} onClick={() => setActiveTab('people')}>◎ People</button>
         <button className={`pp-tab${activeTab === 'costs'   ? ' on' : ''}`} onClick={() => setActiveTab('costs')}>◫ Costs</button>
         <button className={`pp-tab${activeTab === 'summary' ? ' on' : ''}`} onClick={() => setActiveTab('summary')}>▦ Summary</button>
+        <button className={`pp-tab${activeTab === 'reports' ? ' on' : ''}`} onClick={() => setActiveTab('reports')}>▣ Reports</button>
       </div>
 
       {/* Views */}
@@ -5809,8 +5875,21 @@ export function PortfolioPlanning() {
             baselinePhaseAssignments={plan.phaseAssignments}
           />
         )}
+        {activeTab === 'reports' && (
+          <PortfolioReportsPanel
+            models={portfolioReportModels}
+            activeScenarioName={activeScenario?.name ?? null}
+          />
+        )}
 
         {/* Manual epic create modal */}
+        <StructuredBriefingPdfModal
+          isOpen={briefingPdfOpen}
+          onClose={() => setBriefingPdfOpen(false)}
+          onConfirm={(sections) => { void handleStructuredBriefingExport(sections); }}
+          isExporting={structuredBriefingExporting}
+        />
+
         {manualModalOpen && (
           <AddManualEpicModal
               mode="create"
