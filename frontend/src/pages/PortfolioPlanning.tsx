@@ -4131,6 +4131,7 @@ function AssignmentActionsPopover({
   anchorRect,
   displayName,
   onReplaceThis,
+  onReplaceThisEpic,
   onReplaceEverywhere,
   onRemove,
   onClose,
@@ -4138,6 +4139,7 @@ function AssignmentActionsPopover({
   anchorRect: DOMRect;
   displayName: string;
   onReplaceThis: () => void;
+  onReplaceThisEpic: () => void;
   onReplaceEverywhere: () => void;
   onRemove: () => void;
   onClose: () => void;
@@ -4203,6 +4205,10 @@ function AssignmentActionsPopover({
         Replace in this phase
         <span>Choose a different person, external, owner, or team for this one row.</span>
       </button>
+      <button type="button" className="pp-assignment-action-btn" onClick={onReplaceThisEpic}>
+        Replace across this epic
+        <span>Replace this person in every phase of this initiative only.</span>
+      </button>
       <button type="button" className="pp-assignment-action-btn" onClick={onReplaceEverywhere}>
         Replace across plan
         <span>Open the multi-row replacement flow for every matching assignment.</span>
@@ -4246,7 +4252,10 @@ export function PortfolioPlanning() {
   const [selectedCostEpicKey, setSelectedCostEpicKey] = useState<string | null>(null);
   const [assignmentActionTarget, setAssignmentActionTarget] = useState<AssignmentActionTarget | null>(null);
   const [replaceTarget, setReplaceTarget] = useState<{
-    fromMemberId: string; fromName: string; fromTrack: 'IT' | 'BIZ';
+    fromMemberId: string;
+    fromName: string;
+    fromTrack: 'IT' | 'BIZ';
+    epicKey?: string;
   } | null>(null);
 
   // ── Drag state (phase bars) ────────────────────────────────────────────────
@@ -5981,6 +5990,15 @@ export function PortfolioPlanning() {
               });
               setAssignmentActionTarget(null);
             }}
+            onReplaceThisEpic={() => {
+              setReplaceTarget({
+                fromMemberId: assignmentActionTarget.assignment.memberId,
+                fromName: assignmentActionTarget.displayName,
+                fromTrack: assignmentActionTarget.assignment.track,
+                epicKey: assignmentActionTarget.assignment.epicKey,
+              });
+              setAssignmentActionTarget(null);
+            }}
             onReplaceEverywhere={() => {
               setReplaceTarget({
                 fromMemberId: assignmentActionTarget.assignment.memberId,
@@ -6005,6 +6023,7 @@ export function PortfolioPlanning() {
           <BulkReplacePersonModal
             fromMemberId={replaceTarget.fromMemberId}
             fromName={replaceTarget.fromName}
+            epicKeyFilter={replaceTarget.epicKey}
             activePhaseAssignments={activePhaseAssignments}
             boardEpics={boardEpics}
             memberMap={memberMap}
