@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VS Finance · Capacity Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --s0: #F0F4F8;
+  --s1: #FFFFFF;
+  --s2: #F5F8FC;
+  --s3: #EEF2F7;
+  --s4: #E4EAF2;
+  --border: #E2E8F0;
+  --border-lt: #CBD5E1;
+
+  --t1: #1E293B;
+  --t2: #64748B;
+  --t3: #94A3B8;
+
+  --brand: #0089DD;
+  --brand-dim: rgba(0,137,221,0.08);
+
+  --over: #DC2626;    --over-bg: rgba(220,38,38,0.08);
+  --near: #D97706;    --near-bg: rgba(217,119,6,0.08);
+  --ok:   #16A34A;    --ok-bg:   rgba(22,163,74,0.08);
+  --bench:#94A3B8;    --bench-bg:rgba(148,163,184,0.08);
+
+  --c1:#0089DD; --c2:#16A34A; --c3:#D97706; --c4:#7C3AED;
+  --c5:#DC2626; --c6:#0891B2; --c7:#EA580C; --c8:#4F46E5;
+
+  --track-it:  #0089DD; --track-it-dim:  rgba(0,137,221,0.07);
+  --track-biz: #7C3AED; --track-biz-dim: rgba(124,58,237,0.07);
+
+  --ph-d:#0089DD; --ph-b:#16A34A; --ph-t:#D97706; --ph-p:#EA580C; --ph-h:#7C3AED;
+
+  --cost-int:#0089DD; --cost-ext:#D97706; --cost-biz:#7C3AED;
+
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--t1);
+  background: var(--s0);
+}
+
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: var(--s0); color: var(--t1); }
+
+/* ── TOOLBAR ── */
+.toolbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 20px; height: 52px; min-height: 52px;
+  background: var(--s1); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.toolbar-brand { display: flex; align-items: center; gap: 8px; margin-right: 8px; }
+.brand-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+.brand-name { font-size: 13px; font-weight: 600; color: var(--t1); letter-spacing: -0.01em; }
+.brand-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+.seg { display: flex; background: var(--s2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg-btn { padding: 5px 12px; font-size: 12px; font-weight: 500; color: var(--t2); cursor: pointer; border: none; background: none; transition: all 0.15s; white-space: nowrap; }
+.seg-btn:hover { color: var(--t1); background: var(--s3); }
+.seg-btn.active { background: var(--brand); color: #fff; font-weight: 600; }
+
+.filter-row { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.filter-label { font-size: 11px; color: var(--t3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+.filter-sel {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; background: var(--s2); border: 1px solid var(--border);
+  border-radius: 6px; font-size: 12px; color: var(--t2); cursor: pointer;
+  transition: border-color 0.15s;
+}
+.filter-sel:hover { border-color: var(--border-lt); color: var(--t1); }
+.filter-sel.active { border-color: var(--brand); color: var(--brand); }
+.filter-sel svg { width: 12px; height: 12px; opacity: 0.6; }
+.chip {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 8px; background: var(--brand-dim); border-radius: 10px;
+  font-size: 11px; color: var(--brand); font-weight: 500;
+}
+.chip-x { cursor: pointer; opacity: 0.6; }
+.chip-x:hover { opacity: 1; }
+
+/* ── TABS ── */
+.tabs {
+  display: flex; align-items: center; gap: 0;
+  padding: 0 20px; height: 44px; min-height: 44px;
+  background: var(--s1); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.tab {
+  padding: 0 18px; height: 44px; display: flex; align-items: center;
+  font-size: 13px; font-weight: 500; color: var(--t3); cursor: pointer;
+  border-bottom: 2px solid transparent; transition: all 0.15s;
+  position: relative; top: 1px;
+}
+.tab:hover { color: var(--t2); }
+.tab.active { color: var(--t1); border-bottom-color: var(--brand); font-weight: 600; }
+.tab-badge {
+  margin-left: 6px; padding: 1px 6px; background: var(--s3);
+  border-radius: 8px; font-size: 10px; color: var(--t3); font-weight: 600;
+}
+.tab.active .tab-badge { background: var(--brand-dim); color: var(--brand); }
+
+/* ── CONTENT ── */
+.content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 28px; }
+.content::-webkit-scrollbar { width: 6px; }
+.content::-webkit-scrollbar-track { background: transparent; }
+.content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: contents; }
+
+/* ── TRACK SECTION ── */
+.track-section { display: flex; flex-direction: column; gap: 20px; }
+.track-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; background: var(--track-it-dim); border-radius: 8px;
+  border-left: 3px solid var(--track-it); border: 1px solid rgba(0,137,221,0.15);
+  border-left: 3px solid var(--track-it);
+}
+.track-header.biz { background: var(--track-biz-dim); border-color: rgba(124,58,237,0.15); border-left-color: var(--track-biz); }
+.track-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--track-it); }
+.track-header.biz .track-label { color: var(--track-biz); }
+.track-sub { font-size: 11px; color: var(--t3); }
+
+/* ── KPI CARDS ── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.kpi-card {
+  background: var(--s1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 18px; display: flex; flex-direction: column; gap: 12px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.kpi-card:hover { border-color: var(--border-lt); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+.kpi-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.kpi-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t3); }
+.kpi-num { font-size: 30px; font-weight: 700; color: var(--t1); line-height: 1; font-family: 'DM Mono', monospace; letter-spacing: -0.02em; }
+.kpi-num span { font-size: 14px; font-weight: 500; color: var(--t3); margin-left: 2px; }
+.kpi-sub { font-size: 11px; color: var(--t3); }
+.kpi-bar-wrap { height: 3px; background: var(--s4); border-radius: 2px; overflow: hidden; }
+.kpi-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+
+/* ── SECTION HEADER ── */
+.sec-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.sec-title { font-size: 13px; font-weight: 600; color: var(--t1); }
+.sec-sub { font-size: 11px; color: var(--t3); }
+.sec-action { font-size: 11px; color: var(--brand); cursor: pointer; }
+
+/* ── CHARTS GRID ── */
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.charts-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.chart-card {
+  background: var(--s1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 18px; display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.chart-card.wide { grid-column: span 2; }
+.chart-title { font-size: 12px; font-weight: 600; color: var(--t1); }
+.chart-sub { font-size: 11px; color: var(--t3); margin-top: 2px; }
+
+/* ── BAR CHARTS ── */
+.bar-chart { display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: flex; align-items: center; gap: 10px; }
+.bar-label { font-size: 11px; color: var(--t2); width: 110px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-label.mono { font-family: 'DM Mono', monospace; font-size: 11px; }
+.bar-track { flex: 1; height: 8px; background: var(--s3); border-radius: 4px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+.bar-val { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--t2); width: 42px; text-align: right; flex-shrink: 0; }
+.bar-stacked { display: flex; height: 8px; border-radius: 4px; overflow: hidden; }
+.bar-stacked-seg { height: 100%; transition: width 0.5s; }
+
+/* ── DONUT ── */
+.donut-wrap { display: flex; align-items: center; gap: 20px; }
+.donut-svg { flex-shrink: 0; }
+.donut-legend { display: flex; flex-direction: column; gap: 8px; }
+.donut-leg-row { display: flex; align-items: center; gap: 7px; }
+.donut-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.donut-leg-label { font-size: 11px; color: var(--t2); }
+.donut-leg-val { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--t1); font-weight: 500; margin-left: auto; padding-left: 12px; }
+
+/* ── HEATMAP ── */
+.heatmap { display: flex; flex-direction: column; gap: 0; }
+.hm-header { display: flex; gap: 0; margin-bottom: 4px; padding-left: 100px; }
+.hm-col-label { flex: 1; text-align: center; font-size: 10px; color: var(--t3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.hm-row { display: flex; align-items: center; gap: 0; margin-bottom: 2px; }
+.hm-row-label { width: 100px; font-size: 11px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; flex-shrink: 0; }
+.hm-cell {
+  flex: 1; height: 26px; margin: 1px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-family: 'DM Mono', monospace; color: var(--t1);
+  transition: opacity 0.15s;
+  cursor: default;
+}
+.hm-cell:hover { opacity: 0.85; outline: 1px solid rgba(255,255,255,0.2); }
+
+/* ── DATA TABLE ── */
+.data-table-wrap { background: var(--s1); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em; color: var(--t3);
+  background: var(--s2); border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table th.num { text-align: right; }
+.data-table td {
+  padding: 10px 14px; font-size: 12px; color: var(--t2);
+  border-bottom: 1px solid var(--border); vertical-align: middle;
+}
+.data-table td.num { text-align: right; font-family: 'DM Mono', monospace; color: var(--t1); font-size: 12px; }
+.data-table td.name { color: var(--t1); font-weight: 500; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--s2); }
+.data-table tr.expanded td { background: var(--s2); border-bottom-color: var(--border); }
+.data-table tr.sub-row td { background: var(--s3); padding-left: 28px; font-size: 11px; color: var(--t2); }
+.data-table tr.sub-row:hover td { background: var(--s4); }
+.data-table tr.sub-row td:first-child { border-left: 2px solid var(--border-lt); }
+
+/* ── INLINE COMPONENTS ── */
+.util-cell { display: flex; align-items: center; gap: 8px; }
+.util-bar-track { width: 72px; height: 4px; background: var(--s4); border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+.util-bar-fill { height: 100%; border-radius: 2px; }
+.util-pct { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--t1); }
+
+.phase-stack { display: flex; height: 6px; border-radius: 3px; overflow: hidden; width: 120px; gap: 1px; }
+.phase-seg { height: 100%; border-radius: 1px; }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 7px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.badge.over   { background: var(--over-bg);  color: var(--over);  }
+.badge.near   { background: var(--near-bg);  color: var(--near);  }
+.badge.ok     { background: var(--ok-bg);    color: var(--ok);    }
+.badge.bench  { background: var(--bench-bg); color: var(--bench); }
+.badge.it     { background: var(--track-it-dim); color: var(--track-it); }
+.badge.biz    { background: var(--track-biz-dim); color: var(--track-biz); }
+.badge.int    { background: rgba(0,137,221,0.1); color: var(--brand); }
+.badge.ext    { background: rgba(227,179,65,0.1); color: var(--near); }
+
+/* ── DRILL TOGGLE ── */
+.drill-btn { background: none; border: none; color: var(--t3); cursor: pointer; padding: 2px; display: flex; align-items: center; transition: color 0.15s; }
+.drill-btn:hover { color: var(--t1); }
+.drill-btn svg { width: 14px; height: 14px; transition: transform 0.2s; }
+.drill-btn.open svg { transform: rotate(90deg); }
+
+/* ── PERSON AVATAR ── */
+.avatar { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+
+/* ── MINI CHIPS ── */
+.team-chip { display: inline-flex; align-items: center; padding: 2px 7px; background: var(--s3); border-radius: 10px; font-size: 10px; color: var(--t2); margin: 1px; white-space: nowrap; }
+
+/* ── EMPTY STATE ── */
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px; gap: 8px; color: var(--t3); text-align: center; }
+.empty-icon { font-size: 28px; opacity: 0.4; margin-bottom: 4px; }
+.empty-title { font-size: 13px; font-weight: 600; color: var(--t2); }
+.empty-sub { font-size: 12px; max-width: 260px; line-height: 1.6; }
+
+/* ── COST CARDS ── */
+.cost-kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.content > * { animation: fadeUp 0.25s ease both; }
+.content > *:nth-child(1) { animation-delay: 0.02s; }
+.content > *:nth-child(2) { animation-delay: 0.06s; }
+.content > *:nth-child(3) { animation-delay: 0.10s; }
+.content > *:nth-child(4) { animation-delay: 0.14s; }
+.content > *:nth-child(5) { animation-delay: 0.18s; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="toolbar-brand">
+    <div class="brand-dot"></div>
+    <span class="brand-name">VS Finance · Capacity Dashboard</span>
+  </div>
+  <div class="brand-sep"></div>
+
+  <div class="seg" id="period-seg">
+    <button class="seg-btn" onclick="setPeriod(this,'Q1')">Q1</button>
+    <button class="seg-btn active" onclick="setPeriod(this,'Q2')">Q2</button>
+    <button class="seg-btn" onclick="setPeriod(this,'Q3')">Q3</button>
+    <button class="seg-btn" onclick="setPeriod(this,'Q4')">Q4</button>
+    <button class="seg-btn" onclick="setPeriod(this,'FY')">Full Year</button>
+  </div>
+
+  <div class="filter-row">
+    <span class="filter-label">Filter</span>
+    <div class="filter-sel active" title="Team filter active">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M4 8h8M6 12h4"/></svg>
+      Teams · Logistics
+    </div>
+    <div class="filter-sel">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="2.5"/><path d="M2 13c0-3.314 2.686-5 6-5s6 1.686 6 5"/></svg>
+      Person
+    </div>
+    <div class="filter-sel">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M5 7h6M5 10h4"/></svg>
+      Epic
+    </div>
+    <div class="chip">Logistics <span class="chip-x">×</span></div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('people')">People <span class="tab-badge">12</span></div>
+  <div class="tab" onclick="switchTab('teams')">Teams <span class="tab-badge">5</span></div>
+  <div class="tab" onclick="switchTab('epics')">Epics <span class="tab-badge">8</span></div>
+  <div class="tab" onclick="switchTab('costs')">Costs <span class="tab-badge">€</span></div>
+</div>
+
+<!-- CONTENT -->
+<div class="content" id="content">
+
+  <!-- ══════════ PEOPLE TAB ══════════ -->
+  <div class="tab-panel active" id="panel-people">
+
+    <!-- IT TRACK -->
+    <div class="track-section">
+      <div class="track-header">
+        <span class="track-label">IT Track</span>
+        <span class="track-sub">6 members · Q2 2026</span>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Total IT Days</span></div>
+          <div class="kpi-num">342<span>d</span></div>
+          <div class="kpi-sub">Across 6 members</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Over Capacity</span><span class="badge over">2</span></div>
+          <div class="kpi-num" style="color:var(--over)">2</div>
+          <div class="kpi-sub">Members &gt;100% utilised</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Near Capacity</span><span class="badge near">1</span></div>
+          <div class="kpi-num" style="color:var(--near)">1</div>
+          <div class="kpi-sub">Members 85–100%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Avg Utilisation</span></div>
+          <div class="kpi-num">84<span>%</span></div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:84%;background:var(--near)"></div></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Bench / Unassigned</span></div>
+          <div class="kpi-num" style="color:var(--bench)">1</div>
+          <div class="kpi-sub">No assignments yet</div>
+        </div>
+      </div>
+
+      <!-- People Table -->
+      <div>
+        <div class="sec-hd">
+          <div><div class="sec-title">IT Member Capacity</div><div class="sec-sub">Sorted by utilisation · click row to expand epic assignments</div></div>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Team</th>
+                <th class="num">Available</th>
+                <th class="num">Estimated</th>
+                <th>Utilisation</th>
+                <th>Status</th>
+                <th class="num">Epics</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="people-it-tbody">
+              <!-- rows injected by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div><div class="chart-title">Utilisation by Member</div><div class="chart-sub">Estimated vs available days</div></div>
+          <div class="bar-chart" id="chart-people-util"></div>
+        </div>
+        <div class="chart-card">
+          <div><div class="chart-title">Phase Concentration Heatmap</div><div class="chart-sub">Days per person per phase</div></div>
+          <div class="heatmap" id="chart-people-heatmap"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BIZ TRACK -->
+    <div class="track-section">
+      <div class="track-header biz">
+        <span class="track-label">BIZ Track</span>
+        <span class="track-sub">4 contacts · Q2 2026</span>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Total BIZ Days</span></div>
+          <div class="kpi-num">186<span>d</span></div>
+          <div class="kpi-sub">Across 4 contacts</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Over Capacity</span></div>
+          <div class="kpi-num" style="color:var(--over)">1</div>
+          <div class="kpi-sub">BIZ contacts &gt;100%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Avg Utilisation</span></div>
+          <div class="kpi-num">76<span>%</span></div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:76%;background:var(--ok)"></div></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Business Teams</span></div>
+          <div class="kpi-num">2</div>
+          <div class="kpi-sub">TEAM: aggregate entries</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-hd">
+          <div><div class="sec-title">BIZ Contacts Capacity</div><div class="chart-sub">Business track — aggregate TEAM: rows shown without person drill</div></div>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Contact / Team</th>
+                <th>Business Area</th>
+                <th class="num">Available</th>
+                <th class="num">Estimated</th>
+                <th>Utilisation</th>
+                <th>Status</th>
+                <th class="num">Epics</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="people-biz-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ TEAMS TAB ══════════ -->
+  <div class="tab-panel" id="panel-teams">
+
+    <div class="track-section">
+      <div class="track-header">
+        <span class="track-label">IT Track</span>
+        <span class="track-sub">5 process teams · Q2 2026</span>
+      </div>
+
+      <div class="kpi-grid" id="teams-kpi-grid"></div>
+
+      <div>
+        <div class="sec-hd"><div><div class="sec-title">Team Capacity Overview</div><div class="sec-sub">Internal vs external split · click to expand epic breakdown</div></div></div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Team</th>
+                <th class="num">Members</th>
+                <th class="num">Available</th>
+                <th class="num">Estimated</th>
+                <th class="num">Internal</th>
+                <th class="num">External</th>
+                <th>Utilisation</th>
+                <th>Status</th>
+                <th class="num">Epics</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="teams-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div><div class="chart-title">Available vs Estimated by Team</div><div class="chart-sub">Grouped comparison</div></div>
+          <div class="bar-chart" id="chart-teams-compare"></div>
+        </div>
+        <div class="chart-card">
+          <div><div class="chart-title">Internal · External · Business Split</div><div class="chart-sub">Stacked by team</div></div>
+          <div class="bar-chart" id="chart-teams-split"></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div><div class="chart-title">Team × Epic Allocation Matrix</div><div class="chart-sub">Days per team per epic — darker = more days</div></div>
+        <div class="heatmap" id="chart-teams-heatmap"></div>
+      </div>
+    </div>
+
+    <div class="track-section">
+      <div class="track-header biz">
+        <span class="track-label">BIZ Track</span>
+        <span class="track-sub">2 business teams · Q2 2026</span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Operations</span><span class="badge near">Near</span></div>
+          <div class="kpi-num">96<span>d</span></div>
+          <div class="kpi-sub">/ 110d available</div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:87%;background:var(--near)"></div></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Finance</span><span class="badge ok">Healthy</span></div>
+          <div class="kpi-num">64<span>d</span></div>
+          <div class="kpi-sub">/ 100d available</div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:64%;background:var(--ok)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ EPICS TAB ══════════ -->
+  <div class="tab-panel" id="panel-epics">
+
+    <div class="track-section">
+      <div class="track-header">
+        <span class="track-label">IT Track</span>
+        <span class="track-sub">8 epics · Q2 2026</span>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Total Epic Days</span></div>
+          <div class="kpi-num">528<span>d</span></div>
+          <div class="kpi-sub">Across 8 active epics</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Largest Epic</span></div>
+          <div class="kpi-num">112<span>d</span></div>
+          <div class="kpi-sub">VS-142 · WMS Integration</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Avg Days / Epic</span></div>
+          <div class="kpi-num">66<span>d</span></div>
+          <div class="kpi-sub">IT track only</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Cross-team Epics</span></div>
+          <div class="kpi-num">5</div>
+          <div class="kpi-sub">Involving 2+ teams</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-hd"><div><div class="sec-title">Epic Capacity Breakdown</div><div class="sec-sub">Phase split · team involvement · click to expand person assignments</div></div></div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Epic</th>
+                <th class="num">IT Days</th>
+                <th>Phase Split</th>
+                <th>Teams</th>
+                <th class="num">People</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="epics-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div><div class="chart-title">Epic Size (IT Days)</div><div class="chart-sub">Sorted by total days</div></div>
+          <div class="bar-chart" id="chart-epics-size"></div>
+        </div>
+        <div class="chart-card">
+          <div><div class="chart-title">Phase Distribution per Epic</div><div class="chart-sub">Stacked — Design · Build · Test · Deploy · Hypercare</div></div>
+          <div class="bar-chart" id="chart-epics-phases"></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div><div class="chart-title">Team × Epic Coverage Matrix</div><div class="chart-sub">Which teams touch which epics</div></div>
+        <div class="heatmap" id="chart-epics-heatmap"></div>
+      </div>
+    </div>
+
+    <div class="track-section">
+      <div class="track-header biz">
+        <span class="track-label">BIZ Track</span>
+        <span class="track-sub">8 epics with BIZ involvement · Q2 2026</span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Total BIZ Days</span></div>
+          <div class="kpi-num">186<span>d</span></div>
+          <div class="kpi-sub">Across 8 epics</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Avg BIZ / Epic</span></div>
+          <div class="kpi-num">23<span>d</span></div>
+          <div class="kpi-sub">BIZ track average</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">IT : BIZ Ratio</span></div>
+          <div class="kpi-num">2.8<span>×</span></div>
+          <div class="kpi-sub">IT days per BIZ day</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════ COSTS TAB ══════════ -->
+  <div class="tab-panel" id="panel-costs">
+
+    <!-- KPI Row -->
+    <div class="cost-kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-top"><span class="kpi-label">Total Portfolio Cost</span></div>
+        <div class="kpi-num" style="font-size:24px">€1.84<span>M</span></div>
+        <div class="kpi-sub">All epics · Q2 2026</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><span class="kpi-label">Internal Cost</span><span class="badge int">INT</span></div>
+        <div class="kpi-num" style="font-size:24px;color:var(--brand)">€920<span>K</span></div>
+        <div class="kpi-sub">50% of total</div>
+        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:50%;background:var(--brand)"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><span class="kpi-label">External Cost</span><span class="badge ext">EXT</span></div>
+        <div class="kpi-num" style="font-size:24px;color:var(--near)">€644<span>K</span></div>
+        <div class="kpi-sub">35% of total</div>
+        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:35%;background:var(--near)"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><span class="kpi-label">BIZ Cost</span><span class="badge biz">BIZ</span></div>
+        <div class="kpi-num" style="font-size:24px;color:var(--track-biz)">€276<span>K</span></div>
+        <div class="kpi-sub">15% of total</div>
+        <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:15%;background:var(--track-biz)"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top"><span class="kpi-label">Avg Cost / Day</span></div>
+        <div class="kpi-num" style="font-size:24px">€3.5<span>K</span></div>
+        <div class="kpi-sub">Portfolio efficiency</div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div><div class="chart-title">Cost by Epic</div><div class="chart-sub">Internal · External · Business split</div></div>
+        <div class="bar-chart" id="chart-costs-epic"></div>
+      </div>
+      <div class="chart-card">
+        <div><div class="chart-title">Cost Type Distribution</div><div class="chart-sub">Portfolio-wide split</div></div>
+        <div class="donut-wrap" id="chart-costs-donut">
+          <svg class="donut-svg" width="110" height="110" viewBox="0 0 110 110">
+            <circle cx="55" cy="55" r="40" fill="none" stroke="var(--s3)" stroke-width="16"/>
+            <!-- Internal 50% -->
+            <circle cx="55" cy="55" r="40" fill="none" stroke="var(--brand)" stroke-width="16"
+              stroke-dasharray="125.7 125.7" stroke-dashoffset="0" transform="rotate(-90 55 55)"/>
+            <!-- External 35% -->
+            <circle cx="55" cy="55" r="40" fill="none" stroke="var(--near)" stroke-width="16"
+              stroke-dasharray="87.96 163.5" stroke-dashoffset="-125.7" transform="rotate(-90 55 55)"/>
+            <!-- BIZ 15% -->
+            <circle cx="55" cy="55" r="40" fill="none" stroke="var(--track-biz)" stroke-width="16"
+              stroke-dasharray="37.7 213.7" stroke-dashoffset="-213.7" transform="rotate(-90 55 55)"/>
+            <text x="55" y="51" text-anchor="middle" fill="var(--t1)" font-size="14" font-weight="700" font-family="DM Sans">€1.84M</text>
+            <text x="55" y="64" text-anchor="middle" fill="var(--t3)" font-size="9" font-family="DM Sans">TOTAL</text>
+          </svg>
+          <div class="donut-legend">
+            <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--brand)"></div><span class="donut-leg-label">Internal</span><span class="donut-leg-val">€920K</span></div>
+            <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--near)"></div><span class="donut-leg-label">External</span><span class="donut-leg-val">€644K</span></div>
+            <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--track-biz)"></div><span class="donut-leg-label">Business</span><span class="donut-leg-val">€276K</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Costs table -->
+    <div>
+      <div class="sec-hd"><div><div class="sec-title">Cost by Epic</div><div class="sec-sub">All amounts in EUR · stored FX rate applied · click to expand line items</div></div></div>
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Epic</th>
+              <th class="num">Total (EUR)</th>
+              <th class="num">Internal</th>
+              <th class="num">External</th>
+              <th class="num">Business</th>
+              <th class="num">Cost/Day</th>
+              <th class="num">Vendors</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="costs-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Vendor chart -->
+    <div class="chart-card">
+      <div><div class="chart-title">Vendor Spend Breakdown</div><div class="chart-sub">External vendor totals across all epics (EUR)</div></div>
+      <div class="bar-chart" id="chart-costs-vendors"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────
+
+const PHASES = ['d','b','t','p','h'];
+const PH_LBL = {d:'Design',b:'Build',t:'Test',p:'Deploy',h:'Hypercare'};
+const PH_COL = {d:'var(--ph-d)',b:'var(--ph-b)',t:'var(--ph-t)',p:'var(--ph-p)',h:'var(--ph-h)'};
+
+const IT_MEMBERS = [
+  {id:'jd',name:'Jan de Vries',role:'Dev Lead',team:'Logistics',avail:60,est:74,phases:{d:8,b:34,t:20,p:8,h:4},epics:['VS-142','VS-156','VS-163'],color:'#0089DD'},
+  {id:'sm',name:'Sara Müller',role:'BA',team:'Logistics',avail:55,est:58,phases:{d:18,b:10,t:20,p:6,h:4},epics:['VS-142','VS-171'],color:'#3FB950'},
+  {id:'pk',name:'Pieter Klaas',role:'Architect',team:'Infra',avail:50,est:51,phases:{d:22,b:18,t:7,p:3,h:1},epics:['VS-156','VS-163','VS-179'],color:'#E3B341'},
+  {id:'al',name:'Anna Lund',role:'Developer',team:'WMS',avail:60,est:42,phases:{d:4,b:28,t:8,p:2,h:0},epics:['VS-142','VS-188'],color:'#A371F7'},
+  {id:'rb',name:'Roel Bakker',role:'Tester',team:'QA',avail:55,est:48,phases:{d:2,b:6,t:32,p:6,h:2},epics:['VS-142','VS-156','VS-171','VS-179'],color:'#F78166'},
+  {id:'mv',name:'Mia Visser',role:'PM',team:'PMO',avail:40,est:0,phases:{d:0,b:0,t:0,p:0,h:0},epics:[],color:'#58A6FF'},
+];
+
+const BIZ_MEMBERS = [
+  {id:'biz1',name:'Tom Hendricks',type:'person',area:'Operations',avail:30,est:38,epics:['VS-142','VS-156']},
+  {id:'biz2',name:'TEAM: Finance',type:'team',area:'Finance',avail:50,est:32,epics:['VS-163','VS-171']},
+  {id:'biz3',name:'Lisa Bergs',type:'person',area:'Operations',avail:28,est:24,epics:['VS-188']},
+  {id:'biz4',name:'TEAM: Ops',type:'team',area:'Operations',avail:60,est:42,epics:['VS-142','VS-179','VS-188']},
+];
+
+const TEAMS = [
+  {name:'Logistics',members:2,avail:115,est:132,internal:100,external:32,epics:['VS-142','VS-156','VS-163']},
+  {name:'Infra',members:1,avail:50,est:51,internal:30,external:21,epics:['VS-156','VS-163','VS-179']},
+  {name:'WMS',members:1,avail:60,est:42,internal:42,external:0,epics:['VS-142','VS-188']},
+  {name:'QA',members:1,avail:55,est:48,internal:48,external:0,epics:['VS-142','VS-156','VS-171','VS-179']},
+  {name:'PMO',members:1,avail:40,est:0,internal:0,external:0,epics:[]},
+];
+
+const EPICS = [
+  {key:'VS-142',name:'WMS Integration',days:112,phases:{d:18,b:52,t:28,p:10,h:4},teams:['Logistics','WMS','QA'],people:4},
+  {key:'VS-156',name:'Carrier API Refactor',days:89,phases:{d:14,b:38,t:24,p:8,h:5},teams:['Logistics','Infra','QA'],people:3},
+  {key:'VS-163',name:'Billing Automation',days:76,phases:{d:20,b:30,t:16,p:7,h:3},teams:['Logistics','Infra'],people:2},
+  {key:'VS-171',name:'Rate Card Engine',days:68,phases:{d:12,b:28,t:20,p:5,h:3},teams:['QA'],people:2},
+  {key:'VS-179',name:'Reporting Module',days:62,phases:{d:16,b:22,t:16,p:6,h:2},teams:['Infra','QA'],people:2},
+  {key:'VS-188',name:'Customer Portal',days:54,phases:{d:14,b:24,t:12,p:3,h:1},teams:['WMS'],people:2},
+  {key:'VS-195',name:'Data Lake Setup',days:42,phases:{d:10,b:18,t:10,p:3,h:1},teams:['Infra'],people:1},
+  {key:'VS-201',name:'Auth Overhaul',days:25,phases:{d:6,b:12,t:5,p:2,h:0},teams:['Infra'],people:1},
+];
+
+const COSTS = [
+  {key:'VS-142',name:'WMS Integration',total:420000,internal:200000,external:160000,biz:60000,days:112,vendors:2},
+  {key:'VS-156',name:'Carrier API Refactor',total:310000,internal:180000,external:100000,biz:30000,days:89,vendors:1},
+  {key:'VS-163',name:'Billing Automation',total:280000,internal:160000,external:80000,biz:40000,days:76,vendors:1},
+  {key:'VS-171',name:'Rate Card Engine',total:240000,internal:140000,external:70000,biz:30000,days:68,vendors:1},
+  {key:'VS-179',name:'Reporting Module',total:210000,internal:110000,external:80000,biz:20000,days:62,vendors:2},
+  {key:'VS-188',name:'Customer Portal',total:185000,internal:80000,external:80000,biz:25000,days:54,vendors:1},
+  {key:'VS-195',name:'Data Lake Setup',total:120000,internal:30000,external:74000,biz:16000,days:42,vendors:1},
+  {key:'VS-201',name:'Auth Overhaul',total:75000,internal:20000,external:0,biz:55000,days:25,vendors:0},
+];
+
+// ── HELPERS ──────────────────────────────────────────────────────
+
+function utilClass(pct) {
+  if(pct > 1) return 'over';
+  if(pct >= 0.85) return 'near';
+  if(pct > 0) return 'ok';
+  return 'bench';
+}
+function utilColor(cls) {
+  return {over:'var(--over)',near:'var(--near)',ok:'var(--ok)',bench:'var(--bench)'}[cls];
+}
+function fmtEur(n) {
+  if(n>=1000000) return '€'+(n/1000000).toFixed(2)+'M';
+  if(n>=1000) return '€'+(n/1000).toFixed(0)+'K';
+  return '€'+n;
+}
+function phaseBar(phases,totalDays) {
+  const segs = PHASES.map(p=>{
+    const w = totalDays>0 ? (phases[p]/totalDays*100) : 0;
+    return `<div class="phase-seg" style="width:${w}%;background:${PH_COL[p]}" title="${PH_LBL[p]}: ${phases[p]}d"></div>`;
+  }).join('');
+  return `<div class="phase-stack">${segs}</div>`;
+}
+function utilCell(est,avail) {
+  const pct = avail > 0 ? est/avail : 0;
+  const cls = utilClass(pct);
+  const col = utilColor(cls);
+  return `<div class="util-cell">
+    <div class="util-bar-track"><div class="util-bar-fill" style="width:${Math.min(100,pct*100)}%;background:${col}"></div></div>
+    <span class="util-pct">${Math.round(pct*100)}%</span>
+  </div>`;
+}
+function badge(cls) {
+  const labels = {over:'Over',near:'Near',ok:'Healthy',bench:'Bench'};
+  return `<span class="badge ${cls}">${labels[cls]}</span>`;
+}
+function avatar(name,col) {
+  const init = name.split(' ').map(w=>w[0]).slice(0,2).join('');
+  return `<div class="avatar" style="background:${col||'var(--s4)'}">${init}</div>`;
+}
+
+// ── RENDER PEOPLE ─────────────────────────────────────────────────
+
+function renderPeopleIT() {
+  const tbody = document.getElementById('people-it-tbody');
+  const sorted = [...IT_MEMBERS].sort((a,b)=>(b.est/b.avail)-(a.est/a.avail));
+  tbody.innerHTML = sorted.map(m=>{
+    const pct = m.avail>0 ? m.est/m.avail : 0;
+    const cls = utilClass(pct);
+    const id = 'row-it-'+m.id;
+    return `
+    <tr class="main-row" onclick="toggleDrill('${id}',this)" style="cursor:pointer">
+      <td class="name"><div style="display:flex;align-items:center;gap:8px">${avatar(m.name,m.color)}<div><div>${m.name}</div><div style="font-size:10px;color:var(--t3);font-weight:500">${m.role}</div></div></div></td>
+      <td><span class="team-chip">${m.team}</span></td>
+      <td class="num">${m.avail}d</td>
+      <td class="num">${m.est}d</td>
+      <td>${utilCell(m.est,m.avail)}</td>
+      <td>${badge(cls)}</td>
+      <td class="num">${m.epics.length}</td>
+      <td><button class="drill-btn" id="btn-${id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+    </tr>
+    <tr class="sub-rows" id="${id}" style="display:none">
+      <td colspan="8" style="padding:0">
+        <table class="data-table" style="background:var(--s3)">
+          <thead><tr>
+            <th style="padding-left:28px">Epic</th><th class="num">Total Days</th><th>Phase Breakdown</th>
+          </tr></thead>
+          <tbody>
+            ${m.epics.map(ekey=>{
+              const ep = EPICS.find(e=>e.key===ekey);
+              if(!ep) return '';
+              const personDays = Math.round(ep.days / ep.people);
+              const perPhase = {};
+              PHASES.forEach(p=>{ perPhase[p]=Math.round(ep.phases[p]/ep.people); });
+              return `<tr class="sub-row"><td>${ep.key} · ${ep.name}</td><td class="num">${personDays}d</td><td>${phaseBar(perPhase,personDays)}</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPeopleBIZ() {
+  const tbody = document.getElementById('people-biz-tbody');
+  tbody.innerHTML = BIZ_MEMBERS.map(m=>{
+    const pct = m.avail>0 ? m.est/m.avail : 0;
+    const cls = utilClass(pct);
+    const isTeam = m.type==='team';
+    return `
+    <tr>
+      <td class="name"><div style="display:flex;align-items:center;gap:8px">
+        <div class="avatar" style="background:${isTeam?'var(--track-biz)':'var(--s4)'}">${isTeam?'T':m.name[0]}</div>
+        <div><div>${m.name}</div><div style="font-size:10px;color:var(--t3)">${isTeam?'Aggregate team':'Individual'}</div></div>
+      </div></td>
+      <td><span class="team-chip">${m.area}</span></td>
+      <td class="num">${m.avail}d</td>
+      <td class="num">${m.est}d</td>
+      <td>${utilCell(m.est,m.avail)}</td>
+      <td>${badge(cls)}</td>
+      <td class="num">${m.epics.length}</td>
+      <td>${isTeam?'':'<button class="drill-btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RENDER TEAMS ──────────────────────────────────────────────────
+
+function renderTeamsKPI() {
+  const grid = document.getElementById('teams-kpi-grid');
+  grid.innerHTML = TEAMS.map(t=>{
+    const pct = t.avail>0?t.est/t.avail:0;
+    const cls = utilClass(pct);
+    return `<div class="kpi-card">
+      <div class="kpi-top"><span class="kpi-label">${t.name}</span>${pct>0?badge(cls):''}</div>
+      <div class="kpi-num">${t.est}<span>d</span></div>
+      <div class="kpi-sub">/ ${t.avail}d available · ${t.members} member${t.members!==1?'s':''}</div>
+      <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:${Math.min(100,pct*100)}%;background:${utilColor(cls)}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderTeamsTable() {
+  const tbody = document.getElementById('teams-tbody');
+  tbody.innerHTML = TEAMS.map(t=>{
+    const pct = t.avail>0?t.est/t.avail:0;
+    const cls = utilClass(pct);
+    const id='row-team-'+t.name.toLowerCase();
+    return `
+    <tr onclick="toggleDrill('${id}',this)" style="cursor:pointer">
+      <td class="name">${t.name}</td>
+      <td class="num">${t.members}</td>
+      <td class="num">${t.avail}d</td>
+      <td class="num">${t.est}d</td>
+      <td class="num">${t.internal}d</td>
+      <td class="num">${t.external}d</td>
+      <td>${utilCell(t.est,t.avail)}</td>
+      <td>${badge(cls)}</td>
+      <td class="num">${t.epics.length}</td>
+      <td><button class="drill-btn" id="btn-${id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+    </tr>
+    <tr class="sub-rows" id="${id}" style="display:none">
+      <td colspan="10" style="padding:0">
+        <table class="data-table" style="background:var(--s3)">
+          <thead><tr>
+            <th style="padding-left:28px">Epic</th><th class="num">Total Days</th>
+            <th>Phase Split</th><th class="num">Internal</th><th class="num">External</th>
+          </tr></thead>
+          <tbody>
+            ${t.epics.map(ekey=>{
+              const ep=EPICS.find(e=>e.key===ekey);
+              if(!ep) return '';
+              const intD=Math.round(ep.days*0.75), extD=ep.days-intD;
+              return `<tr class="sub-row"><td>${ep.key} · ${ep.name}</td><td class="num">${ep.days}d</td>
+                <td>${phaseBar(ep.phases,ep.days)}</td>
+                <td class="num">${intD}d</td><td class="num">${extD}d</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RENDER EPICS ──────────────────────────────────────────────────
+
+function renderEpicsTable() {
+  const tbody = document.getElementById('epics-tbody');
+  const sorted = [...EPICS].sort((a,b)=>b.days-a.days);
+  tbody.innerHTML = sorted.map(ep=>{
+    const id='row-epic-'+ep.key.replace('-','');
+    return `
+    <tr onclick="toggleDrill('${id}',this)" style="cursor:pointer">
+      <td class="name"><div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--t3)">${ep.key}</div><div>${ep.name}</div></div></td>
+      <td class="num">${ep.days}d</td>
+      <td>${phaseBar(ep.phases,ep.days)}</td>
+      <td><div style="display:flex;flex-wrap:wrap;gap:2px">${ep.teams.map(t=>`<span class="team-chip">${t}</span>`).join('')}</div></td>
+      <td class="num">${ep.people}</td>
+      <td><button class="drill-btn" id="btn-${id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+    </tr>
+    <tr class="sub-rows" id="${id}" style="display:none">
+      <td colspan="6" style="padding:0">
+        <table class="data-table" style="background:var(--s3)">
+          <thead><tr>
+            <th style="padding-left:28px">Phase</th><th class="num">Days</th><th class="num">% of Epic</th>
+          </tr></thead>
+          <tbody>
+            ${PHASES.map(ph=>`<tr class="sub-row"><td><div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:2px;background:${PH_COL[ph]};flex-shrink:0"></div>${PH_LBL[ph]}</div></td>
+              <td class="num">${ep.phases[ph]}d</td>
+              <td class="num">${Math.round(ep.phases[ph]/ep.days*100)}%</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RENDER COSTS ──────────────────────────────────────────────────
+
+function renderCostsTable() {
+  const tbody = document.getElementById('costs-tbody');
+  const sorted = [...COSTS].sort((a,b)=>b.total-a.total);
+  tbody.innerHTML = sorted.map(c=>{
+    const cpd = Math.round(c.total/c.days);
+    const id='row-cost-'+c.key.replace('-','');
+    return `
+    <tr onclick="toggleDrill('${id}',this)" style="cursor:pointer">
+      <td class="name"><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--t3)">${c.key}</div><div>${c.name}</div></td>
+      <td class="num">${fmtEur(c.total)}</td>
+      <td class="num" style="color:var(--brand)">${fmtEur(c.internal)}</td>
+      <td class="num" style="color:var(--near)">${fmtEur(c.external)}</td>
+      <td class="num" style="color:var(--track-biz)">${fmtEur(c.biz)}</td>
+      <td class="num">€${cpd.toLocaleString()}</td>
+      <td class="num">${c.vendors}</td>
+      <td><button class="drill-btn" id="btn-${id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+    </tr>
+    <tr class="sub-rows" id="${id}" style="display:none">
+      <td colspan="8" style="padding:0">
+        <table class="data-table" style="background:var(--s3)">
+          <thead><tr>
+            <th style="padding-left:28px">Line Item</th><th>Type</th><th>Vendor</th><th class="num">Original</th><th class="num">EUR</th>
+          </tr></thead>
+          <tbody>
+            <tr class="sub-row"><td>Resource allocation — internal</td><td><span class="badge int">Internal</span></td><td>—</td><td class="num">${fmtEur(c.internal)}</td><td class="num">${fmtEur(c.internal)}</td></tr>
+            ${c.external>0?`<tr class="sub-row"><td>External vendor services</td><td><span class="badge ext">External</span></td><td>Vendor A</td><td class="num">$${Math.round(c.external*1.08/1000)}K</td><td class="num">${fmtEur(c.external)}</td></tr>`:''}
+            ${c.biz>0?`<tr class="sub-row"><td>Business team allocation</td><td><span class="badge biz">BIZ</span></td><td>—</td><td class="num">${fmtEur(c.biz)}</td><td class="num">${fmtEur(c.biz)}</td></tr>`:''}
+          </tbody>
+        </table>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RENDER CHARTS ─────────────────────────────────────────────────
+
+function renderBarChart(containerId, rows) {
+  // rows: [{label, val, max, color, val2?, color2?}]
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const maxVal = Math.max(...rows.map(r=>r.max||r.val));
+  container.innerHTML = rows.map(r=>{
+    const w = maxVal>0 ? (r.val/maxVal*100) : 0;
+    const w2 = (r.val2 && maxVal>0) ? (r.val2/maxVal*100) : 0;
+    return `<div class="bar-row">
+      <div class="bar-label">${r.label}</div>
+      <div class="bar-track">
+        ${r.val2!==undefined
+          ? `<div style="display:flex;height:100%">
+               <div class="bar-fill" style="width:${w}%;background:${r.color}"></div>
+               <div class="bar-fill" style="width:${w2}%;background:${r.color2};opacity:0.45"></div>
+             </div>`
+          : `<div class="bar-fill" style="width:${w}%;background:${r.color}"></div>`
+        }
+      </div>
+      <div class="bar-val">${r.valLabel||r.val+'d'}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderStackedBar(containerId, rows) {
+  // rows: [{label, segs:[{val,color}], total}]
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  container.innerHTML = rows.map(r=>{
+    const segs = r.segs.map(s=>{
+      const w = r.total>0?(s.val/r.total*100):0;
+      return `<div class="bar-stacked-seg" style="width:${w}%;background:${s.color}" title="${s.val}d"></div>`;
+    }).join('');
+    return `<div class="bar-row">
+      <div class="bar-label">${r.label}</div>
+      <div class="bar-track" style="height:10px"><div class="bar-stacked" style="height:10px;border-radius:4px">${segs}</div></div>
+      <div class="bar-val">${r.total}d</div>
+    </div>`;
+  }).join('');
+}
+
+function renderHeatmap(containerId, rowLabels, colLabels, data, colColors) {
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const maxVal = Math.max(...data.flat().filter(v=>v>0));
+  let html = `<div class="hm-header">${colLabels.map(c=>`<div class="hm-col-label">${c}</div>`).join('')}</div>`;
+  rowLabels.forEach((rl,ri)=>{
+    html+=`<div class="hm-row"><div class="hm-row-label">${rl}</div>`;
+    colLabels.forEach((_,ci)=>{
+      const v=data[ri][ci];
+      const alpha = v>0 ? 0.15 + (v/maxVal)*0.75 : 0;
+      const col = colColors ? colColors[ci] : 'var(--brand)';
+      const textCol = alpha > 0.5 ? 'var(--t1)' : alpha > 0.2 ? 'var(--t2)' : 'var(--t3)';
+      html+=`<div class="hm-cell" style="background:${col};opacity:${v>0?1:0.06}" title="${rl} · ${colLabels[ci]}: ${v}d">
+        <span style="opacity:${alpha+0.3};color:${textCol}">${v>0?v:''}</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  });
+  container.innerHTML = html;
+}
+
+// ── CHART DATA ────────────────────────────────────────────────────
+
+function renderAllCharts() {
+  // People util
+  renderBarChart('chart-people-util',
+    IT_MEMBERS.sort((a,b)=>b.est/b.avail - a.est/a.avail).map(m=>({
+      label: m.name.split(' ')[0],
+      val: m.est, val2: m.avail - m.est,
+      max: Math.max(m.est,m.avail),
+      color: utilColor(utilClass(m.avail>0?m.est/m.avail:0)),
+      color2: 'var(--border)',
+      valLabel: Math.round(m.avail>0?m.est/m.avail*100:0)+'%'
+    }))
+  );
+
+  // People phase heatmap
+  const phaseData = IT_MEMBERS.map(m=>PHASES.map(p=>m.phases[p]));
+  renderHeatmap('chart-people-heatmap',
+    IT_MEMBERS.map(m=>m.name.split(' ')[0]),
+    PHASES.map(p=>PH_LBL[p].slice(0,3)),
+    phaseData,
+    PHASES.map(p=>PH_COL[p])
+  );
+
+  // Teams compare
+  renderBarChart('chart-teams-compare',
+    TEAMS.map(t=>({
+      label:t.name, val:t.est, val2:t.avail-t.est,
+      max:Math.max(t.est,t.avail),
+      color:utilColor(utilClass(t.avail>0?t.est/t.avail:0)),
+      color2:'var(--border-lt)',
+      valLabel:t.est+'d'
+    }))
+  );
+
+  // Teams split stacked
+  renderStackedBar('chart-teams-split',
+    TEAMS.map(t=>({
+      label:t.name,
+      segs:[
+        {val:t.internal,color:'var(--cost-int)'},
+        {val:t.external,color:'var(--cost-ext)'},
+      ],
+      total:t.est
+    }))
+  );
+
+  // Teams × Epics heatmap
+  const teamNames = TEAMS.map(t=>t.name);
+  const epicKeys = EPICS.slice(0,6).map(e=>e.key);
+  const teamEpicData = TEAMS.map(t=>
+    EPICS.slice(0,6).map(ep=> ep.teams.includes(t.name) ? Math.round(ep.days/ep.teams.length) : 0)
+  );
+  renderHeatmap('chart-teams-heatmap', teamNames, epicKeys, teamEpicData, null);
+
+  // Epics size
+  renderBarChart('chart-epics-size',
+    [...EPICS].sort((a,b)=>b.days-a.days).map(ep=>({
+      label:ep.key, val:ep.days, max:EPICS[0].days,
+      color:'var(--brand)', valLabel:ep.days+'d'
+    }))
+  );
+
+  // Epics phases stacked
+  renderStackedBar('chart-epics-phases',
+    [...EPICS].sort((a,b)=>b.days-a.days).map(ep=>({
+      label:ep.key,
+      segs: PHASES.map(p=>({val:ep.phases[p],color:PH_COL[p]})),
+      total:ep.days
+    }))
+  );
+
+  // Epics × Teams heatmap
+  const epRows = EPICS.slice(0,6).map(e=>e.key);
+  const tmCols = TEAMS.map(t=>t.name.slice(0,4));
+  const epTeamData = EPICS.slice(0,6).map(ep=>
+    TEAMS.map(t=> ep.teams.includes(t.name) ? Math.round(ep.days/ep.teams.length) : 0)
+  );
+  renderHeatmap('chart-epics-heatmap', epRows, tmCols, epTeamData, TEAMS.map((_,i)=>['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)'][i]));
+
+  // Costs epic chart
+  renderStackedBar('chart-costs-epic',
+    [...COSTS].sort((a,b)=>b.total-a.total).map(c=>({
+      label:c.key,
+      segs:[
+        {val:c.internal,color:'var(--cost-int)'},
+        {val:c.external,color:'var(--cost-ext)'},
+        {val:c.biz,color:'var(--cost-biz)'},
+      ],
+      total:c.total,
+      valLabel:fmtEur(c.total)
+    }))
+  );
+
+  // Vendor spend
+  const vendors = [
+    {label:'Accenture',val:380000},{label:'CapGemini',val:240000},
+    {label:'Wipro',val:180000},{label:'TCS',val:100000},{label:'Freelance',val:54000}
+  ];
+  renderBarChart('chart-costs-vendors',
+    vendors.map(v=>({label:v.label, val:v.val, max:vendors[0].val, color:'var(--near)', valLabel:fmtEur(v.val)}))
+  );
+}
+
+// ── DRILL TOGGLE ──────────────────────────────────────────────────
+
+function toggleDrill(id, row) {
+  const subRow = document.getElementById(id);
+  const btn = document.getElementById('btn-'+id);
+  if(!subRow) return;
+  const isOpen = subRow.style.display !== 'none';
+  // Close all others in same table
+  const tbody = row.parentNode;
+  tbody.querySelectorAll('.sub-rows').forEach(r=>{ r.style.display='none'; });
+  tbody.querySelectorAll('.drill-btn').forEach(b=>b.classList.remove('open'));
+  tbody.querySelectorAll('.main-row').forEach(r=>r.classList.remove('expanded'));
+  if(!isOpen) {
+    subRow.style.display='';
+    if(btn) btn.classList.add('open');
+    row.classList.add('expanded');
+  }
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  const tabs = ['people','teams','epics','costs'];
+  document.querySelectorAll('.tab')[tabs.indexOf(tab)].classList.add('active');
+  document.getElementById('panel-'+tab).classList.add('active');
+  // Re-trigger fade animation
+  const content = document.getElementById('content');
+  content.style.animation='none';
+  requestAnimationFrame(()=>{ content.style.animation=''; });
+}
+
+// ── PERIOD TOGGLE ─────────────────────────────────────────────────
+
+function setPeriod(btn, period) {
+  document.querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+
+renderPeopleIT();
+renderPeopleBIZ();
+renderTeamsKPI();
+renderTeamsTable();
+renderEpicsTable();
+renderCostsTable();
+renderAllCharts();
+
+</script>
+</body>
+</html>

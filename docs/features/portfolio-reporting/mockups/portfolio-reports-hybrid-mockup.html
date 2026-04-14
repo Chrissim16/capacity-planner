@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio reports — hybrid mockup (lenses + KPI cards + charts)</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --s0: #F0F4F8;
+      --s1: #FFFFFF;
+      --s2: #F5F8FC;
+      --s3: #EEF2F7;
+      --s4: #E4EAF2;
+      --border: #E2E8F0;
+      --border-lt: #CBD5E1;
+      --t1: #1E293B;
+      --t2: #64748B;
+      --t3: #94A3B8;
+      --brand: #0089DD;
+      --brand-dim: rgba(0,137,221,0.08);
+      --over: #DC2626;
+      --over-bg: rgba(220,38,38,0.08);
+      --near: #D97706;
+      --near-bg: rgba(217,119,6,0.08);
+      --ok: #16A34A;
+      --ok-bg: rgba(22,163,74,0.08);
+      --bench: #94A3B8;
+      --bench-bg: rgba(148,163,184,0.08);
+      --track-it: #0089DD;
+      --track-it-dim: rgba(0,137,221,0.07);
+      --track-biz: #7C3AED;
+      --track-biz-dim: rgba(124,58,237,0.07);
+      --ph-d: #0089DD; --ph-b: #16A34A; --ph-t: #D97706; --ph-p: #EA580C; --ph-h: #7C3AED;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      color: var(--t1);
+      background: var(--s0);
+    }
+    body { min-height: 100vh; display: flex; flex-direction: column; background: var(--s0); color: var(--t1); }
+
+    .mock-banner {
+      background: linear-gradient(90deg, var(--track-biz-dim), var(--track-it-dim));
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      font-size: 12px;
+      color: var(--t2);
+    }
+    .mock-banner strong { color: var(--t1); }
+
+    .toolbar {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+      padding: 12px 20px; min-height: 52px;
+      background: var(--s1); border-bottom: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .ctx-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 10px; background: var(--s2); border: 1px solid var(--border);
+      border-radius: 6px; font-size: 11px; color: var(--t2);
+    }
+    .ctx-pill b { color: var(--t1); font-weight: 600; }
+
+    .lens-row {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+      padding: 0 20px; min-height: 44px; background: var(--s1);
+      border-bottom: 1px solid var(--border);
+    }
+    .lens-btn {
+      padding: 6px 12px; font-size: 12px; font-weight: 500; color: var(--t3);
+      background: none; border: 1px solid transparent; border-radius: 6px;
+      cursor: pointer; transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+    .lens-btn:hover { color: var(--t1); background: var(--s2); }
+    .lens-btn.active {
+      color: var(--brand); font-weight: 600; border-color: var(--brand);
+      background: var(--brand-dim);
+    }
+
+    .content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+
+    .panel { display: none; flex-direction: column; gap: 24px; animation: fadeUp 0.2s ease both; }
+    .panel.active { display: flex; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+    .kpi-card {
+      background: var(--s1); border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px; display: flex; flex-direction: column; gap: 10px;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .kpi-card:hover { border-color: var(--border-lt); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .kpi-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .kpi-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t3); }
+    .kpi-num { font-size: 28px; font-weight: 700; color: var(--t1); line-height: 1; font-family: 'DM Mono', monospace; letter-spacing: -0.02em; }
+    .kpi-num span { font-size: 13px; font-weight: 500; color: var(--t3); margin-left: 2px; }
+    .kpi-sub { font-size: 11px; color: var(--t3); line-height: 1.35; }
+    .kpi-bar-wrap { height: 3px; background: var(--s4); border-radius: 2px; overflow: hidden; }
+    .kpi-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 6px; border-radius: 4px;
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .badge.over { background: var(--over-bg); color: var(--over); }
+    .badge.near { background: var(--near-bg); color: var(--near); }
+    .badge.ok { background: var(--ok-bg); color: var(--ok); }
+
+    .sec-hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+    .sec-title { font-size: 13px; font-weight: 600; color: var(--t1); }
+    .sec-sub { font-size: 11px; color: var(--t3); margin-top: 2px; max-width: 520px; }
+
+    .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--s1); border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px; display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .chart-card.wide { grid-column: 1 / -1; }
+    .chart-title { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .chart-sub { font-size: 11px; color: var(--t3); margin-top: 2px; }
+
+    .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; }
+    .bar-label { font-size: 11px; color: var(--t2); width: 120px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { flex: 1; height: 8px; background: var(--s3); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 0.55s ease; }
+    .bar-val { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--t2); width: 40px; text-align: right; flex-shrink: 0; }
+
+    .donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .donut-legend { display: flex; flex-direction: column; gap: 6px; }
+    .donut-leg-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+    .donut-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .donut-leg-label { color: var(--t2); }
+    .donut-leg-val { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--t1); margin-left: auto; padding-left: 12px; }
+
+    .heatmap { display: flex; flex-direction: column; gap: 0; overflow-x: auto; }
+    .hm-header { display: flex; gap: 0; margin-bottom: 4px; padding-left: 108px; min-width: min-content; }
+    .hm-col-label { width: 48px; flex-shrink: 0; text-align: center; font-size: 9px; color: var(--t3); font-weight: 600; text-transform: uppercase; }
+    .hm-row { display: flex; align-items: center; gap: 0; margin-bottom: 2px; min-width: min-content; }
+    .hm-row-label { width: 100px; flex-shrink: 0; font-size: 11px; color: var(--t2); padding-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hm-cell {
+      width: 48px; height: 26px; margin: 1px; border-radius: 3px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-family: 'DM Mono', monospace; color: var(--t1);
+    }
+
+    .stacked-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .stacked-label { width: 140px; flex-shrink: 0; font-size: 11px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stacked-track { flex: 1; height: 10px; border-radius: 4px; overflow: hidden; display: flex; }
+    .stacked-seg { height: 100%; transition: flex-grow 0.5s ease; }
+    .stacked-val { width: 36px; text-align: right; font-size: 11px; font-family: 'DM Mono', monospace; color: var(--t2); flex-shrink: 0; }
+
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      padding: 6px 12px; border-radius: 999px; font-size: 11px; font-weight: 500;
+      border: 1px solid var(--border); background: var(--s1); color: var(--t2); cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .chip:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-dim); }
+
+    .btn {
+      font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+      padding: 8px 14px; border-radius: 6px; border: 1px solid var(--brand);
+      background: var(--brand-dim); color: var(--brand); transition: background 0.15s;
+    }
+    .btn:hover { background: rgba(0,137,221,0.15); }
+    .btn-ghost {
+      border-color: var(--border); background: var(--s1); color: var(--t2);
+    }
+    .btn-ghost:hover { border-color: var(--border-lt); color: var(--t1); }
+
+    .table-toggle { margin-top: 4px; }
+
+    .data-table-wrap { background: var(--s1); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .data-table th {
+      padding: 10px 12px; text-align: left; font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em; color: var(--t3);
+      background: var(--s2); border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .data-table th.num { text-align: right; }
+    .data-table td { padding: 10px 12px; color: var(--t2); border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .data-table td.num { text-align: right; font-family: 'DM Mono', monospace; color: var(--t1); }
+    .data-table td.name { color: var(--t1); font-weight: 500; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tbody tr:hover td { background: var(--s2); }
+
+    .phase-stack { display: flex; height: 6px; border-radius: 3px; overflow: hidden; width: 100px; max-width: 100%; gap: 1px; }
+    .phase-seg { flex: 1; min-width: 2px; border-radius: 1px; }
+
+    .collapsed { display: none !important; }
+
+    .note {
+      font-size: 11px; color: var(--t3); padding: 10px 14px; background: var(--s2);
+      border: 1px dashed var(--border); border-radius: 8px; line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="mock-banner">
+    <strong>Static mockup</strong> — Hybrid portfolio reports: <strong>lens tabs</strong> (as in app) + <strong>KPI cards</strong> from capacity dashboard prototype + <strong>donuts &amp; animated bars</strong> + <strong>phase heatmap</strong>. Full tables expand <strong>in-page</strong> (no slide-over drawer).
+  </div>
+
+  <header class="toolbar" aria-label="Global context">
+    <span class="ctx-pill"><b>Scenario</b> Q2 capacity v3</span>
+    <span class="ctx-pill"><b>Period</b> Q2 2026</span>
+    <span class="ctx-pill"><b>Currency</b> EUR</span>
+    <span class="ctx-pill"><b>Plan</b> VS Finance portfolio</span>
+  </header>
+
+  <nav class="lens-row" role="tablist" aria-label="Report lens">
+    <button type="button" class="lens-btn active" role="tab" aria-selected="true" data-panel="overview">Overview</button>
+    <button type="button" class="lens-btn" role="tab" aria-selected="false" data-panel="person">Person</button>
+    <button type="button" class="lens-btn" role="tab" aria-selected="false" data-panel="processTeam">Process team</button>
+    <button type="button" class="lens-btn" role="tab" aria-selected="false" data-panel="squad">Squad</button>
+    <button type="button" class="lens-btn" role="tab" aria-selected="false" data-panel="planningGroup">Planning group</button>
+    <button type="button" class="lens-btn" role="tab" aria-selected="false" data-panel="epic">Epic</button>
+    <button type="button" class="lens-btn" role="tab" aria-selected="false" data-panel="costs">Costs</button>
+  </nav>
+
+  <main class="content">
+
+    <!-- OVERVIEW -->
+    <section id="panel-overview" class="panel active" aria-label="Overview lens">
+      <p class="note">
+        Mirrors in-app <strong>PortfolioOverviewDashboard</strong>: global KPIs, bucket donut, top epics bar, cost composition donut. Lens chips jump to other tabs (wire only).
+      </p>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Period planned days</span></div>
+          <div class="kpi-num">528<span>d</span></div>
+          <div class="kpi-sub">Visible in selected period</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Epics with effort</span></div>
+          <div class="kpi-num">8</div>
+          <div class="kpi-sub">On current board / plan</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Portfolio cost</span></div>
+          <div class="kpi-num" style="font-size:22px">€1.84<span>M</span></div>
+          <div class="kpi-sub">Sum of initiative totals</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Missing rate slots</span><span class="badge near">12</span></div>
+          <div class="kpi-num" style="color:var(--near)">12</div>
+          <div class="kpi-sub">Affects cost confidence</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div>
+            <div class="chart-title">Planned days by staffing bucket</div>
+            <div class="chart-sub">Internal IT · BIZ · other IT · external</div>
+          </div>
+          <div class="donut-wrap">
+            <svg width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--s3)" stroke-width="18"/>
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--track-it)" stroke-width="18"
+                stroke-dasharray="138.2 138.2" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--track-biz)" stroke-width="18"
+                stroke-dasharray="69.1 207.3" stroke-dashoffset="-138.2" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--near)" stroke-width="18"
+                stroke-dasharray="41.5 234.9" stroke-dashoffset="-207.3" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--t2)" stroke-width="18"
+                stroke-dasharray="27.6 248.8" stroke-dashoffset="-248.8" transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="donut-legend">
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--track-it)"></div><span class="donut-leg-label">IT team members</span><span class="donut-leg-val">245d</span></div>
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--track-biz)"></div><span class="donut-leg-label">Business</span><span class="donut-leg-val">122d</span></div>
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--near)"></div><span class="donut-leg-label">External</span><span class="donut-leg-val">74d</span></div>
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--t2)"></div><span class="donut-leg-label">Other IT</span><span class="donut-leg-val">87d</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div>
+            <div class="chart-title">Top epics by period days</div>
+            <div class="chart-sub">Horizontal bars (Recharts-style in app)</div>
+          </div>
+          <div class="bar-chart" id="overview-bars"></div>
+        </div>
+        <div class="chart-card">
+          <div>
+            <div class="chart-title">Cost composition</div>
+            <div class="chart-sub">IT labor · BIZ labor · direct · contingency</div>
+          </div>
+          <div class="donut-wrap">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--s3)" stroke-width="18"/>
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--track-it)" stroke-width="18"
+                stroke-dasharray="165.9 110.6" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--t2)" stroke-width="18"
+                stroke-dasharray="55.3 221.2" stroke-dashoffset="-165.9" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--ok)" stroke-width="18"
+                stroke-dasharray="44.3 232.2" stroke-dashoffset="-221.2" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--near)" stroke-width="18"
+                stroke-dasharray="33.2 243.3" stroke-dashoffset="-265.5" transform="rotate(-90 60 60)"/>
+              <text x="60" y="56" text-anchor="middle" fill="var(--t1)" font-size="11" font-weight="700">€1.84M</text>
+              <text x="60" y="68" text-anchor="middle" fill="var(--t3)" font-size="8">TOTAL</text>
+            </svg>
+            <div class="donut-legend">
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--track-it)"></div><span class="donut-leg-label">IT labor</span><span class="donut-leg-val">€920K</span></div>
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--t2)"></div><span class="donut-leg-label">BIZ labor</span><span class="donut-leg-val">€306K</span></div>
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--ok)"></div><span class="donut-leg-label">Direct</span><span class="donut-leg-val">€245K</span></div>
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--near)"></div><span class="donut-leg-label">Contingency</span><span class="donut-leg-val">€184K</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div>
+            <div class="chart-title">Explore lenses</div>
+            <div class="chart-sub">Same chrome as app — pick a dimension for lens-specific KPIs + charts</div>
+          </div>
+          <div class="chip-row">
+            <button type="button" class="chip" data-jump="person">Person</button>
+            <button type="button" class="chip" data-jump="processTeam">Process team</button>
+            <button type="button" class="chip" data-jump="squad">Squad</button>
+            <button type="button" class="chip" data-jump="planningGroup">Planning group</button>
+            <button type="button" class="chip" data-jump="epic">Epic</button>
+            <button type="button" class="chip" data-jump="costs">Costs</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PERSON -->
+    <section id="panel-person" class="panel" aria-label="Person lens">
+      <p class="note">
+        <strong>Lens-specific KPI strip</strong> (counts + utilisation-style signals when wired to real capacity). Below: same horizontal bars as today + new <strong>person × phase heatmap</strong>. Full matrix is inline, not a drawer.
+      </p>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">People with assignments</span></div>
+          <div class="kpi-num">14</div>
+          <div class="kpi-sub">In filtered period</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Person × epic rows</span></div>
+          <div class="kpi-num">38</div>
+          <div class="kpi-sub">Sparse matrix rows</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Period days (sum)</span></div>
+          <div class="kpi-num">528<span>d</span></div>
+          <div class="kpi-sub">All person rows</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Over capacity</span><span class="badge over">2</span></div>
+          <div class="kpi-num" style="color:var(--over)">2</div>
+          <div class="kpi-sub">When utilisation &gt; 100%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Avg utilisation</span></div>
+          <div class="kpi-num">84<span>%</span></div>
+          <div class="kpi-sub">Across people with capacity</div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:84%;background:var(--near)"></div></div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div><div class="chart-title">Top people by days</div><div class="chart-sub">Ranked horizontal bars</div></div>
+          <div class="bar-chart" id="person-bars-a"></div>
+        </div>
+        <div class="chart-card">
+          <div><div class="chart-title">Top epics by days</div><div class="chart-sub">Same chart family as overview</div></div>
+          <div class="bar-chart" id="person-bars-b"></div>
+        </div>
+        <div class="chart-card wide">
+          <div><div class="chart-title">Phase concentration</div><div class="chart-sub">Rows = people (sample), columns = phases — cell = days (mock intensities)</div></div>
+          <div class="heatmap" id="person-heatmap"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-hd">
+          <div>
+            <div class="sec-title">Top 5 people by planned days</div>
+            <div class="sec-sub">Ranked list — app uses this above the fold; full table expands below.</div>
+          </div>
+        </div>
+        <div class="data-table-wrap" style="max-width:560px">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Person</th><th class="num">Days</th></tr></thead>
+            <tbody>
+              <tr><td class="num">1</td><td class="name">A. Nielsen</td><td class="num">62</td></tr>
+              <tr><td class="num">2</td><td class="name">M. Costa</td><td class="num">54</td></tr>
+              <tr><td class="num">3</td><td class="name">J. Okonkwo</td><td class="num">48</td></tr>
+              <tr><td class="num">4</td><td class="name">S. Lindström</td><td class="num">41</td></tr>
+              <tr><td class="num">5</td><td class="name">R. Patel</td><td class="num">38</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-toggle">
+          <button type="button" class="btn btn-ghost" id="toggle-person-table" aria-expanded="false">Show full person × epic table</button>
+        </div>
+        <div id="person-full-table" class="collapsed" style="margin-top:14px">
+          <div class="sec-hd"><div class="sec-title">Person × epic (full)</div></div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Person</th><th>Epic</th><th class="num">Total</th><th>Phases</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="name">A. Nielsen</td><td>VS-142 WMS</td><td class="num">24</td>
+                  <td><div class="phase-stack"><span class="phase-seg" style="flex:3;background:var(--ph-d)"></span><span class="phase-seg" style="flex:5;background:var(--ph-b)"></span><span class="phase-seg" style="flex:2;background:var(--ph-t)"></span></div></td>
+                </tr>
+                <tr>
+                  <td class="name">A. Nielsen</td><td>VS-201 API</td><td class="num">18</td>
+                  <td><div class="phase-stack"><span class="phase-seg" style="flex:2;background:var(--ph-b)"></span><span class="phase-seg" style="flex:4;background:var(--ph-t)"></span><span class="phase-seg" style="flex:1;background:var(--ph-p)"></span></div></td>
+                </tr>
+                <tr>
+                  <td class="name">M. Costa</td><td>VS-142 WMS</td><td class="num">30</td>
+                  <td><div class="phase-stack"><span class="phase-seg" style="flex:4;background:var(--ph-d)"></span><span class="phase-seg" style="flex:6;background:var(--ph-b)"></span></div></td>
+                </tr>
+                <tr>
+                  <td colspan="4" style="font-size:11px;color:var(--t3);padding:12px">… additional rows (scroll in app) …</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROCESS TEAM (representative team lens) -->
+    <section id="panel-processTeam" class="panel" aria-label="Process team lens">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Process teams</span></div><div class="kpi-num">5</div><div class="kpi-sub">With assignments</div></div>
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Team × epic rows</span></div><div class="kpi-num">22</div><div class="kpi-sub">Sparse rows</div></div>
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Period days (sum)</span></div><div class="kpi-num">528<span>d</span></div><div class="kpi-sub">Rolled to teams</div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card"><div><div class="chart-title">Top process teams</div><div class="chart-sub">By planned days</div></div><div class="bar-chart" id="pt-bars-a"></div></div>
+        <div class="chart-card"><div><div class="chart-title">Top epics by days</div><div class="chart-sub">Portfolio slice</div></div><div class="bar-chart" id="pt-bars-b"></div></div>
+      </div>
+      <button type="button" class="btn btn-ghost" id="toggle-pt-table">Show full process team × epic table</button>
+      <div id="pt-full-table" class="collapsed" style="margin-top:12px">
+        <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Process team</th><th>Epic</th><th class="num">Days</th></tr></thead><tbody>
+          <tr><td class="name">Logistics</td><td>VS-142</td><td class="num">88</td></tr>
+          <tr><td class="name">Finance</td><td>VS-201</td><td class="num">64</td></tr>
+          <tr><td colspan="3" style="font-size:11px;color:var(--t3)">…</td></tr>
+        </tbody></table></div>
+      </div>
+    </section>
+
+    <!-- SQUAD -->
+    <section id="panel-squad" class="panel" aria-label="Squad lens">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Squads</span></div><div class="kpi-num">4</div><div class="kpi-sub">With assignments</div></div>
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Squad × epic rows</span></div><div class="kpi-num">19</div><div class="kpi-sub">—</div></div>
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Period days (sum)</span></div><div class="kpi-num">412<span>d</span></div><div class="kpi-sub">—</div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card"><div><div class="chart-title">Top squads</div></div><div class="bar-chart" id="sq-bars-a"></div></div>
+        <div class="chart-card"><div><div class="chart-title">Top epics</div></div><div class="bar-chart" id="sq-bars-b"></div></div>
+      </div>
+      <p class="note">Squad and planning group lenses reuse the same layout pattern; only rollup key and labels change.</p>
+    </section>
+
+    <!-- PLANNING GROUP -->
+    <section id="panel-planningGroup" class="panel" aria-label="Planning group lens">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Planning groups</span></div><div class="kpi-num">6</div><div class="kpi-sub">Placeholder groups included</div></div>
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Group × epic rows</span></div><div class="kpi-num">31</div><div class="kpi-sub">—</div></div>
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Period days (sum)</span></div><div class="kpi-num">498<span>d</span></div><div class="kpi-sub">—</div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card"><div><div class="chart-title">Top planning groups</div></div><div class="bar-chart" id="pg-bars-a"></div></div>
+        <div class="chart-card"><div><div class="chart-title">Top epics</div></div><div class="bar-chart" id="pg-bars-b"></div></div>
+      </div>
+    </section>
+
+    <!-- EPIC -->
+    <section id="panel-epic" class="panel" aria-label="Epic lens">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Epics on board</span></div><div class="kpi-num">8</div><div class="kpi-sub">With effort in period</div></div>
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Total period days</span></div><div class="kpi-num">528<span>d</span></div><div class="kpi-sub">Summed epic totals</div></div>
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Portfolio epics</span></div><div class="kpi-num">12</div><div class="kpi-sub">Health / plan scope</div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card wide">
+          <div><div class="chart-title">Top epics — days by staffing bucket (stacked)</div><div class="chart-sub">Matches app EpicBucketStackedBarChart</div></div>
+          <div id="epic-stacked"></div>
+        </div>
+        <div class="chart-card">
+          <div><div class="chart-title">Portfolio bucket mix</div></div>
+          <div class="donut-wrap">
+            <svg width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" fill="none" stroke="var(--s3)" stroke-width="14"/>
+              <circle cx="50" cy="50" r="36" fill="none" stroke="var(--track-it)" stroke-width="14" stroke-dasharray="113 113" stroke-dashoffset="0" transform="rotate(-90 50 50)"/>
+              <circle cx="50" cy="50" r="36" fill="none" stroke="var(--track-biz)" stroke-width="14" stroke-dasharray="56 170" stroke-dashoffset="-113" transform="rotate(-90 50 50)"/>
+              <circle cx="50" cy="50" r="36" fill="none" stroke="var(--near)" stroke-width="14" stroke-dasharray="34 192" stroke-dashoffset="-169" transform="rotate(-90 50 50)"/>
+            </svg>
+            <div class="donut-legend">
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--track-it)"></div><span class="donut-leg-label">IT members</span><span class="donut-leg-val">245d</span></div>
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--track-biz)"></div><span class="donut-leg-label">Business</span><span class="donut-leg-val">122d</span></div>
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--near)"></div><span class="donut-leg-label">External</span><span class="donut-leg-val">74d</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div><div class="chart-title">Top epics by days</div></div>
+          <div class="bar-chart" id="epic-bars"></div>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost" id="toggle-epic-table">Show full epic effort table</button>
+      <div id="epic-full-table" class="collapsed" style="margin-top:12px">
+        <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Epic</th><th class="num">Days</th><th>Buckets</th></tr></thead><tbody>
+          <tr><td class="name">VS-142</td><td class="num">112</td><td><div class="phase-stack" style="width:140px"><span class="phase-seg" style="flex:5;background:var(--track-it)"></span><span class="phase-seg" style="flex:2;background:var(--near)"></span><span class="phase-seg" style="flex:1;background:var(--track-biz)"></span></div></td></tr>
+          <tr><td class="name">VS-201</td><td class="num">96</td><td>…</td></tr>
+        </tbody></table></div>
+      </div>
+    </section>
+
+    <!-- COSTS -->
+    <section id="panel-costs" class="panel" aria-label="Costs lens">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Total portfolio cost</span></div><div class="kpi-num" style="font-size:22px">€1.84<span>M</span></div><div class="kpi-sub">Selected currency</div></div>
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Epics with costs</span></div><div class="kpi-num">8</div><div class="kpi-sub">Rows in cost table</div></div>
+        <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Missing rate slots</span><span class="badge near">12</span></div><div class="kpi-num" style="color:var(--near)">12</div><div class="kpi-sub">Sum across epics</div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div><div class="chart-title">Cost composition</div></div>
+          <div class="donut-wrap">
+            <svg width="110" height="110" viewBox="0 0 110 110"><circle cx="55" cy="55" r="40" fill="none" stroke="var(--s3)" stroke-width="16"/>
+              <circle cx="55" cy="55" r="40" fill="none" stroke="var(--track-it)" stroke-width="16" stroke-dasharray="125.7 125.7" transform="rotate(-90 55 55)"/>
+              <circle cx="55" cy="55" r="40" fill="none" stroke="var(--t2)" stroke-width="16" stroke-dasharray="62.8 188.5" stroke-dashoffset="-125.7" transform="rotate(-90 55 55)"/>
+              <circle cx="55" cy="55" r="40" fill="none" stroke="var(--ok)" stroke-width="16" stroke-dasharray="50.3 201" stroke-dashoffset="-188.5" transform="rotate(-90 55 55)"/>
+            </svg>
+            <div class="donut-legend">
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--track-it)"></div><span class="donut-leg-label">IT labor</span><span class="donut-leg-val">€920K</span></div>
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--t2)"></div><span class="donut-leg-label">BIZ labor</span><span class="donut-leg-val">€306K</span></div>
+              <div class="donut-leg-row"><div class="donut-leg-dot" style="background:var(--ok)"></div><span class="donut-leg-label">Direct</span><span class="donut-leg-val">€245K</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div><div class="chart-title">Top epics by cost</div></div>
+          <div class="bar-chart" id="cost-bars"></div>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost" id="toggle-cost-table">Show full costs by epic table</button>
+      <div id="cost-full-table" class="collapsed" style="margin-top:12px">
+        <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Epic</th><th class="num">Total</th><th class="num">IT lab.</th><th class="num">BIZ lab.</th><th class="num">Direct</th></tr></thead><tbody>
+          <tr><td class="name">VS-142</td><td class="num">€412K</td><td class="num">€280K</td><td class="num">€62K</td><td class="num">€70K</td></tr>
+          <tr><td class="name">VS-201</td><td class="num">€355K</td><td class="num">€198K</td><td class="num">€85K</td><td class="num">€72K</td></tr>
+          <tr><td colspan="5" style="font-size:11px;color:var(--t3)">…</td></tr>
+        </tbody></table></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function renderBars(containerId, rows) {
+      var el = document.getElementById(containerId);
+      if (!el) return;
+      var max = Math.max.apply(null, rows.map(function (r) { return r.v; }));
+      el.innerHTML = rows.map(function (r) {
+        var pct = max ? Math.round((r.v / max) * 100) : 0;
+        return '<div class="bar-row"><span class="bar-label" title="' + r.l + '">' + r.l + '</span>' +
+          '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + r.c + '"></div></div>' +
+          '<span class="bar-val">' + r.v + '</span></div>';
+      }).join('');
+    }
+
+    function heatColor(days, max) {
+      var t = max ? days / max : 0;
+      var r = Math.round(240 - t * 200);
+      var g = Math.round(248 - t * 100);
+      var b = Math.round(252 - t * 80);
+      return 'rgb(' + r + ',' + g + ',' + b + ')';
+    }
+
+    function renderHeatmap(containerId, people, phases, matrix) {
+      var el = document.getElementById(containerId);
+      if (!el) return;
+      var max = 0;
+      matrix.forEach(function (row) {
+        row.forEach(function (v) { if (v > max) max = v; });
+      });
+      var head = '<div class="hm-header">' + phases.map(function (p) {
+        return '<div class="hm-col-label">' + p + '</div>';
+      }).join('') + '</div>';
+      var body = matrix.map(function (row, i) {
+        var cells = row.map(function (v) {
+          return '<div class="hm-cell" style="background:' + heatColor(v, max) + '" title="' + people[i] + ' · ' + v + 'd">' + (v || '–') + '</div>';
+        }).join('');
+        return '<div class="hm-row"><div class="hm-row-label">' + people[i] + '</div>' + cells + '</div>';
+      }).join('');
+      el.innerHTML = head + body;
+    }
+
+    function renderStacked(containerId, rows) {
+      var el = document.getElementById(containerId);
+      if (!el) return;
+      el.innerHTML = rows.map(function (r) {
+        var t = r.it + r.biz + r.ext + r.other;
+        return '<div class="stacked-row"><span class="stacked-label">' + r.l + '</span><div class="stacked-track">' +
+          '<span class="stacked-seg" style="flex:' + r.it + ';background:var(--track-it)"></span>' +
+          '<span class="stacked-seg" style="flex:' + r.biz + ';background:var(--track-biz)"></span>' +
+          '<span class="stacked-seg" style="flex:' + r.ext + ';background:var(--near)"></span>' +
+          '<span class="stacked-seg" style="flex:' + r.other + ';background:var(--t2)"></span>' +
+          '</div><span class="stacked-val">' + t + '</span></div>';
+      }).join('');
+    }
+
+    var epicBars = [
+      { l: 'VS-142 WMS', v: 112, c: 'var(--track-it)' },
+      { l: 'VS-201 API', v: 96, c: 'var(--track-it)' },
+      { l: 'VS-088 Reports', v: 74, c: 'var(--track-it)' },
+      { l: 'VS-055 Data', v: 58, c: 'var(--track-it)' },
+      { l: 'VS-301 Mobile', v: 45, c: 'var(--track-it)' },
+      { l: 'VS-120 Infra', v: 38, c: 'var(--track-it)' }
+    ];
+    var peopleBars = [
+      { l: 'A. Nielsen', v: 62, c: 'var(--track-it)' },
+      { l: 'M. Costa', v: 54, c: 'var(--track-it)' },
+      { l: 'J. Okonkwo', v: 48, c: 'var(--near)' },
+      { l: 'S. Lindström', v: 41, c: 'var(--track-it)' },
+      { l: 'R. Patel', v: 38, c: 'var(--ok)' }
+    ];
+    var teamBars = [
+      { l: 'Logistics', v: 142, c: 'var(--track-it)' },
+      { l: 'Finance', v: 118, c: 'var(--track-it)' },
+      { l: 'HR Tech', v: 96, c: 'var(--near)' },
+      { l: 'Corporate', v: 88, c: 'var(--track-it)' },
+      { l: 'Facilities', v: 64, c: 'var(--ok)' }
+    ];
+    var squadBars = [
+      { l: 'Squad North', v: 128, c: 'var(--track-it)' },
+      { l: 'Squad South', v: 104, c: 'var(--track-it)' },
+      { l: 'Squad East', v: 92, c: 'var(--near)' },
+      { l: 'Squad West', v: 76, c: 'var(--ok)' }
+    ];
+    var pgBars = [
+      { l: 'GROUP: Alpha', v: 134, c: 'var(--track-it)' },
+      { l: 'GROUP: Beta', v: 112, c: 'var(--track-it)' },
+      { l: 'GROUP: Gamma', v: 98, c: 'var(--near)' },
+      { l: 'GROUP: Delta', v: 86, c: 'var(--ok)' }
+    ];
+    var costBars = [
+      { l: 'VS-142', v: 412, c: 'var(--track-it)' },
+      { l: 'VS-201', v: 355, c: 'var(--track-it)' },
+      { l: 'VS-088', v: 298, c: 'var(--near)' },
+      { l: 'VS-055', v: 242, c: 'var(--track-it)' },
+      { l: 'VS-301', v: 198, c: 'var(--ok)' }
+    ];
+
+    renderBars('overview-bars', epicBars);
+    renderBars('person-bars-a', peopleBars);
+    renderBars('person-bars-b', epicBars.slice(0, 5));
+    renderBars('pt-bars-a', teamBars);
+    renderBars('pt-bars-b', epicBars.slice(0, 5));
+    renderBars('sq-bars-a', squadBars);
+    renderBars('sq-bars-b', epicBars.slice(0, 5));
+    renderBars('pg-bars-a', pgBars);
+    renderBars('pg-bars-b', epicBars.slice(0, 5));
+    renderBars('epic-bars', epicBars.slice(0, 5));
+    renderBars('cost-bars', costBars);
+
+    renderHeatmap('person-heatmap',
+      ['A. Nielsen', 'M. Costa', 'J. Okonkwo', 'S. Lindström', 'R. Patel', 'K. Dubois'],
+      ['D', 'B', 'T', 'P', 'H'],
+      [
+        [12, 28, 14, 6, 2],
+        [8, 22, 18, 4, 2],
+        [4, 10, 24, 8, 2],
+        [14, 12, 10, 3, 2],
+        [6, 18, 12, 2, 0],
+        [10, 8, 6, 4, 2]
+      ]
+    );
+
+    renderStacked('epic-stacked', [
+      { l: 'VS-142', it: 45, biz: 18, ext: 12, other: 8 },
+      { l: 'VS-201', it: 38, biz: 22, ext: 10, other: 6 },
+      { l: 'VS-088', it: 32, biz: 14, ext: 16, other: 5 },
+      { l: 'VS-055', it: 28, biz: 10, ext: 8, other: 12 },
+      { l: 'VS-301', it: 22, biz: 12, ext: 6, other: 4 }
+    ]);
+
+    document.querySelectorAll('.lens-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-panel');
+        document.querySelectorAll('.lens-btn').forEach(function (b) {
+          b.classList.toggle('active', b === btn);
+          b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+        });
+        document.querySelectorAll('.panel').forEach(function (p) {
+          p.classList.toggle('active', p.id === 'panel-' + id);
+        });
+      });
+    });
+
+    document.querySelectorAll('.chip[data-jump]').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var id = chip.getAttribute('data-jump');
+        var lensBtn = document.querySelector('.lens-btn[data-panel="' + id + '"]');
+        if (lensBtn) lensBtn.click();
+      });
+    });
+
+    function wireToggle(btnId, targetId, openLabel, closeLabel) {
+      var btn = document.getElementById(btnId);
+      var target = document.getElementById(targetId);
+      if (!btn || !target) return;
+      btn.addEventListener('click', function () {
+        var open = target.classList.toggle('collapsed');
+        btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+        btn.textContent = open ? openLabel : closeLabel;
+      });
+    }
+
+    wireToggle('toggle-person-table', 'person-full-table', 'Show full person × epic table', 'Hide full person × epic table');
+    wireToggle('toggle-pt-table', 'pt-full-table', 'Show full process team × epic table', 'Hide full process team × epic table');
+    wireToggle('toggle-epic-table', 'epic-full-table', 'Show full epic effort table', 'Hide full epic effort table');
+    wireToggle('toggle-cost-table', 'cost-full-table', 'Show full costs by epic table', 'Hide full costs by epic table');
+  </script>
+</body>
+</html>

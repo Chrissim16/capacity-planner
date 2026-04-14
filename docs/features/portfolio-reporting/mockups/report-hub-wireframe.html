@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Portfolio report hub — wireframe</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #1e293b; background: #fafafa; }
+    body { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 1.1rem; margin-bottom: 8px; }
+    p.sub { color: #64748b; font-size: 0.85rem; margin-top: 0; }
+    .bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 16px; }
+    .pill { font-size: 0.75rem; padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .tab { font-size: 0.8rem; padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; cursor: default; }
+    .tab.on { border-color: #0089dd; background: #ebf5fc; color: #0089dd; font-weight: 600; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+    .kpi { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; background: #fff; font-size: 0.75rem; }
+    .kpi strong { display: block; font-size: 1rem; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
+    th { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; background: #f8fafc; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pdf-sketch { margin-top: 32px; padding: 16px; border: 2px dashed #cbd5e1; border-radius: 8px; background: #fff; }
+    .pdf-sketch h2 { font-size: 0.9rem; margin-top: 0; }
+    .pdf-sketch ol { font-size: 0.8rem; color: #475569; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <h1>Portfolio report hub (wireframe)</h1>
+  <p class="sub">Static mockup — mirrors the in-app Reports tab layout. Open this file in a browser.</p>
+
+  <div class="bar" aria-label="Global context">
+    <span class="pill">Scenario: Baseline</span>
+    <span class="pill">Period: Q2 2026</span>
+    <span class="pill">Currency: EUR</span>
+    <span class="pill">Plan: Main Plan</span>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <span class="tab on">Person</span>
+    <span class="tab">Process team</span>
+    <span class="tab">Squad</span>
+    <span class="tab">Planning group</span>
+    <span class="tab">Epic</span>
+    <span class="tab">Costs</span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi">People with assignments <strong>12</strong></div>
+    <div class="kpi">Person × epic rows <strong>48</strong></div>
+    <div class="kpi">Period days (sum) <strong>620</strong></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Person</th>
+        <th>Epic</th>
+        <th class="num">Days</th>
+        <th class="num">IT</th>
+        <th class="num">BIZ</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Jamie Doe</td>
+        <td><span style="color:#0089dd">PROJ-101</span> Data platform</td>
+        <td class="num">32</td>
+        <td class="num">32</td>
+        <td class="num">0</td>
+        <td>▸</td>
+      </tr>
+      <tr>
+        <td>Jamie Doe</td>
+        <td><span style="color:#0089dd">PROJ-88</span> Mobile rollout</td>
+        <td class="num">12</td>
+        <td class="num">12</td>
+        <td class="num">0</td>
+        <td>▸</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="pdf-sketch">
+    <h2>PDF outline (single page sketch)</h2>
+    <ol>
+      <li><strong>Above the fold:</strong> Title, plan, period, generated date; executive KPI strip (planned/available, epics, risk counts).</li>
+      <li><strong>Section 2:</strong> Cost overview — portfolio totals + compact epic table (IT / BIZ labor, direct, total).</li>
+      <li><strong>Section 3:</strong> Effort by epic — day buckets (internal IT, business, other IT, external).</li>
+      <li><strong>Appendix (optional):</strong> Person × epic and/or process team × epic (truncated).</li>
+    </ol>
+  </div>
+</body>
+</html>

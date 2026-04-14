@@ -22,6 +22,8 @@ import { normalizeBusinessTeamPlaceholdersInAssignments } from '../utils/busines
 import { normalizePlanningGroup } from '../utils/planningGroups';
 import { loadFromSupabase, saveToSupabase, scheduleSyncToSupabase } from '../services/supabaseSync';
 import { isSupabaseConfigured } from '../services/supabase';
+import { mergeProcessTeamsWithDefaults } from '../utils/processTeams';
+import { mergeSquadsWithDefaults } from '../utils/squads';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SYNC STATUS TYPES
@@ -155,8 +157,8 @@ const defaultAppState: AppState = {
   roles: [],
   skills: [],
   systems: [],
-  squads: [],
-  processTeams: [],
+  squads: mergeSquadsWithDefaults([]),
+  processTeams: mergeProcessTeamsWithDefaults([]),
   businessTeams: [],
   teamMembers: [],
   timeOff: [],
@@ -255,13 +257,42 @@ function getOverlayScenario(data: AppState) {
   return data.scenarios.find((scenario) => scenario.id === activeScenarioId) ?? null;
 }
 
+function idNameArraysEqual<T extends { id: string; name: string }>(
+  a: T[] | undefined,
+  b: T[],
+): boolean {
+  if (!a) return b.length === 0;
+  if (a.length !== b.length) return false;
+  const bm = new Map(b.map((s) => [s.id, s.name] as const));
+  return a.every((s) => bm.get(s.id) === s.name);
+}
+
 function sanitizeAppState(data: AppState): AppState {
+  const mergedSquads = mergeSquadsWithDefaults(Array.isArray(data.squads) ? data.squads : []);
+  const mergedProcessTeams = mergeProcessTeamsWithDefaults(
+    Array.isArray(data.processTeams) ? data.processTeams : [],
+  );
   const scenarios = data.scenarios.map((scenario) => normalizeScenario(scenario, data.businessTeams));
   const activeScenarioId = sanitizeActiveScenarioId(data.activeScenarioId, scenarios);
   const scenariosChanged = scenarios.some((scenario, index) => scenario !== data.scenarios[index]);
+  const squadsChanged = !idNameArraysEqual(data.squads, mergedSquads);
+  const processTeamsChanged = !idNameArraysEqual(data.processTeams, mergedProcessTeams);
 
-  if (!scenariosChanged && activeScenarioId === data.activeScenarioId) return data;
-  return { ...data, scenarios, activeScenarioId };
+  if (
+    !scenariosChanged
+    && activeScenarioId === data.activeScenarioId
+    && !squadsChanged
+    && !processTeamsChanged
+  ) {
+    return data;
+  }
+  return {
+    ...data,
+    scenarios,
+    activeScenarioId,
+    squads: mergedSquads,
+    processTeams: mergedProcessTeams,
+  };
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -351,6 +382,10 @@ function migrate(data: Partial<AppState>): AppState {
     capacityAssignments: Array.isArray(d.capacityAssignments) ? d.capacityAssignments as AppState['capacityAssignments'] : [],
     externalVendors: Array.isArray(d.externalVendors) ? d.externalVendors as AppState['externalVendors'] : [],
     initiativeCosts: Array.isArray(d.initiativeCosts) ? d.initiativeCosts as AppState['initiativeCosts'] : [],
+    squads: mergeSquadsWithDefaults(Array.isArray(d.squads) ? (d.squads as AppState['squads']) : []),
+    processTeams: mergeProcessTeamsWithDefaults(
+      Array.isArray(d.processTeams) ? (d.processTeams as AppState['processTeams']) : [],
+    ),
   });
 }
 

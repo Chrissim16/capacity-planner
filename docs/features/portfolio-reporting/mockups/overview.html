@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portfolio reports — dashboard wireframe</title>
+  <style>
+    :root {
+      --bg: #f5f8fc;
+      --card: #fff;
+      --border: #dedfe3;
+      --text: #1e293b;
+      --muted: #64748b;
+      --blue: #0089dd;
+      --blue-bg: #e6f2fc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .pill {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .pill strong { color: var(--text); }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .tab {
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: default;
+    }
+    .tab.on { border-color: var(--blue); background: var(--blue-bg); color: var(--blue); font-weight: 600; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
+    @media (max-width: 720px) { .kpis { grid-template-columns: 1fr; } }
+    .kpi {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .kpi .l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .kpi .v { font-size: 1.1rem; font-weight: 700; margin-top: 4px; }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      min-height: 200px;
+    }
+    .card h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 12px; }
+    .donut {
+      width: 140px; height: 140px; border-radius: 50%;
+      margin: 12px auto;
+      background: conic-gradient(
+        var(--blue) 0deg 120deg,
+        #16a34a 120deg 200deg,
+        #94a3b8 200deg 280deg,
+        #d97706 280deg 360deg
+      );
+      opacity: 0.85;
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; font-size: 11px; color: var(--muted); }
+    .legend span::before {
+      content: '';
+      display: inline-block;
+      width: 8px; height: 8px; border-radius: 2px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .l1::before { background: var(--blue); }
+    .l2::before { background: #16a34a; }
+    .l3::before { background: #94a3b8; }
+    .l4::before { background: #d97706; }
+    .bars { margin-top: 8px; }
+    .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 11px; }
+    .bar-row .lab { width: 120px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-row .track { flex: 1; height: 22px; background: #f0f2f5; border-radius: 4px; overflow: hidden; }
+    .bar-row .fill { height: 100%; background: var(--blue); border-radius: 4px; }
+    .bar-row:nth-child(2) .fill { width: 72%; }
+    .bar-row:nth-child(3) .fill { width: 55%; }
+    .bar-row:nth-child(4) .fill { width: 40%; }
+    .bar-row:nth-child(5) .fill { width: 28%; }
+    .bar-row:nth-child(6) .fill { width: 18%; }
+    .cost-stack {
+      display: flex; height: 36px; border-radius: 6px; overflow: hidden; margin-top: 12px;
+    }
+    .cost-stack div:nth-child(1) { flex: 4; background: var(--blue); }
+    .cost-stack div:nth-child(2) { flex: 2; background: #94a3b8; }
+    .cost-stack div:nth-child(3) { flex: 2; background: #16a34a; }
+    .cost-stack div:nth-child(4) { flex: 1; background: #d97706; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .chip {
+      border: 1px dashed var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .top5 h2 { margin-bottom: 8px; }
+    .top5 ol { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; }
+    .top5 li { margin-bottom: 6px; }
+    .btn {
+      margin-top: 12px;
+      display: inline-block;
+      border: 1px solid var(--blue);
+      color: var(--blue);
+      background: var(--blue-bg);
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .drawer-demo {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+    .drawer-demo h3 { font-size: 12px; text-transform: uppercase; color: var(--muted); }
+    .fake-drawer {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 12px;
+      min-height: 220px;
+    }
+    .dim { background: var(--bg); opacity: 0.6; }
+    .panel {
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      padding: 12px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .panel strong { display: block; color: var(--text); margin-bottom: 8px; }
+    .fake-table { width: 100%; border-collapse: collapse; }
+    .fake-table th, .fake-table td { border-bottom: 1px solid var(--border); padding: 6px 4px; text-align: left; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Portfolio reports — Overview (wireframe)</h1>
+    <div class="meta">
+      <span class="pill"><strong>Baseline</strong> · scenario</span>
+      <span class="pill">Period: <strong>Q2 2026</strong></span>
+      <span class="pill">Currency: <strong>EUR</strong></span>
+      <span class="pill">Plan: <strong>Portfolio A</strong></span>
+    </div>
+
+    <div class="tabs">
+      <span class="tab on">Overview</span>
+      <span class="tab">Person</span>
+      <span class="tab">Process team</span>
+      <span class="tab">Squad</span>
+      <span class="tab">Planning group</span>
+      <span class="tab">Epic</span>
+      <span class="tab">Costs</span>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="l">Period planned days</div><div class="v">1 240</div></div>
+      <div class="kpi"><div class="l">Epics with effort</div><div class="v">42</div></div>
+      <div class="kpi"><div class="l">Portfolio cost</div><div class="v">€4.2M</div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>Planned days by bucket</h2>
+        <div class="donut" title="Donut chart placeholder"></div>
+        <div class="legend">
+          <span class="l1">Internal IT</span>
+          <span class="l2">Business</span>
+          <span class="l3">Other IT</span>
+          <span class="l4">External</span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Top epics by period days</h2>
+        <div class="bars">
+          <div class="bar-row"><span class="lab">PROJ-101</span><div class="track"><div class="fill" style="width:100%"></div></div></div>
+          <div class="bar-row"><span class="lab">PROJ-204</span><div class="track"><div class="fill"></div></div></div>
+          <div class="bar-row"><span class="lab">PROJ-088</span><div class="track"><div class="fill"></div></div></div>
+          <div class="bar-row"><span class="lab">PROJ-310</span><div class="track"><div class="fill"></div></div></div>
+          <div class="bar-row"><span class="lab">PROJ-045</span><div class="track"><div class="fill"></div></div></div>
+        </div>
+        <h2 style="margin-top:20px">Cost composition (portfolio)</h2>
+        <div class="cost-stack" title="Stacked bar: IT labor | BIZ labor | Direct | Contingency"></div>
+        <div class="legend" style="margin-top:10px">
+          <span class="l1">IT labor</span>
+          <span class="l2">BIZ labor</span>
+          <span class="l3">Direct</span>
+          <span class="l4">Contingency</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card top5">
+      <h2>Jump to lens</h2>
+      <div class="chips">
+        <span class="chip">Person load</span>
+        <span class="chip">Process teams</span>
+        <span class="chip">Costs detail</span>
+      </div>
+      <a class="btn" href="#">View full breakdown (opens drawer)</a>
+    </div>
+
+    <div class="drawer-demo">
+      <h3>Drill-down: full table in drawer</h3>
+      <div class="fake-drawer">
+        <div class="dim"></div>
+        <div class="panel">
+          <strong>Person × epic (full)</strong>
+          <table class="fake-table">
+            <tr><th>Person</th><th>Epic</th><th>Days</th></tr>
+            <tr><td>…</td><td>…</td><td>…</td></tr>
+            <tr><td>…</td><td>…</td><td>…</td></tr>
+            <tr><td colspan="3" style="color:var(--muted);padding-top:12px">Scrollable · same columns as live app</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

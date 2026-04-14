@@ -9,6 +9,8 @@ import { CURRENCY_OPTIONS } from '../../utils/currency';
 import type { CurrencyCode, TeamMember, TeamMemberAssignmentCategory } from '../../types';
 import { getSettingsBauPercent, getTeamMemberBauPercent } from '../../utils/bau';
 import { getTeamMemberAssignmentCategory } from '../../utils/planningGroups';
+import { mergeProcessTeamsWithDefaults } from '../../utils/processTeams';
+import { mergeSquadsWithDefaults } from '../../utils/squads';
 
 interface TeamMemberFormProps {
  isOpen: boolean;
@@ -21,8 +23,8 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  const roles = state.roles;
  const countries = state.countries;
  const skills = state.skills;
- const squads = state.squads;
- const processTeams = state.processTeams;
+ const squads = mergeSquadsWithDefaults(state.squads);
+ const processTeams = mergeProcessTeamsWithDefaults(state.processTeams);
  const externalVendors = state.externalVendors;
  
  const [name, setName] = useState('');
@@ -126,7 +128,7 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  bauOverride,
  bauReservePercent: bauOverride ? Math.max(0, parseFloat(bauReservePercent) || 0) : undefined,
  bauReserveDays: undefined,
- squadId: squadId || undefined,
+ squadId: assignmentCategory === 'external_partner' ? undefined : (squadId || undefined),
  processTeamIds: selectedProcessTeamIds,
  maxConcurrentProjects,
  skillIds: selectedSkills,
@@ -270,15 +272,20 @@ export function TeamMemberForm({ isOpen, onClose, member }: TeamMemberFormProps)
  />
  </div>
 
- {/* Squad + Process Teams */}
- {squads.length > 0 && (
+ {/* Squad: ERP/EPM (VS Finance); always shown for internal IT categories */}
+ {(assignmentCategory === 'it_team_member' || assignmentCategory === 'other_internal_it') && (
+ <div className="space-y-1">
  <Select
  id="squad"
- label="IT Team (Squad)"
+ label="IT team (squad)"
  value={squadId}
  onChange={(e) => setSquadId(e.target.value)}
  options={squadOptions}
  />
+ <p className="text-xs text-[#94A3B8]">
+ For VS Finance members, pick ERP or EPM so portfolio reports can split planned days by squad.
+ </p>
+ </div>
  )}
 
  {processTeams.length > 0 && (
