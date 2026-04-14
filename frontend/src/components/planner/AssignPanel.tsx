@@ -127,13 +127,14 @@ function AssigneeRowPanel({
 }: AssigneeRowPanelProps) {
   const days = clampAssigneeDays(daysPerSprint);
   const pct = sliderPct(days);
+  const [editingDays, setEditingDays] = useState(false);
   const hasOverload = overloadedSprints.length > 0;
   const hasMissing = (skillMatch?.missing.length ?? 0) > 0;
 
   return (
     <div
       className={[
-        'py-2 px-2.5 rounded-lg border transition-all duration-[180ms] bg-mileway-bg',
+        'py-2.5 px-3 rounded-lg border transition-all duration-[180ms] bg-mileway-bg',
         hasOverload ? 'border-orange-400' : 'border-biz-light hover:border-mileway-border',
         removing ? 'opacity-0 translate-x-2' : 'opacity-100',
         entering ? 'assignee-row-enter' : '',
@@ -142,21 +143,42 @@ function AssigneeRowPanel({
       <div className="flex items-center gap-2.5">
         <div
           className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px] bg-mileway-blue"
-          style={{ width: 28, height: 28 }}
+          style={{ width: 32, height: 32 }}
         >
           {initials(name)}
         </div>
         <div className="flex-1 min-w-0 overflow-hidden">
-          <div className="text-[12.5px] font-semibold text-mileway-text truncate whitespace-nowrap">{name}</div>
-          <div className="text-[10.5px] text-mileway-grey mt-px truncate">{role || '—'}</div>
+          <div className="text-sm font-semibold text-mileway-text truncate whitespace-nowrap">{name}</div>
+          <div className="text-xs text-mileway-grey mt-px truncate">{role || '—'}</div>
         </div>
         <div className="w-[130px] flex-shrink-0 flex flex-col gap-1">
           <div className="flex justify-between items-baseline">
-            <span className="text-[10.5px] text-mileway-grey">Days / sprint</span>
-            <span className="text-xs font-bold text-mileway-text tabular-nums">
-              {days}
-              <span className="text-mileway-grey font-normal">d</span>
-            </span>
+            <span className="text-xs text-mileway-grey">Days / sprint</span>
+            {editingDays ? (
+              <input
+                type="number"
+                min={1}
+                max={10}
+                autoFocus
+                value={days}
+                className="w-10 text-xs font-bold text-mileway-text tabular-nums text-right bg-transparent border-b border-mileway-blue outline-none"
+                onChange={e => {
+                  const v = Math.min(10, Math.max(1, parseInt(e.target.value, 10) || 1));
+                  onDaysChange(memberId, track, v);
+                }}
+                onBlur={() => setEditingDays(false)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingDays(false); }}
+              />
+            ) : (
+              <button
+                type="button"
+                className="text-xs font-bold text-mileway-text tabular-nums hover:text-mileway-blue cursor-text focus:outline-none"
+                title="Click to type a value"
+                onClick={() => setEditingDays(true)}
+              >
+                {days}<span className="text-mileway-grey font-normal">d</span>
+              </button>
+            )}
           </div>
           <input
             type="range"
@@ -178,7 +200,7 @@ function AssigneeRowPanel({
         <button
           type="button"
           aria-label={`Remove ${name}`}
-          className="flex-shrink-0 w-[22px] h-[22px] rounded-[5px] border-0 bg-transparent text-mileway-border text-xs cursor-pointer hover:bg-[var(--danger-light)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
+          className="touch-target flex-shrink-0 w-6 h-6 rounded-[5px] border-0 bg-transparent text-mileway-border text-xs cursor-pointer hover:bg-[var(--danger-light)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
           onClick={() => onRemove(memberId, track)}
         >
           ✕
@@ -391,7 +413,9 @@ export function AssignPanel({
 
   useEffect(() => {
     setDraft(normalizePlannerItemForPanel(item));
-    setPickerTrack(null);
+    // Auto-open IT picker when item has no assignees — zero extra clicks to start assigning
+    const hasNoAssignees = (item.assignees ?? []).length === 0;
+    setPickerTrack(hasNoAssignees ? 'IT' : null);
     setPickerSearch('');
     setRemovingKeys(new Set());
   }, [item.id, sortAssigneesKey(item.assignees), item.name]);
@@ -666,7 +690,7 @@ export function AssignPanel({
       >
         <div
           className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px] bg-mileway-blue"
-          style={{ width: 26, height: 26 }}
+          style={{ width: 30, height: 30 }}
         >
           {initials(fit.member.name)}
         </div>
@@ -692,7 +716,7 @@ export function AssignPanel({
       >
         <div
           className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px] bg-mileway-blue"
-          style={{ width: 26, height: 26 }}
+          style={{ width: 30, height: 30 }}
         >
           {initials(fit.member.name)}
         </div>
@@ -725,7 +749,7 @@ export function AssignPanel({
       >
         <div
           className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-[11px] bg-purple-500"
-          style={{ width: 26, height: 26 }}
+          style={{ width: 30, height: 30 }}
         >
           {initials(fit.contact.name)}
         </div>
@@ -903,28 +927,6 @@ export function AssignPanel({
           <h3 className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-mileway-grey mb-2.5">Assignees</h3>
 
           {renderTrackDivider('IT', false)}
-          <div className="mt-2 space-y-1.5">
-            {assignedIt.map(a => {
-              const m = state.teamMembers.find(tm => tm.id === a.memberId);
-              const rk = assigneeRowKey(a.memberId, 'IT');
-              return (
-                <AssigneeRowPanel
-                  key={rk}
-                  memberId={a.memberId}
-                  name={m?.name ?? a.memberId}
-                  role={m?.role ?? ''}
-                  track="IT"
-                  daysPerSprint={a.daysPerSprint}
-                  removing={removingKeys.has(rk)}
-                  entering={enteringKeys.has(rk)}
-                  onDaysChange={updateAssignmentDays}
-                  onRemove={removeAssignee}
-                  overloadedSprints={overloadedByMember.get(rk) ?? []}
-                  skillMatch={skillsMatchingEnabled ? skillMatchByMember.get(a.memberId) : undefined}
-                />
-              );
-            })}
-          </div>
           <button
             type="button"
             className="mt-2 w-full text-left text-xs font-semibold rounded-lg py-1.5 px-2.5 border border-dashed border-[var(--jira-badge-border)] text-[var(--color-primary)] bg-transparent hover:bg-[var(--primary-light)] hover:border-solid focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue"
@@ -1039,6 +1041,30 @@ export function AssignPanel({
               </div>
             </div>
           </div>
+          {assignedIt.length > 0 && (
+            <div className="mt-2 space-y-1.5">
+              {assignedIt.map(a => {
+                const m = state.teamMembers.find(tm => tm.id === a.memberId);
+                const rk = assigneeRowKey(a.memberId, 'IT');
+                return (
+                  <AssigneeRowPanel
+                    key={rk}
+                    memberId={a.memberId}
+                    name={m?.name ?? a.memberId}
+                    role={m?.role ?? ''}
+                    track="IT"
+                    daysPerSprint={a.daysPerSprint}
+                    removing={removingKeys.has(rk)}
+                    entering={enteringKeys.has(rk)}
+                    onDaysChange={updateAssignmentDays}
+                    onRemove={removeAssignee}
+                    overloadedSprints={overloadedByMember.get(rk) ?? []}
+                    skillMatch={skillsMatchingEnabled ? skillMatchByMember.get(a.memberId) : undefined}
+                  />
+                );
+              })}
+            </div>
+          )}
 
           {/* BIZ section — collapsible, default depends on item type */}
           <button
@@ -1060,7 +1086,7 @@ export function AssignPanel({
               {bizSectionOpen ? '▾' : '▸'}
             </span>
           </button>
-          {bizSectionOpen && (
+          <div className={`biz-section-collapse ${bizSectionOpen ? 'open' : ''}`}>
             <>
               <div className="mt-2 space-y-1.5">
                 {assignedBiz.map(a => {
@@ -1134,7 +1160,7 @@ export function AssignPanel({
                 </div>
               </div>
             </>
-          )}
+          </div>
         </section>
       </div>
 
@@ -1148,7 +1174,7 @@ export function AssignPanel({
           onClick={handleSave}
           disabled={!dirty}
           className={[
-            'w-full text-xs font-bold py-2 px-4 rounded-[7px] border-0 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
+            'w-full text-xs font-bold py-2.5 px-4 rounded-[7px] border-0 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-mileway-blue',
             dirty
               ? 'bg-[var(--color-primary)] hover:bg-[var(--primary-hover)] cursor-pointer'
               : savedFlash

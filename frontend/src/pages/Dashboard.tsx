@@ -301,11 +301,11 @@ export function Dashboard() {
            <div className="grid grid-cols-2">
              <div>
                <p className="text-[13px] font-semibold text-slate-700">{isNA ? '—' : `${Math.round(availableDays)}d`}</p>
-               <p className="text-[10px] text-slate-400">available</p>
+               <p className="text-xs text-slate-400">available</p>
              </div>
              <div>
                <p className="text-[13px] font-semibold text-slate-700">{isNA ? '—' : `${Math.round(usedDays)}d`}</p>
-               <p className="text-[10px] text-slate-400">allocated</p>
+               <p className="text-xs text-slate-400">allocated</p>
              </div>
            </div>
          </div>
@@ -389,7 +389,7 @@ export function Dashboard() {
  >
  {/* Identity */}
  <div className="px-4 py-3 flex items-center gap-2.5 border-r border-[#DEDFE3]">
- <div className="w-7 h-7 rounded-full bg-[#F0F2F5] border border-[#DEDFE3] flex items-center justify-center text-[10px] font-bold text-[#94A3B8] shrink-0">
+ <div className="w-8 h-8 rounded-full bg-[#F0F2F5] border border-[#DEDFE3] flex items-center justify-center text-[10px] font-bold text-[#94A3B8] shrink-0">
  {getInitials(member.name)}
  </div>
  <div className="min-w-0">
@@ -415,10 +415,7 @@ export function Dashboard() {
  <button
  key={quarter}
  onClick={() => handleCellClick(member.id, quarter)}
- className={`px-3 py-3 border-l border-[#DEDFE3]/80 text-center transition-all ${effectiveCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
- style={{ filter: isCellSelected ? undefined : 'none' }}
- onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
- onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
+ className={`heatmap-cell px-3 py-3 border-l border-[#DEDFE3]/80 text-center ${effectiveCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-blue-500' : ''}`}
  title={`${quarter} · ${cap.usedPercent}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
  >
  <div className="text-sm font-bold tabular-nums leading-tight">
@@ -661,10 +658,7 @@ export function Dashboard() {
  <button
  key={quarter}
  onClick={() => setSelectedBizCell(isCellSelected ? null : { contactId: contact.id, quarter })}
-                className={`px-3 py-3 border-l border-[#DEDFE3] text-center transition-all ${effectiveBizCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-[#94A3B8]' : ''}`}
- style={{ filter: isCellSelected ? undefined : 'none' }}
- onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(0.94)'; }}
- onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
+                className={`heatmap-cell px-3 py-3 border-l border-[#DEDFE3] text-center ${effectiveBizCellClass} ${isCellSelected ? 'ring-2 ring-inset ring-[#94A3B8]' : ''}`}
  title={`${quarter} · ${pct}% allocated · ${isOver ? '−' : ''}${Math.abs(Math.round(remainingDays))}d ${isOver ? 'over' : 'free'}`}
  >
  <div className="text-sm font-bold tabular-nums leading-tight">

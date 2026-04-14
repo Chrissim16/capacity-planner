@@ -13,11 +13,9 @@ import { clsx } from 'clsx';
 import { Modal } from './ui/Modal';
 import { ConfirmModal } from './ui/ConfirmModal';
 import { Button } from './ui/Button';
-import { ProgressBar } from './ui/ProgressBar';
 import { SmartAssignmentPanel } from './SmartAssignmentPanel';
 import { useCurrentState, useActiveScenarioId, useScenarios } from '../stores/appStore';
 import { createScenarioWithPlan, switchScenario } from '../stores/actions';
-import { calculateCapacity } from '../utils/capacity';
 import { useToast } from './ui/Toast';
 import type { ProjectPriority } from '../types';
 import type { TentativeAssignment } from '../utils/staffing';
@@ -91,7 +89,7 @@ const initialState: WizardState = {
 
 // ─── Step indicators ──────────────────────────────────────────────────────────
 
-const STEP_LABELS = ['Name', 'Define need', 'Who can staff?', 'Impact', 'Confirm'];
+const STEP_LABELS = ['Setup', 'Staff & confirm'];
 
 function StepDots({ current, total }: { current: number; total: number }) {
   return (
@@ -143,7 +141,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
-        if (wiz.step < 5 && canAdvance) dispatch({ type: 'SET_STEP', payload: wiz.step + 1 });
+        if (wiz.step < 2 && canAdvance) dispatch({ type: 'SET_STEP', payload: wiz.step + 1 });
       }
     };
     document.addEventListener('keydown', handler);
@@ -151,15 +149,14 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
   });
 
   const canAdvance = useMemo(() => {
-    if (wiz.step === 1) return wiz.name.trim().length > 0;
-    if (wiz.step === 2) return wiz.quarters.length > 0;
+    if (wiz.step === 1) return wiz.name.trim().length > 0 && wiz.quarters.length > 0;
     return true;
   }, [wiz.step, wiz.name, wiz.quarters]);
 
   // Primary quarter for staffing (first selected)
   const primaryQuarter = wiz.quarters[0] ?? availableQuarters[0] ?? '';
 
-  // ── Step 1 ────────────────────────────────────────────────────────────────
+  // ── Step 1: Setup (name + priority + base-on + quarters + skills) ────────────
   const step1 = (
     <div className="space-y-6">
       <div>
@@ -184,7 +181,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
               key={p}
               onClick={() => dispatch({ type: 'SET_PRIORITY', payload: p })}
               className={clsx(
-                'px-3 py-1.5 rounded-lg text-sm font-medium border transition-all capitalize',
+                'px-4 py-2 rounded-lg text-sm font-medium border transition-all capitalize',
                 wiz.priority === p
                   ? 'bg-[#1E293B] text-white border-[#1E293B]'
                   : 'bg-white text-[#94A3B8] border-[#DEDFE3] hover:border-[#1E293B]'
@@ -206,7 +203,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
                 key={opt}
                 onClick={() => dispatch({ type: 'SET_BASE_ON', payload: opt })}
                 className={clsx(
-                  'px-3 py-1.5 rounded-lg text-sm border transition-all',
+                  'px-4 py-2 rounded-lg text-sm border transition-all',
                   wiz.baseOn === opt
                     ? 'bg-[#0089DD]/10 text-[#0089DD] border-[#0089DD]'
                     : 'bg-white text-[#94A3B8] border-[#DEDFE3] hover:border-[#94A3B8]'
@@ -218,15 +215,10 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
           </div>
         </div>
       )}
-    </div>
-  );
 
-  // ── Step 2 ────────────────────────────────────────────────────────────────
-  const step2 = (
-    <div className="space-y-6">
       <div>
         <label className="block text-xs font-semibold uppercase tracking-widest text-[#94A3B8] mb-2">
-          Quarters involved
+          Quarters involved *
         </label>
         <div className="flex flex-wrap gap-2">
           {availableQuarters.map(q => {
@@ -245,7 +237,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
                   }
                 }}
                 className={clsx(
-                  'px-3 py-1.5 rounded-lg text-sm border transition-all',
+                  'px-4 py-2 rounded-lg text-sm border transition-all',
                   selected
                     ? 'bg-[#0089DD]/10 text-[#0089DD] border-[#0089DD]'
                     : 'bg-white text-[#94A3B8] border-[#DEDFE3] hover:border-[#94A3B8]'
@@ -300,7 +292,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
                   dispatch({ type: 'SET_SKILL_IDS', payload: newIds });
                 }}
                 className={clsx(
-                  'px-2.5 py-1 rounded-lg text-xs border transition-all',
+                  'px-3 py-1.5 rounded-lg text-xs border transition-all',
                   selected
                     ? 'bg-[#1E293B] text-white border-[#1E293B]'
                     : 'bg-white text-[#94A3B8] border-[#DEDFE3] hover:border-[#94A3B8]'
@@ -318,90 +310,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
     </div>
   );
 
-  // ── Step 3 ────────────────────────────────────────────────────────────────
-  const step3 = (
-    <div>
-      <p className="text-sm text-[#94A3B8] mb-4">
-        Select people to tentatively assign to <strong>{wiz.name}</strong> for {primaryQuarter}.
-        Scores update live as you make selections.
-      </p>
-      <SmartAssignmentPanel
-        variant="inline"
-        projectId={`wizard-${wiz.name}`}
-        projectName={wiz.name}
-        defaultQuarter={primaryQuarter}
-        requiredSkillIds={wiz.skillIds}
-        tentativeAssignments={wiz.tentativeAssignments}
-        onTentativeAssign={(memberId, days) =>
-          dispatch({ type: 'ADD_TENTATIVE', payload: { memberId, days } })
-        }
-        onTentativeRemove={memberId =>
-          dispatch({ type: 'REMOVE_TENTATIVE', payload: { memberId } })
-        }
-      />
-    </div>
-  );
-
-  // ── Step 4 ────────────────────────────────────────────────────────────────
-  const impactRows = useMemo(() => {
-    return wiz.tentativeAssignments.map(ta => {
-      const member = currentState.teamMembers.find(m => m.id === ta.memberId)
-        ?? currentState.businessContacts.find(c => c.id === ta.memberId);
-      const name = member ? member.name : ta.memberId;
-      return wiz.quarters.map(q => {
-        const before = calculateCapacity(ta.memberId, q, currentState);
-        const afterUsed = Math.min(before.usedDays + ta.days, before.totalWorkdays + ta.days);
-        const afterPct = before.totalWorkdays > 0
-          ? Math.round((afterUsed / before.totalWorkdays) * 100) : 0;
-        return { name, quarter: q, beforePct: before.usedPercent, afterPct };
-      });
-    }).flat();
-  }, [wiz.tentativeAssignments, wiz.quarters, currentState]);
-
-  const step4 = (
-    <div className="space-y-4">
-      <p className="text-sm text-[#94A3B8]">
-        Capacity impact of adding <strong>{wiz.name}</strong> for selected team members.
-      </p>
-      {impactRows.length === 0 ? (
-        <p className="text-sm text-[#94A3B8] italic">No tentative assignments to show impact for.</p>
-      ) : (
-        <div className="space-y-4">
-          {impactRows.map((row, i) => (
-            <div key={i}>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-sm font-medium text-[#1E293B]">{row.name}</span>
-                <span className="text-xs text-[#94A3B8]">{row.quarter}</span>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#94A3B8] w-10 text-right shrink-0">Before</span>
-                  <ProgressBar value={row.beforePct} max={100} size="sm" className="flex-1" />
-                  <span className="text-xs text-[#94A3B8] w-8">{row.beforePct}%</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#94A3B8] w-10 text-right shrink-0">After</span>
-                  <ProgressBar
-                    value={row.afterPct}
-                    max={100}
-                    size="sm"
-                    className="flex-1"
-                    status={row.afterPct > 100 ? 'danger' : row.afterPct > 90 ? 'warning' : 'normal'}
-                  />
-                  <span className="text-xs font-medium w-8"
-                    style={{ color: row.afterPct > 100 ? '#DC2626' : row.afterPct > 90 ? '#D97706' : '#16A34A' }}>
-                    {row.afterPct}%
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  // ── Step 5 ────────────────────────────────────────────────────────────────
+  // ── Step 2: Staff & Confirm (SmartAssignment + inline summary) ──────────────
   const handleCreate = useCallback(async () => {
     if (wiz.submitting) return;
     dispatch({ type: 'SET_SUBMITTING', payload: true });
@@ -429,44 +338,50 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
     }
   }, [wiz, activeScenarioId, primaryQuarter, showToast, onClose]);
 
-  const step5 = (
-    <div className="space-y-5">
-      <div className="bg-[#F5F8FC] rounded-xl p-4 space-y-3 border border-[#DEDFE3]">
-        <div className="flex items-center gap-2">
-          <Sparkles size={16} className="text-[#0089DD]" />
-          <h3 className="text-base font-semibold text-[#1E293B]">{wiz.name}</h3>
-          <span className="text-xs font-medium bg-[#DEDFE3] text-[#94A3B8] px-2 py-0.5 rounded-full capitalize">{wiz.priority}</span>
-        </div>
-        <div className="text-sm text-[#94A3B8] space-y-1">
-          <p>Quarters: {wiz.quarters.join(', ') || '—'}</p>
-          <p>Base on: {wiz.baseOn === 'active' ? `"${activeScenarioName}"` : 'Baseline'}</p>
-          {wiz.skillIds.length > 0 && (
-            <p>Skills needed: {wiz.skillIds.map(id => currentState.skills.find(s => s.id === id)?.name).filter(Boolean).join(', ')}</p>
-          )}
-        </div>
-      </div>
-
-      {wiz.tentativeAssignments.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#94A3B8] mb-2">Assignments</p>
-          <div className="space-y-1.5">
-            {wiz.tentativeAssignments.map(ta => {
-              const member = currentState.teamMembers.find(m => m.id === ta.memberId)
-                ?? currentState.businessContacts.find(c => c.id === ta.memberId);
-              return (
-                <div key={ta.memberId} className="flex justify-between items-center text-sm">
-                  <span className="text-[#1E293B]">{member?.name ?? ta.memberId}</span>
-                  <span className="text-[#94A3B8]">{ta.days}d · {primaryQuarter}</span>
-                </div>
-              );
-            })}
+  const step2 = (
+    <div className="space-y-4">
+      <p className="text-sm text-[#94A3B8]">
+        Select people to tentatively assign to <strong>{wiz.name}</strong> for {primaryQuarter}.
+        Scores update live as you make selections.
+      </p>
+      <SmartAssignmentPanel
+        variant="inline"
+        projectId={`wizard-${wiz.name}`}
+        projectName={wiz.name}
+        defaultQuarter={primaryQuarter}
+        requiredSkillIds={wiz.skillIds}
+        tentativeAssignments={wiz.tentativeAssignments}
+        onTentativeAssign={(memberId, days) =>
+          dispatch({ type: 'ADD_TENTATIVE', payload: { memberId, days } })
+        }
+        onTentativeRemove={memberId =>
+          dispatch({ type: 'REMOVE_TENTATIVE', payload: { memberId } })
+        }
+      />
+      {/* Inline summary — shown once the user has set a name */}
+      <div className="mt-4 border-t border-[#DEDFE3] pt-4">
+        <div className="bg-[#F5F8FC] rounded-xl p-4 space-y-2 border border-[#DEDFE3]">
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} className="text-[#0089DD]" />
+            <span className="text-sm font-semibold text-[#1E293B]">{wiz.name}</span>
+            <span className="text-xs font-medium bg-[#DEDFE3] text-[#94A3B8] px-2 py-0.5 rounded-full capitalize">{wiz.priority}</span>
+          </div>
+          <div className="text-xs text-[#94A3B8] space-y-0.5">
+            <p>Quarters: {wiz.quarters.join(', ') || '—'}</p>
+            <p>Base on: {wiz.baseOn === 'active' ? `"${activeScenarioName}"` : 'Baseline'}</p>
+            {wiz.skillIds.length > 0 && (
+              <p>Skills: {wiz.skillIds.map(id => currentState.skills.find(s => s.id === id)?.name).filter(Boolean).join(', ')}</p>
+            )}
+            {wiz.tentativeAssignments.length > 0 && (
+              <p>{wiz.tentativeAssignments.length} person{wiz.tentativeAssignments.length !== 1 ? 's' : ''} tentatively assigned</p>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 
-  const steps = [step1, step2, step3, step4, step5];
+  const steps = [step1, step2];
 
   return (
     <>
@@ -477,7 +392,7 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
         size="lg"
         footer={
           <div className="flex items-center justify-between w-full">
-            <StepDots current={wiz.step} total={5} />
+            <StepDots current={wiz.step} total={2} />
             <div className="flex gap-2">
               {wiz.step > 1 && (
                 <Button
@@ -489,13 +404,13 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
                   Back
                 </Button>
               )}
-              {wiz.step < 5 ? (
+              {wiz.step < 2 ? (
                 <Button
                   size="sm"
                   onClick={() => dispatch({ type: 'SET_STEP', payload: wiz.step + 1 })}
                   disabled={!canAdvance}
                 >
-                  Next
+                  Continue
                   <ArrowRight size={14} />
                 </Button>
               ) : (
@@ -513,7 +428,9 @@ export function ScenarioWizard({ onClose }: ScenarioWizardProps) {
           </div>
         }
       >
-        {steps[wiz.step - 1]}
+        <div key={wiz.step} className="animate-fade-in">
+          {steps[wiz.step - 1]}
+        </div>
       </Modal>
 
       <ConfirmModal
