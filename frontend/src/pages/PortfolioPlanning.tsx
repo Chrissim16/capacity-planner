@@ -4222,6 +4222,8 @@ function AssignmentActionsPopover({
 
 export function PortfolioPlanning() {
   const baselineState = useAppStore(useShallow(s => s.data));
+  /** Merged baseline + active scenario (teamMembers, timeOff, Jira overlay, etc.) — required for capacity to reflect scenario edits such as BAU. */
+  const capacityState = useCurrentState();
   const plan  = usePortfolioPlan();
   const scenarios = useAppStore(useShallow(s => s.data.scenarios));
   const activeScenarioId = baselineState.activeScenarioId;
@@ -4435,8 +4437,8 @@ export function PortfolioPlanning() {
     }
   }, [boardEpics, selectedCostEpicKey]);
 
-  const memberMap  = useMemo(() => new Map(baselineState.teamMembers.map(m => [m.id, m])), [baselineState.teamMembers]);
-  const contactMap = useMemo(() => new Map(baselineState.businessContacts.map(c => [c.id, c])), [baselineState.businessContacts]);
+  const memberMap  = useMemo(() => new Map(capacityState.teamMembers.map(m => [m.id, m])), [capacityState.teamMembers]);
+  const contactMap = useMemo(() => new Map(capacityState.businessContacts.map(c => [c.id, c])), [capacityState.businessContacts]);
 
   // Maps epicKey → phase → phase instances[]
   const phasePlansMap = useMemo(() => {
@@ -4486,8 +4488,8 @@ export function PortfolioPlanning() {
   );
 
   const absenceLookup = useMemo(
-    () => buildAbsenceLookup(activeQuarterOpt, baselineState.teamMembers, baselineState),
-    [activeQuarterOpt, baselineState]
+    () => buildAbsenceLookup(activeQuarterOpt, capacityState.teamMembers, capacityState),
+    [activeQuarterOpt, capacityState],
   );
 
   // People summaries for People View and Summary View
@@ -4515,11 +4517,11 @@ export function PortfolioPlanning() {
             let availDays = 0;
             let totalCapacityDays = 0;
             if (member) {
-              availDays = calculateMemberAvailableDays(member.id, activeQuarterOpt, baselineState);
-              totalCapacityDays = calculateMemberTotalCapacityDays(member.id, activeQuarterOpt, baselineState);
+              availDays = calculateMemberAvailableDays(member.id, activeQuarterOpt, capacityState);
+              totalCapacityDays = calculateMemberTotalCapacityDays(member.id, activeQuarterOpt, capacityState);
             } else if (contact) {
-              availDays = calculateBusinessAvailableDays(contact, activeQuarterOpt, baselineState);
-              totalCapacityDays = calculateBusinessTotalCapacityDays(contact, activeQuarterOpt, baselineState);
+              availDays = calculateBusinessAvailableDays(contact, activeQuarterOpt, capacityState);
+              totalCapacityDays = calculateBusinessTotalCapacityDays(contact, activeQuarterOpt, capacityState);
             }
             map.set(a.memberId, { id: a.memberId, member, contact, name, role, availDays, totalCapacityDays, assignments: [] });
           }
@@ -4535,7 +4537,7 @@ export function PortfolioPlanning() {
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeQuarterOpt, boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, baselineState, tStart]);
+  }, [activeQuarterOpt, boardEpics, assignMap, phasePlansMap, absenceLookup, memberMap, contactMap, capacityState, tStart]);
 
   const peopleSummaryById = useMemo(
     () => new Map(peopleSummaries.map((summary) => [summary.id, summary])),
@@ -4814,24 +4816,35 @@ export function PortfolioPlanning() {
   // ── Mutation helpers (route to fork state or base plan) ───────────────────
 
   const updateActiveScenario = useCallback((
-    updater: (snapshot: PortfolioScenarioSnapshot) => PortfolioScenarioSnapshot
+    updater: (snapshot: PortfolioScenarioSnapshot) => PortfolioScenarioSnapshot,
   ) => {
-    if (!activeScenario) return;
+    // Always read the latest scenario from the store. Callers (e.g. epic-wide
+    // drag) may await multiple mutations in one gesture; using a React-closure
+    // snapshot would let each step overwrite the previous write.
+    const data = useAppStore.getState().data;
+    const scenarioId = data.activeScenarioId;
+    if (!scenarioId) return;
+    const scenario = data.scenarios.find((s) => s.id === scenarioId);
+    if (!scenario) return;
+
+    const phaseAssignments = materializeScenarioPhaseAssignments(
+      plan.phaseAssignments,
+      scenario.portfolioPhaseAssignments,
+    );
+
     const next = updater({
-      boardEpicKeys: activeScenario.portfolioBoardEpicKeys ?? [],
-      manualEpics: activeScenario.portfolioManualEpics ?? [],
-      phasePlans: activeScenario.portfolioPhasePlans ?? [],
-      // Seed edits from the materialized current view so sparse legacy
-      // snapshots heal into a full portfolio assignment set on first save.
-      phaseAssignments: activePhaseAssignments,
+      boardEpicKeys: scenario.portfolioBoardEpicKeys ?? [],
+      manualEpics: scenario.portfolioManualEpics ?? [],
+      phasePlans: scenario.portfolioPhasePlans ?? [],
+      phaseAssignments,
     });
-    updatePortfolioScenario(activeScenario.id, {
+    updatePortfolioScenario(scenario.id, {
       portfolioBoardEpicKeys: next.boardEpicKeys,
       portfolioManualEpics: next.manualEpics,
       portfolioPhasePlans: next.phasePlans,
       portfolioPhaseAssignments: next.phaseAssignments,
     });
-  }, [activePhaseAssignments, activeScenario]);
+  }, [plan.phaseAssignments]);
 
   const handleSaveInitiativeCosts = useCallback((
     record: Omit<InitiativeCostRecord, 'id' | 'updatedAt'> & { id?: string },
@@ -5868,7 +5881,7 @@ export function PortfolioPlanning() {
             absenceLookup={absenceLookup}
             weeks={weeks}
             quarterOpt={activeQuarterOpt}
-            state={baselineState}
+            state={capacityState}
             jiraBaseUrl={jiraBaseUrl}
             activeScenarioName={activeScenario?.name ?? null}
             baselinePhasePlans={plan.phasePlans}
